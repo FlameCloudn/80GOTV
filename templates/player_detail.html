@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+{% block title %}{{ player.nickname }} - 校园 CS2 赛事{% endblock %}
+{% block main %}
+<div class="player-header">
+    {% if player.avatar %}
+      <img src="{{ url_for('static', filename='avatars/' + player.avatar) }}" class="avatar-xl" style="object-fit:cover;">
+    {% else %}
+      <div class="avatar-xl">{{ player.nickname[0] }}</div>
+    {% endif %}
+      <div class="player-info">
+    <h1>{{ player.nickname }}</h1>
+    <div class="meta">
+      {% if player.real_name %}<span>{{ player.real_name }}</span>{% endif %}
+      <span>{{ player.team_name or '无队伍' }}</span>
+      {% if player.steam_id %}<span>{{ player.steam_id }}</span>{% endif %}
+    </div>
+  </div>
+</div>
+
+<h3 class="section-title">总体统计</h3>
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-value">{{ overall.matches or 0 }}</div>
+    <div class="stat-label">比赛场次</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">{{ "%.2f"|format(overall.avg_rating) if overall.avg_rating else '-' }}</div>
+    <div class="stat-label">平均 Rating</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">
+      {% if overall.total_deaths and overall.total_deaths > 0 %}
+        {{ "%.2f"|format(overall.total_kills / overall.total_deaths) }}
+      {% else %}-{% endif %}
+    </div>
+    <div class="stat-label">K/D 比</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">{{ "%.1f"|format(overall.avg_adr) if overall.avg_adr else '-' }}</div>
+    <div class="stat-label">平均 ADR</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">{{ "%.1f"|format(overall.avg_kast) if overall.avg_kast else '-' }}%</div>
+    <div class="stat-label">KAST</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">{{ "%.1f"|format(overall.avg_hs) if overall.avg_hs else '-' }}%</div>
+    <div class="stat-label">爆头率</div>
+  </div>
+</div>
+
+<h3 class="section-title">最近比赛</h3>
+<div class="stats-table">
+  <table>
+    <thead>
+      <tr>
+        <th>日期</th>
+        <th>对阵</th>
+        <th>K-D-A</th>
+        <th>ADR</th>
+        <th>Rating</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in recent_matches %}
+      <tr>
+        <td>{{ m.match_time[:10] }}</td>
+        <td><a href="/matches/{{ m.id }}">{{ m.t1s }} vs {{ m.t2s }}</a></td>
+        <td>{{ m.kills }}-{{ m.deaths }}-{{ m.assists }}</td>
+        <td>{{ "%.1f"|format(m.adr) }}</td>
+        <td><b>{{ "%.2f"|format(m.rating) }}</b></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<a href="/players" class="btn-back">← 返回选手列表</a>
+{% endblock %}
+
+{% block side %}
+<h3 class="section-title">选手信息</h3>
+<div class="card small">
+  <div><b>队伍：</b>{{ player.team_name or '无' }}</div>
+  <div><b>昵称：</b>{{ player.nickname }}</div>
+  {% if player.real_name %}<div><b>真名：</b>{{ player.real_name }}</div>{% endif %}
+</div>
+{% endblock %}

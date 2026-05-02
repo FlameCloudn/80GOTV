@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{% block title %}80GOTV{% endblock %}
+</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script>
+    // 提前应用主题，避免页面闪烁
+    (function(){
+      var t = localStorage.getItem('theme');
+      if(!t){ t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light'; }
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+</head>
+<body>
+<header class="navbar">
+  <div class="nav-inner">
+    <a href=" " class="logo">80GOTV</a >
+    <button class="hamburger" id="hamburger">☰</button>
+    <nav class="nav-links" id="navLinks">
+      <a href="/">首页</a >
+      <a href="/news">News</a >
+      <a href="/matches">Matches</a >
+      <a href="/results">Results</a >
+      <a href="/events">Events</a >
+      <a href="/players">Players</a >
+      <a href="/stats">Stats</a >
+    </nav>
+    <button id="themeToggle" class="theme-btn">🌓</button>
+  </div>
+</header>
+
+<main class="layout">
+  <section class="main-col">{% block main %}{% endblock %}</section>
+  <aside class="side-col">{% block side %}{% endblock %}</aside>
+</main>
+
+<footer class="footer">© 八十中 80GO CS交流群 · 仅供学习交流使用 · QQ群号：668460739</footer>
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

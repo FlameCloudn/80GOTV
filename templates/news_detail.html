@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block title %}{{ news.title }} - 校园 CS2 赛事{% endblock %}
+{% block main %}
+<article class="news-detail">
+  <h1 class="news-detail-title">{{ news.title }}</h1>
+  <div class="meta">
+    <span>{{ news.author }}</span>
+    <span>·</span>
+    <span>{{ news.publish_time[:16] }}</span>
+    <span>·</span>
+    <span>评论 {{ news.comment_count }}</span>
+  </div>
+  <div class="news-content">{{ news.content }}</div>
+</article>
+<a href="/news" class="btn-back">← 返回新闻列表</a >
+{% endblock %}
+
+{% block side %}
+<h3 class="section-title">相关新闻</h3>
+<div class="card small">
+  <p style="color:var(--text-muted);font-size:12px;">功能开发中...</p >
+</div>
+
+<h3 class="section-title">热门标签</h3>
+<div class="card small">
+  <p style="color:var(--text-muted);font-size:12px;">功能开发中...</p >
+</div>
+{% endblock %}

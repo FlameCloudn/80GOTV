@@ -1,0 +1,196 @@
+{% extends 'base.html' %}
+{% block title %}{{ match.team1_name }} vs {{ match.team2_name }} - 校园 CS2 赛事{% endblock %}
+{% block main %}
+<div class="match-header">
+  <h2>{{ match.event_name }}</h2>
+  <div class="match-teams">
+    <div class="team-info">
+      <div class="avatar-lg">{{ match.t1s[0] }}</div>
+      <h3>{{ match.team1_name }}</h3>
+    </div>
+    <div class="match-score">
+      <div class="score">{{ match.team1_score }} : {{ match.team2_score }}</div>
+      <div class="meta">{{ match.bo_format }} · {{ match.match_time[:16] }}</div>
+      {% if match.status == 'live' %}<span class="live">LIVE</span>{% endif %}
+    </div>
+    <div class="team-info">
+      <div class="avatar-lg">{{ match.t2s[0] }}</div>
+      <h3>{{ match.team2_name }}</h3>
+    </div>
+  </div>
+</div>
+
+{% if match.status == 'upcoming' %}
+<div class="card">比赛尚未开始</div>
+{% elif not map_scores %}
+<div class="card">暂无比赛数据</div>
+{% else %}
+
+<!-- 每图比分 -->
+<div class="map-scores" style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+  {% for ms in map_scores %}
+  <div style="flex:1;min-width:140px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:8px;padding:12px;text-align:center;">
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">图 {{ ms.index }}</div>
+    <div style="font-weight:600;font-size:13px;margin-bottom:6px;">{{ ms.name }}</div>
+    <div style="display:flex;justify-content:center;align-items:center;gap:8px;">
+      <span style="font-size:16px;font-weight:bold;{% if ms.t1 > ms.t2 %}color:var(--accent);{% endif %}">{{ ms.t1 }}</span>
+      <span style="color:var(--text-muted);">:</span>
+      <span style="font-size:16px;font-weight:bold;{% if ms.t2 > ms.t1 %}color:var(--accent);{% endif %}">{{ ms.t2 }}</span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Tab 导航 -->
+<div style="display:flex;gap:4px;margin-bottom:0;">
+  <button class="detail-tab active" onclick="switchDetailTab(0)">📊 总览</button>
+  {% for ms in map_scores %}
+  <button class="detail-tab" onclick="switchDetailTab({{ loop.index }})">图 {{ ms.index }}：{{ ms.name }}</button>
+  {% endfor %}
+</div>
+
+<!-- 总览面板 -->
+<div class="detail-panel active" id="panel-0">
+  <div class="card" style="margin-bottom:20px;border-radius:0 8px 8px 8px;padding:20px;">
+    <h3 class="section-title">{{ match.team1_name }}</h3>
+    {% if overall_t1 %}
+    <div class="stats-table">
+      <table>
+        <thead>
+          <tr><th>选手</th><th>图数</th><th>K</th><th>D</th><th>A</th><th>+/-</th><th>ADR</th><th>KAST</th><th>Rating</th><th>HS%</th></tr>
+        </thead>
+        <tbody>
+          {% for s in overall_t1 %}
+          <tr>
+            <td><a href=" ">{{ s.nickname }}</a ></td>
+            <td>{{ s.maps }}</td>
+            <td>{{ s.kills }}</td><td>{{ s.deaths }}</td><td>{{ s.assists }}</td>
+            <td>{{ s.kills - s.deaths }}</td>
+            <td>{{ "%.1f"|format(s.adr) }}</td>
+            <td>{{ "%.1f"|format(s.kast) }}%</td>
+            <td><b>{{ "%.2f"|format(s.rating) }}</b></td>
+            <td>{{ "%.1f"|format(s.headshot_percentage) }}%</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}<p style="color:var(--text-muted);">暂无数据</p >{% endif %}
+
+    <h3 class="section-title" style="margin-top:24px;">{{ match.team2_name }}</h3>
+    {% if overall_t2 %}
+    <div class="stats-table">
+      <table>
+        <thead>
+          <tr><th>选手</th><th>图数</th><th>K</th><th>D</th><th>A</th><th>+/-</th><th>ADR</th><th>KAST</th><th>Rating</th><th>HS%</th></tr>
+        </thead>
+        <tbody>
+          {% for s in overall_t2 %}
+          <tr>
+            <td><a href="/players/{{ s.player_id }}">{{ s.nickname }}</a ></td>
+            <td>{{ s.maps }}</td>
+            <td>{{ s.kills }}</td><td>{{ s.deaths }}</td><td>{{ s.assists }}</td>
+            <td>{{ s.kills - s.deaths }}</td>
+            <td>{{ "%.1f"|format(s.adr) }}</td>
+            <td>{{ "%.1f"|format(s.kast) }}%</td>
+            <td><b>{{ "%.2f"|format(s.rating) }}</b></td>
+            <td>{{ "%.1f"|format(s.headshot_percentage) }}%</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}<p style="color:var(--text-muted);">暂无数据</p >{% endif %}
+  </div>
+</div>
+
+<!-- 分图面板 -->
+{% for ms in map_scores %}
+<div class="detail-panel" id="panel-{{ loop.index }}">
+  <div class="card" style="margin-bottom:20px;border-radius:0 8px 8px 8px;padding:20px;">
+    <h3 class="section-title">{{ match.team1_name }}</h3>
+    {% if ms.team1_stats %}
+    <div class="stats-table">
+      <table>
+        <thead>
+          <tr><th>选手</th><th>K</th><th>D</th><th>A</th><th>+/-</th><th>ADR</th><th>KAST</th><th>Rating</th><th>HS%</th></tr>
+        </thead>
+        <tbody>
+          {% for s in ms.team1_stats %}
+          <tr>
+            <td><a href="/players/{{ s.player_id }}">{{ s.nickname }}</a ></td>
+            <td>{{ s.kills }}</td><td>{{ s.deaths }}</td><td>{{ s.assists }}</td>
+            <td>{{ s.kills - s.deaths }}</td>
+            <td>{{ "%.1f"|format(s.adr) }}</td>
+            <td>{{ "%.1f"|format(s.kast) }}%</td>
+            <td><b>{{ "%.2f"|format(s.rating) }}</b></td>
+            <td>{{ "%.1f"|format(s.headshot_percentage) }}%</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}<p style="color:var(--text-muted);">此图暂无数据</p >{% endif %}
+
+    <h3 class="section-title" style="margin-top:24px;">{{ match.team2_name }}</h3>
+    {% if ms.team2_stats %}
+    <div class="stats-table">
+      <table>
+        <thead>
+          <tr><th>选手</th><th>K</th><th>D</th><th>A</th><th>+/-</th><th>ADR</th><th>KAST</th><th>Rating</th><th>HS%</th></tr>
+        </thead>
+        <tbody>
+          {% for s in ms.team2_stats %}
+          <tr>
+            <td><a href="/players/{{ s.player_id }}">{{ s.nickname }}</a ></td>
+            <td>{{ s.kills }}</td><td>{{ s.deaths }}</td><td>{{ s.assists }}</td>
+            <td>{{ s.kills - s.deaths }}</td>
+            <td>{{ "%.1f"|format(s.adr) }}</td>
+            <td>{{ "%.1f"|format(s.kast) }}%</td>
+            <td><b>{{ "%.2f"|format(s.rating) }}</b></td>
+            <td>{{ "%.1f"|format(s.headshot_percentage) }}%</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}<p style="color:var(--text-muted);">此图暂无数据</p >{% endif %}
+  </div>
+</div>
+{% endfor %}
+
+{% endif %}
+
+<a href="/events/{{ match.event_id }}" class="btn-back">← 返回赛事</a >
+
+<style>
+.detail-tab {
+  padding:10px 20px;background:#e0e0e0;border:none;border-radius:8px 8px 0 0;
+  font-size:13px;font-weight:600;cursor:pointer;color:#666;transition:all 0.2s;
+}
+.detail-tab.active {background:var(--bg-card);color:var(--accent);}
+.detail-panel {display:none;}
+.detail-panel.active {display:block;}
+</style>
+<script>
+function switchDetailTab(idx) {
+  document.querySelectorAll('.detail-tab').forEach((btn, i) => { btn.classList.toggle('active', i === idx); });
+  document.querySelectorAll('.detail-panel').forEach((p, i) => { p.classList.toggle('active', i === idx); });
+}
+</script>
+{% endblock %}
+
+{% block side %}
+<h3 class="section-title">地图池</h3>
+<div class="card small">
+  {% for ms in map_scores %}
+  <div style="margin-bottom:4px;">
+    <span style="font-weight:600;">图 {{ ms.index }}：</span>{{ ms.name }}
+    <span style="color:var(--text-muted);"> ({{ ms.t1 }}:{{ ms.t2 }})</span>
+  </div>
+  {% endfor %}
+  {% if not map_scores %}
+  <div>暂无数据</div>
+  {% endif %}
+</div>
+{% endblock %}

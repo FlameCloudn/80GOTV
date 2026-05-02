@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>选手管理</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:sans-serif;background:#f5f5f5}
+    
+    /* 顶部导航栏 */
+    .top-nav{
+      background:white;
+      border-bottom:2px solid #ff5722;
+      padding:15px 30px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-bottom:20px;
+    }
+    .top-nav .logo{
+      font-size:18px;
+      font-weight:bold;
+      color:#ff5722;
+    }
+    .top-nav .nav-links{
+      display:flex;
+      gap:20px;
+      align-items:center;
+    }
+    .top-nav a{
+      color:#333;
+      text-decoration:none;
+      padding:8px 15px;
+      border-radius:4px;
+      transition:all 0.2s;
+    }
+    .top-nav a:hover{
+      background:#f5f5f5;
+      color:#ff5722;
+    }
+    .top-nav .logout-btn{
+      background:#ff5722;
+      color:white;
+      padding:8px 15px;
+      border-radius:4px;
+    }
+    .top-nav .logout-btn:hover{
+      background:#e64a19;
+    }
+    
+    .container{padding:0 30px 30px}
+    .header{
+      background:white;
+      padding:20px;
+      margin-bottom:20px;
+      border-radius:8px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+    }
+    .btn{
+      padding:10px 20px;
+      border-radius:4px;
+      text-decoration:none;
+      font-weight:600;
+      display:inline-block;
+    }
+    .btn-primary{background:#ff5722;color:white}
+    .btn-primary:hover{background:#e64a19}
+    table{
+      width:100%;
+      background:white;
+      border-radius:8px;
+      overflow:hidden;
+      border-collapse:collapse;
+    }
+    th{
+      background:#f5f5f5;
+      padding:15px;
+      text-align:left;
+      font-weight:600;
+      border-bottom:2px solid #ddd;
+    }
+    td{
+      padding:15px;
+      border-bottom:1px solid #eee;
+    }
+    tr:hover{background:#f9f9f9}
+    .actions a{
+      margin-right:15px;
+      color:#ff5722;
+      text-decoration:none;
+    }
+    .actions a:hover{text-decoration:underline}
+    .alert{
+      padding:12px 20px;
+      margin-bottom:20px;
+      border-radius:4px;
+    }
+    .alert-success{background:#d4edda;color:#155724}
+    .alert-error{background:#f8d7da;color:#721c24}
+  </style>
+</head>
+<body>
+
+<!-- 顶部导航栏 -->
+<div class="top-nav">
+  <div class="logo">🎮 CS2 后台管理</div>
+  <div class="nav-links">
+    <a href=" ">📊 首页</a >
+    <a href="/admin/teams">👥 队伍</a >
+    <a href="/admin/players">🎯 选手</a >
+    <a href="/admin/events">🏆 赛事</a >
+    <a href="/admin/matches">⚔️ 比赛</a >
+    <a href="/admin/news">📰 新闻</a >
+    <span style="color:#ccc">|</span>
+    <span style="color:#666">{{ session.admin_username }}</span>
+    <a href="/admin/logout" class="logout-btn">退出</a >
+  </div>
+</div>
+
+<div class="container">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+      <div class="alert alert-{{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <div class="header">
+    <h2>选手管理</h2>
+    <a href="/admin/players/add" class="btn btn-primary">➕ 添加选手</a >
+  </div>
+
+ <table>
+  <thead>
+    <tr>
+      <th>头像</th>
+      <th>ID</th>
+      <th>昵称</th>
+      <th>真名</th>
+      <th>队伍</th>
+      <th>Steam ID</th>
+      <th>操作</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in players %}
+    <tr>
+      <td>
+        {% if p.avatar %}
+          <img src="{{ url_for('static', filename='avatars/' + p.avatar) }}" 
+               style="width:32px;height:32px;border-radius:50%;object-fit:cover;">
+        {% else %}
+          <span style="display:inline-block;width:32px;height:32px;border-radius:50%;background:#ff5722;color:#fff;text-align:center;line-height:32px;font-size:14px;font-weight:bold;">
+            {{ p.nickname[0] }}
+          </span>
+        {% endif %}
+      </td>
+      <td>{{ p.id }}</td>
+      <td>{{ p.nickname }}</td>
+      <td>{{ p.real_name or '-' }}</td>
+      <td>{{ p.team_name or '无队伍' }}</td>
+      <td>{{ p.steam_id or '-' }}</td>
+      <td class="actions">
+        <a href="/admin/players/edit/{{ p.id }}">✏️ 编辑</a >
+        <a href="/admin/players/delete/{{ p.id }}" onclick="return confirm('确定删除选手【{{ p.nickname }}】吗？')">🗑️ 删除</a >
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+</body>
+</html>
