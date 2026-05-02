@@ -1,15 +1,24 @@
-# 数据库操作：建表 + 增删改查封装
-import sqlite3
+import os
+import libsql_experimental as libsql
 from config import Config
 
-def get_db():
-    """打开数据库连接，让查询结果可以像字典一样取值"""
-    conn = sqlite3.connect(Config.DATABASE)
-    conn.row_factory = sqlite3.Row
-    return conn
+# 优先用 Turso 云数据库，否则回退本地 SQLite
+TURSO_URL = os.environ.get("TURSO_URL", "")
+TURSO_TOKEN = os.environ.get("TURSO_TOKEN", "")
+
+if TURSO_URL and TURSO_TOKEN:
+    _db = libsql.connect(database=TURSO_URL, auth_token=TURSO_TOKEN)
+    def get_db():
+        _db.sync()
+        return _db
+else:
+    import sqlite3
+    def get_db():
+        conn = sqlite3.connect(Config.DATABASE)
+        conn.row_factory = sqlite3.Row
+        return conn
 
 def init_tables():
-    """创建所有表（如果不存在）"""
     conn = get_db()
     c = conn.cursor()
 
@@ -112,20 +121,30 @@ def init_tables():
         password_hash TEXT NOT NULL
     );
     """)
+
+    # 自动创建默认管理员
+    try:
+        admin = c.execute("SELECT id FROM admins WHERE username='admin'").fetchone()
+        if not admin:
+            from werkzeug.security import generate_password_hash
+            c.execute("INSERT INTO admins(username, password_hash) VALUES(?,?)",
+                      ('admin', generate_password_hash('admin123')))
+    except:
+        pass
+
     conn.commit()
-    conn.close()
 
 def query_db(query, args=(), one=False):
-    """执行查询并返回结果"""
     conn = get_db()
     cur = conn.execute(query, args)
     rv = cur.fetchall()
-    conn.close()
+    try: conn.close()
+    except: pass
     return (rv[0] if rv else None) if one else rv
 
 def execute_db(query, args=()):
-    """执行插入/更新/删除操作"""
     conn = get_db()
     conn.execute(query, args)
     conn.commit()
-    conn.close()
+    try: conn.close()
+    except: pass
