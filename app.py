@@ -1072,4 +1072,15 @@ def admin_news_delete(news_id):
 
 if __name__ == '__main__':
     init_tables()
+    
+    # 自动创建默认管理员（如果不存在）
+    conn = get_db()
+    admin = conn.execute("SELECT id FROM admins WHERE username='admin'").fetchone()
+    if not admin:
+        from werkzeug.security import generate_password_hash
+        conn.execute("INSERT INTO admins(username, password_hash) VALUES(?,?)",
+                     ('admin', generate_password_hash('admin123')))
+        conn.commit()
+    conn.close()
+    
     app.run(debug=True, port=5000, host='0.0.0.0')
