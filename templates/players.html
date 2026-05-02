@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block title %}选手 - 校园 CS2 赛事{% endblock %}
+{% block main %}
+<h2 class="section-title">选手列表</h2>
+
+<div class="filters">
+  <form method="get" class="filter-form">
+    <select name="team" onchange="this.form.submit()">
+      <option value="">全部队伍</option>
+      {% for t in teams %}
+      <option value="{{ t.id }}" {% if team_filter==t.id|string %}selected{% endif %}>
+        {{ t.name }}
+      </option>
+      {% endfor %}
+    </select>
+  </form>
+</div>
+
+<div class="stats-table">
+  <table>
+    <thead>
+      <tr>
+        <th>选手</th>
+        <th>队伍</th>
+        <th>场次</th>
+        <th>K/D</th>
+        <th>Rating</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in players %}
+      <tr>
+        <td>
+          <a href=" " class="player-link">
+            {% if p.avatar %}
+              <img src="{{ url_for('static', filename='avatars/' + p.avatar) }}" class="avatar-sm" style="object-fit:cover;">
+            {% else %}
+              <div class="avatar-sm">{{ p.nickname[0] }}</div>
+            {% endif %}
+            {{ p.nickname }}
+        </a >
+        </td>
+        <td>{{ p.team_short or '-' }}</td>
+        <td>{{ p.match_count or 0 }}</td>
+        <td>
+          {% if p.avg_deaths and p.avg_deaths > 0 %}
+            {{ "%.2f"|format(p.avg_kills / p.avg_deaths) }}
+          {% else %}-{% endif %}
+        </td>
+        <td><b>{{ "%.2f"|format(p.avg_rating) if p.avg_rating else '-' }}</b></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+
+{% block side %}
+<h3 class="section-title">筛选</h3>
+<div class="card small">使用上方筛选器</div>
+{% endblock %}

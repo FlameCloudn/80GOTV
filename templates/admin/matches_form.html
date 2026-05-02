@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>{% if match %}编辑比赛{% else %}添加比赛{% endif %}</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:sans-serif;background:#f5f5f5}
+    
+    /* 顶部导航栏 */
+    .top-nav{
+      background:white;
+      border-bottom:2px solid #ff5722;
+      padding:15px 30px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-bottom:20px;
+    }
+    .top-nav .logo{
+      font-size:18px;
+      font-weight:bold;
+      color:#ff5722;
+    }
+    .top-nav .nav-links{
+      display:flex;
+      gap:20px;
+      align-items:center;
+    }
+    .top-nav a{
+      color:#333;
+      text-decoration:none;
+      padding:8px 15px;
+      border-radius:4px;
+      transition:all 0.2s;
+    }
+    .top-nav a:hover{
+      background:#f5f5f5;
+      color:#ff5722;
+    }
+    .top-nav .logout-btn{
+      background:#ff5722;
+      color:white;
+      padding:8px 15px;
+      border-radius:4px;
+    }
+    .top-nav .logout-btn:hover{
+      background:#e64a19;
+    }
+    
+    .container{padding:0 30px 30px}
+    .form-container{
+      max-width:700px;
+      margin:0 auto;
+      background:white;
+      padding:30px;
+      border-radius:8px;
+    }
+    h2{margin-bottom:30px;color:#333}
+    .form-group{margin-bottom:20px}
+    .form-row{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:20px;
+    }
+    label{
+      display:block;
+      margin-bottom:8px;
+      font-weight:600;
+      color:#333;
+    }
+    input,select{
+      width:100%;
+      padding:12px;
+      border:1px solid #ddd;
+      border-radius:4px;
+      font-size:14px;
+      font-family:inherit;
+    }
+    input:focus,select:focus{
+      outline:none;
+      border-color:#ff5722;
+    }
+    .form-actions{
+      display:flex;
+      gap:10px;
+      margin-top:30px;
+    }
+    .btn{
+      padding:12px 24px;
+      border:none;
+      border-radius:4px;
+      font-size:14px;
+      font-weight:600;
+      cursor:pointer;
+      text-decoration:none;
+      display:inline-block;
+    }
+    .btn-primary{background:#ff5722;color:white}
+    .btn-primary:hover{background:#e64a19}
+    .btn-secondary{background:#ddd;color:#333}
+    .btn-secondary:hover{background:#ccc}
+    .alert{
+      padding:12px 20px;
+      margin-bottom:20px;
+      border-radius:4px;
+    }
+    .alert-error{background:#f8d7da;color:#721c24}
+  </style>
+</head>
+<body>
+
+<!-- 顶部导航栏 -->
+<div class="top-nav">
+  <div class="logo">🎮 CS2 后台管理</div>
+  <div class="nav-links">
+    <a href=" ">📊 首页</a >
+    <a href="/admin/teams">👥 队伍</a >
+    <a href="/admin/players">🎯 选手</a >
+    <a href="/admin/events">🏆 赛事</a >
+    <a href="/admin/matches">⚔️ 比赛</a >
+    <a href="/admin/news">📰 新闻</a >
+    <span style="color:#ccc">|</span>
+    <span style="color:#666">{{ session.admin_username }}</span>
+    <a href="/admin/logout" class="logout-btn">退出</a >
+  </div>
+</div>
+
+<div class="container">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+      <div class="alert alert-{{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <div class="form-container">
+    <h2>{% if match %}✏️ 编辑比赛{% else %}➕ 添加比赛{% endif %}</h2>
+    
+    <form method="post">
+      <div class="form-group">
+        <label>赛事 *</label>
+        <select name="event_id" required>
+          <option value="">选择赛事</option>
+          {% for e in events %}
+          <option value="{{ e.id }}" {% if match and match.event_id==e.id %}selected{% endif %}>
+            {{ e.name }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      
+      <div class="form-row">
+        <div class="form-group">
+          <label>队伍1 *</label>
+          <select name="team1_id" required>
+            <option value="">选择队伍</option>
+            {% for t in teams %}
+            <option value="{{ t.id }}" {% if match and match.team1_id==t.id %}selected{% endif %}>
+              {{ t.name }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label>队伍2 *</label>
+          <select name="team2_id" required>
+            <option value="">选择队伍</option>
+            {% for t in teams %}
+            <option value="{{ t.id }}" {% if match and match.team2_id==t.id %}selected{% endif %}>
+              {{ t.name }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      
+      <div class="form-row">
+        <div class="form-group">
+          <label>队伍1 比分</label>
+          <input type="number" name="team1_score" value="{{ match.team1_score if match else 0 }}" min="0">
+        </div>
+        
+        <div class="form-group">
+          <label>队伍2 比分</label>
+          <input type="number" name="team2_score" value="{{ match.team2_score if match else 0 }}" min="0">
+        </div>
+      </div>
+      
+      <div class="form-row">
+        <div class="form-group">
+          <label>比赛时间 *</label>
+          <input type="datetime-local" name="match_time" 
+                 value="{{ match.match_time[:16] if match else '' }}" required>
+        </div>
+        
+        <div class="form-group">
+          <label>BO 格式 *</label>
+          <select name="bo_format" required>
+            <option value="BO1" {% if match and match.bo_format=='BO1' %}selected{% endif %}>BO1</option>
+            <option value="BO3" {% if match and match.bo_format=='BO3' %}selected{% endif %}>BO3</option>
+            <option value="BO5" {% if match and match.bo_format=='BO5' %}selected{% endif %}>BO5</option>
+          </select>
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <label>状态 *</label>
+        <select name="status" required>
+          <option value="upcoming" {% if match and match.status=='upcoming' %}selected{% endif %}>未开始</option>
+          <option value="live" {% if match and match.status=='live' %}selected{% endif %}>进行中</option>
+          <option value="completed" {% if match and match.status=='completed' %}selected{% endif %}>已结束</option>
+        </select>
+      </div>
+
+            <div class="form-row">
+        <div class="form-group">
+          <label>图一</label>
+          <input type="text" name="map1" value="{{ match.map1 if match else '' }}" placeholder="如 de_mirage，未定留空">
+        </div>
+        <div class="form-group">
+          <label style="visibility:hidden">-</label>
+          <div style="display:flex;align-items:center;gap:8px">
+            <input type="number" name="map1_t1" value="{{ match.map1_t1 if match else 0 }}" min="0" style="width:50px;text-align:center" placeholder="-">
+            <span style="color:#999;font-weight:bold">:</span>
+            <input type="number" name="map1_t2" value="{{ match.map1_t2 if match else 0 }}" min="0" style="width:50px;text-align:center" placeholder="-">
+          </div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>图二</label>
+          <input type="text" name="map2" value="{{ match.map2 if match else '' }}" placeholder="如 de_dust2，未定留空">
+        </div>
+        <div class="form-group">
+          <label style="visibility:hidden">-</label>
+          <div style="display:flex;align-items:center;gap:8px">
+            <input type="number" name="map2_t1" value="{{ match.map2_t1 if match else 0 }}" min="0" style="width:50px;text-align:center" placeholder="-">
+            <span style="color:#999;font-weight:bold">:</span>
+            <input type="number" name="map2_t2" value="{{ match.map2_t2 if match else 0 }}" min="0" style="width:50px;text-align:center" placeholder="-">
+          </div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>图三</label>
+          <input type="text" name="map3" value="{{ match.map3 if match else '' }}" placeholder="如 de_inferno，未定留空">
+        </div>
+        <div class="form-group">
+          <label style="visibility:hidden">-</label>
+          <div style="display:flex;align-items:center;gap:8px">
+            <input type="number" name="map3_t1" value="{{ match.map3_t1 if match else 0 }}" min="0" style="width:50px;text-align:center" placeholder="-">
+            <span style="color:#999;font-weight:bold">:</span>
+            <input type="number" name="map3_t2" value="{{ match.map3_t2 if match else 0 }}" min="0" style="width:50px;text-align:center" placeholder="-">
+          </div>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">
+          {% if match %}💾 保存修改{% else %}✅ 添加比赛{% endif %}
+        </button>
+        <a href="/admin/matches" class="btn btn-secondary">❌ 取消</a >
+      </div>
+    </form>
+  </div>
+</div>
+
+</body>
+</html>

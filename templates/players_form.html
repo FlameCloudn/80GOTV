@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>{% if player %}编辑选手{% else %}添加选手{% endif %}</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:sans-serif;background:#f5f5f5}
+    
+    /* 顶部导航栏 */
+    .top-nav{
+      background:white;
+      border-bottom:2px solid #ff5722;
+      padding:15px 30px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-bottom:20px;
+    }
+    .top-nav .logo{
+      font-size:18px;
+      font-weight:bold;
+      color:#ff5722;
+    }
+    .top-nav .nav-links{
+      display:flex;
+      gap:20px;
+      align-items:center;
+    }
+    .top-nav a{
+      color:#333;
+      text-decoration:none;
+      padding:8px 15px;
+      border-radius:4px;
+      transition:all 0.2s;
+    }
+    .top-nav a:hover{
+      background:#f5f5f5;
+      color:#ff5722;
+    }
+    .top-nav .logout-btn{
+      background:#ff5722;
+      color:white;
+      padding:8px 15px;
+      border-radius:4px;
+    }
+    .top-nav .logout-btn:hover{
+      background:#e64a19;
+    }
+    
+    .container{padding:0 30px 30px}
+    .form-container{
+      max-width:600px;
+      margin:0 auto;
+      background:white;
+      padding:30px;
+      border-radius:8px;
+    }
+    h2{margin-bottom:30px;color:#333}
+    .form-group{margin-bottom:20px}
+    label{
+      display:block;
+      margin-bottom:8px;
+      font-weight:600;
+      color:#333;
+    }
+    input,select{
+      width:100%;
+      padding:12px;
+      border:1px solid #ddd;
+      border-radius:4px;
+      font-size:14px;
+      font-family:inherit;
+    }
+    input:focus,select:focus{
+      outline:none;
+      border-color:#ff5722;
+    }
+    .form-actions{
+      display:flex;
+      gap:10px;
+      margin-top:30px;
+    }
+    .btn{
+      padding:12px 24px;
+      border:none;
+      border-radius:4px;
+      font-size:14px;
+      font-weight:600;
+      cursor:pointer;
+      text-decoration:none;
+      display:inline-block;
+    }
+    .btn-primary{background:#ff5722;color:white}
+    .btn-primary:hover{background:#e64a19}
+    .btn-secondary{background:#ddd;color:#333}
+    .btn-secondary:hover{background:#ccc}
+    .alert{
+      padding:12px 20px;
+      margin-bottom:20px;
+      border-radius:4px;
+    }
+    .alert-error{background:#f8d7da;color:#721c24}
+  </style>
+</head>
+<body>
+
+<!-- 顶部导航栏 -->
+<div class="top-nav">
+  <div class="logo">🎮 CS2 后台管理</div>
+  <div class="nav-links">
+    <a href=" ">📊 首页</a >
+    <a href="/admin/teams">👥 队伍</a >
+    <a href="/admin/players">🎯 选手</a >
+    <a href="/admin/events">🏆 赛事</a >
+    <a href="/admin/matches">⚔️ 比赛</a >
+    <a href="/admin/news">📰 新闻</a >
+    <span style="color:#ccc">|</span>
+    <span style="color:#666">{{ session.admin_username }}</span>
+    <a href="/admin/logout" class="logout-btn">退出</a >
+  </div>
+</div>
+
+<div class="container">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+      <div class="alert alert-{{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <div class="form-container">
+    <h2>{% if player %}✏️ 编辑选手{% else %}➕ 添加选手{% endif %}</h2>
+    <form method="post" enctype="multipart/form-data">
+      <div class="form-group">
+        <label>昵称 *</label>
+        <input type="text" name="nickname" value="{{ player.nickname if player else '' }}" required placeholder="游戏昵称">
+      </div>
+      
+      <div class="form-group">
+        <label>真名</label>
+        <input type="text" name="real_name" value="{{ player.real_name if player else '' }}" placeholder="真实姓名（可选）">
+      </div>
+      
+      <div class="form-group">
+        <label>队伍</label>
+        <select name="team_id">
+          <option value="">无队伍</option>
+          {% for t in teams %}
+          <option value="{{ t.id }}" {% if player and player.team_id==t.id %}selected{% endif %}>
+            {{ t.name }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label>Steam ID</label>
+        <input type="text" name="steam_id" value="{{ player.steam_id if player else '' }}" placeholder="Steam ID（可选）">
+      </div>
+
+      <div class="form-group">
+        <label>头像</label>
+        {% if player and player.avatar %}
+         <div style="margin-bottom:8px">
+           < img src="{{ url_for('static', filename='avatars/' + player.avatar) }}" 
+                       style="width:64px;height:64px;border-radius:50%;object-fit:cover;">
+          </div>
+        {% endif %}
+        <input type="file" name="avatar" accept="image/*">
+        <small>支持 jpg/png/gif，留空则不修改</small>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">
+          {% if player %}💾 保存修改{% else %}✅ 添加选手{% endif %}
+        </button>
+        <a href="/admin/players" class="btn btn-secondary">❌ 取消</a >
+      </div>
+    </form>
+  </div>
+</div>
+
+</body>
+</html>

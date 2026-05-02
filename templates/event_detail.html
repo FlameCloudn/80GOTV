@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block title %}{{ event.name }} - 校园 CS2 赛事{% endblock %}
+{% block main %}
+<div class="event-header">
+  <h1>{{ event.name }}</h1>
+  <div class="event-meta">
+    <span class="status-badge status-{{ event.status }}">
+      {% if event.status == 'upcoming' %}即将开始
+      {% elif event.status == 'ongoing' %}进行中
+      {% else %}已结束{% endif %}
+    </span>
+    <span>{{ event.start_date[:10] }} ~ {{ event.end_date[:10] }}</span>
+    <span>{{ event.format }}</span>
+  </div>
+  <p>{{ event.description }}</p>
+</div>
+
+<h3 class="section-title">参赛队伍</h3>
+<div class="teams-grid">
+  {% for t in teams %}
+  <div class="team-badge">
+    <div class="avatar">{{ t.short_name[0] }}</div>
+    <span>{{ t.short_name }}</span>
+  </div>
+  {% endfor %}
+</div>
+
+<h3 class="section-title">比赛列表</h3>
+<div class="card-list">
+  {% for m in matches %}
+  <a class="card match-card" href="/matches/{{ m.id }}">
+    <span class="team">{{ m.team1_name }}</span>
+    <span class="vs">
+      {% if m.status=='live' %}<span class="live">LIVE</span>
+        {{ m.team1_score }} : {{ m.team2_score }}
+      {% elif m.status=='completed' %}
+        <b>{{ m.team1_score }} : {{ m.team2_score }}</b>
+      {% else %} VS {% endif %}
+    </span>
+    <span class="team right">{{ m.team2_name }}</span>
+    <div class="meta">{{ m.bo_format }} · {{ m.match_time[:16] }}</div>
+  </a>
+  {% endfor %}
+</div>
+
+<a href="/events" class="btn-back">← 返回赛事列表</a>
+{% endblock %}
+
+{% block side %}
+<h3 class="section-title">赛事信息</h3>
+<div class="card small">
+  <div><b>赛制：</b>{{ event.format }}</div>
+  <div><b>队伍数：</b>{{ teams|length }}</div>
+  <div><b>比赛数：</b>{{ matches|length }}</div>
+</div>
+{% endblock %}

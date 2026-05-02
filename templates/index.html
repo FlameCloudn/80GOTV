@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block main %}
+<h2 class="section-title">今日新闻</h2>
+<div class="card-list">
+  {% for n in news %}
+  <a class="card news-card" href="/news/{{ n.id }}">
+    <div class="news-title">{{ n.title }}</div>
+    <div class="meta">{{ n.publish_time[:16] }} · 评论 {{ n.comment_count }}</div>
+  </a >
+  {% endfor %}
+</div>
+
+<h2 class="section-title">今日比赛</h2>
+<div class="card-list">
+  {% for m in matches %}
+  <a class="card match-card" href="/matches/{{ m.id }}">
+    <span class="team">{{ m.team1_name }}</span>
+    <span class="vs">
+      {% if m.status=='live' %}<span class="live">LIVE</span>
+        {{ m.team1_score }} : {{ m.team2_score }}
+      {% else %} VS {% endif %}
+    </span>
+    <span class="team right">{{ m.team2_name }}</span>
+    <div class="meta">{{ m.event_name }} · {{ m.bo_format }} · {{ m.match_time[:16] }}</div>
+  </a >
+  {% endfor %}
+</div>
+{% endblock %}
+
+{% block side %}
+<h3 class="section-title">近期赛果</h3>
+<div class="card-list">
+  {% for r in recent %}
+  <a class="card small" href="/matches/{{ r.id }}">
+    <div>{{ r.t1s }} <b>{{ r.team1_score }} : {{ r.team2_score }}</b> {{ r.t2s }}</div>
+    <div class="meta">{{ r.match_time[:10] }}</div>
+  </a >
+  {% endfor %}
+</div>
+
+<h3 class="section-title">本周最佳选手</h3>
+{% if top_player %}
+<a class="card small" href="/players/{{ top_player.id }}">
+  <div class="avatar">{{ top_player.nickname[0] }}</div>
+  <div>{{ top_player.nickname }} · {{ top_player.team }}</div>
+  <div class="meta">评分 {{ "%.2f"|format(top_player.avg_rating) }}</div>
+</a >
+{% else %}
+<div class="card small">暂无数据</div>
+{% endif %}
+{% endblock %}

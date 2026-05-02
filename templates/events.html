@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block title %}赛事 - 校园 CS2 赛事{% endblock %}
+{% block main %}
+<h2 class="section-title">赛事列表</h2>
+<div class="card-list">
+  {% for e in events %}
+  <a class="card event-card" href="/events/{{ e.id }}">
+    <h3>{{ e.name }}</h3>
+    <div class="event-info">
+      <span class="status-badge status-{{ e.status }}">
+        {% if e.status == 'upcoming' %}即将开始
+        {% elif e.status == 'ongoing' %}进行中
+        {% else %}已结束{% endif %}
+      </span>
+      <span>{{ e.start_date[:10] }} ~ {{ e.end_date[:10] }}</span>
+    </div>
+    <div class="meta">{{ e.format }} · {{ e.team_count // 2 }} 支队伍 · {{ e.match_count }} 场比赛</div>
+  </a>
+  {% endfor %}
+</div>
+{% endblock %}
+
+{% block side %}
+<h3 class="section-title">赛事统计</h3>
+<div class="card small">功能开发中...</div>
+{% endblock %}

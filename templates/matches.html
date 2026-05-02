@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block title %}比赛 - 校园 CS2 赛事{% endblock %}
+{% block main %}
+<h2 class="section-title">比赛列表</h2>
+
+<div class="filters">
+  <form method="get" class="filter-form">
+    <select name="event" onchange="this.form.submit()">
+      <option value="">全部赛事</option>
+      {% for e in events %}
+      <option value="{{ e.id }}" {% if event_filter==e.id|string %}selected{% endif %}>
+        {{ e.name }}
+      </option>
+      {% endfor %}
+    </select>
+    
+    <select name="status" onchange="this.form.submit()">
+      <option value="">全部状态</option>
+      <option value="upcoming" {% if status_filter=='upcoming' %}selected{% endif %}>未开始</option>
+      <option value="live" {% if status_filter=='live' %}selected{% endif %}>进行中</option>
+    </select>
+  </form>
+</div>
+
+<div class="card-list">
+  {% for m in matches %}
+  <a class="card match-card" href=href="/match/{{ m.id }}">
+    <span class="team">{{ m.team1_name }}</span>
+    <span class="vs">
+      {% if m.status=='live' %}<span class="live">LIVE</span>
+        {{ m.team1_score }} : {{ m.team2_score }}
+      {% else %} VS {% endif %}
+    </span>
+    <span class="team right">{{ m.team2_name }}</span>
+    <div class="meta">{{ m.event_name }} · {{ m.bo_format }} · {{ m.match_time[:16] }}</div>
+  </a >
+  {% endfor %}
+</div>
+
+{% if not matches %}
+<div class="card">暂无比赛</div>
+{% endif %}
+{% endblock %}
+
+{% block side %}
+<h3 class="section-title">赛事筛选</h3>
+<div class="card small">使用上方筛选器</div>
+{% endblock %}

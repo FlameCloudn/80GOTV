@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>{% if event %}编辑赛事{% else %}添加赛事{% endif %}</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:sans-serif;background:#f5f5f5}
+    
+    /* 顶部导航栏 */
+    .top-nav{
+      background:white;
+      border-bottom:2px solid #ff5722;
+      padding:15px 30px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-bottom:20px;
+    }
+    .top-nav .logo{
+      font-size:18px;
+      font-weight:bold;
+      color:#ff5722;
+    }
+    .top-nav .nav-links{
+      display:flex;
+      gap:20px;
+      align-items:center;
+    }
+    .top-nav a{
+      color:#333;
+      text-decoration:none;
+      padding:8px 15px;
+      border-radius:4px;
+      transition:all 0.2s;
+    }
+    .top-nav a:hover{
+      background:#f5f5f5;
+      color:#ff5722;
+    }
+    .top-nav .logout-btn{
+      background:#ff5722;
+      color:white;
+      padding:8px 15px;
+      border-radius:4px;
+    }
+    .top-nav .logout-btn:hover{
+      background:#e64a19;
+    }
+    
+    .container{padding:0 30px 30px}
+    .form-container{
+      max-width:700px;
+      margin:0 auto;
+      background:white;
+      padding:30px;
+      border-radius:8px;
+    }
+    h2{margin-bottom:30px;color:#333}
+    .form-group{margin-bottom:20px}
+    .form-row{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:20px;
+    }
+    label{
+      display:block;
+      margin-bottom:8px;
+      font-weight:600;
+      color:#333;
+    }
+    input,textarea,select{
+      width:100%;
+      padding:12px;
+      border:1px solid #ddd;
+      border-radius:4px;
+      font-size:14px;
+      font-family:inherit;
+    }
+    input:focus,textarea:focus,select:focus{
+      outline:none;
+      border-color:#ff5722;
+    }
+    .form-actions{
+      display:flex;
+      gap:10px;
+      margin-top:30px;
+    }
+    .btn{
+      padding:12px 24px;
+      border:none;
+      border-radius:4px;
+      font-size:14px;
+      font-weight:600;
+      cursor:pointer;
+      text-decoration:none;
+      display:inline-block;
+    }
+    .btn-primary{background:#ff5722;color:white}
+    .btn-primary:hover{background:#e64a19}
+    .btn-secondary{background:#ddd;color:#333}
+    .btn-secondary:hover{background:#ccc}
+    .alert{
+      padding:12px 20px;
+      margin-bottom:20px;
+      border-radius:4px;
+    }
+    .alert-error{background:#f8d7da;color:#721c24}
+  </style>
+</head>
+<body>
+
+<!-- 顶部导航栏 -->
+<div class="top-nav">
+  <div class="logo">🎮 CS2 后台管理</div>
+  <div class="nav-links">
+    <a href=" ">📊 首页</a >
+    <a href="/admin/teams">👥 队伍</a >
+    <a href="/admin/players">🎯 选手</a >
+    <a href="/admin/events">🏆 赛事</a >
+    <a href="/admin/matches">⚔️ 比赛</a >
+    <a href="/admin/news">📰 新闻</a >
+    <span style="color:#ccc">|</span>
+    <span style="color:#666">{{ session.admin_username }}</span>
+    <a href="/admin/logout" class="logout-btn">退出</a >
+  </div>
+</div>
+
+<div class="container">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+      <div class="alert alert-{{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <div class="form-container">
+    <h2>{% if event %}✏️ 编辑赛事{% else %}➕ 添加赛事{% endif %}</h2>
+    
+    <form method="post">
+      <div class="form-group">
+        <label>赛事名 *</label>
+        <input type="text" name="name" value="{{ event.name if event else '' }}" required placeholder="例如：校园春季杯">
+      </div>
+      
+      <div class="form-group">
+        <label>描述</label>
+        <textarea name="description" rows="3" placeholder="赛事简介（可选）">{{ event.description if event else '' }}</textarea>
+      </div>
+      
+      <div class="form-row">
+        <div class="form-group">
+          <label>开始日期 *</label>
+          <input type="datetime-local" name="start_date" 
+                 value="{{ event.start_date[:16] if event else '' }}" required>
+        </div>
+        
+        <div class="form-group">
+          <label>结束日期 *</label>
+          <input type="datetime-local" name="end_date" 
+                 value="{{ event.end_date[:16] if event else '' }}" required>
+        </div>
+      </div>
+      
+      <div class="form-row">
+        <div class="form-group">
+          <label>赛制</label>
+          <input type="text" name="format" value="{{ event.format if event else '' }}" 
+                 placeholder="如：单败淘汰、双循环积分">
+        </div>
+        
+        <div class="form-group">
+          <label>状态 *</label>
+          <select name="status" required>
+            <option value="upcoming" {% if event and event.status=='upcoming' %}selected{% endif %}>即将开始</option>
+            <option value="ongoing" {% if event and event.status=='ongoing' %}selected{% endif %}>进行中</option>
+            <option value="completed" {% if event and event.status=='completed' %}selected{% endif %}>已结束</option>
+          </select>
+        </div>
+      </div>
+      
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">
+          {% if event %}💾 保存修改{% else %}✅ 添加赛事{% endif %}
+        </button>
+        <a href="/admin/events" class="btn btn-secondary">❌ 取消</a >
+      </div>
+    </form>
+  </div>
+</div>
+
+</body>
+</html>
