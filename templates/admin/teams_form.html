@@ -2,15 +2,16 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>{% if team %}编辑队伍{% else %}添加队伍{% endif %}</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     body{font-family:sans-serif;background:#f5f5f5}
-    
+
     /* 顶部导航栏 */
     .top-nav{
       background:white;
-      border-bottom:2px solid #ff5722;
+      border-bottom:2px solid #5881bc;
       padding:15px 30px;
       display:flex;
       justify-content:space-between;
@@ -20,7 +21,7 @@
     .top-nav .logo{
       font-size:18px;
       font-weight:bold;
-      color:#ff5722;
+      color:#5881bc;
     }
     .top-nav .nav-links{
       display:flex;
@@ -31,30 +32,30 @@
       color:#333;
       text-decoration:none;
       padding:8px 15px;
-      border-radius:4px;
+      border-radius:0;
       transition:all 0.2s;
     }
     .top-nav a:hover{
       background:#f5f5f5;
-      color:#ff5722;
+      color:#5881bc;
     }
     .top-nav .logout-btn{
-      background:#ff5722;
+      background:#5881bc;
       color:white;
       padding:8px 15px;
-      border-radius:4px;
+      border-radius:0;
     }
     .top-nav .logout-btn:hover{
-      background:#e64a19;
+      background:#4a6fa3;
     }
-    
+
     .container{padding:0 30px 30px}
     .form-container{
       max-width:600px;
       margin:0 auto;
       background:white;
       padding:30px;
-      border-radius:8px;
+      border-radius:0;
     }
     h2{margin-bottom:30px;color:#333}
     .form-group{margin-bottom:20px}
@@ -68,13 +69,13 @@
       width:100%;
       padding:12px;
       border:1px solid #ddd;
-      border-radius:4px;
+      border-radius:0;
       font-size:14px;
       font-family:inherit;
     }
     input:focus,textarea:focus{
       outline:none;
-      border-color:#ff5722;
+      border-color:#5881bc;
     }
     .form-actions{
       display:flex;
@@ -84,24 +85,25 @@
     .btn{
       padding:12px 24px;
       border:none;
-      border-radius:4px;
+      border-radius:0;
       font-size:14px;
       font-weight:600;
       cursor:pointer;
       text-decoration:none;
       display:inline-block;
     }
-    .btn-primary{background:#ff5722;color:white}
-    .btn-primary:hover{background:#e64a19}
+    .btn-primary{background:#5881bc;color:white}
+    .btn-primary:hover{background:#4a6fa3}
     .btn-secondary{background:#ddd;color:#333}
     .btn-secondary:hover{background:#ccc}
     .alert{
       padding:12px 20px;
       margin-bottom:20px;
-      border-radius:4px;
+      border-radius:0;
     }
-    .alert-error{background:#f8d7da;color:#721c24}
+    .alert-error{background:#f8d7da;color:#721c24}.alert-success{background:#d4edda;color:#155724}
   </style>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-comfort.css') }}">
 </head>
 <body>
 
@@ -109,7 +111,7 @@
 <div class="top-nav">
   <div class="logo">🎮 CS2 后台管理</div>
   <div class="nav-links">
-    <a href=" ">📊 首页</a >
+    <a href="/admin">📊 首页</a>
     <a href="/admin/teams">👥 队伍</a >
     <a href="/admin/players">🎯 选手</a >
     <a href="/admin/events">🏆 赛事</a >
@@ -132,23 +134,25 @@
 
   <div class="form-container">
     <h2>{% if team %}✏️ 编辑队伍{% else %}➕ 添加队伍{% endif %}</h2>
-    
+
     <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
       <div class="form-group">
         <label>队名 *</label>
         <input type="text" name="name" value="{{ team.name if team else '' }}" required placeholder="例如：星辰电竞社">
       </div>
-      
+
       <div class="form-group">
         <label>简称 *</label>
         <input type="text" name="short_name" value="{{ team.short_name if team else '' }}" required placeholder="例如：STAR">
       </div>
-      
+
       <div class="form-group">
         <label>描述</label>
         <textarea name="description" rows="4" placeholder="队伍简介（可选）">{{ team.description if team else '' }}</textarea>
       </div>
-      
+
       <div class="form-actions">
         <button type="submit" class="btn btn-primary">
           {% if team %}💾 保存修改{% else %}✅ 添加队伍{% endif %}
@@ -159,5 +163,7 @@
   </div>
 </div>
 
+<script src="{{ url_for('static', filename='js/i18n.js') }}?v=20260614-fullsite-lang2"></script>
+<script src="{{ url_for('static', filename='js/svg_icons.js') }}?v=20260620-svg1"></script>
 </body>
 </html>

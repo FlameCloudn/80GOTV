@@ -1,196 +1,884 @@
 {% extends 'base.html' %}
-{% block title %}{{ match.team1_name }} vs {{ match.team2_name }} - 校园 CS2 赛事{% endblock %}
+{% block title %}{{ match.team1_name }} vs {{ match.team2_name }} - 80GOTV{% endblock %}
+{% block layout_class %}match-detail-layout{% endblock %}
 {% block main %}
-<div class="match-header">
-  <h2>{{ match.event_name }}</h2>
-  <div class="match-teams">
-    <div class="team-info">
-      <div class="avatar-lg">{{ match.t1s[0] }}</div>
-      <h3>{{ match.team1_name }}</h3>
-    </div>
-    <div class="match-score">
-      <div class="score">{{ match.team1_score }} : {{ match.team2_score }}</div>
-      <div class="meta">{{ match.bo_format }} · {{ match.match_time[:16] }}</div>
-      {% if match.status == 'live' %}<span class="live">LIVE</span>{% endif %}
-    </div>
-    <div class="team-info">
-      <div class="avatar-lg">{{ match.t2s[0] }}</div>
-      <h3>{{ match.team2_name }}</h3>
+{% set shown_map_scores = map_scores|selectattr('display')|list %}
+{% set detail_map_scores = map_scores|rejectattr('name', 'equalto', 'TBA')|list %}
+{% set bo_upper = (match.bo_format or 'BO1')|upper %}
+{% set bo_label = bo_upper %}
+{% set bp = match.bp_process and match.bp_process.strip() %}
+{% set demo_list = match.demo_file|json_loads if match.demo_file else None %}
+{% set embed_url = (match.stream_url or match.event_stream_url)|bilibili_embed %}
+
+{% if show_match_stats %}
+<section class="match-stats-hero-card">
+  <div class="match-stats-hero-team">
+    {% if match.t1_logo %}
+    <img class="match-stats-hero-logo" src="{{ url_for('static', filename='uploads/' + match.t1_logo) }}" alt="{{ match.team1_name }}" loading="lazy">
+    {% else %}
+    <span class="match-stats-hero-logo match-stats-hero-fallback" data-i18n-ignore>{{ match.t1s[:2] }}</span>
+    {% endif %}
+    <strong data-i18n-ignore>{{ match.team1_name }}</strong>
+    <b class="{% if match.team1_score is not none and match.team2_score is not none and match.team1_score > match.team2_score %}score-win{% endif %}">{{ match.team1_score if match.team1_score is not none else '-' }}</b>
+  </div>
+  <div class="match-stats-hero-center">
+    <a class="match-stats-hero-event" href="/events/{{ match.event_id }}" data-i18n-ignore>{{ match.event_name or '80GOTV' }}</a>
+    <div class="match-stats-hero-score">{{ match.team1_score if match.team1_score is not none else '-' }} : {{ match.team2_score if match.team2_score is not none else '-' }}</div>
+    <div class="match-stats-hero-meta">{{ match.bo_format or 'BO1' }} · {{ match.match_time|datetime_display if match.match_time else 'TBD' }}</div>
+    <div class="match-stats-hero-actions">
+      <a href="/matches/{{ match.slug or match.id }}">返回比赛</a>
+      <a href="/matches/{{ match.slug or match.id }}/replay">2D Demo 回放</a>
+      <a href="/matches/{{ match.slug or match.id }}/poster">下载赛果海报</a>
     </div>
   </div>
-</div>
-
-{% if match.status == 'upcoming' %}
-<div class="card">比赛尚未开始</div>
-{% elif not map_scores %}
-<div class="card">暂无比赛数据</div>
+  <div class="match-stats-hero-team match-stats-hero-team-right">
+    {% if match.t2_logo %}
+    <img class="match-stats-hero-logo" src="{{ url_for('static', filename='uploads/' + match.t2_logo) }}" alt="{{ match.team2_name }}" loading="lazy">
+    {% else %}
+    <span class="match-stats-hero-logo match-stats-hero-fallback" data-i18n-ignore>{{ match.t2s[:2] }}</span>
+    {% endif %}
+    <strong data-i18n-ignore>{{ match.team2_name }}</strong>
+    <b class="{% if match.team1_score is not none and match.team2_score is not none and match.team2_score > match.team1_score %}score-win{% endif %}">{{ match.team2_score if match.team2_score is not none else '-' }}</b>
+  </div>
+</section>
 {% else %}
+{% set has_score = match.effective_status in ('live', 'completed') and match.team1_score is not none and match.team2_score is not none %}
+<div class="mh-banner">
+  <div class="mh-team mh-team-left">
+    {% if match.t1_logo %}
+    <img class="mh-logo" src="{{ url_for('static', filename='uploads/' + match.t1_logo) }}" alt="{{ match.team1_name }}" loading="lazy">
+    {% else %}
+    <span class="mh-logo mh-logo-fallback" data-i18n-ignore>{{ match.t1s[:2] }}</span>
+    {% endif %}
+    <div class="mh-team-name" data-i18n-ignore>{{ match.team1_name }}</div>
+    {% if has_score %}
+    <div class="mh-team-score {% if match.team1_score > match.team2_score %}won{% elif match.team1_score < match.team2_score %}lost{% endif %}">{{ match.team1_score }}</div>
+    {% endif %}
+  </div>
+  <div class="mh-mid">
+    <div class="mh-time">{{ match.match_time|time_display if match.match_time else 'TBD' }}</div>
+    {% if match.match_time %}<div class="mh-date">{{ match.match_time|date_display }}</div>{% endif %}
+    <a class="mh-event" href="/events/{{ match.event_id }}" data-i18n-ignore>{{ match.event_name or '80GOTV' }}</a>
+    <div class="mh-status">
+      {% if match.effective_status == 'live' %}
+      <span class="match-live-label">直播中</span>
+      {% elif match.effective_status == 'completed' %}
+      {{ bo_label }} · 比赛结束
+      {% elif match.effective_status == 'cancelled' %}
+      {{ bo_label }} · 已取消
+      {% else %}
+      {{ bo_label }} · 即将开始
+      {% endif %}
+    </div>
+  </div>
+  <div class="mh-team mh-team-right">
+    {% if match.t2_logo %}
+    <img class="mh-logo" src="{{ url_for('static', filename='uploads/' + match.t2_logo) }}" alt="{{ match.team2_name }}" loading="lazy">
+    {% else %}
+    <span class="mh-logo mh-logo-fallback" data-i18n-ignore>{{ match.t2s[:2] }}</span>
+    {% endif %}
+    <div class="mh-team-name" data-i18n-ignore>{{ match.team2_name }}</div>
+    {% if has_score %}
+    <div class="mh-team-score {% if match.team2_score > match.team1_score %}won{% elif match.team2_score < match.team1_score %}lost{% endif %}">{{ match.team2_score }}</div>
+    {% endif %}
+  </div>
+  <div class="mh-actions">
+    {% if match.demo_file %}<a href="/matches/{{ match.slug or match.id }}/replay">🎯 2D Demo 回放</a>{% endif %}
+    {% if match.effective_status == 'live' %}<a href="/matches/{{ match.id }}/live">独立直播页</a>{% endif %}
+    {% if match.effective_status == 'completed' %}<a href="/matches/{{ match.id }}/report">比赛战报</a>{% endif %}
+    {% if match.effective_status == 'completed' %}<a href="/matches/{{ match.slug or match.id }}/poster">下载赛果海报</a>{% endif %}
+  </div>
+</div>
 
-<!-- 每图比分 -->
-<div class="map-scores" style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+{# -- 左“地图” / 右“直播与回放” 双栏（HLTV 布局） -- #}
+<div class="mh-columns">
+  <div class="mh-col">
+    <div class="mh-sec-head">地图</div>
+    <div class="mh-note">{{ bo_label }}</div>
+    {% if bp %}<div class="mh-veto" data-i18n-ignore>{{ bp }}</div>{% endif %}
+    {% if not map_scores %}
+    <div class="mh-note">暂无比赛数据</div>
+    {% else %}
+
+    {# -- 地图比分横幅 -- #}
+    <div class="map-strips">
   {% for ms in map_scores %}
-  <div style="flex:1;min-width:140px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:8px;padding:12px;text-align:center;">
-    <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">图 {{ ms.index }}</div>
-    <div style="font-weight:600;font-size:13px;margin-bottom:6px;">{{ ms.name }}</div>
-    <div style="display:flex;justify-content:center;align-items:center;gap:8px;">
-      <span style="font-size:16px;font-weight:bold;{% if ms.t1 > ms.t2 %}color:var(--accent);{% endif %}">{{ ms.t1 }}</span>
-      <span style="color:var(--text-muted);">:</span>
-      <span style="font-size:16px;font-weight:bold;{% if ms.t2 > ms.t1 %}color:var(--accent);{% endif %}">{{ ms.t2 }}</span>
+  <div class="map-strip">
+    <div class="ms-top" style="background-image:url('{{ ms.name|map_image }}')">
+      <span class="ms-map-name">{{ ms.name|map_display_cn }}</span>
+    </div>
+    <div class="ms-bottom">
+      {# 左队标 + PICK #}
+      <div class="ms-icon-side">
+        {% if match.t1_logo %}
+        <img class="ms-icon ms-icon-img" src="{{ url_for('static', filename='uploads/' + match.t1_logo) }}" alt="{{ match.t1s }}" loading="lazy">
+        {% else %}
+        <div class="ms-icon">{{ match.t1s[:2] }}</div>
+        {% endif %}
+        <span class="ms-pick-wrap">{% if ms.picked_by == 't1' %}<span class="ms-pick">PICK</span>{% endif %}</span>
+      </div>
+      {# 中间内容区 #}
+      <div class="ms-main">
+        <div class="ms-row ms-row-top">
+          <span class="ms-name ms-name-left" data-i18n-ignore>{{ match.team1_name }}</span>
+          <a href="/matches/{{ match.slug or match.id }}/detailed?map={{ ms.index }}" class="ms-stats-btn">数据</a>
+          <span class="ms-name ms-name-right" data-i18n-ignore>{{ match.team2_name }}</span>
+        </div>
+        <div class="ms-row ms-row-mid">
+          <span class="ms-score ms-score-left{% if ms.played and ms.t1 > ms.t2 %} win{% elif ms.played and ms.t2 > ms.t1 %} lose{% endif %}">{% if ms.played %}{{ ms.t1 }}{% else %}-{% endif %}</span>
+          <span class="ms-score ms-score-right{% if ms.played and ms.t2 > ms.t1 %} win{% elif ms.played and ms.t1 > ms.t2 %} lose{% endif %}">{% if ms.played %}{{ ms.t2 }}{% else %}-{% endif %}</span>
+        </div>
+        <div class="ms-row ms-row-bottom">
+          <span class="ms-half-detail">
+            {% if ms.played and ms.halves %}
+            (<span class="t-side">{{ ms.halves.h1_t1 }}</span>:<span class="ct-side">{{ ms.halves.h1_t2 }}</span>;<span class="ct-side">{{ ms.halves.h2_t1 }}</span>:<span class="t-side">{{ ms.halves.h2_t2 }}</span>)
+            {% endif %}
+          </span>
+        </div>
+      </div>
+      {# 右队标 + PICK #}
+      <div class="ms-icon-side">
+        {% if match.t2_logo %}
+        <img class="ms-icon ms-icon-img" src="{{ url_for('static', filename='uploads/' + match.t2_logo) }}" alt="{{ match.t2s }}" loading="lazy">
+        {% else %}
+        <div class="ms-icon">{{ match.t2s[:2] }}</div>
+        {% endif %}
+        <span class="ms-pick-wrap">{% if ms.picked_by == 't2' %}<span class="ms-pick">PICK</span>{% endif %}</span>
+      </div>
+    </div>
+    <div class="ms-mobile-line">
+      <span class="ms-mobile-name">{{ match.t1s }}</span>
+      <span class="ms-mobile-score{% if ms.played and ms.t1 > ms.t2 %} win{% elif ms.played and ms.t2 > ms.t1 %} lose{% endif %}">{% if ms.played %}{{ ms.t1 }}{% else %}-{% endif %}</span>
+      <span class="ms-mobile-colon">:</span>
+      <span class="ms-mobile-score{% if ms.played and ms.t2 > ms.t1 %} win{% elif ms.played and ms.t1 > ms.t2 %} lose{% endif %}">{% if ms.played %}{{ ms.t2 }}{% else %}-{% endif %}</span>
+      <span class="ms-mobile-name right">{{ match.t2s }}</span>
     </div>
   </div>
   {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="mh-col">
+    <div class="mh-sec-head">直播与回放</div>
+    {% if demo_list %}
+    {% for df in demo_list %}
+    {% if df %}
+    <a class="mh-watch-row" href="{{ url_for('download_demo', slug=match.slug or match.id) }}?slot={{ loop.index0 }}">Demo 下载（地图 {{ loop.index }}）</a>
+    {% endif %}
+    {% endfor %}
+    {% endif %}
+    {% for w in watch_urls %}
+    <a class="mh-watch-row" href="{{ w.url }}" target="_blank" rel="noopener" data-i18n-ignore>{{ w.name }}</a>
+    {% endfor %}
+    {% if not demo_list and not watch_urls %}
+    <div class="mh-note">暂无直播或回放资源</div>
+    {% endif %}
+  </div>
 </div>
 
-<!-- Tab 导航 -->
-<div style="display:flex;gap:4px;margin-bottom:0;">
-  <button class="detail-tab active" onclick="switchDetailTab(0)">📊 总览</button>
-  {% for ms in map_scores %}
-  <button class="detail-tab" onclick="switchDetailTab({{ loop.index }})">图 {{ ms.index }}：{{ ms.name }}</button>
+{% if match.effective_status not in ('completed', 'cancelled') and embed_url %}
+<div class="mh-sec-head standalone">直播</div>
+<div class="match-stream" id="streamWrap">
+  <div class="stream-placeholder" onclick="loadStream()" title="点击播放直播">
+    <div class="stream-play-icon">▶</div>
+    <div class="stream-play-text">点击播放直播</div>
+    <div class="stream-play-hint">直播不会自动加载</div>
+  </div>
+</div>
+<script>
+function loadStream() {
+  var wrap = document.getElementById('streamWrap');
+  wrap.innerHTML = '<iframe src="{{ embed_url }}" frameborder="0" allow="autoplay; picture-in-picture" allowfullscreen style="width:100%;aspect-ratio:16/9;border-radius:0"></iframe>';
+}
+</script>
+{% endif %}
+
+{% if match.effective_status == 'live' %}
+  {% include 'match_data_live.html' %}
+{% endif %}
+
+{# -- 历史交锋 -- 只在未结束的比赛中显示，已结束不用看"历史" #}
+{% if h2h_matches and match.effective_status not in ('completed', 'cancelled') %}
+<div class="mh-sec-head standalone">历史交锋（{{ h2h_matches|length }} 场）</div>
+<div class="mh-h2h">
+  {% for hm in h2h_matches %}
+  <a class="mh-h2h-row" href="/matches/{{ hm.slug or hm.id }}">
+    <span class="mh-h2h-date">{{ hm.match_time|date_display }}</span>
+    <span class="mh-h2h-score" data-i18n-ignore>{{ hm.t1s }} <b>{{ hm.team1_score }}:{{ hm.team2_score }}</b> {{ hm.t2s }}</span>
+    <span class="mh-h2h-event" data-i18n-ignore>{{ hm.event_name or '' }}</span>
+  </a>
   {% endfor %}
 </div>
+{% endif %}
 
-<!-- 总览面板 -->
-<div class="detail-panel active" id="panel-0">
-  <div class="card" style="margin-bottom:20px;border-radius:0 8px 8px 8px;padding:20px;">
-    <h3 class="section-title">{{ match.team1_name }}</h3>
-    {% if overall_t1 %}
+{# -- 赛事数据 -- #}
+{% set any_played = map_scores|selectattr('played')|list|length > 0 %}
+{% if any_played %}
+{% set win_name = match.team1_name if t1_win else match.team2_name %}
+{% set win_stats = overall_t1 if t1_win else overall_t2 %}
+{% set win_logo = match.t1_logo if t1_win else match.t2_logo %}
+{% set win_sname = match.t1s if t1_win else match.t2s %}
+{% set lose_name = match.team2_name if t1_win else match.team1_name %}
+{% set lose_stats = overall_t2 if t1_win else overall_t1 %}
+{% set lose_logo = match.t2_logo if t1_win else match.t1_logo %}
+{% set lose_sname = match.t2s if t1_win else match.t1s %}
+
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+  <div class="mh-sec-head">比赛数据</div>
+  <div class="side-toggle" role="tablist" aria-label="数据视图切换" style="margin:0">
+    <button class="side-toggle-btn active" role="tab" aria-selected="true" data-side="overall" onclick="switchSideView('overall')">双方</button>
+    <button class="side-toggle-btn" role="tab" aria-selected="false" data-side="t" onclick="switchSideView('t')">恐怖分子</button>
+    <button class="side-toggle-btn" role="tab" aria-selected="false" data-side="ct" onclick="switchSideView('ct')">反恐精英</button>
+  </div>
+</div>
+
+<div class="detail-tabs" role="tablist" aria-label="地图数据切换" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;padding:0;margin-bottom:8px">
+  <button class="detail-tab active" role="tab" aria-selected="true" id="tab-0" aria-controls="panel-0" onclick="switchDetailTab(0)">全部地图</button>
+  {% for ms in shown_map_scores %}
+  <button class="detail-tab" role="tab" aria-selected="false" id="tab-{{ loop.index }}" aria-controls="panel-{{ loop.index }}" onclick="switchDetailTab({{ loop.index }})">{{ ms.name|map_display_cn }}</button>
+  {% endfor %}
+  <a href="/matches/{{ match.slug or match.id }}/detailed?map=all" class="detail-tab" style="margin-left:auto;text-decoration:none">详细数据</a>
+</div>
+
+<div class="detail-panel active" id="panel-0" role="tabpanel" aria-labelledby="tab-0">
+  <div class="detail-panel-body">
+    {% if win_stats %}
     <div class="stats-table">
       <table>
         <thead>
-          <tr><th>选手</th><th>图数</th><th>K</th><th>D</th><th>A</th><th>+/-</th><th>ADR</th><th>KAST</th><th>Rating</th><th>HS%</th></tr>
+          <tr><th style="font-weight:400">{% if win_logo %}<img loading="lazy" src="{{ url_for('static', filename='uploads/' + win_logo) }}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:4px" alt="">{% else %}<span style="display:inline-block;width:20px;height:20px;border-radius:50%;background:var(--accent);color:#fff;text-align:center;line-height:20px;font-size:9px;font-weight:700;vertical-align:middle;margin-right:4px">{{ win_sname[:2] }}</span>{% endif %}<span style="position:relative;top:1px;font-weight:400" data-i18n-ignore>{{ win_name }}</span></th><th class="col-overall">K-D</th><th class="col-t">T K-D</th><th class="col-ct">CT K-D</th><th class="col-overall sortable" data-sort="kd">K/D</th><th class="col-t">T K/D</th><th class="col-ct">CT K/D</th><th class="col-overall sortable" data-sort="adr">ADR</th><th class="col-t">T ADR</th><th class="col-ct">CT ADR</th><th class="sortable" data-sort="kast">KAST</th><th class="sortable" data-sort="imp">IMP</th><th class="col-overall sortable sort-desc" data-sort="rating">评分</th><th class="col-t">T-RT</th><th class="col-ct">CT-RT</th><th class="sortable" data-sort="hs">HS%</th></tr>
         </thead>
         <tbody>
-          {% for s in overall_t1 %}
+          {% for s in win_stats %}
           <tr>
-            <td><a href=" ">{{ s.nickname }}</a ></td>
-            <td>{{ s.maps }}</td>
-            <td>{{ s.kills }}</td><td>{{ s.deaths }}</td><td>{{ s.assists }}</td>
-            <td>{{ s.kills - s.deaths }}</td>
-            <td>{{ "%.1f"|format(s.adr) }}</td>
+            <td><a href="/players/{{ s.player_id }}" data-i18n-ignore>{{ s.nickname }}</a></td>
+            <td class="kd-cell col-overall">{{ s.kills }}-{{ s.deaths }}</td>
+            <td class="kd-cell col-t">{{ s.t_kills }}-{{ s.t_deaths }}</td>
+            <td class="kd-cell col-ct">{{ s.ct_kills }}-{{ s.ct_deaths }}</td>
+            <td class="kd-cell col-overall {% if s.deaths > 0 and s.kills / s.deaths > 1.0 %}kd-pos{% elif s.deaths > 0 and s.kills / s.deaths < 1.0 %}kd-neg{% endif %}">{% if s.deaths > 0 %}{{ "%.2f"|format(s.kills / s.deaths) }}{% else %}-{% endif %}</td>
+            <td class="kd-cell col-t {% if s.t_deaths > 0 and s.t_kills / s.t_deaths > 1.0 %}kd-pos{% elif s.t_deaths > 0 and s.t_kills / s.t_deaths < 1.0 %}kd-neg{% endif %}">{% if s.t_deaths > 0 %}{{ "%.2f"|format(s.t_kills / s.t_deaths) }}{% else %}-{% endif %}</td>
+            <td class="kd-cell col-ct {% if s.ct_deaths > 0 and s.ct_kills / s.ct_deaths > 1.0 %}kd-pos{% elif s.ct_deaths > 0 and s.ct_kills / s.ct_deaths < 1.0 %}kd-neg{% endif %}">{% if s.ct_deaths > 0 %}{{ "%.2f"|format(s.ct_kills / s.ct_deaths) }}{% else %}-{% endif %}</td>
+            <td class="col-overall">{{ "%.1f"|format(s.adr) }}</td>
+            <td class="col-t">{{ "%.1f"|format(s.t_adr or 0) }}</td>
+            <td class="col-ct">{{ "%.1f"|format(s.ct_adr or 0) }}</td>
             <td>{{ "%.1f"|format(s.kast) }}%</td>
-            <td><b>{{ "%.2f"|format(s.rating) }}</b></td>
+            <td>{{ "%.1f"|format(s.impact) }}</td>
+            <td class="rt-cell col-overall " title="T: {{ "%.2f"|format(s.t_rating or 0) }} / CT: {{ "%.2f"|format(s.ct_rating or 0) }}"><b>{{ "%.2f"|format(s.rating) }}</b></td>
+            <td class="rt-cell col-t">{{ "%.2f"|format(s.t_rating or 0) }}</td>
+            <td class="rt-cell col-ct">{{ "%.2f"|format(s.ct_rating or 0) }}</td>
             <td>{{ "%.1f"|format(s.headshot_percentage) }}%</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
-    {% else %}<p style="color:var(--text-muted);">暂无数据</p >{% endif %}
+    {% else %}<p class="empty-state">暂无数据</p>{% endif %}
 
-    <h3 class="section-title" style="margin-top:24px;">{{ match.team2_name }}</h3>
-    {% if overall_t2 %}
+    {% if lose_stats %}
     <div class="stats-table">
       <table>
         <thead>
-          <tr><th>选手</th><th>图数</th><th>K</th><th>D</th><th>A</th><th>+/-</th><th>ADR</th><th>KAST</th><th>Rating</th><th>HS%</th></tr>
+          <tr><th style="font-weight:400">{% if lose_logo %}<img loading="lazy" src="{{ url_for('static', filename='uploads/' + lose_logo) }}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:4px" alt="">{% else %}<span style="display:inline-block;width:20px;height:20px;border-radius:50%;background:var(--accent);color:#fff;text-align:center;line-height:20px;font-size:9px;font-weight:700;vertical-align:middle;margin-right:4px">{{ lose_sname[:2] }}</span>{% endif %}<span style="position:relative;top:1px;font-weight:400" data-i18n-ignore>{{ lose_name }}</span></th><th class="col-overall">K-D</th><th class="col-t">T K-D</th><th class="col-ct">CT K-D</th><th class="col-overall sortable" data-sort="kd">K/D</th><th class="col-t">T K/D</th><th class="col-ct">CT K/D</th><th class="col-overall sortable" data-sort="adr">ADR</th><th class="col-t">T ADR</th><th class="col-ct">CT ADR</th><th class="sortable" data-sort="kast">KAST</th><th class="sortable" data-sort="imp">IMP</th><th class="col-overall sortable sort-desc" data-sort="rating">评分</th><th class="col-t">T-RT</th><th class="col-ct">CT-RT</th><th class="sortable" data-sort="hs">HS%</th></tr>
         </thead>
         <tbody>
-          {% for s in overall_t2 %}
+          {% for s in lose_stats %}
           <tr>
-            <td><a href="/players/{{ s.player_id }}">{{ s.nickname }}</a ></td>
-            <td>{{ s.maps }}</td>
-            <td>{{ s.kills }}</td><td>{{ s.deaths }}</td><td>{{ s.assists }}</td>
-            <td>{{ s.kills - s.deaths }}</td>
-            <td>{{ "%.1f"|format(s.adr) }}</td>
+            <td><a href="/players/{{ s.player_id }}" data-i18n-ignore>{{ s.nickname }}</a></td>
+            <td class="kd-cell col-overall">{{ s.kills }}-{{ s.deaths }}</td>
+            <td class="kd-cell col-t">{{ s.t_kills }}-{{ s.t_deaths }}</td>
+            <td class="kd-cell col-ct">{{ s.ct_kills }}-{{ s.ct_deaths }}</td>
+            <td class="kd-cell col-overall {% if s.deaths > 0 and s.kills / s.deaths > 1.0 %}kd-pos{% elif s.deaths > 0 and s.kills / s.deaths < 1.0 %}kd-neg{% endif %}">{% if s.deaths > 0 %}{{ "%.2f"|format(s.kills / s.deaths) }}{% else %}-{% endif %}</td>
+            <td class="kd-cell col-t {% if s.t_deaths > 0 and s.t_kills / s.t_deaths > 1.0 %}kd-pos{% elif s.t_deaths > 0 and s.t_kills / s.t_deaths < 1.0 %}kd-neg{% endif %}">{% if s.t_deaths > 0 %}{{ "%.2f"|format(s.t_kills / s.t_deaths) }}{% else %}-{% endif %}</td>
+            <td class="kd-cell col-ct {% if s.ct_deaths > 0 and s.ct_kills / s.ct_deaths > 1.0 %}kd-pos{% elif s.ct_deaths > 0 and s.ct_kills / s.ct_deaths < 1.0 %}kd-neg{% endif %}">{% if s.ct_deaths > 0 %}{{ "%.2f"|format(s.ct_kills / s.ct_deaths) }}{% else %}-{% endif %}</td>
+            <td class="col-overall">{{ "%.1f"|format(s.adr) }}</td>
+            <td class="col-t">{{ "%.1f"|format(s.t_adr or 0) }}</td>
+            <td class="col-ct">{{ "%.1f"|format(s.ct_adr or 0) }}</td>
             <td>{{ "%.1f"|format(s.kast) }}%</td>
-            <td><b>{{ "%.2f"|format(s.rating) }}</b></td>
+            <td>{{ "%.1f"|format(s.impact) }}</td>
+            <td class="rt-cell col-overall " title="T: {{ "%.2f"|format(s.t_rating or 0) }} / CT: {{ "%.2f"|format(s.ct_rating or 0) }}"><b>{{ "%.2f"|format(s.rating) }}</b></td>
+            <td class="rt-cell col-t">{{ "%.2f"|format(s.t_rating or 0) }}</td>
+            <td class="rt-cell col-ct">{{ "%.2f"|format(s.ct_rating or 0) }}</td>
             <td>{{ "%.1f"|format(s.headshot_percentage) }}%</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
-    {% else %}<p style="color:var(--text-muted);">暂无数据</p >{% endif %}
+    {% else %}<p class="empty-state">暂无数据</p>{% endif %}
   </div>
 </div>
 
-<!-- 分图面板 -->
 {% for ms in map_scores %}
-<div class="detail-panel" id="panel-{{ loop.index }}">
-  <div class="card" style="margin-bottom:20px;border-radius:0 8px 8px 8px;padding:20px;">
-    <h3 class="section-title">{{ match.team1_name }}</h3>
+<div class="detail-panel" id="panel-{{ loop.index }}" role="tabpanel" aria-labelledby="tab-{{ loop.index }}">
+  <div class="detail-panel-body">
     {% if ms.team1_stats %}
-    <div class="stats-table">
-      <table>
-        <thead>
-          <tr><th>选手</th><th>K</th><th>D</th><th>A</th><th>+/-</th><th>ADR</th><th>KAST</th><th>Rating</th><th>HS%</th></tr>
-        </thead>
-        <tbody>
-          {% for s in ms.team1_stats %}
-          <tr>
-            <td><a href="/players/{{ s.player_id }}">{{ s.nickname }}</a ></td>
-            <td>{{ s.kills }}</td><td>{{ s.deaths }}</td><td>{{ s.assists }}</td>
-            <td>{{ s.kills - s.deaths }}</td>
-            <td>{{ "%.1f"|format(s.adr) }}</td>
-            <td>{{ "%.1f"|format(s.kast) }}%</td>
-            <td><b>{{ "%.2f"|format(s.rating) }}</b></td>
-            <td>{{ "%.1f"|format(s.headshot_percentage) }}%</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    {% else %}<p style="color:var(--text-muted);">此图暂无数据</p >{% endif %}
-
-    <h3 class="section-title" style="margin-top:24px;">{{ match.team2_name }}</h3>
+    <div class="stats-table"><table><thead><tr><th style="font-weight:400">{% if match.t1_logo %}<img loading="lazy" src="{{ url_for('static', filename='uploads/' + match.t1_logo) }}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:4px" alt="">{% else %}<span style="display:inline-block;width:20px;height:20px;border-radius:50%;background:var(--accent);color:#fff;text-align:center;line-height:20px;font-size:9px;font-weight:700;vertical-align:middle;margin-right:4px">{{ match.t1s[:2] }}</span>{% endif %}<span style="position:relative;top:1px;font-weight:400" data-i18n-ignore>{{ match.team1_name }}</span></th><th class="col-overall">K-D</th><th class="col-t">T K-D</th><th class="col-ct">CT K-D</th><th class="col-overall sortable" data-sort="kd">K/D</th><th class="col-t">T K/D</th><th class="col-ct">CT K/D</th><th class="col-overall sortable" data-sort="adr">ADR</th><th class="col-t">T ADR</th><th class="col-ct">CT ADR</th><th class="sortable" data-sort="kast">KAST</th><th class="sortable" data-sort="imp">IMP</th><th class="col-overall sortable sort-desc" data-sort="rating">评分</th><th class="col-t">T-RT</th><th class="col-ct">CT-RT</th><th class="sortable" data-sort="hs">HS%</th></tr></thead><tbody>
+    {% for s in ms.team1_stats %}
+    <tr><td><a href="/players/{{ s.player_id }}" data-i18n-ignore>{{ s.nickname }}</a></td><td class="kd-cell col-overall">{{ s.kills }}-{{ s.deaths }}</td><td class="kd-cell col-t">{{ s.t_kills }}-{{ s.t_deaths }}</td><td class="kd-cell col-ct">{{ s.ct_kills }}-{{ s.ct_deaths }}</td><td class="kd-cell col-overall {% if s.deaths > 0 and s.kills / s.deaths > 1.0 %}kd-pos{% elif s.deaths > 0 and s.kills / s.deaths < 1.0 %}kd-neg{% endif %}">{% if s.deaths > 0 %}{{ "%.2f"|format(s.kills / s.deaths) }}{% else %}-{% endif %}</td><td class="kd-cell col-t {% if s.t_deaths > 0 and s.t_kills / s.t_deaths > 1.0 %}kd-pos{% elif s.t_deaths > 0 and s.t_kills / s.t_deaths < 1.0 %}kd-neg{% endif %}">{% if s.t_deaths > 0 %}{{ "%.2f"|format(s.t_kills / s.t_deaths) }}{% else %}-{% endif %}</td><td class="kd-cell col-ct {% if s.ct_deaths > 0 and s.ct_kills / s.ct_deaths > 1.0 %}kd-pos{% elif s.ct_deaths > 0 and s.ct_kills / s.ct_deaths < 1.0 %}kd-neg{% endif %}">{% if s.ct_deaths > 0 %}{{ "%.2f"|format(s.ct_kills / s.ct_deaths) }}{% else %}-{% endif %}</td><td class="col-overall">{{ "%.1f"|format(s.adr) }}</td><td class="col-t">{{ "%.1f"|format(s.t_adr or 0) }}</td><td class="col-ct">{{ "%.1f"|format(s.ct_adr or 0) }}</td><td>{{ "%.1f"|format(s.kast) }}%</td><td>{{ "%.1f"|format(s.impact) }}</td><td class="rt-cell col-overall " title="T: {{ "%.2f"|format(s.t_rating or 0) }} / CT: {{ "%.2f"|format(s.ct_rating or 0) }}"><b>{{ "%.2f"|format(s.rating) }}</b></td><td class="rt-cell col-t">{{ "%.2f"|format(s.t_rating or 0) }}</td><td class="rt-cell col-ct">{{ "%.2f"|format(s.ct_rating or 0) }}</td><td>{{ "%.1f"|format(s.headshot_percentage) }}%</td></tr>
+    {% endfor %}
+    </tbody></table></div>
+    {% else %}<p class="empty-state">此图暂无数据</p>{% endif %}
     {% if ms.team2_stats %}
+    <div class="stats-table"><table><thead><tr><th style="font-weight:400">{% if match.t2_logo %}<img loading="lazy" src="{{ url_for('static', filename='uploads/' + match.t2_logo) }}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:4px" alt="">{% else %}<span style="display:inline-block;width:20px;height:20px;border-radius:50%;background:var(--accent);color:#fff;text-align:center;line-height:20px;font-size:9px;font-weight:700;vertical-align:middle;margin-right:4px">{{ match.t2s[:2] }}</span>{% endif %}<span style="position:relative;top:1px;font-weight:400" data-i18n-ignore>{{ match.team2_name }}</span></th><th class="col-overall">K-D</th><th class="col-t">T K-D</th><th class="col-ct">CT K-D</th><th class="col-overall sortable" data-sort="kd">K/D</th><th class="col-t">T K/D</th><th class="col-ct">CT K/D</th><th class="col-overall sortable" data-sort="adr">ADR</th><th class="col-t">T ADR</th><th class="col-ct">CT ADR</th><th class="sortable" data-sort="kast">KAST</th><th class="sortable" data-sort="imp">IMP</th><th class="col-overall sortable sort-desc" data-sort="rating">评分</th><th class="col-t">T-RT</th><th class="col-ct">CT-RT</th><th class="sortable" data-sort="hs">HS%</th></tr></thead><tbody>
+    {% for s in ms.team2_stats %}
+    <tr><td><a href="/players/{{ s.player_id }}" data-i18n-ignore>{{ s.nickname }}</a></td><td class="kd-cell col-overall">{{ s.kills }}-{{ s.deaths }}</td><td class="kd-cell col-t">{{ s.t_kills }}-{{ s.t_deaths }}</td><td class="kd-cell col-ct">{{ s.ct_kills }}-{{ s.ct_deaths }}</td><td class="kd-cell col-overall {% if s.deaths > 0 and s.kills / s.deaths > 1.0 %}kd-pos{% elif s.deaths > 0 and s.kills / s.deaths < 1.0 %}kd-neg{% endif %}">{% if s.deaths > 0 %}{{ "%.2f"|format(s.kills / s.deaths) }}{% else %}-{% endif %}</td><td class="kd-cell col-t {% if s.t_deaths > 0 and s.t_kills / s.t_deaths > 1.0 %}kd-pos{% elif s.t_deaths > 0 and s.t_kills / s.t_deaths < 1.0 %}kd-neg{% endif %}">{% if s.t_deaths > 0 %}{{ "%.2f"|format(s.t_kills / s.t_deaths) }}{% else %}-{% endif %}</td><td class="kd-cell col-ct {% if s.ct_deaths > 0 and s.ct_kills / s.ct_deaths > 1.0 %}kd-pos{% elif s.ct_deaths > 0 and s.ct_kills / s.ct_deaths < 1.0 %}kd-neg{% endif %}">{% if s.ct_deaths > 0 %}{{ "%.2f"|format(s.ct_kills / s.ct_deaths) }}{% else %}-{% endif %}</td><td class="col-overall">{{ "%.1f"|format(s.adr) }}</td><td class="col-t">{{ "%.1f"|format(s.t_adr or 0) }}</td><td class="col-ct">{{ "%.1f"|format(s.ct_adr or 0) }}</td><td>{{ "%.1f"|format(s.kast) }}%</td><td>{{ "%.1f"|format(s.impact) }}</td><td class="rt-cell col-overall " title="T: {{ "%.2f"|format(s.t_rating or 0) }} / CT: {{ "%.2f"|format(s.ct_rating or 0) }}"><b>{{ "%.2f"|format(s.rating) }}</b></td><td class="rt-cell col-t">{{ "%.2f"|format(s.t_rating or 0) }}</td><td class="rt-cell col-ct">{{ "%.2f"|format(s.ct_rating or 0) }}</td><td>{{ "%.1f"|format(s.headshot_percentage) }}%</td></tr>
+    {% endfor %}
+    </tbody></table></div>
+    {% else %}<p class="empty-state">此图暂无数据</p>{% endif %}
+  </div>
+</div>
+{% endfor %}
+
+{% endif %}
+{% endif %}
+
+{# ── 赛事数据 ── #}
+{% set any_played = shown_map_scores|length > 0 %}
+{% if show_match_stats and any_played %}
+{% set win_name = match.team1_name if t1_win else match.team2_name %}
+{% set win_stats = overall_t1 if t1_win else overall_t2 %}
+{% set win_logo = match.t1_logo if t1_win else match.t2_logo %}
+{% set win_sname = match.t1s if t1_win else match.t2s %}
+{% set lose_name = match.team2_name if t1_win else match.team1_name %}
+{% set lose_stats = overall_t2 if t1_win else overall_t1 %}
+{% set lose_logo = match.t2_logo if t1_win else match.t1_logo %}
+{% set lose_sname = match.t2s if t1_win else match.t1s %}
+
+<section class="match-stats-page">
+  <div class="match-stats-tabs" role="tablist" aria-label="比赛数据">
+    <button class="match-stats-tab active" type="button" role="tab" aria-selected="true" data-match-stat="overview" onclick="switchMatchStatsTab('overview')">总览</button>
+    <button class="match-stats-tab" type="button" role="tab" aria-selected="false" data-match-stat="performance" onclick="switchMatchStatsTab('performance')">表现</button>
+    <button class="match-stats-tab" type="button" role="tab" aria-selected="false" data-match-stat="economy" onclick="switchMatchStatsTab('economy')">经济 <small>测试</small></button>
+    <button class="match-stats-tab" type="button" role="tab" aria-selected="false" data-match-stat="heatmaps" onclick="switchMatchStatsTab('heatmaps')">热力图</button>
+  </div>
+
+  <div class="match-stats-content active" id="match-stat-overview" role="tabpanel">
+    <div class="match-stats-map-strip">
+      {% for ms in shown_map_scores %}
+      <button id="map-{{ ms.index }}" class="match-stat-map-card{% if loop.first %} active{% endif %}" type="button" style="background-image:linear-gradient(90deg,rgba(12,18,25,.82),rgba(12,18,25,.28)),url('{{ ms.name|map_background }}')" onclick="switchDetailTab({{ loop.index }})">
+        <span class="match-stat-map-meta">
+          <b>{{ ms.t1 }} - {{ ms.t2 }}</b>
+          <small>{{ ms.name|map_display_cn }}</small>
+        </span>
+      </button>
+      {% endfor %}
+    </div>
+
+    <div class="match-stats-overview-grid">
+      <article class="match-stat-summary-card">
+        <div class="match-stat-event" data-i18n-ignore>{{ match.event_name or '80GOTV' }}</div>
+        <div class="match-stat-date">{{ match.match_time|datetime_display if match.match_time else 'TBD' }}</div>
+        {% if shown_map_scores %}
+        <div class="match-stat-mini-score">
+          <div>
+            <b data-i18n-ignore>{{ match.t1s }}</b>
+            <strong class="{% if shown_map_scores[0].t1 > shown_map_scores[0].t2 %}score-win{% elif shown_map_scores[0].t1 < shown_map_scores[0].t2 %}score-lose{% endif %}">{{ shown_map_scores[0].t1 }}</strong>
+          </div>
+          <span>{{ shown_map_scores[0].name|map_display_cn }}</span>
+          <div>
+            <b data-i18n-ignore>{{ match.t2s }}</b>
+            <strong class="{% if shown_map_scores[0].t2 > shown_map_scores[0].t1 %}score-win{% elif shown_map_scores[0].t2 < shown_map_scores[0].t1 %}score-lose{% endif %}">{{ shown_map_scores[0].t2 }}</strong>
+          </div>
+        </div>
+        {% endif %}
+        <dl class="match-stat-breakdown">
+          <div><dt>队伍 RATING 2.0</dt><dd>{{ "%.2f"|format(match_breakdown.t1_rating) }} : {{ "%.2f"|format(match_breakdown.t2_rating) }}</dd></div>
+          <div><dt>首杀</dt><dd>{{ match_breakdown.t1_first_kills }} : {{ match_breakdown.t2_first_kills }}</dd></div>
+          <div><dt>残局获胜</dt><dd>{{ match_breakdown.t1_clutches }} : {{ match_breakdown.t2_clutches }}</dd></div>
+        </dl>
+      </article>
+
+      <div class="match-stat-highlight-grid">
+        {% for h in match_highlights %}
+        {% if h.player %}
+        <a class="match-stat-highlight" href="/players/{{ h.player.player_id }}">
+          <span class="match-stat-highlight-team" data-i18n-ignore>{{ h.player.team_short }}</span>
+          <span class="match-stat-highlight-name" data-i18n-ignore>{{ h.player.nickname }}</span>
+          <b class="{% if h.key == 'rating' %}rt-cell{% endif %}">{{ "%.2f"|format(h.player.get(h.key, 0)) if h.key in ['rating', 'adr'] else h.player.get(h.key, 0) }}</b>
+          <small>{{ h.label }}</small>
+        </a>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="match-stat-rounds">
+      <h3>地图记录</h3>
+      <div class="match-stat-roundline">
+        {% for ms in shown_map_scores %}
+        <span class="{% if ms.t1 > ms.t2 %}t1-win{% elif ms.t2 > ms.t1 %}t2-win{% endif %}" title="{{ ms.name|map_display_cn }} {{ ms.t1 }}:{{ ms.t2 }}">{{ ms.index }}</span>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="match-stat-performance">
+      <h3>表现 - RATING 2.0</h3>
+      <div class="match-rating-bars">
+        {% for p in match_performance_rows %}
+        <a class="match-rating-row" href="/players/{{ p.player_id }}">
+          <span data-i18n-ignore>{{ p.nickname }}</span>
+          <i><em style="width:{{ p.rating_bar }}%"></em></i>
+          <b class="rt-cell">{{ "%.2f"|format(p.rating) }}</b>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="match-stat-team-tables">
+      <section>
+        <h3 data-i18n-ignore>{{ match.team1_name }}</h3>
+        <div class="match-mini-table-wrap">
+          <table class="match-mini-table">
+            <thead><tr><th>选手</th><th>K-D</th><th>KAST</th><th>ADR</th><th>FK</th><th>RATING</th></tr></thead>
+            <tbody>
+              {% for s in overall_t1 %}
+              <tr>
+                <td><a href="/players/{{ s.player_id }}" data-i18n-ignore>{{ s.nickname }}</a></td>
+                <td>{{ s.kills }}-{{ s.deaths }}</td>
+                <td>{{ "%.1f"|format(s.kast) }}%</td>
+                <td>{{ "%.1f"|format(s.adr) }}</td>
+                <td>{{ s.first_kills }}</td>
+                <td class="rt-cell"><b>{{ "%.2f"|format(s.rating) }}</b></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <section>
+        <h3 data-i18n-ignore>{{ match.team2_name }}</h3>
+        <div class="match-mini-table-wrap">
+          <table class="match-mini-table">
+            <thead><tr><th>选手</th><th>K-D</th><th>KAST</th><th>ADR</th><th>FK</th><th>RATING</th></tr></thead>
+            <tbody>
+              {% for s in overall_t2 %}
+              <tr>
+                <td><a href="/players/{{ s.player_id }}" data-i18n-ignore>{{ s.nickname }}</a></td>
+                <td>{{ s.kills }}-{{ s.deaths }}</td>
+                <td>{{ "%.1f"|format(s.kast) }}%</td>
+                <td>{{ "%.1f"|format(s.adr) }}</td>
+                <td>{{ s.first_kills }}</td>
+                <td class="rt-cell"><b>{{ "%.2f"|format(s.rating) }}</b></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div class="match-stats-content" id="match-stat-performance" role="tabpanel">
+    <div class="match-stat-performance solo">
+      <h3>表现 - RATING 2.0</h3>
+      <div class="match-rating-bars">
+        {% for p in match_performance_rows %}
+        <a class="match-rating-row" href="/players/{{ p.player_id }}">
+          <span data-i18n-ignore>{{ p.nickname }}</span>
+          <i><em style="width:{{ p.rating_bar }}%"></em></i>
+          <b class="rt-cell">{{ "%.2f"|format(p.rating) }}</b>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="match-stats-content" id="match-stat-economy" role="tabpanel">
+    <p class="empty-state">暂无数据</p>
+  </div>
+
+  <div class="match-stats-content" id="match-stat-heatmaps" role="tabpanel">
+    <p class="empty-state">暂无数据</p>
+  </div>
+</section>
+
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+  <div class="mh-sec-head">比赛数据</div>
+  <div class="side-toggle" role="tablist" aria-label="数据视图切换" style="margin:0">
+    <button class="side-toggle-btn active" role="tab" aria-selected="true" data-side="overall" onclick="switchSideView('overall')">双方</button>
+    <button class="side-toggle-btn" role="tab" aria-selected="false" data-side="t" onclick="switchSideView('t')">T 方</button>
+    <button class="side-toggle-btn" role="tab" aria-selected="false" data-side="ct" onclick="switchSideView('ct')">CT 方</button>
+  </div>
+</div>
+
+<div class="detail-tabs" role="tablist" aria-label="地图数据切换" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;padding:0;margin-bottom:8px">
+  <button class="detail-tab active" role="tab" aria-selected="true" id="tab-0" aria-controls="panel-0" onclick="switchDetailTab(0)">全部地图</button>
+  {% for ms in shown_map_scores %}
+  <button class="detail-tab" role="tab" aria-selected="false" id="tab-{{ loop.index }}" aria-controls="panel-{{ loop.index }}" onclick="switchDetailTab({{ loop.index }})">{{ ms.name|map_display_cn }}</button>
+  {% endfor %}
+  <a href="/matches/{{ match.slug or match.id }}/detailed?map=all" class="detail-tab" style="margin-left:auto;text-decoration:none">详细数据</a>
+</div>
+
+<div class="detail-panel active" id="panel-0" role="tabpanel" aria-labelledby="tab-0">
+  <div class="detail-panel-body">
+    {% if win_stats %}
     <div class="stats-table">
       <table>
         <thead>
-          <tr><th>选手</th><th>K</th><th>D</th><th>A</th><th>+/-</th><th>ADR</th><th>KAST</th><th>Rating</th><th>HS%</th></tr>
+          <tr><th style="font-weight:400">{% if win_logo %}<img loading="lazy" src="{{ url_for('static', filename='uploads/' + win_logo) }}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:4px" alt="">{% else %}<span style="display:inline-block;width:20px;height:20px;border-radius:50%;background:var(--accent);color:#fff;text-align:center;line-height:20px;font-size:9px;font-weight:700;vertical-align:middle;margin-right:4px">{{ win_sname[:2] }}</span>{% endif %}<span style="position:relative;top:1px;font-weight:400" data-i18n-ignore>{{ win_name }}</span></th><th class="col-overall">K-D</th><th class="col-t">T K-D</th><th class="col-ct">CT K-D</th><th class="col-overall sortable" data-sort="kd">K/D</th><th class="col-t">T K/D</th><th class="col-ct">CT K/D</th><th class="col-overall sortable" data-sort="adr">ADR</th><th class="col-t">T ADR</th><th class="col-ct">CT ADR</th><th class="sortable" data-sort="kast">KAST</th><th class="sortable" data-sort="imp">IMP</th><th class="col-overall sortable sort-desc" data-sort="rating">RATING</th><th class="col-t">T-RT</th><th class="col-ct">CT-RT</th><th class="sortable" data-sort="hs">HS%</th></tr>
         </thead>
         <tbody>
-          {% for s in ms.team2_stats %}
+          {% for s in win_stats %}
           <tr>
-            <td><a href="/players/{{ s.player_id }}">{{ s.nickname }}</a ></td>
-            <td>{{ s.kills }}</td><td>{{ s.deaths }}</td><td>{{ s.assists }}</td>
-            <td>{{ s.kills - s.deaths }}</td>
-            <td>{{ "%.1f"|format(s.adr) }}</td>
+            <td><a href="/players/{{ s.player_id }}" data-i18n-ignore>{{ s.nickname }}</a></td>
+            <td class="kd-cell col-overall">{{ s.kills }}-{{ s.deaths }}</td>
+            <td class="kd-cell col-t">{{ s.t_kills }}-{{ s.t_deaths }}</td>
+            <td class="kd-cell col-ct">{{ s.ct_kills }}-{{ s.ct_deaths }}</td>
+            <td class="kd-cell col-overall {% if s.deaths > 0 and s.kills / s.deaths > 1.0 %}kd-pos{% elif s.deaths > 0 and s.kills / s.deaths < 1.0 %}kd-neg{% endif %}">{% if s.deaths > 0 %}{{ "%.2f"|format(s.kills / s.deaths) }}{% else %}-{% endif %}</td>
+            <td class="kd-cell col-t {% if s.t_deaths > 0 and s.t_kills / s.t_deaths > 1.0 %}kd-pos{% elif s.t_deaths > 0 and s.t_kills / s.t_deaths < 1.0 %}kd-neg{% endif %}">{% if s.t_deaths > 0 %}{{ "%.2f"|format(s.t_kills / s.t_deaths) }}{% else %}-{% endif %}</td>
+            <td class="kd-cell col-ct {% if s.ct_deaths > 0 and s.ct_kills / s.ct_deaths > 1.0 %}kd-pos{% elif s.ct_deaths > 0 and s.ct_kills / s.ct_deaths < 1.0 %}kd-neg{% endif %}">{% if s.ct_deaths > 0 %}{{ "%.2f"|format(s.ct_kills / s.ct_deaths) }}{% else %}-{% endif %}</td>
+            <td class="col-overall">{{ "%.1f"|format(s.adr) }}</td>
+            <td class="col-t">{{ "%.1f"|format(s.t_adr or 0) }}</td>
+            <td class="col-ct">{{ "%.1f"|format(s.ct_adr or 0) }}</td>
             <td>{{ "%.1f"|format(s.kast) }}%</td>
-            <td><b>{{ "%.2f"|format(s.rating) }}</b></td>
+            <td>{{ "%.1f"|format(s.impact) }}</td>
+            <td class="rt-cell col-overall " title="T: {{ "%.2f"|format(s.t_rating or 0) }} / CT: {{ "%.2f"|format(s.ct_rating or 0) }}"><b>{{ "%.2f"|format(s.rating) }}</b></td>
+            <td class="rt-cell col-t">{{ "%.2f"|format(s.t_rating or 0) }}</td>
+            <td class="rt-cell col-ct">{{ "%.2f"|format(s.ct_rating or 0) }}</td>
             <td>{{ "%.1f"|format(s.headshot_percentage) }}%</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
-    {% else %}<p style="color:var(--text-muted);">此图暂无数据</p >{% endif %}
+    {% else %}<p class="empty-state">暂无数据</p>{% endif %}
+
+    {% if lose_stats %}
+    <div class="stats-table">
+      <table>
+        <thead>
+          <tr><th style="font-weight:400">{% if lose_logo %}<img loading="lazy" src="{{ url_for('static', filename='uploads/' + lose_logo) }}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:4px" alt="">{% else %}<span style="display:inline-block;width:20px;height:20px;border-radius:50%;background:var(--accent);color:#fff;text-align:center;line-height:20px;font-size:9px;font-weight:700;vertical-align:middle;margin-right:4px">{{ lose_sname[:2] }}</span>{% endif %}<span style="position:relative;top:1px;font-weight:400" data-i18n-ignore>{{ lose_name }}</span></th><th class="col-overall">K-D</th><th class="col-t">T K-D</th><th class="col-ct">CT K-D</th><th class="col-overall sortable" data-sort="kd">K/D</th><th class="col-t">T K/D</th><th class="col-ct">CT K/D</th><th class="col-overall sortable" data-sort="adr">ADR</th><th class="col-t">T ADR</th><th class="col-ct">CT ADR</th><th class="sortable" data-sort="kast">KAST</th><th class="sortable" data-sort="imp">IMP</th><th class="col-overall sortable sort-desc" data-sort="rating">RATING</th><th class="col-t">T-RT</th><th class="col-ct">CT-RT</th><th class="sortable" data-sort="hs">HS%</th></tr>
+        </thead>
+        <tbody>
+          {% for s in lose_stats %}
+          <tr>
+            <td><a href="/players/{{ s.player_id }}" data-i18n-ignore>{{ s.nickname }}</a></td>
+            <td class="kd-cell col-overall">{{ s.kills }}-{{ s.deaths }}</td>
+            <td class="kd-cell col-t">{{ s.t_kills }}-{{ s.t_deaths }}</td>
+            <td class="kd-cell col-ct">{{ s.ct_kills }}-{{ s.ct_deaths }}</td>
+            <td class="kd-cell col-overall {% if s.deaths > 0 and s.kills / s.deaths > 1.0 %}kd-pos{% elif s.deaths > 0 and s.kills / s.deaths < 1.0 %}kd-neg{% endif %}">{% if s.deaths > 0 %}{{ "%.2f"|format(s.kills / s.deaths) }}{% else %}-{% endif %}</td>
+            <td class="kd-cell col-t {% if s.t_deaths > 0 and s.t_kills / s.t_deaths > 1.0 %}kd-pos{% elif s.t_deaths > 0 and s.t_kills / s.t_deaths < 1.0 %}kd-neg{% endif %}">{% if s.t_deaths > 0 %}{{ "%.2f"|format(s.t_kills / s.t_deaths) }}{% else %}-{% endif %}</td>
+            <td class="kd-cell col-ct {% if s.ct_deaths > 0 and s.ct_kills / s.ct_deaths > 1.0 %}kd-pos{% elif s.ct_deaths > 0 and s.ct_kills / s.ct_deaths < 1.0 %}kd-neg{% endif %}">{% if s.ct_deaths > 0 %}{{ "%.2f"|format(s.ct_kills / s.ct_deaths) }}{% else %}-{% endif %}</td>
+            <td class="col-overall">{{ "%.1f"|format(s.adr) }}</td>
+            <td class="col-t">{{ "%.1f"|format(s.t_adr or 0) }}</td>
+            <td class="col-ct">{{ "%.1f"|format(s.ct_adr or 0) }}</td>
+            <td>{{ "%.1f"|format(s.kast) }}%</td>
+            <td>{{ "%.1f"|format(s.impact) }}</td>
+            <td class="rt-cell col-overall " title="T: {{ "%.2f"|format(s.t_rating or 0) }} / CT: {{ "%.2f"|format(s.ct_rating or 0) }}"><b>{{ "%.2f"|format(s.rating) }}</b></td>
+            <td class="rt-cell col-t">{{ "%.2f"|format(s.t_rating or 0) }}</td>
+            <td class="rt-cell col-ct">{{ "%.2f"|format(s.ct_rating or 0) }}</td>
+            <td>{{ "%.1f"|format(s.headshot_percentage) }}%</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}<p class="empty-state">暂无数据</p>{% endif %}
+  </div>
+</div>
+
+{% for ms in shown_map_scores %}
+<div class="detail-panel" id="panel-{{ loop.index }}" role="tabpanel" aria-labelledby="tab-{{ loop.index }}">
+  <div class="detail-panel-body">
+    {% if ms.team1_stats %}
+    <div class="stats-table"><table><thead><tr><th style="font-weight:400">{% if match.t1_logo %}<img loading="lazy" src="{{ url_for('static', filename='uploads/' + match.t1_logo) }}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:4px" alt="">{% else %}<span style="display:inline-block;width:20px;height:20px;border-radius:50%;background:var(--accent);color:#fff;text-align:center;line-height:20px;font-size:9px;font-weight:700;vertical-align:middle;margin-right:4px">{{ match.t1s[:2] }}</span>{% endif %}<span style="position:relative;top:1px;font-weight:400" data-i18n-ignore>{{ match.team1_name }}</span></th><th class="col-overall">K-D</th><th class="col-t">T K-D</th><th class="col-ct">CT K-D</th><th class="col-overall sortable" data-sort="kd">K/D</th><th class="col-t">T K/D</th><th class="col-ct">CT K/D</th><th class="col-overall sortable" data-sort="adr">ADR</th><th class="col-t">T ADR</th><th class="col-ct">CT ADR</th><th class="sortable" data-sort="kast">KAST</th><th class="sortable" data-sort="imp">IMP</th><th class="col-overall sortable sort-desc" data-sort="rating">RATING</th><th class="col-t">T-RT</th><th class="col-ct">CT-RT</th><th class="sortable" data-sort="hs">HS%</th></tr></thead><tbody>
+    {% for s in ms.team1_stats %}
+    <tr><td><a href="/players/{{ s.player_id }}" data-i18n-ignore>{{ s.nickname }}</a></td><td class="kd-cell col-overall">{{ s.kills }}-{{ s.deaths }}</td><td class="kd-cell col-t">{{ s.t_kills }}-{{ s.t_deaths }}</td><td class="kd-cell col-ct">{{ s.ct_kills }}-{{ s.ct_deaths }}</td><td class="kd-cell col-overall {% if s.deaths > 0 and s.kills / s.deaths > 1.0 %}kd-pos{% elif s.deaths > 0 and s.kills / s.deaths < 1.0 %}kd-neg{% endif %}">{% if s.deaths > 0 %}{{ "%.2f"|format(s.kills / s.deaths) }}{% else %}-{% endif %}</td><td class="kd-cell col-t {% if s.t_deaths > 0 and s.t_kills / s.t_deaths > 1.0 %}kd-pos{% elif s.t_deaths > 0 and s.t_kills / s.t_deaths < 1.0 %}kd-neg{% endif %}">{% if s.t_deaths > 0 %}{{ "%.2f"|format(s.t_kills / s.t_deaths) }}{% else %}-{% endif %}</td><td class="kd-cell col-ct {% if s.ct_deaths > 0 and s.ct_kills / s.ct_deaths > 1.0 %}kd-pos{% elif s.ct_deaths > 0 and s.ct_kills / s.ct_deaths < 1.0 %}kd-neg{% endif %}">{% if s.ct_deaths > 0 %}{{ "%.2f"|format(s.ct_kills / s.ct_deaths) }}{% else %}-{% endif %}</td><td class="col-overall">{{ "%.1f"|format(s.adr) }}</td><td class="col-t">{{ "%.1f"|format(s.t_adr or 0) }}</td><td class="col-ct">{{ "%.1f"|format(s.ct_adr or 0) }}</td><td>{{ "%.1f"|format(s.kast) }}%</td><td>{{ "%.1f"|format(s.impact) }}</td><td class="rt-cell col-overall " title="T: {{ "%.2f"|format(s.t_rating or 0) }} / CT: {{ "%.2f"|format(s.ct_rating or 0) }}"><b>{{ "%.2f"|format(s.rating) }}</b></td><td class="rt-cell col-t">{{ "%.2f"|format(s.t_rating or 0) }}</td><td class="rt-cell col-ct">{{ "%.2f"|format(s.ct_rating or 0) }}</td><td>{{ "%.1f"|format(s.headshot_percentage) }}%</td></tr>
+    {% endfor %}
+    </tbody></table></div>
+    {% else %}<p class="empty-state">此图暂无数据</p>{% endif %}
+    {% if ms.team2_stats %}
+    <div class="stats-table"><table><thead><tr><th style="font-weight:400">{% if match.t2_logo %}<img loading="lazy" src="{{ url_for('static', filename='uploads/' + match.t2_logo) }}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:4px" alt="">{% else %}<span style="display:inline-block;width:20px;height:20px;border-radius:50%;background:var(--accent);color:#fff;text-align:center;line-height:20px;font-size:9px;font-weight:700;vertical-align:middle;margin-right:4px">{{ match.t2s[:2] }}</span>{% endif %}<span style="position:relative;top:1px;font-weight:400" data-i18n-ignore>{{ match.team2_name }}</span></th><th class="col-overall">K-D</th><th class="col-t">T K-D</th><th class="col-ct">CT K-D</th><th class="col-overall sortable" data-sort="kd">K/D</th><th class="col-t">T K/D</th><th class="col-ct">CT K/D</th><th class="col-overall sortable" data-sort="adr">ADR</th><th class="col-t">T ADR</th><th class="col-ct">CT ADR</th><th class="sortable" data-sort="kast">KAST</th><th class="sortable" data-sort="imp">IMP</th><th class="col-overall sortable sort-desc" data-sort="rating">RATING</th><th class="col-t">T-RT</th><th class="col-ct">CT-RT</th><th class="sortable" data-sort="hs">HS%</th></tr></thead><tbody>
+    {% for s in ms.team2_stats %}
+    <tr><td><a href="/players/{{ s.player_id }}" data-i18n-ignore>{{ s.nickname }}</a></td><td class="kd-cell col-overall">{{ s.kills }}-{{ s.deaths }}</td><td class="kd-cell col-t">{{ s.t_kills }}-{{ s.t_deaths }}</td><td class="kd-cell col-ct">{{ s.ct_kills }}-{{ s.ct_deaths }}</td><td class="kd-cell col-overall {% if s.deaths > 0 and s.kills / s.deaths > 1.0 %}kd-pos{% elif s.deaths > 0 and s.kills / s.deaths < 1.0 %}kd-neg{% endif %}">{% if s.deaths > 0 %}{{ "%.2f"|format(s.kills / s.deaths) }}{% else %}-{% endif %}</td><td class="kd-cell col-t {% if s.t_deaths > 0 and s.t_kills / s.t_deaths > 1.0 %}kd-pos{% elif s.t_deaths > 0 and s.t_kills / s.t_deaths < 1.0 %}kd-neg{% endif %}">{% if s.t_deaths > 0 %}{{ "%.2f"|format(s.t_kills / s.t_deaths) }}{% else %}-{% endif %}</td><td class="kd-cell col-ct {% if s.ct_deaths > 0 and s.ct_kills / s.ct_deaths > 1.0 %}kd-pos{% elif s.ct_deaths > 0 and s.ct_kills / s.ct_deaths < 1.0 %}kd-neg{% endif %}">{% if s.ct_deaths > 0 %}{{ "%.2f"|format(s.ct_kills / s.ct_deaths) }}{% else %}-{% endif %}</td><td class="col-overall">{{ "%.1f"|format(s.adr) }}</td><td class="col-t">{{ "%.1f"|format(s.t_adr or 0) }}</td><td class="col-ct">{{ "%.1f"|format(s.ct_adr or 0) }}</td><td>{{ "%.1f"|format(s.kast) }}%</td><td>{{ "%.1f"|format(s.impact) }}</td><td class="rt-cell col-overall " title="T: {{ "%.2f"|format(s.t_rating or 0) }} / CT: {{ "%.2f"|format(s.ct_rating or 0) }}"><b>{{ "%.2f"|format(s.rating) }}</b></td><td class="rt-cell col-t">{{ "%.2f"|format(s.t_rating or 0) }}</td><td class="rt-cell col-ct">{{ "%.2f"|format(s.ct_rating or 0) }}</td><td>{{ "%.1f"|format(s.headshot_percentage) }}%</td></tr>
+    {% endfor %}
+    </tbody></table></div>
+    {% else %}<p class="empty-state">此图暂无数据</p>{% endif %}
   </div>
 </div>
 {% endfor %}
 
 {% endif %}
 
-<a href="/events/{{ match.event_id }}" class="btn-back">← 返回赛事</a >
+{# ── 赛前投票 ── #}
+{% if (not show_match_stats) and match.effective_status not in ('completed', 'cancelled') %}
+<section class="vote-section">
+  <h3 class="section-title">🗳️ 赛前预测</h3>
+  {% set t1_pct = (vote_data.t1_count / vote_data.total * 100)|round|int if vote_data.total > 0 else 50 %}
+  {% set t2_pct = 100 - t1_pct %}
+  <div class="vote-bar-wrap">
+    <div class="vote-bar">
+      <div class="vote-bar-fill vote-bar-t1" style="width:{{ t1_pct }}%"></div>
+      <div class="vote-bar-fill vote-bar-t2" style="width:{{ t2_pct }}%"></div>
+    </div>
+    <div class="vote-labels">
+      <span class="vote-label-t1">{{ match.t1s }} {{ t1_pct }}% ({{ vote_data.t1_count }}票)</span>
+      <span class="vote-label-t2">{{ match.t2s }} {{ t2_pct }}% ({{ vote_data.t2_count }}票)</span>
+    </div>
+  </div>
+  {% if session.user_id %}
+    {% if vote_data.user_voted %}
+    <p class="vote-voted-hint">✅ 你已投票给 {{ match.t1s if vote_data.user_voted == 't1' else match.t2s }}</p>
+    {% else %}
+    <div class="vote-form-row">
+      <div class="vote-score-inputs">
+        <input type="number" class="vote-score-inp" id="score1" placeholder="?" min="0" max="99" style="width:48px;padding:4px 6px;text-align:center;border:1px solid var(--border-color);border-radius:0;background:var(--bg-hover);color:var(--text-primary);font-size:14px">
+        <span style="color:var(--text-muted)">:</span>
+        <input type="number" class="vote-score-inp" id="score2" placeholder="?" min="0" max="99" style="width:48px;padding:4px 6px;text-align:center;border:1px solid var(--border-color);border-radius:0;background:var(--bg-hover);color:var(--text-primary);font-size:14px">
+        <span style="font-size:11px;color:var(--text-muted)">比分(可选)</span>
+      </div>
+    </div>
+    <div class="vote-buttons">
+      <button class="vote-btn vote-btn-t1" data-vote="t1" onclick="submitVote(this)">🏆 {{ match.t1s }}</button>
+      <button class="vote-btn vote-btn-t2" data-vote="t2" onclick="submitVote(this)">🏆 {{ match.t2s }}</button>
+    </div>
+    {% endif %}
+  {% else %}
+  <p class="vote-login-hint"><a href="/login">登录</a> 后即可参与投票预测</p>
+  {% endif %}
+</section>
+{% endif %}
+
+<a href="/events/{{ match.event_id }}" class="btn-back">← 返回赛事</a>
+
+{% from '_comment_macros.html' import render_comment with context %}
 
 <style>
-.detail-tab {
-  padding:10px 20px;background:#e0e0e0;border:none;border-radius:8px 8px 0 0;
-  font-size:13px;font-weight:600;cursor:pointer;color:#666;transition:all 0.2s;
-}
-.detail-tab.active {background:var(--bg-card);color:var(--accent);}
-.detail-panel {display:none;}
-.detail-panel.active {display:block;}
+.comment-section,.comments{background:transparent!important;margin-top:48px!important;padding-top:12px!important;padding-bottom:12px!important}
+.comment-item{background:var(--bg-card)!important;padding:8px 12px!important}
+.comment-textarea,.comment-textarea-top,.reply-textarea{background:transparent!important}
+.comment-login-prompt{background:transparent!important}
 </style>
+<section class="comment-section" style="background:transparent!important">
+  <h3 style="color:var(--text-primary);margin-bottom:var(--space-lg)">评论</h3>
+
+  {% if session.user_id %}
+  <form method="post" action="/comment/match/{{ match.id }}" class="comment-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <textarea name="content" rows="3" placeholder="写下你的评论..." required class="comment-textarea"></textarea>
+    <div class="comment-form-footer">
+      <button type="submit" class="comment-submit">发表评论</button>
+    </div>
+  </form>
+  {% else %}
+  <div class="comment-login-prompt"><a href="/login">登录</a> 后即可发表评论</div>
+  {% endif %}
+
+  {% if comments %}
+  <div class="comment-list">
+    {% for c in comments %}{{ render_comment(c, session, 'match', match.id) }}{% endfor %}
+  </div>
+  {% else %}
+  <p class="empty-state">暂无评论</p>
+  {% endif %}
+</section>
+
 <script>
-function switchDetailTab(idx) {
-  document.querySelectorAll('.detail-tab').forEach((btn, i) => { btn.classList.toggle('active', i === idx); });
-  document.querySelectorAll('.detail-panel').forEach((p, i) => { p.classList.toggle('active', i === idx); });
+function submitVote(btn) {
+  var votedFor = btn.getAttribute('data-vote');
+  btn.disabled = true;
+  btn.textContent = '提交中...';
+  var formData = new FormData();
+  formData.append('voted_for', votedFor);
+  formData.append('csrf_token', window._csrfToken || '');
+  var s1 = document.getElementById('score1');
+  var s2 = document.getElementById('score2');
+  if (s1 && s1.value) formData.append('score1', s1.value);
+  if (s2 && s2.value) formData.append('score2', s2.value);
+  fetch('/matches/{{ match.slug or match.id|tojson }}/vote', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-Token': window._csrfToken },
+    body: formData
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (res.ok) {
+      location.reload();
+    } else {
+      showToast(res.msg, 'error');
+      btn.disabled = false;
+      btn.textContent = votedFor === 't1' ? '🏆 ' + {{ match.t1s|tojson }} : '🏆 ' + {{ match.t2s|tojson }};
+    }
+  })
+  .catch(function() {
+    showToast('网络错误，请重试', 'error');
+    btn.disabled = false;
+    btn.textContent = votedFor === 't1' ? '🏆 ' + {{ match.t1s|tojson }} : '🏆 ' + {{ match.t2s|tojson }};
+  });
 }
+
+function switchDetailTab(idx) {
+  document.querySelectorAll('.detail-tab').forEach(function(btn, i) {
+    btn.classList.toggle('active', i === idx);
+    btn.setAttribute('aria-selected', i === idx ? 'true' : 'false');
+  });
+  document.querySelectorAll('.detail-panel').forEach(function(p, i) {
+    p.classList.toggle('active', i === idx);
+  });
+}
+
+function switchMatchStatsTab(name) {
+  document.querySelectorAll('.match-stats-tab').forEach(function(btn) {
+    var active = btn.getAttribute('data-match-stat') === name;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
+  document.querySelectorAll('.match-stats-content').forEach(function(panel) {
+    panel.classList.toggle('active', panel.id === 'match-stat-' + name);
+  });
+  applyRatingColors();
+}
+
+function switchSideView(mode) {
+  document.querySelectorAll('.side-toggle-btn').forEach(function(btn) {
+    var match = btn.getAttribute('data-side') === mode;
+    btn.classList.toggle('active', match);
+    btn.setAttribute('aria-selected', match ? 'true' : 'false');
+  });
+  document.querySelectorAll('.stats-table').forEach(function(table) {
+    table.classList.toggle('side-overall', mode === 'overall');
+    table.classList.toggle('side-t', mode === 't');
+    table.classList.toggle('side-ct', mode === 'ct');
+    // 恢复默认排序（按 RATING 降序）
+    table.querySelectorAll('tbody').forEach(function(tbody) {
+      var rows = Array.from(tbody.querySelectorAll('tr'));
+      var colClass = mode === 't' ? '.col-t' : (mode === 'ct' ? '.col-ct' : '.col-overall');
+      rows.sort(function(a, b) {
+        var aVal = parseFloat((a.querySelector(colClass + '.rt-cell') || {}).textContent) || 0;
+        var bVal = parseFloat((b.querySelector(colClass + '.rt-cell') || {}).textContent) || 0;
+        return bVal - aVal;
+      });
+      rows.forEach(function(row) { tbody.appendChild(row); });
+    });
+    // 清除排序指示器
+    table.querySelectorAll('th.sort-asc, th.sort-desc').forEach(function(th) {
+      th.classList.remove('sort-asc', 'sort-desc');
+    });
+    // 标记 RATING 列为当前排序列
+    var rtTh = table.querySelector('th[data-sort="rating"]');
+    if (rtTh) rtTh.classList.add('sort-desc');
+  });
+}
+
+// 表格列排序
+function sortStatsTable(th) {
+  var table = th.closest('table');
+  var tbody = table.querySelector('tbody');
+  if (!tbody) return;
+  var colIdx = Array.from(th.parentNode.children).indexOf(th);
+  var isAsc = th.classList.contains('sort-asc');
+
+  // 清除当前表格所有排序指示
+  table.querySelectorAll('th.sort-asc, th.sort-desc').forEach(function(h) {
+    h.classList.remove('sort-asc', 'sort-desc');
+  });
+
+  // 设置新的排序方向
+  th.classList.add(isAsc ? 'sort-desc' : 'sort-asc');
+
+  var rows = Array.from(tbody.querySelectorAll('tr'));
+  rows.sort(function(a, b) {
+    var aTd = a.children[colIdx];
+    var bTd = b.children[colIdx];
+    var aVal = parseFloat(aTd ? (aTd.getAttribute('data-val') || aTd.textContent) : '') || 0;
+    var bVal = parseFloat(bTd ? (bTd.getAttribute('data-val') || bTd.textContent) : '') || 0;
+    return isAsc ? (aVal - bVal) : (bVal - aVal);
+  });
+  rows.forEach(function(row) { tbody.appendChild(row); });
+  applyRatingColors();
+}
+
+function applyRatingColors() {
+  document.querySelectorAll('.rt-cell').forEach(function(cell) {
+    var val = parseFloat(cell.textContent.trim());
+    if (isNaN(val) || val === 0) return;
+    cell.classList.remove('rt-1','rt-2','rt-3','rt-4','rt-5');
+    if (val >= 1.05)      cell.classList.add('rt-4');
+    else if (val >= 0.95) cell.classList.add('rt-3');
+    else                  cell.classList.add('rt-1');
+  });
+}
+applyRatingColors();
+
+function copyConnect(addr, pwd) {
+  var cmd = 'connect ' + addr + '; password ' + pwd;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(cmd).then(function() {
+      var btn = event.target;
+      var orig = btn.textContent;
+      btn.textContent = '已复制!';
+      setTimeout(function() { btn.textContent = orig; }, 2000);
+    });
+  } else {
+    var ta = document.createElement('textarea');
+    ta.value = cmd; ta.style.position = 'fixed'; ta.style.left = '-9999px';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    var btn = event.target;
+    var orig = btn.textContent;
+    btn.textContent = '已复制!';
+    setTimeout(function() { btn.textContent = orig; }, 2000);
+  }
+}
+
+// 表头点击排序
+document.addEventListener('click', function(e) {
+  var th = e.target.closest('th.sortable');
+  if (th) sortStatsTable(th);
+});
 </script>
 {% endblock %}
 
 {% block side %}
-<h3 class="section-title">地图池</h3>
+
+<h3 class="section-title">赛事</h3>
 <div class="card small">
-  {% for ms in map_scores %}
-  <div style="margin-bottom:4px;">
-    <span style="font-weight:600;">图 {{ ms.index }}：</span>{{ ms.name }}
-    <span style="color:var(--text-muted);"> ({{ ms.t1 }}:{{ ms.t2 }})</span>
-  </div>
-  {% endfor %}
-  {% if not map_scores %}
-  <div>暂无数据</div>
+  {% if sidebar_events %}
+    {% for ev in sidebar_events %}
+    <a href="/events/{{ ev.id }}" class="sidebar-event-item">
+      <span class="sidebar-event-status {{ ev.effective_event_status }}">{{
+        '进行中' if ev.effective_event_status == 'ongoing' else
+        '即将' if ev.effective_event_status == 'upcoming' else
+        '已结束' }}</span>
+      <span class="sidebar-event-name">{{ ev.name }}</span>
+    </a>
+    {% endfor %}
+  {% else %}
+  <div class="empty-state">暂无赛事</div>
   {% endif %}
 </div>
+
+<h3 class="section-title">比赛</h3>
+<div class="card small">
+  {% if sidebar_matches %}
+    {% for m in sidebar_matches %}
+    <a href="/matches/{{ m.slug or m.id }}" class="sidebar-event-item">
+      <span class="sidebar-event-status {{ m.effective_status }}">{{
+        '即将' if m.effective_status == 'upcoming' else
+        '进行中' if m.effective_status == 'live' else
+        '已取消' if m.effective_status == 'cancelled' else
+        '已结束' }}</span>
+      <span class="sidebar-event-name">{{ (m.team1_name or '队伍 1') ~ ' vs ' ~ (m.team2_name or '队伍 2') }}</span>
+    </a>
+    {% endfor %}
+  {% else %}
+  <div class="empty-state">暂无比赛</div>
+  {% endif %}
+</div>
+
+<h3 class="section-title">新闻</h3>
+<div class="card small">
+  {% if sidebar_news %}
+    {% for n in sidebar_news %}
+    <a href="/news/{{ n.id }}" class="sidebar-event-item">
+      <span class="sidebar-event-name">{{ n.title }}</span>
+    </a>
+    {% endfor %}
+  {% else %}
+  <div class="empty-state">暂无新闻</div>
+  {% endif %}
+</div>
+
 {% endblock %}

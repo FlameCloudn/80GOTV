@@ -2,76 +2,75 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>录入比赛数据</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     body{font-family:sans-serif;background:#f5f5f5}
-    
+
     .top-nav{
-      background:white;border-bottom:2px solid #ff5722;
+      background:white;border-bottom:2px solid #5881bc;
       padding:15px 30px;display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;
     }
-    .top-nav .logo{font-size:18px;font-weight:bold;color:#ff5722}
+    .top-nav .logo{font-size:18px;font-weight:bold;color:#5881bc}
     .top-nav .nav-links{display:flex;gap:20px;align-items:center}
-    .top-nav a{color:#333;text-decoration:none;padding:8px 15px;border-radius:4px;transition:all 0.2s}
-    .top-nav a:hover{background:#f5f5f5;color:#ff5722}
-    .top-nav .logout-btn{background:#ff5722;color:white;padding:8px 15px;border-radius:4px}
-    .top-nav .logout-btn:hover{background:#e64a19}
-    
-    .container{padding:0 30px 30px}
-    .match-info{background:white;padding:20px;border-radius:8px;margin-bottom:20px}
+    .top-nav a{color:#333;text-decoration:none;padding:8px 15px;border-radius:0;transition:all 0.2s}
+    .top-nav a:hover{background:#f5f5f5;color:#5881bc}
+    .top-nav .logout-btn{background:#5881bc;color:white;padding:8px 15px;border-radius:0;padding:20px;border-radius:0;margin-bottom:20px}
     .match-info p{margin-bottom:8px;font-size:14px}
-    .match-info b{color:#ff5722}
-    
+    .match-info b{color:#5881bc}
+
     /* Tab 导航 */
     .tab-nav{display:flex;gap:4px;margin-bottom:0}
     .tab-btn{
-      padding:12px 24px;background:#e0e0e0;border:none;border-radius:8px 8px 0 0;
+      padding:12px 24px;background:#e0e0e0;border:none;border-radius:0;
       font-size:14px;font-weight:600;cursor:pointer;color:#666;transition:all 0.2s;
       position:relative;
     }
-    .tab-btn.active{background:white;color:#ff5722}
+    .tab-btn.active{background:white;color:#5881bc}
     .tab-btn.disabled{opacity:0.5;cursor:not-allowed;color:#999}
     .tab-btn .dot{
-      display:inline-block;width:8px;height:8px;border-radius:50%;background:#1db954;
+      display:inline-block;width:8px;height:8px;border-radius:0;background:#1db954;
       margin-left:6px;vertical-align:middle;
     }
-    
+
     /* Tab 内容 */
     .tab-content{display:none}
     .tab-content.active{display:block}
     .tab-panel{
-      background:white;border-radius:0 8px 8px 8px;padding:20px;
+      background:white;border-radius:0;padding:20px;
       margin-bottom:30px;
     }
     .tba-message{
       text-align:center;padding:40px;color:#999;font-size:16px;
     }
-    
+
     h3{margin:20px 0 12px;color:#333;font-size:16px}
     .stats-table{overflow-x:auto;margin-bottom:20px}
-    table{width:100%;border-collapse:collapse}
-    th{background:#f5f5f5;padding:10px 8px;text-align:left;font-weight:600;font-size:13px;border-bottom:2px solid #ddd}
-    td{padding:8px;border-bottom:1px solid #eee}
-    td input{width:70px;padding:6px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px}
-    td input:focus{outline:none;border-color:#ff5722}
+    table{width:100%;border-collapse:collapse;table-layout:fixed}
+    th{background:#f5f5f5;padding:10px 8px;text-align:center;font-weight:600;font-size:13px;border-bottom:2px solid #ddd}
+    th:first-child{text-align:left}
+    td{padding:8px;border-bottom:1px solid #eee;text-align:center}
+    td:first-child{text-align:left;font-weight:600}
+    td input{width:64px;padding:6px 4px;border:1px solid #ddd;border-radius:0;font-size:13px;text-align:center}
+    td input:focus{outline:none;border-color:#5881bc}
     .form-actions{display:flex;gap:10px;margin-top:20px}
-    .btn{padding:12px 24px;border:none;border-radius:4px;font-size:14px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block}
-    .btn-primary{background:#ff5722;color:white}
-    .btn-primary:hover{background:#e64a19}
+    .btn{padding:12px 24px;border:none;border-radius:0;font-size:14px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block}
+    .btn-primary{background:#5881bc;color:white}
+    .btn-primary:hover{background:#4a6fa3}
     .btn-secondary{background:#ddd;color:#333}
     .btn-secondary:hover{background:#ccc}
-    .alert{padding:12px 20px;margin-bottom:20px;border-radius:4px}
-    .alert-success{background:#d4edda;color:#155724}
+    .alert{padding:12px 20px;margin-bottom:20px;border-radius:0;color:#155724}
     .alert-error{background:#f8d7da;color:#721c24}
   </style>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-comfort.css') }}">
 </head>
 <body>
 
 <div class="top-nav">
   <div class="logo">🎮 CS2 后台管理</div>
   <div class="nav-links">
-    <a href=" ">📊 首页</a >
+    <a href="/admin">📊 首页</a>
     <a href="/admin/teams">👥 队伍</a >
     <a href="/admin/players">🎯 选手</a >
     <a href="/admin/events">🏆 赛事</a >
@@ -95,9 +94,28 @@
   <div class="match-info">
     <h2>📊 录入比赛数据</h2>
     <p><b>赛事：</b>{{ match.event_name }}</p >
-    <p><b>对阵：</b>{{ match.team1_name }} vs {{ match.team2_name }}</p >
+    <p><b>对阵：</b>{{ match.team1_name }} 对 {{ match.team2_name }}</p >
     <p><b>比分：</b>{{ match.team1_score }} : {{ match.team2_score }}</p >
-    <p><b>时间：</b>{{ match.match_time[:16] }}</p >
+    <p><b>时间：</b>{{ match.match_time|datetime_display }}</p >
+    {% if not readonly %}
+    <div style="margin-top:12px">
+      <a href="/admin/matches/{{ match.id }}/import-demo" class="btn btn-primary" style="font-size:13px;padding:8px 16px">
+        📥 从 Demo 导入数据
+      </a>
+    </div>
+    {% endif %}
+    {% if match.demo_file %}
+    {% set dl = match.demo_file|json_loads %}
+    {% if dl %}
+    <div style="margin-top:8px">
+      <strong>已保存 Demo：</strong>
+      {% for df in dl %}
+      <a href="/matches/{{ match.slug or match.id }}/download-demo?slot={{ loop.index0 }}"
+         class="btn btn-primary" style="font-size:12px;padding:6px 12px;margin-left:6px">下载 {{ df }}</a>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% endif %}
   </div>
 
   <!-- Tab 导航 -->
@@ -106,7 +124,7 @@
     <button class="tab-btn {% if m.disabled %}disabled{% endif %} {% if loop.index0 == active_tab %}active{% endif %}"
             {% if m.disabled %}disabled{% endif %}
             onclick="switchTab({{ loop.index0 }})">
-      {% if m.name %}图{{ loop.index }}：{{ m.name }}{% else %}图{{ loop.index }}：TBA{% endif %}
+      {% if m.name %}图{{ loop.index }}：{{ m.name|map_display }}{% else %}图{{ loop.index }}：TBA{% endif %}
       {% if m.has_data %}<span class="dot"></span>{% endif %}
     </button>
     {% endfor %}
@@ -117,17 +135,19 @@
   <div class="tab-content {% if loop.index0 == active_tab %}active{% endif %}" id="tab-{{ loop.index0 }}">
     <div class="tab-panel">
       {% if m.disabled %}
-      <div class="tba-message">⏳ 地图待定，BP 结束后可录入数据</div>
+      <div class="tba-message">⏳ TBA，BP 结束后可录入数据</div>
       {% else %}
       <form method="post">
-        <input type="hidden" name="map_name" value="{{ m.name }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+        <input type="hidden" name="map_name" value="{{ m.name if m.name else '' }}">
 
         <h3>{{ match.team1_name }} 选手数据</h3>
         <div class="stats-table">
           <table>
             <thead>
               <tr>
-                <th>选手</th><th>K</th><th>D</th><th>A</th><th>ADR</th><th>Rating</th><th>KAST%</th><th>HS%</th>
+                <th>选手</th><th>K</th><th>D</th><th>A</th><th>ADR</th><th>影响力</th><th>RATING</th><th>KAST%</th><th>HS%</th>
               </tr>
             </thead>
             <tbody>
@@ -135,15 +155,16 @@
               {% set s = m.stats.get(p.id) %}
               <tr>
                 <td>{{ p.nickname }}</td>
-                <td><input type="number" name="kills_{{ p.id }}" value="{{ s.kills if s else 0 }}" min="0"></td>
-                <td><input type="number" name="deaths_{{ p.id }}" value="{{ s.deaths if s else 0 }}" min="0"></td>
-                <td><input type="number" name="assists_{{ p.id }}" value="{{ s.assists if s else 0 }}" min="0"></td>
-                <td><input type="number" step="0.1" name="adr_{{ p.id }}" value="{{ s.adr if s else 0 }}" min="0"></td>
-                <td><input type="number" step="0.01" name="rating_{{ p.id }}" value="{{ s.rating if s else 1.0 }}" min="0"></td>
-                <td><input type="number" step="0.1" name="kast_{{ p.id }}" value="{{ s.kast if s else 70 }}" min="0" max="100"></td>
-                <td><input type="number" step="0.1" name="hs_{{ p.id }}" value="{{ s.headshot_percentage if s else 50 }}" min="0" max="100"></td>
+                <td><input type="number" name="kills_{{ p.id }}" value="{{ s.kills if s else 0 }}" min="0" {% if readonly %}readonly style="background:#f5f5f5"{% endif %}></td>
+                <td><input type="number" name="deaths_{{ p.id }}" value="{{ s.deaths if s else 0 }}" min="0" {% if readonly %}readonly style="background:#f5f5f5"{% endif %}></td>
+                <td><input type="number" name="assists_{{ p.id }}" value="{{ s.assists if s else 0 }}" min="0" {% if readonly %}readonly style="background:#f5f5f5"{% endif %}></td>
+                <td><input type="number" step="0.1" name="adr_{{ p.id }}" value="{{ s.adr if s else 0 }}" min="0" {% if readonly %}readonly style="background:#f5f5f5"{% endif %}></td>
+                <td><input type="number" step="0.01" name="impact_{{ p.id }}" value="{{ s.impact if s else 0 }}" min="0" {% if readonly %}readonly style="background:#f5f5f5"{% endif %}></td>
+                <td><input type="number" step="0.01" name="rating_{{ p.id }}" value="{{ s.rating if s else 1.0 }}" min="0" readonly style="background:#f5f5f5"></td>
+                <td><input type="number" step="0.1" name="kast_{{ p.id }}" value="{{ s.kast if s else 70 }}" min="0" max="100" {% if readonly %}readonly style="background:#f5f5f5"{% endif %}></td>
+                <td><input type="number" step="0.1" name="hs_{{ p.id }}" value="{{ s.headshot_percentage if s else 50 }}" min="0" max="100" {% if readonly %}readonly style="background:#f5f5f5"{% endif %}></td>
                 <input type="hidden" name="player_id_{{ p.id }}" value="{{ p.id }}">
-                <input type="hidden" name="team_id_{{ p.id }}" value="{{ match.team1_id }}">
+                <input type="hidden" name="team_id_{{ p.id }}" value="{{ match.team1_id if match.team1_id else -1 }}">
               </tr>
               {% endfor %}
             </tbody>
@@ -155,7 +176,7 @@
           <table>
             <thead>
               <tr>
-                <th>选手</th><th>K</th><th>D</th><th>A</th><th>ADR</th><th>Rating</th><th>KAST%</th><th>HS%</th>
+                <th>选手</th><th>K</th><th>D</th><th>A</th><th>ADR</th><th>影响力</th><th>RATING</th><th>KAST%</th><th>HS%</th>
               </tr>
             </thead>
             <tbody>
@@ -163,25 +184,32 @@
               {% set s = m.stats.get(p.id) %}
               <tr>
                 <td>{{ p.nickname }}</td>
-                <td><input type="number" name="kills_{{ p.id }}" value="{{ s.kills if s else 0 }}" min="0"></td>
-                <td><input type="number" name="deaths_{{ p.id }}" value="{{ s.deaths if s else 0 }}" min="0"></td>
-                <td><input type="number" name="assists_{{ p.id }}" value="{{ s.assists if s else 0 }}" min="0"></td>
-                <td><input type="number" step="0.1" name="adr_{{ p.id }}" value="{{ s.adr if s else 0 }}" min="0"></td>
-                <td><input type="number" step="0.01" name="rating_{{ p.id }}" value="{{ s.rating if s else 1.0 }}" min="0"></td>
-                <td><input type="number" step="0.1" name="kast_{{ p.id }}" value="{{ s.kast if s else 70 }}" min="0" max="100"></td>
-                <td><input type="number" step="0.1" name="hs_{{ p.id }}" value="{{ s.headshot_percentage if s else 50 }}" min="0" max="100"></td>
+                <td><input type="number" name="kills_{{ p.id }}" value="{{ s.kills if s else 0 }}" min="0" {% if readonly %}readonly style="background:#f5f5f5"{% endif %}></td>
+                <td><input type="number" name="deaths_{{ p.id }}" value="{{ s.deaths if s else 0 }}" min="0" {% if readonly %}readonly style="background:#f5f5f5"{% endif %}></td>
+                <td><input type="number" name="assists_{{ p.id }}" value="{{ s.assists if s else 0 }}" min="0" {% if readonly %}readonly style="background:#f5f5f5"{% endif %}></td>
+                <td><input type="number" step="0.1" name="adr_{{ p.id }}" value="{{ s.adr if s else 0 }}" min="0" {% if readonly %}readonly style="background:#f5f5f5"{% endif %}></td>
+                <td><input type="number" step="0.01" name="impact_{{ p.id }}" value="{{ s.impact if s else 0 }}" min="0" {% if readonly %}readonly style="background:#f5f5f5"{% endif %}></td>
+                <td><input type="number" step="0.01" name="rating_{{ p.id }}" value="{{ s.rating if s else 1.0 }}" min="0" readonly style="background:#f5f5f5"></td>
+                <td><input type="number" step="0.1" name="kast_{{ p.id }}" value="{{ s.kast if s else 70 }}" min="0" max="100" {% if readonly %}readonly style="background:#f5f5f5"{% endif %}></td>
+                <td><input type="number" step="0.1" name="hs_{{ p.id }}" value="{{ s.headshot_percentage if s else 50 }}" min="0" max="100" {% if readonly %}readonly style="background:#f5f5f5"{% endif %}></td>
                 <input type="hidden" name="player_id_{{ p.id }}" value="{{ p.id }}">
-                <input type="hidden" name="team_id_{{ p.id }}" value="{{ match.team2_id }}">
+                <input type="hidden" name="team_id_{{ p.id }}" value="{{ match.team2_id if match.team2_id else -2 }}">
               </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
 
+        {% if not readonly %}
         <div class="form-actions">
           <button type="submit" class="btn btn-primary">💾 保存此图数据</button>
           <a href="/admin/matches" class="btn btn-secondary">❌ 返回</a >
         </div>
+        {% else %}
+        <div class="form-actions">
+          <a href="/admin/matches" class="btn btn-secondary">❌ 返回</a >
+        </div>
+        {% endif %}
       </form>
       {% endif %}
     </div>
@@ -199,5 +227,7 @@ function switchTab(idx) {
   });
 }
 </script>
+<script src="{{ url_for('static', filename='js/i18n.js') }}?v=20260614-fullsite-lang2"></script>
+<script src="{{ url_for('static', filename='js/svg_icons.js') }}?v=20260620-svg1"></script>
 </body>
 </html>

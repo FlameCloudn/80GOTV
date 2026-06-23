@@ -1,0 +1,160 @@
+{% extends 'base.html' %}
+{% block title %}{{ event.name }} 赛事数据 - 80GOTV{% endblock %}
+{% block main %}
+<div class="event-header">
+  <h1>{{ event.name }}</h1>
+  <div class="event-meta">
+    <span>{{ event.start_date|date_display }} ~ {{ event.end_date|date_display }}</span>
+    <span>{{ event.format }}</span>
+  </div>
+</div>
+
+<div class="tab-nav" style="display:flex;gap:4px;margin-bottom:var(--space-lg)">
+  <a href="/events/{{ event.id }}" class="tab-btn" style="padding:10px 20px;border-radius:0;font-size:14px;font-weight:600;text-decoration:none;background:transparent;color:var(--text-muted);border:1px solid transparent">对阵图</a>
+  <a href="/events/{{ event.id }}/stats" class="tab-btn active" style="padding:10px 20px;border-radius:0;font-size:14px;font-weight:600;text-decoration:none;background:var(--bg-card);color:var(--accent);border:1px solid var(--border-color);border-bottom-color:var(--bg-card)">赛事数据</a>
+</div>
+
+{% if rankings %}
+<h3 class="section-title">选手排行榜</h3>
+<div class="stats-table h-table-panel">
+  <table>
+    <thead>
+      <tr>
+        <th>#</th><th>选手</th><th>队伍</th><th>场次</th>
+        <th class="sortable sort-desc" data-sort="rating">RATING</th>
+        <th class="sortable" data-sort="kd">K/D</th>
+        <th class="sortable" data-sort="adr">ADR</th>
+        <th class="sortable" data-sort="kast">KAST</th>
+        <th class="sortable" data-sort="impact">IMP</th>
+        <th class="sortable" data-sort="hs">HS%</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rankings %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td><a href="/players/{{ r.id }}">{{ r.nickname }}</a></td>
+        <td>{{ r.team or '-' }}</td>
+        <td>{{ r.matches }}</td>
+        <td class="rt-cell" data-val="{{ r.rating }}"><b>{{ "%.2f"|format(r.rating) }}</b></td>
+        <td data-val="{{ r.kd }}">{{ "%.2f"|format(r.kd) if r.kd else '-' }}</td>
+        <td data-val="{{ r.adr }}">{{ "%.1f"|format(r.adr) }}</td>
+        <td data-val="{{ r.kast }}">{{ "%.1f"|format(r.kast) }}%</td>
+        <td data-val="{{ r.impact }}">{{ "%.1f"|format(r.impact) }}</td>
+        <td data-val="{{ r.hs }}">{{ "%.1f"|format(r.hs) }}%</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if team_rankings %}
+<h3 class="section-title">队伍排名</h3>
+<div class="stats-table h-table-panel">
+  <table>
+    <thead>
+      <tr>
+        <th>#</th><th>队伍</th><th>比赛数</th><th>胜场</th><th>胜率</th><th>场均得分</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in team_rankings %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td><b>{{ t.team_short or t.team_name }}</b></td>
+        <td>{{ t.match_count }}</td>
+        <td>{{ t.wins }}</td>
+        <td>
+          {% if t.match_count > 0 %}
+          {% set wr = (t.wins / t.match_count * 100)|round|int %}
+          <span style="font-weight:700;color:{% if wr >= 60 %}#22c55e{% elif wr >= 40 %}#eab308{% else %}#ef4444{% endif %}">{{ wr }}%</span>
+          {% else %}-{% endif %}
+        </td>
+        <td>{{ "%.1f"|format(t.avg_score) if t.avg_score else '-' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if map_stats %}
+<h3 class="section-title">地图统计</h3>
+<div class="stats-table h-table-panel">
+  <table>
+    <thead>
+      <tr><th>地图</th><th>出场次数</th><th>场均 RATING</th><th>场均 K/D</th></tr>
+    </thead>
+    <tbody>
+      {% for ms in map_stats %}
+      <tr>
+        <td><b>{{ ms.map_name|map_display }}</b></td>
+        <td>{{ ms.times_played }}</td>
+        <td class="rt-cell {{ ms.avg_rating|rating_class }}" data-val="{{ ms.avg_rating }}"><b>{{ "%.2f"|format(ms.avg_rating) }}</b></td>
+        <td>{{ "%.2f"|format(ms.avg_kd) if ms.avg_kd else '-' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if not rankings and not team_rankings %}
+<div class="empty-state">该赛事暂无统计数据</div>
+{% endif %}
+
+{% endblock %}
+
+{% block side %}
+<section class="h-panel">
+<div class="h-panel-title">赛事信息</div>
+<div class="card small h-side-card">
+  <div><b>赛制：</b>{{ event.format }}</div>
+  <div><b>队伍数：</b>{{ event.total_teams or '-' }}</div>
+</div>
+</section>
+{% endblock %}
+
+{% block extra_js %}<script>
+function sortStatsTable(th) {
+  var table = th.closest('table');
+  var tbody = table.querySelector('tbody');
+  if (!tbody) return;
+  var colIdx = Array.from(th.parentNode.children).indexOf(th);
+  var isAsc = th.classList.contains('sort-asc');
+  table.querySelectorAll('th.sort-asc, th.sort-desc').forEach(function(h) {
+    h.classList.remove('sort-asc', 'sort-desc');
+  });
+  th.classList.add(isAsc ? 'sort-desc' : 'sort-asc');
+  var rows = Array.from(tbody.querySelectorAll('tr'));
+  rows.sort(function(a, b) {
+    var aTd = a.children[colIdx];
+    var bTd = b.children[colIdx];
+    var aVal = parseFloat(aTd ? (aTd.getAttribute('data-val') || aTd.textContent) : '') || 0;
+    var bVal = parseFloat(bTd ? (bTd.getAttribute('data-val') || bTd.textContent) : '') || 0;
+    return isAsc ? (aVal - bVal) : (bVal - aVal);
+  });
+  rows.forEach(function(row, i) {
+    row.firstElementChild.textContent = i + 1;
+    tbody.appendChild(row);
+  });
+  applyRatingColors();
+}
+function applyRatingColors() {
+  document.querySelectorAll('.rt-cell').forEach(function(cell) {
+    var val = parseFloat(cell.textContent.trim());
+    if (isNaN(val) || val === 0) return;
+    cell.classList.remove('rt-1','rt-2','rt-3','rt-4','rt-5');
+    if (val >= 1.05)      cell.classList.add('rt-4');
+    else if (val >= 0.95) cell.classList.add('rt-3');
+    else                  cell.classList.add('rt-1');
+  });
+}
+document.addEventListener('click', function(e) {
+  var th = e.target.closest('th.sortable');
+  if (th) sortStatsTable(th);
+});
+applyRatingColors();
+</script>
+{% endblock %}

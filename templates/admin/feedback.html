@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}用户反馈 — 80GOTV{% endblock %}
+{% block head %}
+<style>
+  .fb-table{width:100%;border-collapse:collapse;font-size:14px}
+  .fb-table th{background:var(--bg,#f5f5f5);padding:10px 8px;text-align:left;border-bottom:2px solid var(--border,#ddd)}
+  .fb-table td{padding:10px 8px;border-bottom:1px solid var(--border,#eee);vertical-align:top}
+  .fb-table tr:hover{background:var(--bg,#fafafa)}
+  .fb-tag{display:inline-block;padding:2px 8px;border-radius:3px;font-size:12px;font-weight:600}
+  .fb-tag-bug{background:#fde8e8;color:#c0392b}
+  .fb-tag-suggestion{background:#e8f4fd;color:#2980b9}
+  .fb-tag-question{background:#fef3e0;color:#e67e22}
+  .fb-tag-other{background:#eee;color:#666}
+  .fb-status-open{border-left:3px solid #5881bc}
+  .fb-status-closed{border-left:3px solid #ccc;opacity:0.6}
+  .fb-reply{background:var(--bg,#f9f9f9);padding:8px;border-radius:4px;margin-top:4px;font-size:13px}
+  .fb-form{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .fb-form select{padding:6px;border:1px solid var(--border,#ccc);border-radius:4px}
+  .fb-form input{padding:6px 8px;border:1px solid var(--border,#ccc);border-radius:4px;flex:1;min-width:120px}
+  .fb-form button{padding:6px 16px;background:#5881bc;color:#fff;border:none;border-radius:4px;cursor:pointer}
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="max-width:1100px;margin:100px auto 40px;padding:0 20px">
+  <h2>📬 用户反馈</h2>
+  <p style="color:var(--muted,#888);margin-bottom:20px">{{ items|length }} 条</p>
+
+  {% if items %}
+  <table class="fb-table">
+    <thead>
+      <tr><th>时间</th><th>类型</th><th>内容</th><th>用户</th><th>页面</th><th>状态</th></tr>
+    </thead>
+    <tbody>
+    {% for f in items %}
+      <tr class="fb-status-{{ f['status'] }}">
+        <td style="white-space:nowrap;font-size:13px;color:var(--muted,#888)">{{ f['created_at']|cn_time if f['created_at'] else '' }}</td>
+        <td><span class="fb-tag fb-tag-{{ f['type'] }}">{{ {'bug':'Bug','suggestion':'建议','question':'问题'}.get(f['type'], f['type']) }}</span></td>
+        <td>
+          <div>{{ f['content'][:200] }}{% if f['content']|length > 200 %}...{% endif %}</div>
+          {% if f['admin_reply'] %}
+          <div class="fb-reply">↳ 回复: {{ f['admin_reply'] }}</div>
+          {% endif %}
+          <form method="post" action="{{ url_for('admin.admin_feedback_status', fb_id=f['id']) }}" class="fb-form" style="margin-top:6px">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <select name="status">
+              <option value="open" {% if f['status']=='open' %}selected{% endif %}>待处理</option>
+              <option value="closed" {% if f['status']=='closed' %}selected{% endif %}>已处理</option>
+            </select>
+            <input name="reply" placeholder="回复（选填）">
+            <button type="submit">保存</button>
+          </form>
+        </td>
+        <td style="font-size:13px;white-space:nowrap">{{ f['username'] or '匿名' }}</td>
+        <td style="font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ f['page_url'] or '' }}">{{ f['page_url'] or '-' }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p style="color:var(--muted,#888)">暂无反馈</p>
+  {% endif %}
+</div>
+{% endblock %}

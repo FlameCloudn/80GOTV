@@ -1,0 +1,75 @@
+<style>
+.comment-section,.comments{background:transparent!important}
+.comment-item{background:#ffffff!important}
+.comment-textarea,.comment-textarea-top{background:transparent!important}
+.reply-textarea{background:transparent!important}
+.comment-login-prompt{background:transparent!important}
+</style>
+{% macro avatar(user) %}
+{% if user.avatar %}
+<img src="{{ url_for('static', filename='avatars/' + user.avatar) }}" class="comment-avatar-img" alt="" loading="lazy">
+{% else %}
+<span class="comment-avatar-fb">{{ (user.username or '?')[0]|upper }}</span>
+{% endif %}
+{% endmacro %}
+
+{% macro render_comment(c, session, target_type, target_id) %}
+<div class="comment-item{% if c.depth > 0 %} comment-reply{% endif %}" id="comment-{{ c.id }}">
+  <div class="comment-header">
+    {{ avatar(c) }}
+    <b class="comment-author">{% if c.username and c.username.lower() == 'flamecloud_' %}<span class="admin-badge-small">ADMIN</span> {% endif %}{{ c.username }}</b>
+    <span class="comment-time">{{ c.created_at|datetime_display }}</span>
+  </div>
+  <p class="comment-body">{{ c.content }}</p>
+  <div class="comment-actions">
+    {% if session.user_id %}
+    <button class="comment-like-btn{% if c.user_liked %} liked{% endif %}" data-cid="{{ c.id }}" data-liked="{{ 1 if c.user_liked else 0 }}">
+      <span class="like-icon">❤</span>
+      <span class="like-count">{{ c.like_count or 0 }}</span>
+    </button>
+    {% else %}
+    <span class="comment-like-btn disabled" title="请先登录">
+      <span class="like-icon">❤</span>
+      <span class="like-count">{{ c.like_count or 0 }}</span>
+    </span>
+    {% endif %}
+    <button class="reply-toggle" onclick="toggleReply({{ c.id }})">回复</button>
+    {% if (session.user_id and session.user_id == c.user_id) or session.admin_id or (session.user_username or '')|lower == 'flamecloud_' %}
+    <form method="post" action="/comment/delete/{{ c.id }}" class="comment-delete-form" data-cid="{{ c.id }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+      <button type="submit" class="comment-delete-btn">删除</button>
+    </form>
+    {% endif %}
+  </div>
+
+  {% if session.user_id %}
+  <form method="post" action="/comment/{{ target_type }}/{{ target_id }}" class="reply-form" id="reply-form-{{ c.id }}" style="display:none">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+    <input type="hidden" name="parent_id" value="{{ c.id }}">
+    <textarea name="content" rows="2" placeholder="回复 @{{ c.username }}..." required class="reply-textarea"></textarea>
+    <div class="reply-form-footer">
+      <button type="button" class="reply-cancel" onclick="toggleReply({{ c.id }})">取消</button>
+      <button type="submit" class="reply-submit">回复</button>
+    </div>
+  </form>
+  {% endif %}
+
+  {% if c.replies %}
+    <div class="comment-replies">
+      {{ render_comment(c.replies[0], session, target_type, target_id) }}
+    </div>
+    {% if c.replies|length > 1 %}
+    <button class="view-replies-btn" onclick="var b=this,n=this.nextElementSibling;n.style.display=n.style.display==='none'?'block':'none';b.textContent=n.style.display==='none'?'查看全部回复 ({{ c.replies|length - 1 }})':'收起回复'">
+      查看全部回复 ({{ c.replies|length - 1 }})
+    </button>
+    <div class="nested-replies" style="display:none">
+      {% for r in c.replies[1:] %}
+        {{ render_comment(r, session, target_type, target_id) }}
+      {% endfor %}
+    </div>
+    {% endif %}
+  {% endif %}
+</div>
+{% endmacro %}

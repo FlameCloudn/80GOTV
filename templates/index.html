@@ -1,51 +1,134 @@
 {% extends 'base.html' %}
+{% block layout_class %}home-layout-shell{% endblock %}
 {% block main %}
-<h2 class="section-title">今日新闻</h2>
-<div class="card-list">
-  {% for n in news %}
-  <a class="card news-card" href="/news/{{ n.id }}">
-    <div class="news-title">{{ n.title }}</div>
-    <div class="meta">{{ n.publish_time[:16] }} · 评论 {{ n.comment_count }}</div>
-  </a >
-  {% endfor %}
-</div>
+<div class="home-front-grid" data-front-home>
+  <aside class="home-left-col">
+    <section class="h-panel">
+      <div class="h-panel-title">排行</div>
+      <div class="h-rank-list">
+        {% for t in team_ranking %}
+        <a class="h-rank-row" href="/teams">
+          <span class="h-rank-num">{{ loop.index }}.</span>
+          <span class="h-team-dot">{{ (t.short_name or t.name or 'T')[:1] }}</span>
+          <span class="h-rank-name" data-i18n-ignore>{{ t.short_name or t.name }}</span>
+          <span class="h-rank-score">{{ t.wins or 0 }}胜</span>
+        </a>
+        {% endfor %}
+        {% if not team_ranking %}<div class="h-empty">暂无数据</div>{% endif %}
+      </div>
+    </section>
 
-<h2 class="section-title">今日比赛</h2>
-<div class="card-list">
-  {% for m in matches %}
-  <a class="card match-card" href="/matches/{{ m.id }}">
-    <span class="team">{{ m.team1_name }}</span>
-    <span class="vs">
-      {% if m.status=='live' %}<span class="live">LIVE</span>
-        {{ m.team1_score }} : {{ m.team2_score }}
-      {% else %} VS {% endif %}
-    </span>
-    <span class="team right">{{ m.team2_name }}</span>
-    <div class="meta">{{ m.event_name }} · {{ m.bo_format }} · {{ m.match_time[:16] }}</div>
-  </a >
-  {% endfor %}
+    <section class="h-panel">
+      <div class="h-panel-title">赛事</div>
+      <div class="h-side-list">
+        {% for e in active_events %}
+        <a class="h-side-row" href="/events/{{ e.id }}">
+          <span class="h-event-icon">80</span>
+          <span class="h-side-main" data-i18n-ignore>{{ e.name }}</span>
+          <small>{{ e.start_date|date_display if e.start_date else '' }}</small>
+        </a>
+        {% endfor %}
+        {% if not active_events %}<div class="h-empty">暂无赛事</div>{% endif %}
+      </div>
+    </section>
+
+    <section class="h-panel">
+      <div class="h-panel-title">选手</div>
+      <div class="h-side-list">
+        {% for p in top_players %}
+        <a class="h-side-row" href="/players/{{ p.id }}">
+          <span class="h-avatar">{{ p.nickname[:1] }}</span>
+          <span class="h-side-main" data-i18n-ignore>{{ p.nickname }}</span>
+          <small class="{{ p.avg_rating|rating_class }}">{{ "%.2f"|format(p.avg_rating) }}</small>
+        </a>
+        {% endfor %}
+        {% if not top_players %}<div class="h-empty">暂无数据</div>{% endif %}
+      </div>
+    </section>
+  </aside>
+
+  <section class="home-main-col">
+    <div class="home-brand-strip">
+      <img loading="lazy" src="{{ url_for('static', filename='logos/80gotv-mark.png') }}" alt="80GOTV">
+      <strong>80GOTV</strong>
+    </div>
+
+    {% set featured = news[0] if news else None %}
+    {% if featured %}
+    <article class="h-panel home-feature">
+      <a href="/news/{{ featured.id }}" class="home-feature-link" aria-label="{{ featured.title }}"></a>
+      <div class="home-feature-tag">焦点新闻</div>
+      <h1 data-i18n-ignore>{{ featured.title }}</h1>
+      {% if featured.summary %}<p data-i18n-ignore>{{ featured.summary }}</p>{% endif %}
+      <div class="home-feature-meta">{{ featured.publish_time|datetime_display }} · 评论 {{ featured.comment_count }}</div>
+    </article>
+    {% else %}
+    <section class="h-panel home-empty-feature">暂无焦点新闻</section>
+    {% endif %}
+
+    <section class="h-panel">
+      <div class="h-panel-title">今日新闻</div>
+      <div class="h-news-list">
+        {% for n in news[1:] %}
+        <a class="h-news-row" href="/news/{{ n.id }}">
+          <span class="h-news-mark"></span>
+          <span class="h-news-title" data-i18n-ignore>{{ n.title }}</span>
+          <span class="h-news-meta">{{ n.publish_time|datetime_display }} · {{ n.comment_count }} 评论</span>
+        </a>
+        {% endfor %}
+        {% if news|length <= 1 %}<div class="h-empty">暂无更多新闻</div>{% endif %}
+      </div>
+    </section>
+  </section>
+
+  <aside class="home-right-col">
+    <section class="h-panel">
+      <div class="h-panel-title h-panel-title-blue">今日比赛</div>
+      <div class="h-match-mini-list" data-front-home-target="matches">
+        {% for m in matches %}
+        <a class="h-match-mini" href="/matches/{{ m.slug or m.id }}">
+          <span class="h-mini-status {% if m.effective_status == 'live' %}live{% endif %}">
+            {% if m.effective_status == 'live' %}直播{% elif m.match_time %}{{ m.match_time|time_display }}{% else %}TBD{% endif %}
+          </span>
+          <span class="h-mini-teams">
+            <b data-i18n-ignore>{{ m.t1s or m.team1_name or 'TBD' }}</b>
+            <b data-i18n-ignore>{{ m.t2s or m.team2_name or 'TBD' }}</b>
+          </span>
+          <span class="h-mini-bo">{{ m.bo_format }}</span>
+        </a>
+        {% endfor %}
+        {% if not matches %}<div class="h-empty">暂无比赛</div>{% endif %}
+      </div>
+    </section>
+
+    <section class="h-panel">
+      <div class="h-panel-title">近期动态</div>
+      <div class="h-activity-list" data-front-home-target="activity">
+        {% for n in news[:8] %}
+        <a class="h-activity-row" href="/news/{{ n.id }}">
+          <span data-i18n-ignore>{{ n.title }}</span>
+          <small>{{ n.comment_count }}</small>
+        </a>
+        {% endfor %}
+        {% if not news %}<div class="h-empty">暂无动态</div>{% endif %}
+      </div>
+    </section>
+
+    <section class="h-panel">
+      <div class="h-panel-title">近期赛果</div>
+      <div class="h-result-mini-list" data-front-home-target="recent">
+        {% for r in recent %}
+        <a class="h-result-mini" href="/matches/{{ r.slug or r.id }}">
+          <span data-i18n-ignore>{{ r.t1s or r.team1_name }}</span>
+          <b>{{ r.team1_score }} : {{ r.team2_score }}</b>
+          <span data-i18n-ignore>{{ r.t2s or r.team2_name }}</span>
+        </a>
+        {% endfor %}
+        {% if not recent %}<div class="h-empty">暂无赛果</div>{% endif %}
+      </div>
+    </section>
+  </aside>
 </div>
 {% endblock %}
 
-{% block side %}
-<h3 class="section-title">近期赛果</h3>
-<div class="card-list">
-  {% for r in recent %}
-  <a class="card small" href="/matches/{{ r.id }}">
-    <div>{{ r.t1s }} <b>{{ r.team1_score }} : {{ r.team2_score }}</b> {{ r.t2s }}</div>
-    <div class="meta">{{ r.match_time[:10] }}</div>
-  </a >
-  {% endfor %}
-</div>
-
-<h3 class="section-title">本周最佳选手</h3>
-{% if top_player %}
-<a class="card small" href="/players/{{ top_player.id }}">
-  <div class="avatar">{{ top_player.nickname[0] }}</div>
-  <div>{{ top_player.nickname }} · {{ top_player.team }}</div>
-  <div class="meta">评分 {{ "%.2f"|format(top_player.avg_rating) }}</div>
-</a >
-{% else %}
-<div class="card small">暂无数据</div>
-{% endif %}
-{% endblock %}
+{% block side %}{% endblock %}

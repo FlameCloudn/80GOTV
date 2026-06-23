@@ -1,1 +1,35 @@
-cs_site.db 
+.env
+gamestate_integration_80gotv.cfg
+.venv/
+.backups/
+*.db
+__pycache__/
+*.pyc
+/instance/
+/logs/
+/static/avatars/
+/static/demos/
+/static/uploads/
+node_modules/
+package.json
+package-lock.json
+/.agents/
+/.claude/
+/.vscode/
+/.ruff_cache/
+/AGENTS.md
+/.gitmessage
+/temp/
+/cs2demoview_src/
+/csda.exe
+/BP演示_BO1_BO3_BO5.mp4
+/BP演示预览.jpg
+/resources/Sergey 'Ax1Le' Rykhtorov Counter-Strike Statistics _ HLTV.org.html
+/resources/Sergey 'Ax1Le' Rykhtorov Counter-Strike Statistics _ HLTV.org_files/
+tmp_visual*.png
+tmp_stats_*.png
+codex_flask_*.err.log
+codex_flask_*.out.log
+screenshot_*.png
+resources/tools/cloudflared.exe
+/deploy/.env

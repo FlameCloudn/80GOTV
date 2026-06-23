@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% block title %}通知 - 80GOTV{% endblock %}
+{% block main %}
+<h2 style="margin-bottom:var(--space-xl);color:var(--text-primary)">通知</h2>
+
+{% if notifications %}
+<div class="notif-list">
+  {% for n in notifications %}
+  <a href="{{ n.link or '#' }}" class="notif-item {% if not n.is_read %}unread{% endif %}" data-id="{{ n.id }}">
+    <div class="notif-type">
+      {% if n.type == 'reply' %}💬
+      {% elif n.type == 'system' %}📢
+      {% else %}🔔{% endif %}
+    </div>
+    <div class="notif-body">
+      <p>{{ n.message }}</p>
+      <span class="notif-time">{{ n.created_at|datetime_display }}</span>
+    </div>
+    {% if not n.is_read %}
+    <button class="notif-mark-read" onclick="event.preventDefault();markRead({{ n.id }}, this.closest('.notif-item'))">标记已读</button>
+    {% endif %}
+  </a>
+  {% endfor %}
+</div>
+
+<div style="margin-top:var(--space-xl);text-align:center">
+  <button class="btn-primary" onclick="markAllRead()" style="display:inline-block;width:auto">全部已读</button>
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:var(--space-2xl)">
+  <p style="color:var(--text-muted)">暂无通知</p>
+</div>
+{% endif %}
+
+<script>
+function markRead(notifId, el) {
+  fetch('/notifications/read/' + notifId, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-Token': window._csrfToken }
+  }).then(function(r){ return r.json(); }).then(function(res){
+    if (res.success) {
+      el.classList.remove('unread');
+      var btn = el.querySelector('.notif-mark-read');
+      if (btn) btn.remove();
+      updateBadgeCount();
+    }
+  });
+}
+
+function markAllRead() {
+  fetch('/notifications/read-all', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-Token': window._csrfToken }
+  }).then(function(r){ return r.json(); }).then(function(res){
+    if (res.success) {
+      document.querySelectorAll('.notif-item.unread').forEach(function(el){
+        el.classList.remove('unread');
+        var btn = el.querySelector('.notif-mark-read');
+        if (btn) btn.remove();
+      });
+      updateBadgeCount();
+    }
+  });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}发表新帖 - 论坛{% endblock %}
+{% block head %}
+<style>
+.form-container{max-width:720px;margin:0 auto}
+.form-card{background:var(--h-panel);border:1px solid var(--h-panel-line);border-radius:0;padding:16px}
+.form-card h2{margin:0 0 var(--space-xl);font-size:20px}
+.form-group{margin-bottom:var(--space-lg);position:relative}
+.form-group label{display:block;margin-bottom:var(--space-sm);font-weight:600;font-size:14px}
+.form-group input[type="text"]{width:100%;padding:10px;background:var(--bg-primary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:0;font-size:14px;font-family:inherit}
+.form-group textarea{width:100%;resize:vertical;min-height:300px;background:var(--bg-primary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:0;padding:10px;font-family:inherit;font-size:14px;line-height:1.7}
+.form-hint{font-size:12px;color:var(--text-muted);margin-top:4px}
+.form-actions{display:flex;gap:var(--space-md);justify-content:flex-end}
+.tag-suggestions{position:absolute;z-index:100;background:var(--bg-card);border:1px solid var(--border-color);border-radius:0;max-height:180px;overflow-y:auto;width:100%;box-shadow:0 4px 12px var(--shadow);margin-top:2px}
+.tag-suggestion-item{padding:6px 12px;font-size:13px;cursor:pointer;color:var(--text-primary)}
+.tag-suggestion-item:hover{background:var(--bg-hover)}
+</style>
+{% endblock %}
+{% block main %}
+<div class="form-container">
+  <div class="form-card">
+    <h2>发表新帖</h2>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="form-group">
+        <label>标签</label>
+        <input type="text" name="tags" id="tagsInput" maxlength="100" autocomplete="off" placeholder="输入标签，用逗号分隔，如：赛事讨论, IEM" value="{{ request.form.get('tags', '') }}">
+        <div class="tag-suggestions" id="tagSuggestions" style="display:none"></div>
+        <div class="form-hint">最多 5 个标签，逗号分隔，用于分类和筛选</div>
+      </div>
+      <div class="form-group">
+        <label>标题</label>
+        <input type="text" name="title" maxlength="120" placeholder="一句话概括你的帖子..." value="{{ request.form.get('title', '') }}" required>
+        <div class="form-hint">最多 120 字</div>
+      </div>
+      <div class="form-group">
+        <label>内容</label>
+        <textarea name="content" placeholder="详细描述你的观点..." required>{{ request.form.get('content', '') }}</textarea>
+        <div class="form-hint">最多 10000 字，支持纯文本</div>
+      </div>
+      <div class="form-actions">
+        <a href="{{ url_for('forum_index') }}" class="btn btn-secondary">取消</a>
+        <button type="submit" class="btn btn-primary">发布帖子</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+(function() {
+  var input = document.getElementById('tagsInput');
+  var sugg = document.getElementById('tagSuggestions');
+  var timer = null;
+  input.addEventListener('input', function() {
+    clearTimeout(timer);
+    var parts = input.value.split(',');
+    var last = (parts.pop() || '').trim();
+    if (!last || last.length < 1) { sugg.style.display = 'none'; return; }
+    timer = setTimeout(function() {
+      fetch('/api/forum/tags?q=' + encodeURIComponent(last))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (!data.tags || !data.tags.length) { sugg.style.display = 'none'; return; }
+          sugg.replaceChildren();
+          data.tags.forEach(function(t) {
+            var item = document.createElement('div');
+            item.className = 'tag-suggestion-item';
+            item.textContent = t;
+            sugg.appendChild(item);
+          });
+          sugg.style.display = 'block';
+        });
+    }, 250);
+  });
+  sugg.addEventListener('click', function(e) {
+    var item = e.target.closest('.tag-suggestion-item');
+    if (!item) return;
+    var parts = input.value.split(',');
+    parts.pop();
+    parts.push(' ' + item.textContent);
+    input.value = parts.join(',') + ', ';
+    sugg.style.display = 'none';
+    input.focus();
+  });
+  document.addEventListener('click', function(e) {
+    if (!input.contains(e.target) && !sugg.contains(e.target)) sugg.style.display = 'none';
+  });
+})();
+</script>
+{% endblock %}

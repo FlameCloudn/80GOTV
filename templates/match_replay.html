@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block title %}2D 回放 - {{ match.team1_name or 'T1' }} vs {{ match.team2_name or 'T2' }}{% endblock %}
+{% block layout_class %}no-side-layout replay-layout{% endblock %}
+{% block head %}
+<style>
+  .replay-page{max-width:1120px;margin:0 auto;padding:10px 12px 26px}
+  .replay-match-strip{display:grid;grid-template-columns:minmax(0,1fr) minmax(160px,230px) minmax(0,1fr);align-items:center;gap:10px;margin-bottom:10px;padding:10px 12px;background:var(--bg-card);border:1px solid var(--border-color)}
+  .replay-team{min-width:0;display:flex;align-items:center;gap:9px}
+  .replay-team-right{justify-content:flex-end;text-align:right}
+  .replay-logo{width:38px;height:38px;flex:0 0 38px;display:flex;align-items:center;justify-content:center;background:var(--accent);color:#fff;font-size:12px;font-weight:800;object-fit:cover}
+  .replay-team-name{min-width:0;color:var(--text-primary);font-size:16px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .replay-team-sub{margin-top:1px;color:var(--text-muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .replay-match-mid{text-align:center;min-width:0}
+  .replay-score{display:flex;align-items:center;justify-content:center;gap:9px;color:var(--text-primary);font-size:24px;font-weight:900;font-variant-numeric:tabular-nums}
+  .replay-score .sep{color:var(--text-muted);font-weight:600}
+  .replay-meta{margin-top:2px;color:var(--text-muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .replay-back{display:inline-flex;align-items:center;justify-content:center;margin-top:6px;padding:3px 9px;border:1px solid var(--border-color);color:var(--text-primary);font-size:12px;text-decoration:none;background:var(--bg-hover)}
+  .replay-back:hover{border-color:var(--accent);color:var(--accent)}
+
+  .replay-shell{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:10px;align-items:start}
+  .replay-player-card,.replay-side{background:var(--bg-card);border:1px solid var(--border-color)}
+  .replay-player-head{min-height:38px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 9px;border-bottom:1px solid var(--border-color)}
+  .replay-player-title{min-width:0;color:var(--text-primary);font-size:13px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .replay-player-badge{flex:0 0 auto;padding:3px 7px;background:var(--bg-hover);border:1px solid var(--border-color);color:var(--text-muted);font-size:12px;font-weight:800}
+  .replay-frame-wrap{height:min(66vh,620px);min-height:500px;background:#10151b;overflow:hidden}
+  .replay-frame{display:block;width:100%;height:100%;border:0;background:#10151b}
+  .replay-empty{min-height:260px;display:flex;align-items:center;justify-content:center;padding:20px;color:var(--text-muted);font-size:14px;text-align:center;background:var(--bg-hover)}
+
+  .replay-side{padding:10px}
+  .replay-label{display:block;margin-bottom:5px;color:var(--text-muted);font-size:12px;font-weight:800}
+  .replay-select{width:100%;min-height:34px;margin-bottom:8px;padding:6px 8px;border:1px solid var(--border-color);background:var(--bg-primary);color:var(--text-primary);font-size:13px}
+  .replay-select:focus{outline:none;border-color:var(--accent)}
+  .replay-actions{display:grid;grid-template-columns:1fr;gap:6px}
+  .replay-btn{min-height:34px;display:flex;align-items:center;justify-content:center;padding:6px 8px;border:1px solid var(--border-color);background:var(--bg-hover);color:var(--text-primary);font-size:13px;font-weight:800;text-decoration:none;cursor:pointer}
+  .replay-btn:hover{border-color:var(--accent);color:var(--accent)}
+  .replay-btn.primary{border-color:var(--accent);background:var(--accent);color:#fff}
+  .replay-mini-list{margin-top:10px;border:1px solid var(--border-color);background:var(--bg-primary)}
+  .replay-mini-row{display:grid;grid-template-columns:58px minmax(0,1fr);gap:8px;padding:7px 8px;border-bottom:1px solid var(--border-color);font-size:12px}
+  .replay-mini-row:last-child{border-bottom:0}
+  .replay-mini-row span{color:var(--text-muted);font-weight:800}
+  .replay-mini-row b{min-width:0;color:var(--text-primary);font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .replay-note{margin-top:8px;color:var(--text-muted);font-size:12px;line-height:1.5}
+
+  @media(max-width:900px){
+    .replay-shell{grid-template-columns:1fr}
+    .replay-frame-wrap{height:560px;min-height:460px}
+  }
+  @media(max-width:640px){
+    .replay-page{padding:8px 6px 22px}
+    .replay-match-strip{grid-template-columns:1fr;gap:8px;text-align:center}
+    .replay-team,.replay-team-right{justify-content:center;text-align:center}
+    .replay-team-name{font-size:15px}
+    .replay-score{font-size:22px}
+    .replay-frame-wrap{height:500px;min-height:420px}
+  }
+</style>
+{% endblock %}
+{% block main %}
+{% set has_score = match.team1_score is not none and match.team2_score is not none %}
+{% set t1_label = match.t1s or match.team1_name or 'T1' %}
+{% set t2_label = match.t2s or match.team2_name or 'T2' %}
+<div class="replay-page">
+  <section class="replay-match-strip">
+    <div class="replay-team">
+      {% if match.t1_logo %}
+      <img class="replay-logo" src="{{ url_for('static', filename='uploads/' + match.t1_logo) }}" alt="{{ match.team1_name }}" loading="lazy">
+      {% else %}
+      <span class="replay-logo" data-i18n-ignore>{{ t1_label[:2] }}</span>
+      {% endif %}
+      <div>
+        <div class="replay-team-name" data-i18n-ignore>{{ match.team1_name or '队伍 1' }}</div>
+        <div class="replay-team-sub" data-i18n-ignore>{{ t1_label }}</div>
+      </div>
+    </div>
+    <div class="replay-match-mid">
+      <div class="replay-score">
+        <span>{{ match.team1_score if has_score else '-' }}</span>
+        <span class="sep">:</span>
+        <span>{{ match.team2_score if has_score else '-' }}</span>
+      </div>
+      <div class="replay-meta" data-i18n-ignore>{{ match.event_name or '80GOTV' }} · {{ match.bo_format or 'BO1' }}</div>
+      <a class="replay-back" href="/matches/{{ match.slug or match.id }}">返回比赛</a>
+    </div>
+    <div class="replay-team replay-team-right">
+      <div>
+        <div class="replay-team-name" data-i18n-ignore>{{ match.team2_name or '队伍 2' }}</div>
+        <div class="replay-team-sub" data-i18n-ignore>{{ t2_label }}</div>
+      </div>
+      {% if match.t2_logo %}
+      <img class="replay-logo" src="{{ url_for('static', filename='uploads/' + match.t2_logo) }}" alt="{{ match.team2_name }}" loading="lazy">
+      {% else %}
+      <span class="replay-logo" data-i18n-ignore>{{ t2_label[:2] }}</span>
+      {% endif %}
+    </div>
+  </section>
+
+  <div class="replay-shell">
+    <section class="replay-player-card">
+      <div class="replay-player-head">
+        <div class="replay-player-title" id="currentDemoTitle">{% if demos %}{{ demos[0].label }}{% else %}暂无 Demo{% endif %}</div>
+        <span class="replay-player-badge">2D Demo</span>
+      </div>
+      {% if demos %}
+      <div class="replay-frame-wrap">
+        <iframe class="replay-frame" id="replayToolFrame" title="2D Demo 回放播放器"></iframe>
+      </div>
+      {% else %}
+      <div class="replay-empty">此比赛暂无 Demo 文件</div>
+      {% endif %}
+    </section>
+
+    <aside class="replay-side">
+      <label class="replay-label" for="demoSelect">Demo</label>
+      <select class="replay-select" id="demoSelect" {% if not demos %}disabled{% endif %}>
+        {% for demo in demos %}
+        <option value="{{ demo.slot }}">{{ demo.label }}{% if demo.size_label %} · {{ demo.size_label }}{% endif %}</option>
+        {% endfor %}
+      </select>
+      <div class="replay-actions">
+        <button class="replay-btn primary" id="reloadReplayBtn" type="button" {% if not demos %}disabled{% endif %}>载入</button>
+        <a class="replay-btn" id="openReplayBtn" href="#" target="_blank" rel="noopener">独立打开</a>
+        <a class="replay-btn" id="downloadDemoBtn" href="#" download>下载 Demo</a>
+      </div>
+      <div class="replay-mini-list">
+        <div class="replay-mini-row"><span>当前</span><b id="currentDemoName">-</b></div>
+        <div class="replay-mini-row"><span>大小</span><b id="currentDemoSize">-</b></div>
+        <div class="replay-mini-row"><span>来源</span><b>本地 Demo</b></div>
+        <div class="replay-mini-row"><span>工具</span><b>csgo-2d-demo-viewer</b></div>
+      </div>
+      <div class="replay-note">播放器首次载入会先解析 Demo，文件越大等待越久。</div>
+    </aside>
+  </div>
+</div>
+
+<script>
+var REPLAY_DEMOS = {{ demos|tojson }};
+var DOWNLOAD_BASE = {{ url_for('download_demo', slug=match.slug or match.id)|tojson }};
+
+function selectedDemo() {
+  var select = document.getElementById('demoSelect');
+  if (!select) return null;
+  for (var i = 0; i < REPLAY_DEMOS.length; i++) {
+    if (String(REPLAY_DEMOS[i].slot) === String(select.value)) return REPLAY_DEMOS[i];
+  }
+  return REPLAY_DEMOS[0] || null;
+}
+
+function demoDownloadUrl(demo) {
+  return DOWNLOAD_BASE + '?slot=' + encodeURIComponent(demo.slot);
+}
+
+function replayToolUrl(demo) {
+  return '/replay-tool/player?demourl=' + encodeURIComponent(demoDownloadUrl(demo));
+}
+
+function loadSelectedDemo() {
+  var demo = selectedDemo();
+  if (!demo) return;
+  var toolUrl = replayToolUrl(demo);
+  var downloadUrl = demoDownloadUrl(demo);
+  var frame = document.getElementById('replayToolFrame');
+  var openBtn = document.getElementById('openReplayBtn');
+  var downloadBtn = document.getElementById('downloadDemoBtn');
+  document.getElementById('currentDemoTitle').textContent = demo.label;
+  document.getElementById('currentDemoName').textContent = demo.download_name || demo.filename;
+  document.getElementById('currentDemoSize').textContent = demo.size_label || '-';
+  if (frame) frame.src = toolUrl;
+  if (openBtn) openBtn.href = toolUrl;
+  if (downloadBtn) downloadBtn.href = downloadUrl;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  var select = document.getElementById('demoSelect');
+  var reloadBtn = document.getElementById('reloadReplayBtn');
+  if (select) select.addEventListener('change', loadSelectedDemo);
+  if (reloadBtn) reloadBtn.addEventListener('click', loadSelectedDemo);
+  loadSelectedDemo();
+});
+</script>
+{% endblock %}

@@ -1,66 +1,244 @@
 {% extends 'base.html' %}
-{% block title %}数据排行 - 校园 CS2 赛事{% endblock %}
+{% block title %}数据统计 - 80GOTV{% endblock %}
 {% block main %}
-<h2 class="section-title">数据排行榜</h2>
+{% set qs_base = 'time=' ~ filters.time ~ '&map=' ~ (filters.map|urlencode) ~ '&side=' ~ filters.side %}
 
-<div class="filters">
-  <form method="get" class="filter-form">
-    <select name="metric" onchange="this.form.submit()">
-      <option value="rating" {% if metric=='rating' %}selected{% endif %}>Rating</option>
-      <option value="kd" {% if metric=='kd' %}selected{% endif %}>K/D 比</option>
-      <option value="adr" {% if metric=='adr' %}selected{% endif %}>ADR</option>
-      <option value="kpr" {% if metric=='kpr' %}selected{% endif %}>KPR</option>
-      <option value="kast" {% if metric=='kast' %}selected{% endif %}>KAST</option>
-      <option value="impact" {% if metric=='impact' %}selected{% endif %}>Impact</option>
-      <option value="hs" {% if metric=='hs' %}selected{% endif %}>爆头率</option>
-      <option value="clutch" {% if metric=='clutch' %}selected{% endif %}>残局胜利</option>
-    </select>
-    
-    <select name="event" onchange="this.form.submit()">
-      <option value="">全部赛事</option>
-      {% for e in events %}
-      <option value="{{ e.id }}" {% if event_filter==e.id|string %}selected{% endif %}>
-        {{ e.name }}
-      </option>
+<nav class="tab-nav hltv-tabs">
+  {% set tabs = [('overview','概览'), ('players','选手排行'), ('maps','地图数据'), ('awards','荣誉堂')] %}
+  {% for t_id, t_label in tabs %}
+  <a href="{% if t_id == 'awards' %}/awards{% else %}/stats?tab={{ t_id }}&{{ qs_base }}{% endif %}" class="tab-btn{% if tab==t_id %} active{% endif %}">{{ t_label }}</a>
+  {% endfor %}
+</nav>
+
+{% if tab in ('overview', 'players', 'maps') %}
+<form class="stats-filter-strip" method="get" action="/stats">
+  <input type="hidden" name="tab" value="{{ tab }}">
+  <input type="hidden" name="side" value="{{ filters.side }}">
+  <label>
+    <span>时间筛选</span>
+    <select name="time" onchange="this.form.submit()">
+      {% for item in time_options %}
+      <option value="{{ item.value }}" {% if filters.time == item.value %}selected{% endif %}>{{ item.label }}</option>
       {% endfor %}
     </select>
-  </form>
+  </label>
+  <label>
+    <span>地图筛选</span>
+    <select name="map" onchange="this.form.submit()">
+      <option value="all" {% if filters.map == 'all' %}selected{% endif %}>全部</option>
+      {% for map in map_options %}
+      <option value="{{ map.value }}" {% if filters.map == map.value %}selected{% endif %}>{{ map.value|map_display }}</option>
+      {% endfor %}
+    </select>
+  </label>
+</form>
+{% endif %}
+
+{% if tab == 'overview' %}
+<section class="overview-summary-grid">
+  <div><b>{{ overview.total_players }}</b><span>选手</span></div>
+  <div><b>{{ overview.total_teams }}</b><span>队伍</span></div>
+  <div><b>{{ overview.total_events }}</b><span>赛事</span></div>
+  <div><b>{{ overview.total_matches }}</b><span>赛果</span></div>
+  <div><b>{{ overview.total_stats }}</b><span>地图数据</span></div>
+</section>
+
+<h2 class="overview-quick-title">快速导航</h2>
+<section class="overview-quick-panel overview-quick-links">
+  <a href="/stats/overview/best-players?{{ qs_base }}" class="overview-quick-card">
+    <img class="overview-quick-icon theme-icon" src="{{ url_for('static', filename='icons/stats/players.svg') }}" alt="" loading="lazy">
+    <b>最佳选手</b>
+  </a>
+  <a href="/stats/overview/top-events?{{ qs_base }}" class="overview-quick-card">
+    <img class="overview-quick-icon theme-icon" src="{{ url_for('static', filename='icons/stats/topevents.svg') }}" alt="" loading="lazy">
+    <b>冠军赛事</b>
+  </a>
+  <a href="/stats/overview/kd?{{ qs_base }}" class="overview-quick-card">
+    <span class="overview-quick-icon quick-text">K/D</span>
+    <b>K/D</b>
+  </a>
+  <a href="/stats/overview/pistol-rounds?{{ qs_base }}" class="overview-quick-card">
+    <img class="overview-quick-icon theme-icon" src="{{ url_for('static', filename='icons/stats/pistol.webp') }}" alt="" loading="lazy">
+    <b>手枪局</b>
+  </a>
+  <a href="/stats/overview/flashes?{{ qs_base }}" class="overview-quick-card">
+    <img class="overview-quick-icon theme-icon" src="{{ url_for('static', filename='icons/stats/flash.webp') }}" alt="" loading="lazy">
+    <b>闪光弹</b>
+  </a>
+</section>
+
+<div class="overview-rank-grid">
+  <section>
+    <h3 class="overview-section-title">最佳选手</h3>
+    <div class="overview-rank-list">
+      {% for p in overview.top_players %}
+      <a href="/players/{{ p.id }}" class="overview-rank-row">
+        {% if p.avatar %}
+        <img src="{{ url_for('static', filename='avatars/' + p.avatar) }}" class="overview-avatar" alt="{{ p.nickname }}" loading="lazy">
+        {% else %}
+        <span class="overview-avatar overview-avatar-fallback">{{ p.nickname[:1] }}</span>
+        {% endif %}
+        <span class="overview-mini-tag" data-i18n-ignore>{{ p.team or '-' }}</span>
+        <span class="overview-rank-name" data-i18n-ignore>{{ p.nickname }}</span>
+        <span class="overview-rank-metric {{ p.rating|rating_class }}"><b>{{ "%.2f"|format(p.rating or 0) }}</b><small>RATING</small></span>
+        <span class="overview-rank-metric"><b>{{ p.maps or 0 }}</b><small>地图</small></span>
+      </a>
+      {% endfor %}
+      {% if not overview.top_players %}<div class="h-empty">暂无数据</div>{% endif %}
+    </div>
+  </section>
+
+  <section>
+    <h3 class="overview-section-title">最佳队伍</h3>
+    <div class="overview-rank-list">
+      {% for t in overview.top_teams %}
+      {% if t.id %}
+      <a href="/teams" class="overview-rank-row">
+      {% else %}
+      <div class="overview-rank-row">
+      {% endif %}
+        <span class="overview-team-mark">{{ (t.short_name or t.name or 'T')[:3] }}</span>
+        <span class="overview-rank-name" data-i18n-ignore>{{ t.short_name or t.name }}</span>
+        <span class="overview-rank-metric {{ t.rating|rating_class }}"><b>{{ "%.2f"|format(t.rating or 0) }}</b><small>RATING</small></span>
+        <span class="overview-rank-metric"><b>{{ t.maps or 0 }}</b><small>地图</small></span>
+      {% if t.id %}</a>{% else %}</div>{% endif %}
+      {% endfor %}
+      {% if not overview.top_teams %}<div class="h-empty">暂无数据</div>{% endif %}
+    </div>
+  </section>
 </div>
 
-<div class="stats-table">
+<section id="overview-top-weapons" class="overview-weapons-panel">
+  <h3 class="overview-section-title">常用武器</h3>
+  {% if overview.top_weapons %}
+  <div class="overview-weapon-card">
+    <div class="weapon-donut-wrap">
+      <div class="weapon-donut"
+           style="background:conic-gradient({% for w in overview.top_weapons %}{{ w.color }} {{ '%.3f'|format(w.start) }}% {{ '%.3f'|format(w.end) }}%{% if not loop.last %},{% endif %}{% endfor %});">
+        <span></span>
+      </div>
+    </div>
+    <div class="weapon-legend">
+      {% for w in overview.top_weapons %}
+      <div class="weapon-legend-row">
+        <i style="background:{{ w.color }}"></i>
+        <span data-i18n-ignore>{{ w.name }}</span>
+        <b>{{ "%.1f"|format(w.pct) }}%</b>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% else %}
+  <div class="h-empty">暂无武器数据</div>
+  {% endif %}
+</section>
+
+{% elif tab == 'players' %}
+<nav class="stats-side-tabs">
+  {% for side in side_options %}
+  <a href="/stats?tab=players&time={{ filters.time }}&map={{ filters.map|urlencode }}&side={{ side.value }}" class="{% if filters.side == side.value %}active{% endif %}">{{ side.label }}</a>
+  {% endfor %}
+</nav>
+<div class="stats-table stats-dense-table">
   <table>
     <thead>
       <tr>
-        <th>#</th>
-        <th>选手</th>
-        <th>队伍</th>
-        <th>数值</th>
-        <th>场次</th>
+        <th>选手</th><th>队伍</th><th>地图</th><th>回合</th><th>K-D 差</th><th>K/D</th><th>HS%</th><th>ADR</th><th>RATING</th>
       </tr>
     </thead>
     <tbody>
       {% for r in rankings %}
       <tr>
-        <td>{{ loop.index }}</td>
-        <td><a href="/players/{{ r.id }}">{{ r.nickname }}</a></td>
-        <td>{{ r.team }}</td>
-        <td><b>{{ "%.2f"|format(r.value) }}</b></td>
-        <td>{{ r.matches }}</td>
+        <td>
+          <a href="/players/{{ r.id }}" class="dense-player">
+            {% if r.avatar %}<img src="{{ url_for('static', filename='avatars/' + r.avatar) }}" alt="{{ r.nickname }}" loading="lazy">{% else %}<span>{{ r.nickname[:1] }}</span>{% endif %}
+            <b data-i18n-ignore>{{ r.nickname }}</b>
+          </a>
+        </td>
+        <td data-i18n-ignore>{{ r.team or '-' }}</td>
+        <td>{{ r.maps }}</td>
+        <td>{{ r.rounds or 0 }}</td>
+        <td class="{% if r.kd_diff and r.kd_diff > 0 %}stat-pos{% elif r.kd_diff and r.kd_diff < 0 %}stat-neg{% endif %}">{{ "%+d"|format(r.kd_diff or 0) }}</td>
+        <td>{{ "%.2f"|format(r.kd) if r.kd else '-' }}</td>
+        <td>{{ "%.1f"|format(r.hs or 0) }}%</td>
+        <td>{{ "%.1f"|format(r.adr or 0) }}</td>
+        <td class="rt-cell {{ r.rating|rating_class }}"><b>{{ "%.2f"|format(r.rating or 0) }}</b></td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
+{% if not rankings %}<div class="empty-state">暂无数据</div>{% endif %}
 
-{% if not rankings %}
-<div class="card">暂无数据</div>
-{% endif %}
-{% endblock %}
-
-{% block side %}
-<h3 class="section-title">说明</h3>
-<div class="card small">
-  <p>最少 3 场比赛才会进入排行榜</p>
-  <p>数据来源于已录入的比赛</p>
+{% elif tab == 'maps' %}
+<div class="stats-table">
+  <table>
+    <thead>
+      <tr><th>地图</th><th>出场</th><th>出场率</th><th>T 胜率</th><th>CT 胜率</th><th>最佳选手</th><th>RATING</th></tr>
+    </thead>
+    <tbody>
+      {% for ms in map_stats %}
+      {% set tp = map_top_players.get(ms.map_name) %}
+      <tr>
+        <td><b>{{ ms.map_name|map_display }}</b></td>
+        <td>{{ ms.times_played }}</td>
+        <td>{{ "%.1f"|format(ms.pick_rate) if ms.pick_rate else '-' }}%</td>
+        <td class="{% if ms.t_win_pct and ms.t_win_pct > 55 %}stat-pos{% elif ms.t_win_pct and ms.t_win_pct < 45 %}stat-neg{% endif %}"><b>{{ "%.1f"|format(ms.t_win_pct) if ms.t_win_pct else '-' }}%</b></td>
+        <td class="{% if ms.ct_win_pct and ms.ct_win_pct > 55 %}stat-pos{% elif ms.ct_win_pct and ms.ct_win_pct < 45 %}stat-neg{% endif %}"><b>{{ "%.1f"|format(ms.ct_win_pct) if ms.ct_win_pct else '-' }}%</b></td>
+        <td>{% if tp %}<a href="/players/{{ tp.player_id }}" data-i18n-ignore>{{ tp.nickname }}</a>{% else %}-{% endif %}</td>
+        <td class="rt-cell {{ tp.top_rating|rating_class if tp else '' }}">{% if tp %}<b>{{ "%.2f"|format(tp.top_rating) }}</b>{% else %}-{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </div>
+{% if not map_stats %}<div class="empty-state">暂无数据</div>{% endif %}
+
+{% elif tab == 'awards' %}
+{% if event_groups %}
+<div class="awards-grid">
+  {% for (event_id, event_name, event_date), group in event_groups %}
+  <div class="award-event-card">
+    <div class="award-event-header">
+      <a href="/events/{{ event_id }}" class="award-event-name" data-i18n-ignore>{{ event_name }}</a>
+      <span class="award-event-date">{{ event_date|date_display if event_date else '' }}</span>
+    </div>
+    {% if group.champions %}
+    <div class="award-champions">
+      {% for c in group.champions %}
+      <div class="award-champ-row">
+        <span class="award-icon">冠</span>
+          <a href="/teams" class="award-champ-team" data-i18n-ignore>{{ c.team_name }}</a>
+        <span class="award-badge champ-badge">冠军</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% set mvps = group.medals|selectattr('type', 'equalto', 'MVP')|list %}
+    {% set evps = group.medals|selectattr('type', 'equalto', 'EVP')|list %}
+    {% for m in mvps + evps %}
+    <div class="award-medal-row">
+      {% if m.avatar %}
+      <img src="{{ url_for('static', filename='avatars/' + m.avatar) }}" class="award-avatar" loading="lazy">
+      {% else %}
+      <span class="award-avatar-fb">{{ m.nickname[0] }}</span>
+      {% endif %}
+      <div class="award-medal-info">
+        <a href="/players/{{ m.player_id }}" class="award-medal-player" data-i18n-ignore>{{ m.nickname }}</a>
+        {% if m.team_short %}<span class="award-medal-team" data-i18n-ignore>{{ m.team_short }}</span>{% endif %}
+      </div>
+      <span class="award-badge {{ 'mvp-badge' if m.type == 'MVP' else 'evp-badge' }}">{{ m.type }}{% if m.type == 'EVP' %} #{{ m.evp_rank or loop.index }}{% endif %}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">暂无荣誉记录</div>
+{% endif %}
+{% endif %}
+
 {% endblock %}
+
+{% block layout_class %}no-side-layout{% endblock %}
+{% block side %}{% endblock %}

@@ -1,33 +1,48 @@
 {% extends 'base.html' %}
-{% block title %}新闻 - 校园 CS2 赛事{% endblock %}
+{% block title %}新闻 - 80GOTV{% endblock %}
 {% block main %}
-<h2 class="section-title">新闻列表</h2>
-<div class="card-list">
+<div class="card-list h-compact-list">
   {% for n in news %}
-  <a class="card news-card" href="/news/{{ n.id }}">
+  <article class="card news-card full-click-news-card">
+    <a class="news-card-link" href="/news/{{ n.id }}" aria-label="{{ n.title }}"></a>
     <div class="news-title">{{ n.title }}</div>
     <div class="news-summary">{{ n.summary }}</div>
-    <div class="meta">{{ n.author }} · {{ n.publish_time[:16] }} · 评论 {{ n.comment_count }}</div>
-  </a >
+    {% if n.tags %}<div class="news-tags">{% for t in n.tags.split(',') %}{% set ts = t.strip() %}{% if ts %}<a href="?tag={{ ts|urlencode }}" class="tag-chip">{{ ts }}</a>{% endif %}{% endfor %}</div>{% endif %}
+    <div class="meta">{{ n.author }} · {{ n.publish_time|datetime_display }} · 评论 {{ n.comment_count }}</div>
+  </article>
   {% endfor %}
 </div>
+{% if not news %}<div class="card empty-state">暂无新闻</div>{% endif %}
 
 {% if total_pages > 1 %}
 <div class="pagination">
   {% if page > 1 %}
-  <a href="?page={{ page - 1 }}">&laquo; 上一页</a >
+  <a href="?page={{ page - 1 }}{% if tag_filter %}&tag={{ tag_filter|urlencode }}{% endif %}">&laquo; 上一页</a >
   {% endif %}
   <span>第 {{ page }} / {{ total_pages }} 页</span>
   {% if page < total_pages %}
-  <a href="?page={{ page + 1 }}">下一页 &raquo;</a >
+  <a href="?page={{ page + 1 }}{% if tag_filter %}&tag={{ tag_filter|urlencode }}{% endif %}">下一页 &raquo;</a >
   {% endif %}
 </div>
 {% endif %}
 {% endblock %}
 
 {% block side %}
-<h3 class="section-title">最新新闻</h3>
-<div class="card small">
-  <p style="color:var(--text-muted);font-size:12px;">功能开发中...</p >
+<section class="h-panel">
+<div class="h-panel-title">热门标签</div>
+<div class="card small h-side-card">
+  {% if hot_tags %}
+  <div class="tag-cloud">
+    {% for tag, count in hot_tags %}
+    <a href="?tag={{ tag|urlencode }}" class="tag-chip{% if tag_filter == tag %} active{% endif %}">{{ tag }}<span class="tag-count">{{ count }}</span></a>
+    {% endfor %}
+  </div>
+  {% if tag_filter %}
+  <a href="?" class="tag-clear" style="display:block;margin-top:8px;font-size:12px;color:var(--accent)">清除筛选</a>
+  {% endif %}
+  {% else %}
+  <p style="color:var(--text-muted);font-size:12px;">暂无标签</p>
+  {% endif %}
 </div>
+</section>
 {% endblock %}

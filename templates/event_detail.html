@@ -1,26 +1,141 @@
 {% extends 'base.html' %}
-{% block title %}{{ event.name }} - 校园 CS2 赛事{% endblock %}
+{% block title %}{{ event.name }} - 80GOTV{% endblock %}
 {% block main %}
 <div class="event-header">
   <h1>{{ event.name }}</h1>
   <div class="event-meta">
-    <span class="status-badge status-{{ event.status }}">
-      {% if event.status == 'upcoming' %}即将开始
-      {% elif event.status == 'ongoing' %}进行中
+    <span class="status-badge status-{{ event.effective_event_status }}">
+      {% if event.effective_event_status == 'upcoming' %}即将开始
+      {% elif event.effective_event_status == 'ongoing' %}进行中
       {% else %}已结束{% endif %}
     </span>
-    <span>{{ event.start_date[:10] }} ~ {{ event.end_date[:10] }}</span>
+    <span>{{ event.start_date|date_display }} ~ {{ event.end_date|date_display }}</span>
     <span>{{ event.format }}</span>
   </div>
   <p>{{ event.description }}</p>
+  {% if event.registration_open %}
+  {% set event_login_next = url_for('event_detail', event_id=event.id) %}
+  <div class="event-reg-banner">报名开放中
+    {% if session.user_id and current_user and current_user.steam_id64 %}
+    <button onclick="showRegForm()" class="btn btn-primary">创建队伍报名</button>
+    {% elif session.user_id %}
+    <span class="event-reg-hint">报名需要先绑定 Steam</span>
+    <a href="/profile" class="btn btn-primary">去绑定</a>
+    {% elif session.admin_id %}
+    <span class="event-reg-hint">管理员账号不能报名，请使用选手账号登录</span>
+    <a href="/admin/logout" class="btn btn-secondary">退出管理员</a>
+    {% else %}
+    <a href="{{ url_for('user_login', next=event_login_next) }}" class="btn btn-primary">登录后报名</a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if registrations %}
+  <h3 class="section-title mt-20">已报名队伍</h3>
+  <div class="event-reg-list">
+    {% for reg in registrations %}
+    <div class="event-reg-team">
+      <div class="event-reg-team-head">
+        <span class="event-reg-team-name">{{ reg.info.team_name }}</span>
+        <span class="event-reg-team-creator">{{ reg.info.creator_name }} 创建</span>
+      </div>
+      <div class="event-reg-slots">
+        {% for slot in reg.slots %}
+        <div class="event-reg-slot {% if slot.user_id %}is-filled{% else %}is-empty{% endif %}">
+          {% if slot.user_id %}
+            <div class="event-reg-slot-player">{{ slot.player_name }}</div>
+            {% if session.user_id and slot.user_id == session.user_id %}
+            <form method="POST" action="/events/{{ event.id }}/leave/{{ reg.info.id }}/{{ slot.slot_index }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button type="submit" class="event-reg-leave-btn">退出位置</button>
+            </form>
+            {% endif %}
+          {% elif session.user_id and current_user and current_user.steam_id64 %}
+            <form method="POST" action="/events/{{ event.id }}/join/{{ reg.info.id }}/{{ slot.slot_index }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button type="submit" class="event-reg-join-btn">加入此位置</button>
+            </form>
+          {% elif session.user_id %}
+            <a href="/profile" class="event-reg-action-link">绑定 Steam</a>
+          {% elif session.admin_id %}
+            <span class="event-reg-disabled-text">选手账号加入</span>
+          {% else %}
+            <a href="{{ url_for('user_login', next=event_login_next) }}" class="event-reg-action-link">登录加入</a>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
 </div>
+
+{% if event.registration_open and session.user_id and current_user and current_user.steam_id64 %}
+<!-- 报名表单（弹窗） -->
+<div id="regOverlay" class="event-overlay" onclick="if(event.target===this)hideRegForm()">
+  <div class="event-modal">
+    <h3 class="event-modal-title">📋 报名 — {{ event.name }}</h3>
+    <p class="event-modal-desc">创建队伍并选择你的位置（可预填队友信息）</p>
+    <form method="POST" action="/events/{{ event.id }}/register">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input name="team_name" placeholder="队伍名称" required class="event-modal-input">
+      <p class="event-modal-label">选择你的位置：</p>
+      <div class="event-modal-slot-selector" id="slotSelector">
+        {% for i in range(5) %}
+        <label class="event-modal-slot-opt{% if i==0 %} is-selected{% endif %}" onclick="selectSlot({{ i }})">
+          <input type="radio" name="my_slot" value="{{ i }}" {% if i==0 %}checked{% endif %}>
+          <span>位置{{ i+1 }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      <p class="event-modal-desc">队友信息（至少填自己的位置，其他可选填）：</p>
+      {% for i in range(5) %}
+      <div class="event-modal-form-row" id="slotRow{{ i }}">
+        <span class="event-modal-slot-num">#{{ i+1 }}</span>
+        <input name="pname_{{ i }}" placeholder="{% if i==0 %}你的昵称{% else %}选手{{ i+1 }}昵称(可选){% endif %}" class="event-modal-input-sm">
+        <input name="psteam_{{ i }}" placeholder="Steam ID" class="event-modal-input-sm">
+        <span class="event-modal-slot-tag slot-label">{% if i==0 %}👈 你{% endif %}</span>
+      </div>
+      {% endfor %}
+      <div class="event-modal-actions">
+        <button type="submit" class="btn btn-primary">提交报名</button>
+        <button type="button" class="btn btn-secondary" onclick="hideRegForm()">取消</button>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+function showRegForm(){document.getElementById('regOverlay').style.display='flex'}
+function hideRegForm(){document.getElementById('regOverlay').style.display='none'}
+function selectSlot(n){
+  document.querySelectorAll('#slotSelector .event-modal-slot-opt').forEach((el,i)=>{
+    el.classList.toggle('is-selected', i===n);
+  });
+  document.querySelectorAll('.slot-label').forEach((el,i)=>{el.textContent = i===n ? '👈 你' : ''});
+  document.querySelector('input[name=my_slot][value='+n+']').checked = true;
+  document.getElementById('slotRow'+n).querySelector('input[placeholder*="昵称"]').placeholder = '你的昵称';
+}
+</script>
+{% endif %}
 
 <h3 class="section-title">参赛队伍</h3>
 <div class="teams-grid">
   {% for t in teams %}
-  <div class="team-badge">
-    <div class="avatar">{{ t.short_name[0] }}</div>
-    <span>{{ t.short_name }}</span>
+  <div class="team-badge" data-tooltip>
+    <div class="avatar">{{ (t.short_name or t.name)[0] }}</div>
+    <span>{{ t.short_name or t.name }}</span>
+    {% if t.players %}
+    <div class="team-players-popup">
+      {% for p in t.players %}
+      <a href="/players/{{ p.id }}" class="team-player-link">
+        <img class="team-player-avatar" src="{{ p.avatar or '/static/avatars/default.png' }}" alt="{{ p.nickname }}"
+             loading="lazy" onerror="this.onerror=null;this.src='/static/avatars/default.png'">
+        <span>{{ p.nickname }}</span>
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
   </div>
   {% endfor %}
 </div>
@@ -28,22 +143,320 @@
 <h3 class="section-title">比赛列表</h3>
 <div class="card-list">
   {% for m in matches %}
-  <a class="card match-card" href="/matches/{{ m.id }}">
-    <span class="team">{{ m.team1_name }}</span>
-    <span class="vs">
-      {% if m.status=='live' %}<span class="live">LIVE</span>
-        {{ m.team1_score }} : {{ m.team2_score }}
-      {% elif m.status=='completed' %}
-        <b>{{ m.team1_score }} : {{ m.team2_score }}</b>
-      {% else %} VS {% endif %}
-    </span>
-    <span class="team right">{{ m.team2_name }}</span>
-    <div class="meta">{{ m.bo_format }} · {{ m.match_time[:16] }}</div>
-  </a>
+  <div class="event-match-flex">
+    <a class="card match-card" href="/matches/{{ m.slug or m.id }}">
+      <span class="team">{{ m.team1_name }}</span>
+      <span class="vs">
+        {% if m.effective_status == 'completed' %}
+          <b>{{ m.team1_score }} : {{ m.team2_score }}</b>
+        {% elif m.effective_status == 'cancelled' %}
+          <b>已取消</b>
+        {% else %} 对阵 {% endif %}
+      </span>
+      <span class="team right">{{ m.team2_name }}</span>
+      <div class="meta">{{ m.bo_format }} · {{ m.match_time|datetime_display }}</div>
+    </a>
+    {% if m.bp_password and m.effective_status == 'upcoming' and session.get('user_id') %}
+    <a href="/bp/{{ m.id }}" class="event-bp-link">BP</a>
+    {% endif %}
+  </div>
   {% endfor %}
 </div>
 
+{% set bracket = event.bracket_data and event.bracket_data.strip() %}
+{% if bracket %}
+{% set bd = bracket|json_loads %}
+{% set tour = bd.tournament if bd and bd.tournament else bd %}
+{% if tour and (tour.rounds or tour.sections) %}
+{% set team_map = {} %}
+{% if tour.teams %}
+{% for t in tour.teams %}
+{% set _ = team_map.update({t.id: {'name': t.name, 'short': t.get('short_name') or t.name}}) %}
+{% endfor %}
+{% endif %}
+
+<div class="event-section-head">
+  <h3 class="section-title">对阵图</h3>
+  <a href="/events/{{ event.id }}/stats" class="event-stats-link">赛事数据 →</a>
+</div>
+{% if tour.name or tour.type or tour.total_teams %}
+<div class="bracket-subtitle">
+  {% if tour.name %}{{ tour.name }}{% endif %}
+  {% if tour.type %}<span class="bracket-type-tag">{{ tour.type }}</span>{% endif %}
+  {% if tour.total_teams %}<span>{{ tour.total_teams }} 队</span>{% endif %}
+</div>
+{% endif %}
+
+{% set is_swiss = tour.type == 'swiss' %}
+
+{# ── All matches flat list ── #}
+{% set all_matches = [] %}
+{% if tour.sections %}
+  {% for sec in tour.sections %}
+    {% for rd in sec.rounds %}
+      {% for m in rd.matches %}
+        {% set _ = all_matches.append(m) %}
+      {% endfor %}
+    {% endfor %}
+  {% endfor %}
+{% else %}
+  {% for rd in tour.rounds %}
+    {% for m in rd.matches %}
+      {% set _ = all_matches.append(m) %}
+    {% endfor %}
+  {% endfor %}
+{% endif %}
+
+{# ── Format detection ── #}
+{% set tt = tour.total_teams|int if tour.total_teams else 8 %}
+{% set fmt_key = None %}
+{% if tour.type in ('double_elim','double_elimination','double') %}
+  {% set fmt_key = '4de' if tt <= 4 else '8de' %}
+{% elif tour.type in ('single_elim','single_elimination','single') %}
+  {% set fmt_key = '4se' if tt <= 4 else '8se' %}
+{% else %}
+  {# 从 match IDs 推断格式（兼容旧数据） #}
+  {% set mid_ids = all_matches|map(attribute='id')|join(',') %}
+  {% if ('UB_' in mid_ids) and ('LB_' in mid_ids) and ('GF_' in mid_ids) %}
+    {% set fmt_key = '4de' if tt <= 4 else '8de' %}
+  {% elif 'QF_' in mid_ids %}
+    {% set fmt_key = '8se' %}
+  {% elif 'SF_' in mid_ids and all_matches|length <= 3 %}
+    {% set fmt_key = '4se' %}
+  {% endif %}
+{% endif %}
+
+{# ── Position lookup macro (canvas 920×580) ── #}
+{% macro card_pos(fk, mid) -%}
+  {%- if fk == '4de' -%}
+    {%- if mid == 'UB_R1_M1' %}left:4%;top:4%;width:20%{% elif mid == 'UB_R1_M2' %}left:4%;top:28%;width:20%{% elif mid == 'UB_R2_M1' %}left:30%;top:14%;width:20%{% elif mid == 'LB_R2_M1' %}left:30%;top:54%;width:20%{% elif mid == 'GF_R1_M1' %}left:58%;top:30%;width:28%{% endif -%}
+  {%- elif fk == '8de' -%}
+    {%- if mid == 'UB_R1_M1' %}left:2%;top:2%;width:17%{% elif mid == 'UB_R1_M2' %}left:2%;top:18%;width:17%{% elif mid == 'UB_R1_M3' %}left:2%;top:54%;width:17%{% elif mid == 'UB_R1_M4' %}left:2%;top:70%;width:17%{% elif mid == 'UB_R2_M1' %}left:24%;top:10%;width:17%{% elif mid == 'UB_R2_M2' %}left:24%;top:62%;width:17%{% elif mid == 'UB_F_M1' %}left:46%;top:32%;width:17%{% elif mid == 'LB_R1_M1' %}left:24%;top:28%;width:17%{% elif mid == 'LB_R1_M2' %}left:24%;top:44%;width:17%{% elif mid == 'LB_R2_M1' %}left:46%;top:10%;width:17%{% elif mid == 'LB_R2_M2' %}left:46%;top:54%;width:17%{% elif mid == 'LB_R3_M1' %}left:46%;top:68%;width:17%{% elif mid == 'LB_F_M1' %}left:68%;top:54%;width:17%{% elif mid == 'GF_R1_M1' %}left:68%;top:34%;width:26%{% endif -%}
+  {%- elif fk == '4se' -%}
+    {%- if mid == 'SF_M1' %}left:4%;top:10%;width:24%{% elif mid == 'SF_M2' %}left:4%;top:56%;width:24%{% elif mid == 'F_M1' %}left:52%;top:30%;width:32%{% endif -%}
+  {%- elif fk == '8se' -%}
+    {%- if mid == 'QF_M1' %}left:3%;top:2%;width:18%{% elif mid == 'QF_M2' %}left:3%;top:23%;width:18%{% elif mid == 'QF_M3' %}left:3%;top:52%;width:18%{% elif mid == 'QF_M4' %}left:3%;top:73%;width:18%{% elif mid == 'SF_M1' %}left:28%;top:12%;width:18%{% elif mid == 'SF_M2' %}left:28%;top:62%;width:18%{% elif mid == 'F_M1' %}left:56%;top:34%;width:26%{% endif -%}
+  {%- endif -%}
+{%- endmacro %}
+
+{# ── SVG connectors macro (viewBox 0 0 920 580) ── #}
+{% macro svg_connectors(fk) %}
+  {% if fk == '4de' %}
+    {# UB_R1_M1 winner(seed1) → UB_R2_M1 seed1: rightward, upper zone #}
+    <path d="M 221 75 C 248 75 248 104 276 104" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-dasharray="8,5" opacity="0.55"/>
+    {# UB_R1_M2 winner(seed1) → UB_R2_M1 seed2: rightward, upper zone #}
+    <path d="M 221 215 C 248 215 248 162 276 162" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-dasharray="8,5" opacity="0.55"/>
+    {# UB_R1_M1 loser → LB_R2_M1 seed1: drop directly to 败者组决赛 #}
+    <path d="M 221 105 C 250 105 250 348 276 348" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="6,5" opacity="0.45"/>
+    {# UB_R1_M2 loser → LB_R2_M1 seed2: drop directly to 败者组决赛 #}
+    <path d="M 221 250 C 250 250 250 383 276 383" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="6,5" opacity="0.45"/>
+    {# UB_R2_M1 winner → GF seed1: rightward to grand final #}
+    <path d="M 460 104 C 497 104 497 209 534 209" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="8,5" opacity="0.7"/>
+    {# LB_R2_M1 winner → GF seed2: rightward to grand final #}
+    <path d="M 460 365 C 497 365 497 243 534 243" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="8,5" opacity="0.7"/>
+  {% elif fk == '8de' %}
+    {# ── UB_R1 winners → UB_R2 (col1→col2) ── #}
+    <path d="M 175 47 C 198 47 198 93 221 93" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="7,4" opacity="0.5"/>
+    <path d="M 175 139 C 198 139 198 128 221 128" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="7,4" opacity="0.5"/>
+    <path d="M 175 349 C 198 349 198 395 221 395" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="7,4" opacity="0.5"/>
+    <path d="M 175 441 C 198 441 198 430 221 430" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="7,4" opacity="0.5"/>
+    {# ── UB_R1 losers → LB_R1 (col1→col2, drop zone) ── #}
+    <path d="M 175 82 C 198 82 198 197 221 197" fill="none" stroke="var(--text-muted)" stroke-width="1.2" stroke-dasharray="5,5" opacity="0.4"/>
+    <path d="M 175 174 C 198 174 198 232 221 232" fill="none" stroke="var(--text-muted)" stroke-width="1.2" stroke-dasharray="5,5" opacity="0.4"/>
+    <path d="M 175 384 C 198 384 198 290 221 290" fill="none" stroke="var(--text-muted)" stroke-width="1.2" stroke-dasharray="5,5" opacity="0.4"/>
+    <path d="M 175 476 C 198 476 198 325 221 325" fill="none" stroke="var(--text-muted)" stroke-width="1.2" stroke-dasharray="5,5" opacity="0.4"/>
+    {# ── UB_R2 winners → UB_F (col2→col3) ── #}
+    <path d="M 377 93 C 400 93 400 221 423 221" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="7,4" opacity="0.5"/>
+    <path d="M 377 430 C 400 430 400 256 423 256" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="7,4" opacity="0.5"/>
+    {# ── UB_R2 losers → LB_R2 (col2→col3) ── #}
+    <path d="M 377 128 C 400 128 400 93 423 93" fill="none" stroke="var(--text-muted)" stroke-width="1.2" stroke-dasharray="5,5" opacity="0.4"/>
+    <path d="M 377 395 C 400 395 400 348 423 348" fill="none" stroke="var(--text-muted)" stroke-width="1.2" stroke-dasharray="5,5" opacity="0.4"/>
+    {# ── LB_R1 winners → LB_R2 (col2→col3) ── #}
+    <path d="M 377 215 C 400 215 400 128 423 128" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="7,4" opacity="0.5"/>
+    <path d="M 377 308 C 400 308 400 383 423 383" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="7,4" opacity="0.5"/>
+    {# ── LB_R2 winners → LB_R3 (col3 same-col, wrap right) ── #}
+    <path d="M 580 93 C 600 93 600 429 580 429" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="7,4" opacity="0.5"/>
+    <path d="M 580 366 C 600 366 600 464 580 464" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="7,4" opacity="0.5"/>
+    {# ── UB_F → GF + LB_F ── #}
+    <path d="M 580 221 C 603 221 603 232 626 232" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="8,5" opacity="0.7"/>
+    <path d="M 580 256 C 603 256 603 348 626 348" fill="none" stroke="var(--text-muted)" stroke-width="1.2" stroke-dasharray="5,5" opacity="0.4"/>
+    {# ── LB_R3 → LB_F ── #}
+    <path d="M 580 447 C 603 447 603 383 626 383" fill="none" stroke="var(--text-muted)" stroke-width="1.2" stroke-dasharray="5,5" opacity="0.4"/>
+    {# ── LB_F → GF ── #}
+    <path d="M 782 366 C 804 366 804 267 626 267" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="8,5" opacity="0.7"/>
+  {% elif fk == '4se' %}
+    <path d="M 258 93 C 368 93 368 209 478 209" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-dasharray="8,5" opacity="0.55"/>
+    <path d="M 258 360 C 368 360 368 244 478 244" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-dasharray="8,5" opacity="0.55"/>
+  {% elif fk == '8se' %}
+    <path d="M 193 47 C 225 47 225 105 258 105" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-dasharray="8,5" opacity="0.55"/>
+    <path d="M 193 168 C 225 168 225 140 258 140" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-dasharray="8,5" opacity="0.55"/>
+    <path d="M 193 337 C 225 337 225 395 258 395" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-dasharray="8,5" opacity="0.55"/>
+    <path d="M 193 458 C 225 458 225 430 258 430" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-dasharray="8,5" opacity="0.55"/>
+    <path d="M 423 105 C 469 105 469 232 515 232" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-dasharray="8,5" opacity="0.55"/>
+    <path d="M 423 430 C 469 430 469 267 515 267" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-dasharray="8,5" opacity="0.55"/>
+  {% endif %}
+{% endmacro %}
+
+{# ── Zone labels macro (canvas 920×580) ── #}
+{% macro zone_labels(fk) %}
+  {% if fk == '4de' %}
+    <div class="bracket-zone-label" style="left:1%;top:0.5%">胜者组</div>
+    <div class="bracket-zone-label" style="left:1%;top:47%">败者组</div>
+    <div class="bracket-zone-label" style="left:58%;top:27%">总决赛</div>
+  {% elif fk == '8de' %}
+    <div class="bracket-zone-label" style="left:1%;top:0.5%">胜者组</div>
+    <div class="bracket-zone-label" style="left:1%;top:47%">败者组</div>
+    <div class="bracket-zone-label" style="left:68%;top:31%">总决赛</div>
+  {% elif fk == '4se' %}
+    <div class="bracket-zone-label" style="left:3%;top:1%">淘汰赛</div>
+  {% elif fk == '8se' %}
+    <div class="bracket-zone-label" style="left:3%;top:1%">淘汰赛</div>
+  {% endif %}
+{% endmacro %}
+
+<div class="bracket-container">
+{% if is_swiss %}
+  {# ── Swiss: text-based layout ── #}
+  <div class="bracket-swiss">
+  {% if tour.sections %}
+    {% for section in tour.sections %}
+      <div class="bracket-swiss-round">
+        <div class="bracket-swiss-round-label">{{ section.label }}</div>
+        <div class="bracket-swiss-groups">
+        {% for round in section.rounds %}
+          <div class="bracket-swiss-group">
+            <div class="bracket-swiss-group-title">{{ round.name }}</div>
+            <div class="bracket-swiss-matches">
+            {% for m in round.matches %}
+              {% set round_name = round.name %}
+              {% include 'event_detail_card.html' %}
+            {% endfor %}
+            </div>
+          </div>
+        {% endfor %}
+        </div>
+      </div>
+    {% endfor %}
+  {% else %}
+    {% for round in tour.rounds %}
+      <div class="bracket-swiss-round">
+        <div class="bracket-swiss-round-label">{{ round.name }}</div>
+        <div class="bracket-swiss-matches">
+        {% for m in round.matches %}
+          {% set round_name = round.name %}
+          {% include 'event_detail_card.html' %}
+        {% endfor %}
+        </div>
+      </div>
+    {% endfor %}
+  {% endif %}
+  </div>
+
+{% elif fmt_key %}
+  {% set ns = namespace(valid_count=0) %}
+  {% for m in all_matches %}
+    {% if card_pos(fmt_key, m.get('id') or m.get('match_id') or '') %}
+      {% set ns.valid_count = ns.valid_count + 1 %}
+    {% endif %}
+  {% endfor %}
+  {% if ns.valid_count > 0 %}
+  {# ── Build round name lookup for card headers ── #}
+  {% set rn_map = {} %}
+  {% if tour.sections %}
+    {% for sec in tour.sections %}
+      {% for rd in sec.rounds %}
+        {% for m in rd.matches %}
+          {% set _ = rn_map.update({m.get('id') or m.get('match_id') or '': rd.name}) %}
+        {% endfor %}
+      {% endfor %}
+    {% endfor %}
+  {% else %}
+    {% for rd in tour.rounds %}
+      {% for m in rd.matches %}
+        {% set _ = rn_map.update({m.get('id') or m.get('match_id') or '': rd.name}) %}
+      {% endfor %}
+    {% endfor %}
+  {% endif %}
+  {# ── Elimination: canvas with SVG connectors ── #}
+  <div class="bracket-canvas">
+    <svg class="bracket-connectors" viewBox="0 0 920 580" preserveAspectRatio="xMidYMid meet">
+      {{ svg_connectors(fmt_key) }}
+    </svg>
+    {{ zone_labels(fmt_key) }}
+    {% for m in all_matches %}
+      {% set mid = m.get('id') or m.get('match_id') or '' %}
+{% set pos_style = card_pos(fmt_key, mid) %}
+{% if pos_style %}
+  {% set round_name = rn_map.get(mid, '') %}
+  {% include 'event_detail_card.html' %}
+{% endif %}
+    {% endfor %}
+  </div>
+  {% else %}
+  {# ── Fallback: match IDs don't match any known position #}
+  <div class="bracket-dynamic">
+    {% for round in tour.rounds %}
+    <div class="bracket-round-col">
+      <div class="bracket-round-title">{{ round.name }}</div>
+      {% for m in round.matches %}
+        {% set round_name = round.name %}
+        {% include 'event_detail_card.html' %}
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+{% else %}
+  {# ── Fallback: simple flex row ── #}
+  <div class="bracket-dynamic">
+    {% for round in tour.rounds %}
+    <div class="bracket-round-col">
+      <div class="bracket-round-title">{{ round.name }}</div>
+      {% for m in round.matches %}
+        {% set round_name = round.name %}
+        {% include 'event_detail_card.html' %}
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+{% endif %}
+</div>
+
+{% endif %}
+{% endif %}
+
+{% if event_map_pool %}
+<h3 class="section-title">赛事图池</h3>
+<div class="map-strips event-map-pool">
+  {% for map_name in event_map_pool %}
+  <div class="map-strip">
+    <div class="ms-top">
+      <span class="ms-top-wrap">
+        <img class="ms-top-img" src="{{ map_name|map_image }}" alt="{{ map_name }}" loading="lazy">
+        <span class="ms-map-name">{{ map_name }}</span>
+      </span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
 <a href="/events" class="btn-back">← 返回赛事列表</a>
+
+{% if award_players %}
+<section class="event-award-poster-section">
+  <h3 class="section-title">MVP / EVP 数据图</h3>
+  <div class="event-award-poster-grid">
+    {% for player in award_players %}
+    <figure class="event-award-poster-wrap">
+      <img src="/events/{{ event.id }}/award-poster/{{ player.type }}/{{ player.id }}.png" alt="{{ player.nickname }} {{ player.type }} 数据图" loading="lazy">
+      <figcaption>{{ player.type }}{% if player.type == 'EVP' and player.evp_rank %} #{{ player.evp_rank }}{% endif %} · {{ player.nickname }}</figcaption>
+    </figure>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
 {% endblock %}
 
 {% block side %}

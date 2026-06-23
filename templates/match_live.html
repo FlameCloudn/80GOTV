@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+{% block title %}{{ match.team1_name or '队伍 1' }} 对 {{ match.team2_name or '队伍 2' }} — 直播{% endblock %}
+{% block head %}
+<style>
+  :root{--t1-bg:rgba(20,40,70,0.95);--t1-header:#1e4a7a;--t1-accent:#4a9eff;--t1-row:rgba(0,10,30,0.6);
+         --t2-bg:rgba(60,40,15,0.95);--t2-header:#5c4a1f;--t2-accent:#ffc107;--t2-row:rgba(30,15,5,0.6);}
+  .live-container{max-width:1100px;margin:0 auto;padding:8px 12px;font-family:'Segoe UI',sans-serif;color:#fff}
+  /* ── 顶部信息栏 ── */
+  .live-topbar{display:flex;align-items:center;justify-content:space-between;height:48px;
+    background:rgba(0,0,0,0.5);border-radius:0;padding:0 16px;margin-bottom:6px}
+  .live-info{font-size:12px;color:#aaa;min-width:140px}
+  .live-info .rnd{color:#fff;font-weight:600}
+  .live-score{display:flex;align-items:center;gap:12px;font-size:40px;font-weight:800}
+  .live-score .s1{color:#4a9eff}.live-score .colon{color:#fff}.live-score .s2{color:#ffc107}
+  .live-timer{font-size:14px;color:#fff;display:flex;align-items:center;gap:6px;min-width:100px;justify-content:flex-end}
+  .live-timer img{width:22px;height:22px;opacity:0.8}
+  .score-flash{animation:scorePulse 0.4s ease-out}
+  @keyframes scorePulse{0%{transform:scale(1.3);opacity:0.6}100%{transform:scale(1);opacity:1}}
+  /* ── 队伍区域 ── */
+  .team-section{border-radius:0;overflow:hidden;margin-bottom:4px}
+  .team-header{display:flex;align-items:center;padding:6px 12px;height:36px;gap:8px}
+  .team-header.t1{background:var(--t1-header)}.team-header.t2{background:var(--t2-header)}
+  .team-header .logo{width:26px;height:26px;border-radius:0;object-fit:contain;background:rgba(255,255,255,0.1)}
+  .team-header .name{font-size:15px;font-weight:700;flex:1}
+  .team-header .stat-icons{display:flex;gap:0;width:340px;justify-content:space-around}
+  .team-header .stat-icons span{width:40px;text-align:center;font-size:11px;color:rgba(255,255,255,0.7)}
+  /* ── 选手行 ── */
+  .player-row{display:flex;align-items:center;padding:4px 12px;height:38px;gap:4px;font-size:13px}
+  .player-row.t1{background:var(--t1-row)}.player-row.t2{background:var(--t2-row)}
+  .player-row.dead{opacity:0.5}
+  .player-row.dead .hp-bar,.player-row.dead .armor-icon{opacity:0.2}
+  .player-row .p-name{width:110px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .player-row .p-icon{width:32px;text-align:center}
+  .player-row .p-icon img{width:20px;height:16px;object-fit:contain}
+  .player-row .p-weapon{width:56px;text-align:center}
+  .player-row .p-weapon img{width:40px;height:16px;object-fit:contain}
+  .player-row .p-hp{width:80px}
+  .hp-bar{height:10px;border-radius:0;background:#333;overflow:hidden}
+  .hp-bar .fill{height:100%;background:#4caf50;transition:width 0.5s}
+  .hp-bar .fill.low{background:#ff9800}.hp-bar .fill.crit{background:#f44336}
+  .hp-text{font-size:11px;text-align:center;color:#ccc}
+  .player-row .p-armor{width:36px;text-align:center}
+  .player-row .p-armor img{width:18px;height:18px;opacity:0.8}
+  .player-row .p-money{width:60px;text-align:right;font-size:12px;color:#aaa}
+  .player-row .p-stat{width:32px;text-align:center;font-weight:600}
+  .player-row .p-stat.k{color:#4caf50}.player-row .p-stat.d{color:#f44336}.player-row .p-adr{width:44px;text-align:right}
+  /* ── 回合历史条 ── */
+  .round-bar{display:flex;align-items:center;height:28px;gap:4px;padding:0 12px;background:rgba(0,0,0,0.3);border-radius:0;margin:4px 0;overflow-x:auto}
+  .round-dot{width:16px;height:16px;border-radius:0;flex-shrink:0}
+  .round-dot.t1{background:var(--t1-accent)}.round-dot.t2{background:var(--t2-accent)}
+  /* ── 底部信息 ── */
+  .live-footer{display:flex;justify-content:space-between;align-items:center;padding:6px 12px;font-size:11px;color:#666;margin-top:4px}
+  .live-footer .refresh{color:var(--accent);cursor:pointer}
+  .no-gsi-badge{background:rgba(255,152,0,0.2);color:#ff9800;padding:2px 8px;border-radius:0;font-size:11px}
+  .gsi-ok-badge{background:rgba(76,175,80,0.2);color:#4caf50;padding:2px 8px;border-radius:0;font-size:11px}
+  /* ── 观赛链接 ── */
+  .watch-links{display:flex;gap:8px;justify-content:center;margin-top:8px;flex-wrap:wrap}
+  .watch-links a{padding:6px 14px;border-radius:0;text-decoration:none;font-size:13px;font-weight:600;
+    background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.2)}
+  .watch-links a:hover{background:rgba(255,255,255,0.2)}
+  /* ── 响应式 ── */
+  @media(max-width:768px){
+    .live-score{font-size:28px;gap:8px}
+    .player-row .p-name{width:70px;font-size:11px}
+    .player-row .p-weapon{width:36px}.player-row .p-weapon img{width:28px}
+    .player-row .p-hp{width:50px}.player-row .p-money{display:none}
+    .player-row .p-stat{width:22px;font-size:11px}.player-row .p-adr{width:34px;font-size:11px}
+    .team-header .stat-icons{width:240px}
+  }
+  @media(max-width:480px){
+    .live-container{padding:4px}
+    .live-topbar{padding:0 8px;height:40px}
+    .live-score{font-size:24px}
+    .player-row{gap:2px;padding:3px 6px;height:32px}
+    .player-row .p-name{width:50px;font-size:10px}
+    .player-row .p-armor{display:none}.player-row .p-adr{display:none}
+    .team-header .stat-icons{width:150px}
+  }
+</style>
+{% endblock %}
+{% block main %}
+<div class="live-container" id="liveApp">
+  <!-- 顶部信息栏 -->
+  <div class="live-topbar">
+    <div class="live-info">
+      <span>R: <span class="rnd" id="roundNum">-</span></span>
+      &nbsp;<span id="mapName">-</span>
+    </div>
+    <div class="live-score">
+      <span class="s1" id="score1">0</span>
+      <span class="colon">:</span>
+      <span class="s2" id="score2">0</span>
+    </div>
+    <div class="live-timer">
+      <img loading="lazy" src="/resources/icons/match/stopwatch.svg" alt="">
+      <span id="timer">-</span>
+    </div>
+  </div>
+
+  <!-- Team 1 -->
+  <div class="team-section" style="background:var(--t1-bg)">
+    <div class="team-header t1">
+      <img loading="lazy" class="logo" id="t1logo" src="" onerror="this.style.display='none'" alt="">
+      <span class="name" id="t1name">{{ match.team1_name or 'TEAM 1' }}</span>
+      <div class="stat-icons"><span>装备</span><span>武器</span><span>血量</span><span>K</span><span>A</span><span>D</span><span>ADR</span></div>
+    </div>
+    <div id="team1Players"></div>
+  </div>
+
+  <!-- 回合历史 -->
+  <div class="round-bar" id="roundBar"></div>
+
+  <!-- Team 2 -->
+  <div class="team-section" style="background:var(--t2-bg)">
+    <div class="team-header t2">
+      <img loading="lazy" class="logo" id="t2logo" src="" onerror="this.style.display='none'" alt="">
+      <span class="name" id="t2name">{{ match.team2_name or 'TEAM 2' }}</span>
+      <div class="stat-icons"><span>装备</span><span>武器</span><span>血量</span><span>K</span><span>A</span><span>D</span><span>ADR</span></div>
+    </div>
+    <div id="team2Players"></div>
+  </div>
+
+  <!-- 底部 -->
+  <div class="live-footer">
+    <span id="statusBadge"><span class="no-gsi-badge">GSI 未连接</span></span>
+    <span>更新: <span id="updatedAt">-</span> · <span class="refresh" onclick="fetchLive()">🔄 刷新</span></span>
+  </div>
+
+  <!-- 观赛链接 -->
+  {% if watch_urls %}
+  <div class="watch-links">
+    {% for w in watch_urls %}<a href="{{ w.url }}" target="_blank">📺 {{ w.name }}</a>{% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const ICON_BASE = '/resources/icons/match/';
+{% raw %}
+const WEAPON_ICONS = {
+  'AK-47':'ak47','AWP':'awp','M4A4':'m4a1','M4A1-S':'m4a1_silencer','Desert Eagle':'deagle',
+  'USP-S':'usp_silencer','Glock-18':'glock','FAMAS':'famas','Galil AR':'galilar',
+  'P250':'p250','MP9':'mp9','Dual Berettas':'elite','Knife':'knife',
+  'Flashbang':'flashbang','High Explosive Grenade':'hegrenade','Smoke Grenade':'smokegrenade',
+  'Molotov':'molotov','Incendiary Grenade':'incendiary'
+};
+{% endraw %}
+function mapDisplay(name){return String(name||'').replace(/^(de_|cs_)/i,'').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}
+function weaponIcon(name) {
+  const key = WEAPON_ICONS[name] || name.toLowerCase().replace(/[^a-z0-9]/g,'');
+  return `<img loading="lazy" src="${ICON_BASE}${key}.webp" onerror="this.style.display='none'" alt="${name}" title="${name}">`;
+}
+function armorIcon(armor, helmet) {
+  if (helmet) return `<img loading="lazy" src="${ICON_BASE}kevlar_helmet.webp" alt="甲+盔">`;
+  if (armor > 0) return `<img loading="lazy" src="${ICON_BASE}kevlar.webp" alt="护甲">`;
+  return '';
+}
+
+let lastScores = null;
+const MATCH_ID = {{ match.id }};
+
+async function fetchLive() {
+  try {
+    const r = await fetch(`/api/live/${MATCH_ID}`);
+    const d = await r.json();
+    if (!d.ok) return;
+    renderLive(d);
+  } catch(e) { console.error('Live fetch error:', e); }
+}
+
+function renderLive(d) {
+  document.getElementById('roundNum').textContent = d.round || '-';
+  document.getElementById('mapName').textContent = mapDisplay(d.map_name) || '-';
+  document.getElementById('timer').textContent = d.timer || '-';
+  if (d.updated_at) {
+    const dt = new Date(d.updated_at);
+    document.getElementById('updatedAt').textContent = Number.isNaN(dt.getTime())
+      ? String(d.updated_at).replace('T', ' ').slice(0, 16)
+      : dt.toLocaleString('zh-CN', {hour12:false, year:'numeric', month:'long', day:'numeric', hour:'2-digit', minute:'2-digit'});
+  } else {
+    document.getElementById('updatedAt').textContent = '-';
+  }
+
+  // 比分 + 闪烁
+  const s1 = d.team1 ? d.team1.score : 0;
+  const s2 = d.team2 ? d.team2.score : 0;
+  const elS1 = document.getElementById('score1');
+  const elS2 = document.getElementById('score2');
+  if (lastScores && (s1 !== lastScores[0] || s2 !== lastScores[1])) {
+    elS1.classList.remove('score-flash'); elS2.classList.remove('score-flash');
+    void elS1.offsetWidth; elS1.classList.add('score-flash'); elS2.classList.add('score-flash');
+  }
+  elS1.textContent = s1; elS2.textContent = s2;
+  lastScores = [s1, s2];
+
+  // 队名
+  if (d.team1) document.getElementById('t1name').textContent = d.team1.name || 'TEAM 1';
+  if (d.team2) document.getElementById('t2name').textContent = d.team2.name || 'TEAM 2';
+
+  // 选手行
+  renderTeam('team1Players', d.players_t1, 't1');
+  renderTeam('team2Players', d.players_t2, 't2');
+
+  // 回合历史
+  const rb = document.getElementById('roundBar');
+  if (d.round_history && d.round_history.length) {
+    rb.innerHTML = d.round_history.map(r => `<div class="round-dot ${r.winner||''}"></div>`).join('');
+  } else {
+    rb.innerHTML = '<span style="color:#555;font-size:11px">回合历史将在 GSI 连接后显示</span>';
+  }
+
+  // GSI 状态
+  const badge = document.getElementById('statusBadge');
+  badge.innerHTML = d.has_gsi
+    ? '<span class="gsi-ok-badge">✓ GSI 在线</span>'
+    : '<span class="no-gsi-badge">GSI 未连接（KDA 仅显示 GOTV 数据）</span>';
+}
+
+function renderTeam(containerId, players, cls) {
+  const el = document.getElementById(containerId);
+  let html = '';
+  for (const p of (players || [])) {
+    const deadClass = (p.alive === false) ? ' dead' : '';
+    const hpVal = p.hp === '-' ? '-' : (p.hp || 0);
+    const hpPct = typeof hpVal === 'number' ? Math.min(100, Math.max(0, hpVal)) : 0;
+    const hpColor = hpPct > 60 ? '' : (hpPct > 30 ? 'low' : 'crit');
+    html += `<div class="player-row ${cls}${deadClass}">
+      <span class="p-name" title="${p.name||''}">${p.name||'-'}</span>
+      <span class="p-icon">${p.secondary && p.secondary !== '-' ? weaponIcon(p.secondary) : ''}</span>
+      <span class="p-weapon">${p.primary && p.primary !== '-' ? weaponIcon(p.primary) : ''}</span>
+      <span class="p-hp">
+        ${hpVal === '-' ? '<span style="color:#666">-</span>' : `<div class="hp-bar"><div class="fill ${hpColor}" style="width:${hpPct}%"></div></div><div class="hp-text">${hpVal}</div>`}
+      </span>
+      <span class="p-armor">${p.armor === '-' ? '<span style="color:#666">-</span>' : armorIcon(p.armor, p.helmet)}</span>
+      <span class="p-money">${p.money === '-' ? '<span style="color:#666">-</span>' : '$'+(p.money||0)}</span>
+      <span class="p-stat k">${p.kills||0}</span>
+      <span class="p-stat">${p.assists||0}</span>
+      <span class="p-stat d">${p.deaths||0}</span>
+      <span class="p-adr">${p.adr||0}</span>
+    </div>`;
+  }
+  // 补足到 5 行
+  while ((players||[]).length < 5) {
+    html += `<div class="player-row ${cls} dead"><span class="p-name">-</span><span class="p-icon"></span><span class="p-weapon"></span><span class="p-hp"><span style="color:#666">-</span></span><span class="p-armor"></span><span class="p-money"></span><span class="p-stat">-</span><span class="p-stat">-</span><span class="p-stat">-</span><span class="p-adr">-</span></div>`;
+  }
+  el.innerHTML = html;
+}
+
+// 1 秒轮询
+fetchLive();
+setInterval(fetchLive, 1000);
+</script>
+{% endblock %}
