@@ -1,48 +1,68 @@
 {% extends 'base.html' %}
-{% block title %}赛果 - 校园 CS2 赛事{% endblock %}
+{% block title %}赛果 - 80GOTV{% endblock %}
+{% block layout_class %}results-layout-shell{% endblock %}
 {% block main %}
-<h2 class="section-title">赛果列表</h2>
+<div class="results-page-layout">
+  <aside class="results-filter-sidebar">
+    <section class="h-panel">
+      <div class="h-panel-title">赛事筛选</div>
+      <nav class="results-event-filter" aria-label="赛事筛选">
+        <a href="{{ url_for('results_list') }}" class="{% if not event_filter %}active{% endif %}">
+          <span>全部赛事</span>
+        </a>
+        {% for e in events %}
+        <a href="{{ url_for('results_list') }}?event={{ e.id }}" class="{% if event_filter==e.id|string %}active{% endif %}">
+          <span class="match-filter-name" data-i18n-ignore>{{ e.name }}</span>
+          {% if e.start_date %}<span class="match-filter-date">{{ e.start_date|date_display }}</span>{% endif %}
+        </a>
+        {% endfor %}
+      </nav>
+    </section>
+  </aside>
 
-<div class="filters">
-  <form method="get" class="filter-form">
-    <select name="event" onchange="this.form.submit()">
-      <option value="">全部赛事</option>
-      {% for e in events %}
-      <option value="{{ e.id }}" {% if event_filter==e.id|string %}selected{% endif %}>
-        {{ e.name }}
-      </option>
+  <section class="results-list-panel">
+    <div class="hltv-list-head">
+      <span>最新赛果</span>
+      {% if total_pages > 1 %}<small>第 {{ page }} / {{ total_pages }} 页</small>{% endif %}
+    </div>
+    <div class="result-list">
+      {% for m in matches %}
+      <a class="result-row" href="/matches/{{ m.slug or m.id }}">
+        <span class="result-time">{{ m.match_time|date_display }}</span>
+
+        <span class="result-score-group">
+          <span class="result-team-name {% if m.team1_score > m.team2_score %}won{% elif m.team1_score < m.team2_score %}lost{% endif %}" data-i18n-ignore>{{ m.team1_name }}</span>
+          <span class="result-big-score">
+            <span class="{% if m.team1_score > m.team2_score %}result-win{% elif m.team1_score < m.team2_score %}result-lose{% endif %}">{{ m.team1_score }}</span>
+            <span class="result-score-colon">:</span>
+            <span class="{% if m.team2_score > m.team1_score %}result-win{% elif m.team2_score < m.team1_score %}result-lose{% endif %}">{{ m.team2_score }}</span>
+          </span>
+          <span class="result-team-name {% if m.team2_score > m.team1_score %}won{% elif m.team2_score < m.team1_score %}lost{% endif %}" data-i18n-ignore>{{ m.team2_name }}</span>
+        </span>
+
+        <span class="result-event" data-i18n-ignore>{{ m.event_name }}</span>
+        <span class="result-bo">{{ m.bo_format }}</span>
+      </a>
       {% endfor %}
-    </select>
-  </form>
-</div>
+    </div>
 
-<div class="card-list">
-  {% for m in matches %}
-  <a class="card match-card" href="/matches/{{ m.id }}">
-    <span class="team">{{ m.team1_name }}</span>
-    <span class="vs">
-      <b>{{ m.team1_score }} : {{ m.team2_score }}</b>
-    </span>
-    <span class="team right">{{ m.team2_name }}</span>
-    <div class="meta">{{ m.event_name }} · {{ m.bo_format }} · {{ m.match_time[:10] }}</div>
-  </a >
-  {% endfor %}
-</div>
+    {% if not matches %}
+    <div class="card empty-state">暂无赛果</div>
+    {% endif %}
 
-{% if total_pages > 1 %}
-<div class="pagination">
-  {% if page > 1 %}
-  <a href="?page={{ page - 1 }}&event={{ event_filter }}">&laquo; 上一页</a >
-  {% endif %}
-  <span>第 {{ page }} / {{ total_pages }} 页</span>
-  {% if page < total_pages %}
-  <a href="?page={{ page + 1 }}&event={{ event_filter }}">下一页 &raquo;</a >
-  {% endif %}
+    {% if total_pages > 1 %}
+    <div class="pagination">
+      {% if page > 1 %}
+      <a href="?page={{ page - 1 }}&event={{ event_filter }}">&laquo; 上一页</a>
+      {% endif %}
+      <span>第 {{ page }} / {{ total_pages }} 页</span>
+      {% if page < total_pages %}
+      <a href="?page={{ page + 1 }}&event={{ event_filter }}">下一页 &raquo;</a>
+      {% endif %}
+    </div>
+    {% endif %}
+  </section>
 </div>
-{% endif %}
 {% endblock %}
 
-{% block side %}
-<h3 class="section-title">统计</h3>
-<div class="card small">功能开发中...</div>
-{% endblock %}
+{% block side %}{% endblock %}

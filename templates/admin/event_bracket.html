@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>对阵图编辑 — {{ event.name }}</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f5f5f5}
+
+    .top-nav{
+      background:white;border-bottom:2px solid #5881bc;
+      padding:15px 30px;display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;
+    }
+    .top-nav .logo{font-size:18px;font-weight:bold;color:#5881bc}
+    .top-nav .nav-links{display:flex;gap:20px;align-items:center}
+    .top-nav a{color:#333;text-decoration:none;padding:8px 15px;border-radius:0;transition:all 0.2s;font-size:14px}
+    .top-nav a:hover{background:#f5f5f5;color:#5881bc}
+    .top-nav .logout-btn{background:#5881bc;color:white;padding:8px 15px;border-radius:0;max-width:1400px;margin:0 auto}
+    .alert{padding:12px 20px;margin-bottom:20px;border-radius:0;font-size:14px}
+    .alert-error{background:#f8d7da;color:#721c24}.alert-success{background:#d4edda;color:#155724}.alert-info{background:#d4e6f1;color:#1a5276}
+
+    .btn{
+      padding:10px 20px;border:none;border-radius:0;font-size:14px;font-weight:600;
+      cursor:pointer;text-decoration:none;display:inline-block;font-family:inherit;
+    }
+    .btn-primary{background:#5881bc;color:white}
+    .btn-primary:hover{background:#4a6fa3}
+    .btn-secondary{background:#ddd;color:#333}
+    .btn-secondary:hover{background:#ccc}
+    .btn-danger{background:#e74c3c;color:white}
+    .btn-danger:hover{background:#c0392b}
+    .btn-sm{padding:6px 14px;font-size:12px}
+    .btn-xs{padding:2px 8px;font-size:11px;border-radius:0;gap:16px;align-items:center;flex-wrap:wrap;
+      background:white;padding:16px 20px;border-radius:0;margin-bottom:20px;
+    }
+    .editor-toolbar label{font-weight:600;font-size:14px;color:#333}
+    .editor-toolbar select{
+      padding:8px 12px;border:1px solid #ddd;border-radius:0;font-size:14px;font-family:inherit;
+    }
+    .editor-toolbar select:focus{outline:none;border-color:#5881bc}
+    .toolbar-spacer{flex:1}
+
+    .editor-layout{display:flex;gap:20px;min-height:500px}
+    .team-pool-panel{
+      width:220px;flex-shrink:0;background:white;border-radius:0;
+      padding:16px;display:flex;flex-direction:column;
+    }
+    .team-pool-panel h3{font-size:15px;margin-bottom:4px;color:#333}
+    .team-pool-hint{font-size:11px;color:#999;margin-bottom:12px}
+    .team-pool-search{
+      width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:0;
+      font-size:13px;margin-bottom:12px;font-family:inherit;
+    }
+    .team-pool-search:focus{outline:none;border-color:#5881bc}
+    .team-pool-list{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:4px}
+    .team-chip{
+      display:flex;align-items:center;gap:8px;
+      padding:8px 10px;background:#f8f9fa;border:1px solid #e8e8e8;border-radius:0;
+      cursor:grab;font-size:13px;user-select:none;transition:all 0.15s;
+    }
+    .team-chip:hover{background:#eef1f5;border-color:#5881bc}
+    .team-chip.dragging{opacity:0.4;transform:scale(0.95)}
+    .team-chip .chip-avatar{
+      width:28px;height:28px;border-radius:0;background:#5881bc;color:#fff;
+      display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;
+    }
+    .team-chip .chip-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+    .team-chip .chip-remove{
+      background:none;border:none;color:#999;cursor:pointer;font-size:14px;padding:0 2px;line-height:1;
+      display:none;
+    }
+    .team-chip.in-use{background:#e8f0fe;border-color:#5881bc;cursor:grab}
+    .team-chip.in-use .chip-remove{display:inline}
+    .team-chip.in-use:hover{background:#d8e4f8}
+
+    .bracket-panel{
+      flex:1;min-width:0;background:white;border-radius:0;padding:20px;
+      overflow-x:auto;-webkit-overflow-scrolling:touch;
+    }
+    .bracket-panel h3{font-size:15px;margin-bottom:16px;color:#333}
+    .empty-bracket-hint{
+      text-align:center;color:#aaa;padding:60px 20px;font-size:14px;
+    }
+
+    .bracket-editor-wrapper{
+      position:relative;min-width:700px;
+    }
+
+    .round-row{display:flex;gap:40px;margin-bottom:30px;align-items:stretch}
+    .round-col{flex:1;min-width:0}
+    .round-title{
+      font-size:13px;font-weight:700;color:#5881bc;margin-bottom:12px;
+      text-transform:uppercase;letter-spacing:0.5px;
+      border-bottom:2px solid #5881bc;padding-bottom:4px;
+    }
+
+    .bracket-slot{
+      background:#f8f9fa;border:2px dashed #ddd;border-radius:0;
+      padding:12px;margin-bottom:12px;min-height:100px;
+      transition:all 0.2s;position:relative;
+    }
+    .bracket-slot.drag-over{border-color:#5881bc;background:#eef4fb}
+    .bracket-slot.filled{border-style:solid;border-color:#e0e0e0;background:white}
+
+    .slot-header{
+      display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;
+    }
+    .slot-label{font-size:11px;font-weight:600;color:#999}
+    .slot-actions{display:flex;gap:4px}
+
+    .slot-teams{display:flex;flex-direction:column;gap:6px}
+    .slot-team{
+      display:flex;align-items:center;gap:8px;padding:6px 8px;
+      border-radius:0;font-size:13px;background:white;border:1px solid #eee;
+      min-height:36px;transition:all 0.15s;
+    }
+    .slot-team.drop-target{border-color:#5881bc;background:#eef4fb}
+    .slot-team .seed-badge{
+      width:22px;height:22px;border-radius:0;background:#eee;border:1px solid #ddd;
+      display:flex;align-items:center;justify-content:center;
+      font-size:10px;font-weight:700;flex-shrink:0;color:#666;
+    }
+    .slot-team .team-name-text{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .slot-team .team-name-text.placeholder{color:#bbb;font-style:italic}
+    .slot-team .team-score{
+      width:36px;text-align:center;font-weight:700;font-size:15px;color:#333;
+      border:none;background:transparent;font-family:inherit;
+    }
+    .slot-team .team-score:focus{outline:none;background:#eef4fb;border-radius:0;border:none;color:#ccc;cursor:pointer;font-size:14px;padding:0 2px;
+    }
+    .slot-team .remove-team-btn:hover{color:#e74c3c}
+
+    .slot-vs{text-align:center;font-size:11px;color:#aaa;padding:2px 0}
+
+    .bracket-section-label{
+      font-size:12px;font-weight:700;color:#666;margin:20px 0 10px;
+      padding:4px 12px;background:#f0f0f0;border-radius:0;display:inline-block;
+    }
+
+    .add-match-btn{
+      display:block;width:100%;padding:8px;background:none;border:1px dashed #ccc;
+      border-radius:0;color:#999;cursor:pointer;font-size:12px;margin-top:8px;
+      transition:all 0.15s;font-family:inherit;
+    }
+    .add-match-btn:hover{border-color:#5881bc;color:#5881bc}
+
+    /* Modal */
+    .modal-overlay{
+      position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;
+      display:flex;align-items:center;justify-content:center;
+    }
+    .modal{
+      background:white;border-radius:0;padding:24px;max-width:500px;width:90vw;
+      max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.25);
+    }
+    .modal h3{margin-bottom:16px;color:#333}
+    .modal .form-group{margin-bottom:12px}
+    .modal .form-group label{display:block;font-size:13px;font-weight:600;margin-bottom:4px;color:#555}
+    .modal .form-group input,.modal .form-group select{
+      width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:0;font-size:13px;font-family:inherit;
+    }
+    .modal .form-group input:focus,.modal .form-group select:focus{outline:none;border-color:#5881bc}
+    .modal .map-scores-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+    .modal .map-scores-row select{width:140px}
+    .modal .map-scores-row input{width:60px;text-align:center}
+    .modal .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+
+    /* Swiss table */
+    .swiss-rounds{margin-top:16px}
+    .swiss-round{margin-bottom:20px}
+    .swiss-round h4{font-size:14px;color:#5881bc;margin-bottom:8px}
+
+    /* Swiss record groups (editor) */
+    .swiss-section-label{
+      font-size:13px;font-weight:700;color:#333;
+      margin:20px 0 10px;padding:6px 14px;
+      background:#e8f0fe;border-left:3px solid #5881bc;border-radius:0;
+    }
+    .swiss-record-group{margin-bottom:16px;margin-left:8px}
+    .swiss-record-title{
+      font-size:12px;font-weight:700;color:#666;
+      margin-bottom:8px;display:inline-block;
+      padding:2px 10px;background:#f0f0f0;border-radius:0;
+    }
+    .swiss-record-matches{
+      display:flex;gap:16px;flex-wrap:wrap;
+    }
+    .swiss-record-matches .bracket-slot{flex:1;min-width:220px}
+
+    /* Section rounds row (elimination editor) */
+    .section-rounds-row{
+      display:flex;gap:40px;margin-bottom:30px;align-items:stretch;
+    }
+
+    /* Custom team input */
+    .custom-team-row{
+      display:flex;gap:6px;margin-bottom:10px;padding-bottom:10px;
+      border-bottom:1px dashed #ddd;
+    }
+    .custom-team-input{
+      flex:1;padding:6px 10px;border:1px solid #ddd;border-radius:0;
+      font-size:13px;font-family:inherit;
+    }
+    .custom-team-input:focus{outline:none;border-color:#5881bc}
+
+    @media(max-width:768px){
+      .container{padding:0 12px 12px}
+      .editor-layout{flex-direction:column}
+      .team-pool-panel{width:100%;max-height:200px}
+      .editor-toolbar{flex-direction:column;align-items:stretch;gap:8px}
+      .bracket-editor-wrapper{min-width:auto;overflow-x:auto}
+      .round-row{flex-direction:column;gap:20px}
+      .section-rounds-row{flex-direction:column;gap:20px}
+      .swiss-record-matches{flex-direction:column}
+      .swiss-record-matches .bracket-slot{min-width:auto}
+      .top-nav{padding:10px 15px;flex-wrap:wrap;gap:8px}
+      .top-nav .nav-links{gap:8px}
+      .bracket-editor-wrapper{-webkit-overflow-scrolling:touch}
+    }
+    @media(max-width:480px){
+      .bracket-slot{padding:6px;font-size:12px}
+      .top-nav a{font-size:12px;padding:4px 8px}
+      .top-nav a{padding:6px 10px;font-size:12px}
+    }
+  </style>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-comfort.css') }}">
+</head>
+<body>
+
+<div class="top-nav">
+  <div class="logo">CS2 后台管理</div>
+  <div class="nav-links">
+    <a href="/admin">首页</a>
+    <a href="/admin/teams">队伍</a>
+    <a href="/admin/players">选手</a>
+    <a href="/admin/events">赛事</a>
+    <a href="/admin/matches">比赛</a>
+    <a href="/admin/news">新闻</a>
+    <span style="color:#ccc">|</span>
+    <span style="color:#666">{{ session.admin_username }}</span>
+    <a href="/admin/logout" class="logout-btn">退出</a>
+  </div>
+</div>
+
+<div class="container">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+      <div class="alert alert-{{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+    <h2 style="color:#333;font-size:20px">{{ event.name }} — 对阵图编辑器</h2>
+    <span style="font-size:12px;color:#999">event_id={{ event.id }}</span>
+  </div>
+
+  <div class="editor-toolbar">
+    <label>赛制：</label>
+    <select id="formatSelect">
+      <option value="4de">4 队双败淘汰</option>
+      <option value="8de">8 队双败淘汰</option>
+      <option value="4se">4 队单败淘汰</option>
+      <option value="8se">8 队单败淘汰</option>
+      <option value="swiss">瑞士制</option>
+    </select>
+    <label style="margin-left:8px">赛事名：</label>
+    <input type="text" id="tournamentName" placeholder="如：春季杯淘汰赛" style="padding:8px 10px;border:1px solid #ddd;border-radius:0;font-size:13px;width:180px;font-family:inherit">
+    <div class="toolbar-spacer"></div>
+    <button class="btn btn-secondary" onclick="resetBracket()">重置</button>
+    <button class="btn btn-primary" onclick="saveBracket()">保存对阵图</button>
+    <a href="/admin/events" class="btn btn-secondary">返回</a>
+  </div>
+
+  <div class="editor-layout">
+    <!-- 队伍池 -->
+    <div class="team-pool-panel">
+      <h3>队伍池</h3>
+      <p class="team-pool-hint">拖拽队伍到对阵图槽位</p>
+      <input type="text" class="team-pool-search" id="teamSearch" placeholder="搜索队伍..." oninput="filterTeams()">
+      <div class="team-pool-list" id="teamPool"></div>
+    </div>
+
+    <!-- 对阵图编辑区 -->
+    <div class="bracket-panel">
+      <h3>对阵图预览</h3>
+      <div class="bracket-editor-wrapper" id="bracketEditor">
+        <div class="empty-bracket-hint" id="emptyHint">选择赛制后将显示对阵图编辑区域</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 比赛编辑弹窗 -->
+<div class="modal-overlay" id="matchModal" style="display:none">
+  <div class="modal">
+    <h3 id="modalTitle">编辑比赛</h3>
+    <div class="form-group">
+      <label>比分</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="number" id="modalScore1" min="0" max="3" style="width:60px;text-align:center">
+        <span>:</span>
+        <input type="number" id="modalScore2" min="0" max="3" style="width:60px;text-align:center">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>关联比赛</label>
+      <select id="modalMatchId">
+        <option value="">-- 不关联 --</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>地图比分</label>
+      <div id="modalMapScores"></div>
+      <button class="btn btn-sm btn-secondary" onclick="addMapRow()" style="margin-top:4px">+ 添加地图</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-sm btn-danger" id="modalDeleteBtn" style="margin-right:auto;display:none" onclick="deleteMatch()">删除比赛</button>
+      <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveMatch()">确定</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // CSRF token
+  window._csrfToken = '{{ csrf_token }}';
+  window._eventId = {{ event.id }};
+  // 初始数据
+  window._bracketData = {{ bracket_data|tojson if bracket_data else 'null' }};
+  window._eventMatches = {{ event_matches|tojson }};
+</script>
+<script src="/static/js/bracket_editor.js"></script>
+<script src="{{ url_for('static', filename='js/i18n.js') }}?v=20260614-fullsite-lang2"></script>
+</body>
+</html>

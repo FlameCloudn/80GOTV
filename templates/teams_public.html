@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block title %}队伍 - 80GOTV{% endblock %}
+{% block main %}
+<div class="card-list h-compact-list">
+  {% for t in teams %}
+  <div class="card" style="display:flex;align-items:center;gap:var(--space-md)">
+    <div class="avatar-lg">{{ t.name[0] }}</div>
+    <div>
+      <div style="font-weight:600;font-size:15px;">{{ t.name }}</div>
+      {% if t.short_name %}<div style="font-size:13px;color:var(--text-muted)">{{ t.short_name }}</div>{% endif %}
+      {% if t.description %}<div style="font-size:12px;color:var(--text-muted);margin-top:4px">{{ t.description[:100] }}</div>{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% if not teams %}
+<div class="empty-state">暂无队伍</div>
+{% endif %}
+{% endblock %}
+
+{% block layout_class %}no-side-layout{% endblock %}
+{% block side %}{% endblock %}

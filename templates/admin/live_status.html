@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>直播状态 - 80GOTV</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-comfort.css') }}">
+  <style>
+    body{background:#f4f6f8;font-family:sans-serif}.ops{max-width:1280px;margin:auto;padding:24px}
+    .ops-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}
+    .ops a{color:#416fa9;text-decoration:none}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:22px}
+    .card{background:#fff;border:1px solid #dce2e8;border-radius:0;padding:16px}.status{display:inline-block;padding:3px 7px;border-radius:0;font-size:12px;font-weight:700}
+    .ok{background:#def6e8;color:#15713c}.error{background:#fde6e6;color:#a32626}.muted{color:#6d7884;font-size:13px}
+    table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #dce2e8}th,td{text-align:left;padding:11px;border-bottom:1px solid #e6eaee;font-size:13px}
+  </style>
+</head>
+<body>
+<div class="ops">
+  <div class="ops-head"><div><h2>直播连接状态</h2><div class="muted">查看观战账号和 GOTV Relay 最近一次推送结果。</div></div><a href="/admin">返回后台</a></div>
+  <div class="grid">
+    {% for item in receivers %}
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center"><b>{{ item.source|upper }}</b><span class="status {{ item.status }}">{{ '正常' if item.status == 'ok' else '异常' }}</span></div>
+      <div style="margin-top:12px">{{ item.message or '-' }}</div>
+      <div class="muted" style="margin-top:10px">比赛：{% if item.match_id %}#{{ item.match_id }} {{ item.team1_name or '' }} 对 {{ item.team2_name or '' }}{% else %}-{% endif %}</div>
+      <div class="muted">地图：{{ item.map_name|map_display if item.map_name else '-' }}</div>
+      <div class="muted">最后收到：{{ item.received_at|datetime_display }}</div>
+    </div>
+    {% else %}
+    <div class="card"><b>尚未收到直播数据</b><div class="muted" style="margin-top:8px">启动观战账号后，这里会显示连接情况。</div></div>
+    {% endfor %}
+  </div>
+  <h3 style="margin-bottom:10px">未结束比赛</h3>
+  <table>
+    <thead><tr><th>ID</th><th>比赛</th><th>状态</th><th>计划时间</th><th>数据来源</th><th>当前地图</th><th>数据更新时间</th></tr></thead>
+    <tbody>
+    {% for m in matches %}
+      <tr><td>#{{ m.id }}</td><td>{{ m.team1_name or '队伍 1' }} 对 {{ m.team2_name or '队伍 2' }}</td><td>{% if m.effective_status == 'upcoming' %}未开始{% elif m.effective_status == 'live' %}直播中{% elif m.effective_status == 'cancelled' %}已取消{% else %}已结束{% endif %}</td><td>{{ m.match_time|datetime_display if m.match_time else '-' }}</td><td>{{ m.live_source }}</td><td>{{ m.current_map }}</td><td>{{ m.updated_at|datetime_display if m.updated_at else '-' }}</td></tr>
+    {% else %}
+      <tr><td colspan="7">暂无未结束比赛</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+<script src="{{ url_for('static', filename='js/i18n.js') }}?v=20260614-fullsite-lang2"></script>
+</body>
+</html>

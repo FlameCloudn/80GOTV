@@ -1,0 +1,112 @@
+{# ── Single bracket match card partial ── #}
+{# expects: m, round_name, team_map, team_players_map, pos_style (optional inline style) #}
+{% set mt1 = m.get('team1') %}{% set mt2 = m.get('team2') %}
+{% set t1_info = team_map.get(mt1) if mt1 else None %}
+{% set t2_info = team_map.get(mt2) if mt2 else None %}
+{% set t1_name = t1_info.name if t1_info else (mt1 or 'TBD') %}
+{% set t2_name = t2_info.name if t2_info else (mt2 or 'TBD') %}
+{% set t1_short = t1_info.short if t1_info else t1_name %}
+{% set t2_short = t2_info.short if t2_info else t2_name %}
+{% set ms1 = m.get('score1') %}{% set ms2 = m.get('score2') %}
+{% set t1_win = ms1 != None and ms2 != None and ms1 > ms2 %}
+{% set t2_win = ms1 != None and ms2 != None and ms2 > ms1 %}
+{% set mid = m.get('match_id') %}
+{% set mid_int = mid|int if mid and mid|string|first in '0123456789' else 0 %}
+{% set card_id = round_name or m.get('id') or m.get('match_id') or '' %}
+{% set t1_pids = team_players_map.get(mt1) or team_players_map.get(t1_name) or team_players_map.get(t1_name|lower) or [] %}
+{% set t2_pids = team_players_map.get(mt2) or team_players_map.get(t2_name) or team_players_map.get(t2_name|lower) or [] %}
+{% set map_list = m.get('maps') or [] %}
+
+{% macro player_row(p, side) %}
+  {% if side == 'left' %}
+  <div class="bp-player-row">
+    <img class="bp-player-avatar" src="{{ p.avatar or '/static/avatars/default.png' }}" alt="{{ p.nickname }}"
+         loading="lazy" onerror="this.onerror=null;this.src='/static/avatars/default.png'">
+    <span class="bp-player-name">{{ p.nickname }}</span>
+    <span class="bp-player-rating">{{ '%.2f'|format(p.rating) if p.rating else '-' }}</span>
+  </div>
+  {% else %}
+  <div class="bp-player-row bp-player-row-right">
+    <span class="bp-player-rating">{{ '%.2f'|format(p.rating) if p.rating else '-' }}</span>
+    <span class="bp-player-name">{{ p.nickname }}</span>
+    <img class="bp-player-avatar" src="{{ p.avatar or '/static/avatars/default.png' }}" alt="{{ p.nickname }}"
+         loading="lazy" onerror="this.onerror=null;this.src='/static/avatars/default.png'">
+  </div>
+  {% endif %}
+{% endmacro %}
+
+<div class="bracket-card" tabindex="0"
+     style="{% if pos_style %}{{ pos_style }};{% endif %}">
+  <div class="bracket-card-header">{{ card_id }}</div>
+  <div class="bracket-card-body">
+    <div class="bracket-team{% if t1_win %} winner{% elif t2_win %} loser{% endif %}">
+      <span class="bracket-seed seed-1">1</span>
+      <span class="bracket-short">{{ t1_short[:6] }}</span>
+      <span class="bracket-name{% if mt1 == None %} tbd{% endif %}">{{ t1_name }}</span>
+      {% if ms1 != None %}<span class="bracket-score">{{ ms1 }}</span>{% endif %}
+    </div>
+    <div class="bracket-team{% if t2_win %} winner{% elif t1_win %} loser{% endif %}">
+      <span class="bracket-seed{% if not mt2 %} seed-tbd{% endif %}">2</span>
+      <span class="bracket-short">{{ t2_short[:6] if mt2 else '---' }}</span>
+      <span class="bracket-name{% if mt2 == None %} tbd{% endif %}">{{ t2_name }}</span>
+      {% if ms2 != None %}<span class="bracket-score">{{ ms2 }}</span>{% endif %}
+    </div>
+  </div>
+
+  {# ── 综合弹窗 ── #}
+  <div class="bracket-match-popup">
+    {# 比分头部 — 队标 + 比分 #}
+    <div class="bmp-header">
+      <span class="bmp-team-logo">{{ t1_short[:8] }}</span>
+      <span class="bmp-score">
+        <span class="bmp-s1{% if t1_win %} win{% elif t2_win %} lose{% endif %}">{{ ms1 if ms1 != None else '-' }}</span>
+        <span class="bmp-colon">:</span>
+        <span class="bmp-s2{% if t2_win %} win{% elif t1_win %} lose{% endif %}">{{ ms2 if ms2 != None else '-' }}</span>
+      </span>
+      <span class="bmp-team-logo">{{ t2_short[:8] }}</span>
+    </div>
+
+    {# 地图比分 #}
+    {% if map_list %}
+    <div class="bmp-divider"></div>
+    <div class="bmp-section-label">MAPS</div>
+    {% for mp in map_list %}
+    <div class="bmp-map-row">
+      <span class="bmp-map-s1{% if mp.t1 > mp.t2 %} win{% elif mp.t2 > mp.t1 %} lose{% endif %}">{{ mp.t1 }}</span>
+      <span class="bmp-map-name">{{ mp.name|map_display }}</span>
+      <span class="bmp-map-s2{% if mp.t2 > mp.t1 %} win{% elif mp.t1 > mp.t2 %} lose{% endif %}">{{ mp.t2 }}</span>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {# 选手阵容 #}
+    <div class="bmp-divider"></div>
+    <div class="bmp-section-label">阵容</div>
+    <div class="bmp-players">
+      <div class="bmp-col">
+        {% if t1_pids %}
+          {% for p in t1_pids %}{{ player_row(p, 'left') }}{% endfor %}
+        {% else %}
+          {% for i in range(5) %}<div class="bp-player-row"><span class="bp-player-avatar bp-avatar-tbd">?</span><span class="bp-player-name tbd">TBD</span><span class="bp-player-rating">-</span></div>{% endfor %}
+        {% endif %}
+      </div>
+      <div class="bmp-col">
+        {% if t2_pids %}
+          {% for p in t2_pids %}{{ player_row(p, 'right') }}{% endfor %}
+        {% else %}
+          {% for i in range(5) %}<div class="bp-player-row bp-player-row-right"><span class="bp-player-rating">-</span><span class="bp-player-name tbd">TBD</span><span class="bp-player-avatar bp-avatar-tbd">?</span></div>{% endfor %}
+        {% endif %}
+      </div>
+    </div>
+
+    {# Match Page 按钮 #}
+    <div class="bmp-divider"></div>
+    <div class="bmp-footer">
+      {% if mid_int %}
+      <a href="/matches/{{ mid_int }}" class="bmp-match-link" onclick="event.stopPropagation()">Match Page</a>
+      {% else %}
+      <button class="bmp-match-link bmp-no-match" onclick="event.stopPropagation();showToast('比赛不存在，请联系管理员录入', 'error')">Match Page</button>
+      {% endif %}
+    </div>
+  </div>
+</div>

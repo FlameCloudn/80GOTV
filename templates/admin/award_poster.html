@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>MVP / EVP 图片 - 80GOTV</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-comfort.css') }}">
+  <style>
+    body{margin:0;background:#f4f6f8;color:#26313c;font-family:sans-serif}.ops{max-width:1240px;margin:auto;padding:24px}.head{display:flex;justify-content:space-between;gap:12px;align-items:center}.panel{background:#fff;border:1px solid #dce2e8;border-radius:0;padding:16px;margin-top:16px}.form{display:flex;gap:10px;align-items:end;flex-wrap:wrap}.field{display:flex;flex-direction:column;gap:5px;font-size:13px}select{min-width:220px}.btn{border:0;border-radius:0;padding:11px 15px;background:#416fa9;color:#fff;text-decoration:none;cursor:pointer}.preview{display:block;width:100%;max-width:1000px;margin-top:16px;border-radius:0;border:1px solid #dce2e8}
+  </style>
+</head>
+<body>
+<div class="ops">
+  <div class="head"><div><h2>MVP / EVP 数据图片</h2><div>选择赛事和选手后，按整场赛事数据生成。RWS Basic 是本站按胜利回合伤害占比计算的基础版。旧 Demo 请重新解析一次。</div></div><a href="/admin">返回后台</a></div>
+  <section class="panel">
+    <form class="form" method="get">
+      <label class="field">类型<select name="award_type"><option value="MVP" {% if award_type == 'MVP' %}selected{% endif %}>MVP</option><option value="EVP" {% if award_type == 'EVP' %}selected{% endif %}>EVP</option></select></label>
+      <label class="field">赛事<select name="event_id" required><option value="">选择赛事</option>{% for e in events %}<option value="{{ e.id }}" {% if selected_event == e.id %}selected{% endif %}>{{ e.name }}</option>{% endfor %}</select></label>
+      <label class="field">选手<select name="player_id" required><option value="">选择选手</option>{% for p in players %}<option value="{{ p.id }}" {% if selected_player == p.id %}selected{% endif %}>{{ p.nickname }}{% if p.team_short %} · {{ p.team_short }}{% endif %}</option>{% endfor %}</select></label>
+      <button class="btn" type="submit">生成预览</button>
+    </form>
+  </section>
+  {% if selected_event and selected_player %}
+  <section class="panel">
+    {% set image_url = '/admin/awards/poster.png?award_type=' ~ award_type ~ '&event_id=' ~ selected_event ~ '&player_id=' ~ selected_player %}
+    <a class="btn" href="{{ image_url }}">下载 PNG</a>
+    <img loading="lazy" class="preview" src="{{ image_url }}" alt="{{ award_type }} 数据图片">
+  </section>
+  {% endif %}
+</div>
+<script src="{{ url_for('static', filename='js/i18n.js') }}?v=20260614-fullsite-lang2"></script>
+</body>
+</html>

@@ -1,0 +1,185 @@
+{% extends 'base.html' %}
+{% block title %}{{ config.title }} - 80GOTV{% endblock %}
+{% block main %}
+<a href="/stats?tab=overview&time={{ filters.time }}&map={{ filters.map|urlencode }}&side={{ filters.side }}" class="stats-back-link">返回数据概览</a>
+
+<form class="stats-filter-strip" method="get">
+  <input type="hidden" name="side" value="{{ filters.side }}">
+  <label>
+    <span>时间筛选</span>
+    <select name="time" onchange="this.form.submit()">
+      {% for item in time_options %}
+      <option value="{{ item.value }}" {% if filters.time == item.value %}selected{% endif %}>{{ item.label }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>
+    <span>地图筛选</span>
+    <select name="map" onchange="this.form.submit()">
+      <option value="all" {% if filters.map == 'all' %}selected{% endif %}>全部</option>
+      {% for map in map_options %}
+      <option value="{{ map.value }}" {% if filters.map == map.value %}selected{% endif %}>{{ map.value|map_display }}</option>
+      {% endfor %}
+    </select>
+  </label>
+</form>
+
+<header class="stats-detail-heading">
+  <h1>{{ config.title }}</h1>
+  <p>
+    {% if filters.time == 'all' %}全部{% else %}{{ time_options|selectattr('value', 'equalto', filters.time)|map(attribute='label')|first }}{% endif %}
+    ·
+    {% if filters.map == 'all' %}全部地图{% else %}{{ filters.map|map_display }}{% endif %}
+  </p>
+</header>
+
+{% if config.kind in ('players', 'flashes', 'pistol') %}
+<nav class="stats-side-tabs">
+  {% for side in side_options %}
+  <a href="?time={{ filters.time }}&map={{ filters.map|urlencode }}&side={{ side.value }}" class="{% if filters.side == side.value %}active{% endif %}">{{ side.label }}</a>
+  {% endfor %}
+</nav>
+{% endif %}
+
+{% if section == 'top-events' %}
+<div class="stats-table stats-dense-table">
+  <table>
+    <thead><tr><th>冠军选手</th><th>赛事</th><th>比赛数</th></tr></thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td class="champion-cell" data-i18n-ignore>
+          {% if r.champion_teams %}
+            {{ r.champion_teams }}
+          {% else %}
+            <span class="no-champion">-</span>
+          {% endif %}
+        </td>
+        <td><a href="/events/{{ r.id }}" data-i18n-ignore>{{ r.name }}</a></td>
+        <td>{{ r.matches or 0 }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% elif section == 'flashes' %}
+<div class="stats-table stats-dense-table">
+  <table>
+    <thead>
+      <tr><th>Player</th><th>Maps</th><th>Rounds</th><th>Thrown</th><th>Blinded</th><th>Opp Flashed</th><th>Diff</th><th>FA</th><th>Success</th></tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td><a href="/players/{{ r.id }}" class="dense-player">{% if r.avatar %}<img src="{{ url_for('static', filename='avatars/' + r.avatar) }}" alt="{{ r.nickname }}" loading="lazy">{% else %}<span>{{ r.nickname[:1] }}</span>{% endif %}<b data-i18n-ignore>{{ r.nickname }}</b></a></td>
+        <td>{{ r.maps or 0 }}</td>
+        <td>{{ r.rounds or 0 }}</td>
+        <td>{{ "%.2f"|format(r.thrown or 0) }}</td>
+        <td>{{ "%.2f"|format(r.blinded or 0) }}s</td>
+        <td>{{ "%.2f"|format(r.opp_flashed or 0) }}s</td>
+        <td class="{% if r.diff and r.diff > 0 %}stat-pos{% elif r.diff and r.diff < 0 %}stat-neg{% endif %}">{{ "%+.2f"|format(r.diff or 0) }}</td>
+        <td>{{ "%.2f"|format(r.fa or 0) }}</td>
+        <td>{{ "%.2f"|format(r.success or 0) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% elif section == 'pistol-rounds' %}
+<div class="stats-table stats-dense-table">
+  <table>
+    <thead>
+      <tr><th>Team</th><th>Maps</th><th>Won - Lost</th><th>Pistol win %</th><th>Round 2 conv</th><th>Round 2 break</th></tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td class="team-cell" data-i18n-ignore>
+          {% if r.logo %}<img src="{{ url_for('static', filename=('logos/' + r.logo) if not r.logo.startswith('http') else r.logo) }}" alt="" loading="lazy" class="team-logo-sm">{% endif %}
+          {% if r.team_id %}
+          <a href="/teams">{{ r.team_name }}</a>
+          {% else %}
+          <span>{{ r.team_name }}</span>
+          {% endif %}
+        </td>
+        <td>{{ r.maps or 0 }}</td>
+        <td>{{ r.won or 0 }} - {{ r.lost or 0 }}</td>
+        <td class="{% if r.pistol_win_pct >= 50 %}stat-pos{% else %}stat-neg{% endif %}">{{ r.pistol_win_pct }}%</td>
+        <td>{{ r.round2_conv }}%</td>
+        <td>{{ r.round2_break }}%</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% elif section == 'best-players' %}
+<div class="stats-table stats-dense-table">
+  <table>
+    <thead>
+      <tr><th>选手</th><th>地图</th><th>回合</th><th>K-D Diff</th><th>K/D</th><th>RATING</th></tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td><a href="/players/{{ r.id }}" class="dense-player">{% if r.avatar %}<img src="{{ url_for('static', filename='avatars/' + r.avatar) }}" alt="{{ r.nickname }}" loading="lazy">{% else %}<span>{{ r.nickname[:1] }}</span>{% endif %}<b data-i18n-ignore>{{ r.nickname }}</b></a></td>
+        <td>{{ r.maps }}</td>
+        <td>{{ r.rounds or 0 }}</td>
+        <td class="{% if r.kd_diff and r.kd_diff > 0 %}stat-pos{% elif r.kd_diff and r.kd_diff < 0 %}stat-neg{% endif %}">{{ "%+d"|format(r.kd_diff or 0) }}</td>
+        <td>{{ "%.2f"|format(r.kd) if r.kd else '-' }}</td>
+        <td class="rt-cell {{ r.rating|rating_class }}"><b>{{ "%.2f"|format(r.rating or 0) }}</b></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% elif section == 'kd' %}
+<div class="stats-table stats-dense-table">
+  <table>
+    <thead>
+      <tr><th>选手</th><th>队伍</th><th>地图</th><th>击杀</th><th>K-D 差</th><th>K/D</th><th>RATING</th></tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td><a href="/players/{{ r.id }}" class="dense-player">{% if r.avatar %}<img src="{{ url_for('static', filename='avatars/' + r.avatar) }}" alt="{{ r.nickname }}" loading="lazy">{% else %}<span>{{ r.nickname[:1] }}</span>{% endif %}<b data-i18n-ignore>{{ r.nickname }}</b></a></td>
+        <td data-i18n-ignore>{{ r.team or '-' }}</td>
+        <td>{{ r.maps }}</td>
+        <td>{{ r.kills or 0 }}</td>
+        <td class="{% if r.kd_diff and r.kd_diff > 0 %}stat-pos{% elif r.kd_diff and r.kd_diff < 0 %}stat-neg{% endif %}">{{ "%+d"|format(r.kd_diff or 0) }}</td>
+        <td><b>{{ "%.2f"|format(r.kd) if r.kd else '-' }}</b></td>
+        <td class="rt-cell {{ r.rating|rating_class }}"><b>{{ "%.2f"|format(r.rating or 0) }}</b></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="stats-table stats-dense-table">
+  <table>
+    <thead>
+      <tr><th>选手</th><th>队伍</th><th>地图</th><th>回合</th><th>K-D 差</th><th>K/D</th><th>ADR</th><th>HS%</th><th>RATING</th></tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td><a href="/players/{{ r.id }}" class="dense-player">{% if r.avatar %}<img src="{{ url_for('static', filename='avatars/' + r.avatar) }}" alt="{{ r.nickname }}" loading="lazy">{% else %}<span>{{ r.nickname[:1] }}</span>{% endif %}<b data-i18n-ignore>{{ r.nickname }}</b></a></td>
+        <td data-i18n-ignore>{{ r.team or '-' }}</td>
+        <td>{{ r.maps }}</td>
+        <td>{{ r.rounds or 0 }}</td>
+        <td class="{% if r.kd_diff and r.kd_diff > 0 %}stat-pos{% elif r.kd_diff and r.kd_diff < 0 %}stat-neg{% endif %}">{{ "%+d"|format(r.kd_diff or 0) }}</td>
+        <td>{{ "%.2f"|format(r.kd) if r.kd else '-' }}</td>
+        <td>{{ "%.1f"|format(r.adr or 0) }}</td>
+        <td>{{ "%.1f"|format(r.hs or 0) }}%</td>
+        <td class="rt-cell {{ r.rating|rating_class }}"><b>{{ "%.2f"|format(r.rating or 0) }}</b></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if not rows %}<div class="empty-state">暂无数据</div>{% endif %}
+{% endblock %}
+
+{% block layout_class %}no-side-layout{% endblock %}
+{% block side %}{% endblock %}

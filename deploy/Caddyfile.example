@@ -1,0 +1,5 @@
+# 把“你的域名”替换成真正的域名，再复制到 /etc/caddy/Caddyfile。
+你的域名 {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:8000
+}

@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% block title %}预测排行 - 80GOTV{% endblock %}
+{% block main %}
+{% if predictions %}
+<section class="h-panel" style="margin-bottom:var(--space-xl)">
+  <div class="h-panel-title">赛季积分 TOP 10</div>
+  <div class="stats-table h-table-panel">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>用户</th>
+          <th>预测场次</th>
+          <th>正确</th>
+          <th>准确率</th>
+          <th>总积分</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in predictions %}
+        <tr>
+          <td>
+            {% if loop.index <= 3 %}
+            <span style="font-size:18px">{% if loop.index==1 %}🥇{% elif loop.index==2 %}🥈{% else %}🥉{% endif %}</span>
+            {% else %}{{ loop.index }}{% endif %}
+          </td>
+          <td>
+            <b data-i18n-ignore>{{ p.username }}</b>
+            {% if p.has_perfect %}<span title="猜中过精确比分" style="font-size:12px">🎯</span>{% endif %}
+          </td>
+          <td>{{ p.total_votes }}</td>
+          <td>{{ p.correct_votes }}</td>
+          <td>
+            {% set acc = (p.correct_votes / p.total_votes * 100)|round|int %}
+            <span style="font-weight:700;color:{% if acc >= 70 %}#22c55e{% elif acc >= 50 %}#eab308{% else %}#ef4444{% endif %}">
+              {{ acc }}%
+            </span>
+          </td>
+          <td><b style="font-size:18px;color:var(--accent)">{{ p.total_points }}</b></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% else %}
+<div class="empty-state">暂无预测数据，去比赛详情页参与预测吧！</div>
+{% endif %}
+
+{% if upcoming_matches %}
+<section class="h-panel">
+  <div class="h-panel-title">热门预测比赛</div>
+  <div class="card-list h-compact-list">
+    {% for m in upcoming_matches %}
+    <a href="/matches/{{ m.slug or m.id }}" class="card pred-match-row" style="text-decoration:none;color:var(--text-primary)">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px"><span data-i18n-ignore>{{ m.event_name or '' }}</span> · {{ m.match_time|datetime_display if m.match_time else '' }}</div>
+        <div style="font-weight:700"><span data-i18n-ignore>{{ m.team1_name or 'TBD' }}</span> <span style="color:var(--text-muted)">对</span> <span data-i18n-ignore>{{ m.team2_name or 'TBD' }}</span></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px;flex-shrink:0">
+        <span style="font-size:13px;color:var(--text-muted)">{{ m.vote_count }} 人预测</span>
+        {% set total = m.t1_votes + m.t2_votes %}
+        {% if total > 0 %}
+        <div style="width:80px;height:6px;background:var(--bg-hover);border-radius:0;overflow:hidden;display:flex">
+          <div style="height:100%;background:var(--accent);width:{{ (m.t1_votes / total * 100)|round }}%"></div>
+          <div style="height:100%;background:#de9b37;width:{{ (m.t2_votes / total * 100)|round }}%"></div>
+        </div>
+        {% endif %}
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% else %}
+<section class="h-panel">
+  <div class="h-panel-title">热门预测比赛</div>
+  <div class="empty-state">当前没有可以预测的比赛</div>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block layout_class %}no-side-layout{% endblock %}
+{% block side %}{% endblock %}

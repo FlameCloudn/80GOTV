@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% block title %}荣誉堂 - 80GOTV{% endblock %}
+{% block main %}
+{% if event_groups %}
+<div class="awards-grid">
+  {% for (event_id, event_name, event_date), group in event_groups %}
+  <div class="award-event-card">
+    <div class="award-event-header">
+      <a href="/events/{{ event_id }}" class="award-event-name">{{ event_name }}</a>
+      <span class="award-event-date">{{ event_date|date_display if event_date else '' }}</span>
+    </div>
+
+    {% if group.champions %}
+    <div class="award-champions">
+      {% for c in group.champions %}
+      <div class="award-champ-row">
+        <span class="award-icon">👑</span>
+        <a href="/teams" class="award-champ-team">{{ c.team_name }}</a>
+        <span class="award-badge champ-badge">冠军</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if group.medals %}
+    <div class="award-medals">
+      {% for m in group.medals %}
+      <div class="award-medal-row">
+        {% if m.avatar %}
+        <img src="{{ url_for('static', filename='avatars/' + m.avatar) }}" class="award-avatar" loading="lazy">
+        {% else %}
+        <span class="award-avatar-fb">{{ m.nickname[0] }}</span>
+        {% endif %}
+        <div class="award-medal-info">
+          <a href="/players/{{ m.player_id }}" class="award-medal-player">{{ m.nickname }}</a>
+          {% if m.team_short %}<span class="award-medal-team">{{ m.team_short }}</span>{% endif %}
+        </div>
+        <span class="award-badge {% if m.type == 'MVP' %}mvp-badge{% else %}evp-badge{% endif %}">{{ m.type }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">暂无荣誉记录</div>
+{% endif %}
+{% endblock %}
+
+{% block layout_class %}no-side-layout{% endblock %}
+{% block side %}{% endblock %}

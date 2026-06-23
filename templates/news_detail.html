@@ -1,28 +1,87 @@
 {% extends 'base.html' %}
-{% block title %}{{ news.title }} - 校园 CS2 赛事{% endblock %}
+{% block title %}{{ news.title }} - 80GOTV{% endblock %}
 {% block main %}
 <article class="news-detail">
   <h1 class="news-detail-title">{{ news.title }}</h1>
   <div class="meta">
     <span>{{ news.author }}</span>
     <span>·</span>
-    <span>{{ news.publish_time[:16] }}</span>
+    <span>{{ news.publish_time|datetime_display }}</span>
     <span>·</span>
     <span>评论 {{ news.comment_count }}</span>
   </div>
-  <div class="news-content">{{ news.content }}</div>
+  {% if news.tags %}<div class="news-tags" style="margin-bottom:16px">{% for t in news.tags.split(',') %}{% set ts = t.strip() %}{% if ts %}<a href="/news?tag={{ ts|urlencode }}" class="tag-chip">{{ ts }}</a>{% endif %}{% endfor %}</div>{% endif %}
+
+  {% if related_match %}
+  <a href="/matches/{{ related_match.slug or related_match.id }}" class="related-match-card" style="display:block;background:var(--bg-card);border:1px solid var(--border-color);border-radius:0;padding:16px;margin-bottom:20px;text-decoration:none;transition:border-color 0.2s">
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">关联比赛</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div>
+        <div style="font-weight:700;color:var(--text-primary)">{{ related_match.t1s or related_match.t1n }} <span style="color:var(--text-muted)">vs</span> {{ related_match.t2s or related_match.t2n }}</div>
+        {% if related_match.event_name %}<div style="font-size:13px;color:var(--text-muted)">{{ related_match.event_name }} · {{ related_match.match_time|date_display if related_match.match_time else '' }}</div>{% endif %}
+      </div>
+      <div style="font-size:24px;font-weight:800;color:var(--accent)">{{ related_match.team1_score }} : {{ related_match.team2_score }}</div>
+    </div>
+  </a>
+  {% endif %}
+
+  <div class="news-content">{{ news.content|safe }}</div>
 </article>
+
+{% from '_comment_macros.html' import render_comment with context %}
+
+<!-- 评论区 -->
+<style>
+.comment-section,.comments{background:transparent!important;margin-top:48px!important;padding-top:12px!important;padding-bottom:12px!important}
+.comment-item{background:#ffffff!important;padding:8px 12px!important}
+.comment-textarea,.comment-textarea-top,.reply-textarea{background:transparent!important}
+.comment-login-prompt{background:transparent!important}
+</style>
+<section class="comments" style="margin-top:30px;background:transparent!important">
+  <h3 style="color:var(--text-primary);margin-bottom:16px">评论 ({{ news.comment_count }})</h3>
+
+  {% if session.user_id %}
+  <form method="post" action="/comment/news/{{ news.id }}" class="comment-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+    <textarea name="content" rows="3" placeholder="写下你的评论..." required class="comment-textarea"></textarea>
+    <div class="comment-form-footer">
+      <button type="submit" class="comment-submit">发表评论</button>
+    </div>
+  </form>
+  {% else %}
+  <div class="comment-login-prompt">
+    <a href="/login">登录</a> 后即可发表评论
+  </div>
+  {% endif %}
+
+  {% if comments %}
+  <div class="comment-list">
+    {% for c in comments %}
+      {{ render_comment(c, session, 'news', news.id) }}
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="empty-state">暂无评论</p>
+  {% endif %}
+</section>
+
 <a href="/news" class="btn-back">← 返回新闻列表</a >
 {% endblock %}
 
 {% block side %}
-<h3 class="section-title">相关新闻</h3>
-<div class="card small">
-  <p style="color:var(--text-muted);font-size:12px;">功能开发中...</p >
+<section class="h-panel">
+<div class="h-panel-title">热门标签</div>
+<div class="card small h-side-card">
+  {% if hot_tags %}
+  <div class="tag-cloud">
+    {% for tag, count in hot_tags %}
+    <a href="/news?tag={{ tag|urlencode }}" class="tag-chip">{{ tag }}<span class="tag-count">{{ count }}</span></a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p style="color:var(--text-muted);font-size:12px;">暂无标签</p>
+  {% endif %}
 </div>
-
-<h3 class="section-title">热门标签</h3>
-<div class="card small">
-  <p style="color:var(--text-muted);font-size:12px;">功能开发中...</p >
-</div>
+</section>
 {% endblock %}

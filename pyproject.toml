@@ -1,0 +1,18 @@
+[tool.pyright]
+include = ["."]
+exclude = ["**/__pycache__", ".venv", "node_modules", ".backups", "instance"]
+typeCheckingMode = "basic"
+reportMissingImports = false
+reportMissingTypeStubs = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

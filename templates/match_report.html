@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ match.team1_name }} vs {{ match.team2_name }} 战报 - 80GOTV</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <style>
+    .report-hero{
+      text-align:center;
+      padding:48px 24px 36px;
+      background:var(--bg-card);
+      border:1px solid var(--border-color);
+      border-radius:0;
+      margin-bottom:var(--space-xl);
+    }
+    .report-event-name{
+      font-size:14px;color:var(--accent);text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;
+    }
+    .report-teams-row{
+      display:flex;align-items:center;justify-content:center;gap:32px;margin-bottom:16px;
+    }
+    .report-team-name{font-size:28px;font-weight:800;color:var(--text-primary)}
+    .report-score{font-size:56px;font-weight:900;color:var(--text-primary);letter-spacing:4px}
+    .report-meta{font-size:14px;color:var(--text-muted);margin-top:8px}
+
+    .report-section{
+      margin-bottom:var(--space-xl);
+    }
+    .report-section-title{
+      font-size:16px;font-weight:700;color:var(--accent);
+      border-bottom:2px solid var(--accent);
+      padding-bottom:8px;margin-bottom:16px;
+      display:flex;align-items:center;gap:10px;
+    }
+
+    .map-report-card{
+      background:var(--bg-card);border:1px solid var(--border-color);border-radius:0;
+      padding:20px 24px;margin-bottom:16px;
+    }
+    .map-report-header{
+      display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;
+    }
+    .map-report-name{font-size:18px;font-weight:700;color:var(--text-primary)}
+    .map-report-score{font-size:24px;font-weight:800;color:var(--text-primary)}
+    .map-report-score .win{color:#22c55e}.map-report-score .lose{color:#ef4444}
+    .map-report-best{
+      display:grid;grid-template-columns:1fr 1fr;gap:12px;
+    }
+    .best-player-card{
+      background:var(--bg-hover);border-radius:0;padding:12px 16px;
+      display:flex;align-items:center;gap:12px;
+    }
+    .best-player-team{
+      font-size:11px;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;
+    }
+    .best-player-name{font-size:16px;font-weight:700;color:var(--text-primary)}
+    .best-player-stats{
+      font-size:12px;color:var(--text-secondary);
+      display:flex;gap:12px;margin-top:4px;
+    }
+    .best-player-rating{font-size:22px;font-weight:900;flex-shrink:0}
+
+    .mvp-card{
+      background:linear-gradient(135deg,#2d2410 0%,var(--bg-card) 100%);
+      border:1px solid #c9a227;border-radius:0;
+      padding:28px 32px;text-align:center;margin-bottom:16px;
+    }
+    .mvp-label{font-size:12px;font-weight:700;color:#c9a227;letter-spacing:3px;margin-bottom:8px}
+    .mvp-name{font-size:28px;font-weight:800;color:var(--text-primary);margin-bottom:12px}
+    .mvp-stats{display:flex;justify-content:center;gap:32px;flex-wrap:wrap}
+    .mvp-stat{text-align:center}
+    .mvp-stat-val{font-size:24px;font-weight:700;color:var(--text-primary)}
+    .mvp-stat-label{font-size:11px;color:var(--text-muted);margin-top:2px}
+
+    .team-compare-grid{
+      display:grid;grid-template-columns:1fr auto 1fr;gap:16px 20px;align-items:center;
+    }
+    .team-compare-label{text-align:center;font-size:12px;font-weight:600;color:var(--text-muted)}
+    .team-compare-val{text-align:center;font-size:20px;font-weight:700;color:var(--text-primary)}
+    .team-compare-val.t1{color:var(--accent)}.team-compare-val.t2{color:#de9b37}
+    .team-compare-bar-wrap{height:6px;background:var(--bg-hover);border-radius:0;overflow:hidden;display:flex}
+    .team-compare-bar-t1{height:100%;background:var(--accent);border-radius:0;background:#de9b37;border-radius:0;gap:12px;justify-content:center;margin-top:32px;flex-wrap:wrap}
+    .timeline{display:flex;flex-direction:column;gap:7px}
+    .timeline-row{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:0;font-size:13px}
+    .timeline-round{min-width:38px;color:var(--text-muted)}.timeline-ct{color:#68a8e8;font-weight:700}.timeline-t{color:#e9bb55;font-weight:700}
+    @media(max-width:768px){
+      .report-teams-row{flex-direction:column;gap:8px}
+      .report-score{font-size:40px}
+      .report-team-name{font-size:22px}
+      .map-report-best{grid-template-columns:1fr}
+      .team-compare-grid{grid-template-columns:1fr;gap:8px}
+      .mvp-stats{gap:16px}
+      .map-report-card{margin:8px 0;padding:12px 16px}
+      .report-container{padding:8px}
+    }
+  </style>
+  <script>
+  </script>
+</head>
+<body>
+<div class="site">
+<main class="main-content">
+<div class="content-wrapper">
+
+  <div class="report-hero">
+    <div class="report-event-name">{{ match.event_name or '' }}</div>
+    <div class="report-teams-row">
+      <span class="report-team-name">{{ match.team1_name }}</span>
+      <span class="report-score">{{ match.team1_score }} : {{ match.team2_score }}</span>
+      <span class="report-team-name">{{ match.team2_name }}</span>
+    </div>
+    <div class="report-meta">{{ match.bo_format }} · {{ match.match_time|datetime_display if match.match_time else '' }}</div>
+  </div>
+
+  {% if mvp %}
+  <div class="mvp-card">
+    <div class="mvp-label">MATCH MVP</div>
+    <div class="mvp-name">{{ mvp.nickname }}</div>
+    <div class="mvp-stats">
+      <div class="mvp-stat">
+        <div class="mvp-stat-val {{ mvp.rating|rating_class }}">{{ "%.2f"|format(mvp.rating) }}</div>
+        <div class="mvp-stat-label">RATING</div>
+      </div>
+      <div class="mvp-stat">
+        <div class="mvp-stat-val">{{ mvp.kills }}-{{ mvp.deaths }}</div>
+        <div class="mvp-stat-label">K-D</div>
+      </div>
+      <div class="mvp-stat">
+        <div class="mvp-stat-val">{{ "%.1f"|format(mvp.adr) }}</div>
+        <div class="mvp-stat-label">ADR</div>
+      </div>
+      <div class="mvp-stat">
+        <div class="mvp-stat-val">{{ "%.1f"|format(mvp.kast) }}%</div>
+        <div class="mvp-stat-label">KAST</div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if map_reports %}
+  <div class="report-section">
+    <div class="report-section-title">地图战况</div>
+    {% for mr in map_reports %}
+    <div class="map-report-card">
+      <div class="map-report-header">
+        <span class="map-report-name">图{{ mr.idx }}：{{ mr.name|map_display }}</span>
+        {% if mr.played %}
+        <span class="map-report-score">
+          <span class="{% if mr.t1_winner %}win{% elif mr.t2_winner %}lose{% endif %}">{{ mr.t1 }}</span>
+          &thinsp;:&thinsp;
+          <span class="{% if mr.t2_winner %}win{% elif mr.t1_winner %}lose{% endif %}">{{ mr.t2 }}</span>
+        </span>
+        {% else %}
+        <span class="map-report-score" style="color:var(--text-muted)">TBD</span>
+        {% endif %}
+      </div>
+      {% if mr.played and (mr.t1_best or mr.t2_best) %}
+      <div class="map-report-best">
+        {% if mr.t1_best %}
+        <div class="best-player-card">
+          {% set r = mr.t1_best.rating %}
+          <span class="best-player-rating {{ r|rating_class }}">{{ "%.2f"|format(r) }}</span>
+          <div>
+            <div class="best-player-team">{{ match.t1s }}</div>
+            <div class="best-player-name">{{ mr.t1_best.nickname }}</div>
+            <div class="best-player-stats">
+              <span>K-D {{ mr.t1_best.kills }}-{{ mr.t1_best.deaths }}</span>
+              <span>ADR {{ "%.1f"|format(mr.t1_best.adr) }}</span>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+        {% if mr.t2_best %}
+        <div class="best-player-card">
+          {% set r = mr.t2_best.rating %}
+          <span class="best-player-rating {{ r|rating_class }}">{{ "%.2f"|format(r) }}</span>
+          <div>
+            <div class="best-player-team">{{ match.t2s }}</div>
+            <div class="best-player-name">{{ mr.t2_best.nickname }}</div>
+            <div class="best-player-stats">
+              <span>K-D {{ mr.t2_best.kills }}-{{ mr.t2_best.deaths }}</span>
+              <span>ADR {{ "%.1f"|format(mr.t2_best.adr) }}</span>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="report-section">
+    <div class="report-section-title">队伍数据对比</div>
+    <div class="team-compare-grid">
+      <div class="team-compare-val t1">{{ team_stats.t1_k }}</div>
+      <div class="team-compare-label">总击杀</div>
+      <div class="team-compare-val t2">{{ team_stats.t2_k }}</div>
+
+      <div class="team-compare-val t1">{{ team_stats.t1_d }}</div>
+      <div class="team-compare-label">总死亡</div>
+      <div class="team-compare-val t2">{{ team_stats.t2_d }}</div>
+
+      <div class="team-compare-val t1">{{ team_stats.t1_adr }}</div>
+      <div class="team-compare-label">场均 ADR</div>
+      <div class="team-compare-val t2">{{ team_stats.t2_adr }}</div>
+
+      <div class="team-compare-val t1">{{ team_stats.t1_rating }}</div>
+      <div class="team-compare-label">场均 RATING</div>
+      <div class="team-compare-val t2">{{ team_stats.t2_rating }}</div>
+    </div>
+    {% set total = team_stats.t1_k + team_stats.t2_k %}
+    {% if total > 0 %}
+    {% set t1_pct = (team_stats.t1_k / total * 100)|round %}
+    <div class="team-compare-bar-wrap" style="margin-top:16px">
+      <div class="team-compare-bar-t1" style="width:{{ t1_pct }}%"></div>
+      <div class="team-compare-bar-t2" style="width:{{ 100 - t1_pct }}%"></div>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if timeline %}
+  <div class="report-section">
+    <div class="report-section-title">Game Log</div>
+    <div class="timeline">
+    {% for item in timeline %}
+      <div class="timeline-row">
+        <span class="timeline-round">{% if item.map_name %}{{ item.map_name|map_display }} · {% endif %}R{{ item.round }}</span>
+        {% if item.type == 'round' %}
+          <span>Round over - Winner:</span>
+          <span class="timeline-{{ item.side }}">{{ item.side|upper }}</span>
+          <span>{{ item.reason or 'Round completed' }}</span>
+        {% elif item.type == 'plant' %}
+          <span class="timeline-t">{{ item.player or 'T Player' }}</span>
+          <span>planted the bomb on {{ item.site or '?' }} ({{ item.alive_t or 0 }}on{{ item.alive_ct or 0 }})</span>
+        {% else %}
+          <span class="timeline-{{ item.killer_side|lower }}">{{ item.killer or '-' }}</span>
+          {% if item.assister %}<span>+ {{ item.assister }}</span>{% endif %}
+          <span>{{ item.weapon or '' }}</span>
+          <span class="timeline-{{ item.victim_side|lower }}">{{ item.victim or '未知选手' }}</span>
+        {% endif %}
+      </div>
+    {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="report-footer-actions">
+    <a href="/matches/{{ match.slug or match.id }}" class="btn btn-primary">查看完整数据</a>
+    <a href="/matches/{{ match.slug or match.id }}/poster" class="btn btn-primary" style="background:#555">下载赛果海报</a>
+    <button class="btn btn-primary" style="background:#5865F2" onclick="copyMarkdown()">📋 复制 Markdown</button>
+    <button class="btn btn-primary" style="background:#7289DA" onclick="copyBBcode()">📋 复制 BBcode</button>
+    <span id="copyToast" style="display:none;color:#4caf50;font-size:13px;margin-left:8px">✓ 已复制</span>
+  </div>
+
+</div>
+</main>
+</div>
+<script>
+const mdText = `**{{ match.team1_name or 'TEAM 1' }} {{ match.team1_score }}-{{ match.team2_score }} {{ match.team2_name or 'TEAM 2' }}**{% if match.event_name %} ({{ match.bo_format or 'BO3' }} · {{ match.event_name }}){% endif %}
+{% for mr in map_reports %}{% if mr.played %}
+- Map{{ mr.idx }} {{ mr.name }}: {{ match.team1_name or 'TEAM 1' }} {{ mr.t1 }}-{{ mr.t2 }} {{ match.team2_name or 'TEAM 2' }}{% endif %}{% endfor %}
+{% if mvp %}MVP: {{ mvp.nickname }} (RATING {{ mvp.rating }} | {{ mvp.kills }}-{{ mvp.deaths }} K/D | ADR {{ mvp.adr }}){% endif %}
+`;
+
+const bbText = `[b]{{ match.team1_name or 'TEAM 1' }} {{ match.team1_score }}-{{ match.team2_score }} {{ match.team2_name or 'TEAM 2' }}[/b]{% if match.event_name %} ({{ match.bo_format or 'BO3' }} · {{ match.event_name }}){% endif %}\n{% for mr in map_reports %}{% if mr.played %}
+[*] Map{{ mr.idx }} {{ mr.name }}: {{ match.team1_name or 'TEAM 1' }} {{ mr.t1 }}-{{ mr.t2 }} {{ match.team2_name or 'TEAM 2' }}{% endif %}{% endfor %}\n{% if mvp %}[b]MVP: {{ mvp.nickname }}[/b] (RATING {{ mvp.rating }} | {{ mvp.kills }}-{{ mvp.deaths }} K/D | ADR {{ mvp.adr }}){% endif %}
+`;
+
+async function copyMarkdown() { await navigator.clipboard.writeText(mdText); showToast(); }
+async function copyBBcode() { await navigator.clipboard.writeText(bbText); showToast(); }
+function showToast() { const t = document.getElementById('copyToast'); t.style.display='inline'; setTimeout(() => t.style.display='none', 2000); }
+</script>
+<script src="{{ url_for('static', filename='js/svg_icons.js') }}?v=20260620-svg1"></script>
+</body>
+</html>

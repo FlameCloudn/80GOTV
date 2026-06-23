@@ -1,48 +1,105 @@
 {% extends 'base.html' %}
-{% block title %}比赛 - 校园 CS2 赛事{% endblock %}
+{% block title %}比赛 - 80GOTV{% endblock %}
+{% block layout_class %}matches-layout-shell{% endblock %}
 {% block main %}
-<h2 class="section-title">比赛列表</h2>
+<div class="matches-page-layout">
+  <aside class="matches-date-sidebar">
+    <div class="match-calendar">
+      <div class="match-calendar-head">
+        <a href="{{ url_for('matches_list') }}?month={{ prev_month.strftime('%Y-%m') }}" aria-label="上一月">‹</a>
+        {% set month_names = ['一月','二月','三月','四月','五月','六月','七月','八月','九月','十月','十一月','十二月'] %}
+        <strong>{{ month_names[calendar_month.month - 1] }}</strong>
+        <a href="{{ url_for('matches_list') }}?month={{ next_month.strftime('%Y-%m') }}" aria-label="下一月">›</a>
+      </div>
+      <div class="match-calendar-weekdays">
+        <span>周一</span><span>周二</span><span>周三</span><span>周四</span><span>周五</span><span>周六</span><span>周日</span>
+      </div>
+      <div class="match-calendar-days">
+        {% for week in calendar_weeks %}
+        {% for day in week %}
+        <a
+          href="{{ url_for('matches_list') }}?date={{ day.isoformat() }}&month={{ day.strftime('%Y-%m') }}"
+          class="{% if day.month != calendar_month.month %}muted{% endif %}{% if selected_date and day == selected_date %} active{% endif %}{% if day == today %} today{% endif %}"
+        >{{ day.day }}</a>
+        {% endfor %}
+        {% endfor %}
+      </div>
+      <a class="match-calendar-clear" href="{{ url_for('matches_list') }}?month={{ calendar_month.strftime('%Y-%m') }}">全部日期</a>
+    </div>
+    <section class="h-panel match-side-panel">
+      <div class="h-panel-title">比赛筛选</div>
+      <nav class="match-side-filter" aria-label="比赛筛选">
+        <div class="match-filter-group">
+          <div class="match-filter-label">赛事</div>
+          <a href="{{ url_for('matches_list') }}{% if date_filter %}?date={{ date_filter }}&month={{ calendar_month.strftime('%Y-%m') }}{% endif %}" class="{% if not event_filter %}active{% endif %}">
+            <span class="match-filter-name">全部赛事</span>
+          </a>
+          {% for e in events[:8] %}
+          <a href="{{ url_for('matches_list') }}?event={{ e.id }}{% if date_filter %}&date={{ date_filter }}&month={{ calendar_month.strftime('%Y-%m') }}{% endif %}" class="{% if event_filter==e.id|string %}active{% endif %}" data-i18n-ignore>
+            <span class="match-filter-name">{{ e.name }}</span>
+            {% if e.start_date %}<span class="match-filter-date">{{ e.start_date|date_display }}</span>{% endif %}
+          </a>
+          {% endfor %}
+        </div>
+      </nav>
+    </section>
+  </aside>
 
-<div class="filters">
-  <form method="get" class="filter-form">
-    <select name="event" onchange="this.form.submit()">
-      <option value="">全部赛事</option>
-      {% for e in events %}
-      <option value="{{ e.id }}" {% if event_filter==e.id|string %}selected{% endif %}>
-        {{ e.name }}
-      </option>
+  <section class="matches-list-panel" data-front-matches data-event-filter="{{ event_filter }}" data-date-filter="{{ date_filter }}">
+    <div class="hltv-list-head">
+      <span>{% if selected_date %}{{ selected_date|date_display }} 的比赛{% else %}近期比赛{% endif %}</span>
+      <small>直播中与即将开始</small>
+    </div>
+    <div class="match-schedule-list" data-front-matches-target>
+      {% for m in matches %}
+      <a class="match-schedule-row" href="/matches/{{ m.slug or m.id }}">
+        <div class="match-schedule-time">
+          {% if m.effective_status == 'live' %}
+          <span class="match-live-label">直播中</span>
+          {% elif m.match_time %}
+          <span class="match-time-text">{{ m.match_time|time_display }}</span>
+          {% else %}
+          <span class="match-time-text">TBD</span>
+          {% endif %}
+          <span class="match-bo">{{ m.bo_format or 'BO1' }}</span>
+        </div>
+
+        <div class="match-schedule-teams">
+          <div class="match-schedule-team">
+            <span class="match-team-mark">A</span>
+            <span class="team-name" data-i18n-ignore>{{ m.team1_name or 'TBD' }}</span>
+          </div>
+          <div class="match-schedule-team">
+            <span class="match-team-mark">B</span>
+            <span class="team-name" data-i18n-ignore>{{ m.team2_name or 'TBD' }}</span>
+          </div>
+        </div>
+
+        <div class="match-schedule-meta">
+          {% if m.event_name %}
+          <span data-i18n-ignore>{{ m.event_name }}</span>
+          {% else %}
+          <span>未分组赛事</span>
+          {% endif %}
+          {% if m.match_time %}
+          <span>{{ m.match_time|date_display }}</span>
+          {% endif %}
+        </div>
+      </a>
       {% endfor %}
-    </select>
-    
-    <select name="status" onchange="this.form.submit()">
-      <option value="">全部状态</option>
-      <option value="upcoming" {% if status_filter=='upcoming' %}selected{% endif %}>未开始</option>
-      <option value="live" {% if status_filter=='live' %}selected{% endif %}>进行中</option>
-    </select>
-  </form>
-</div>
+    </div>
 
-<div class="card-list">
-  {% for m in matches %}
-  <a class="card match-card" href=href="/match/{{ m.id }}">
-    <span class="team">{{ m.team1_name }}</span>
-    <span class="vs">
-      {% if m.status=='live' %}<span class="live">LIVE</span>
-        {{ m.team1_score }} : {{ m.team2_score }}
-      {% else %} VS {% endif %}
-    </span>
-    <span class="team right">{{ m.team2_name }}</span>
-    <div class="meta">{{ m.event_name }} · {{ m.bo_format }} · {{ m.match_time[:16] }}</div>
-  </a >
-  {% endfor %}
+    {% if not matches %}
+    <div class="card empty-state" data-front-empty>
+      {% if completed_on_selected_date %}
+      这天的比赛已结束，请到 <a href="{{ url_for('results_list') }}">赛果</a> 查看。
+      {% else %}
+      暂无比赛
+      {% endif %}
+    </div>
+    {% endif %}
+  </section>
 </div>
-
-{% if not matches %}
-<div class="card">暂无比赛</div>
-{% endif %}
 {% endblock %}
 
-{% block side %}
-<h3 class="section-title">赛事筛选</h3>
-<div class="card small">使用上方筛选器</div>
-{% endblock %}
+{% block side %}{% endblock %}

@@ -3,42 +3,354 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>{% block title %}80GOTV{% endblock %}
-</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <title>{% block title %}80GOTV{% endblock %}</title>
   <script>
-    // 提前应用主题，避免页面闪烁
+    // 提前应用主题，避免页面闪烁（必须在CSS之前执行）
     (function(){
       var t = localStorage.getItem('theme');
       if(!t){ t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light'; }
       document.documentElement.setAttribute('data-theme', t);
     })();
   </script>
+  <style>
+    /* 阻止白屏闪烁；颜色与body背景(#d9dee4/#151b22)一致 */
+    html{background:#151b22;color:#e0e0e0}
+    html[data-theme="light"]{background:#d9dee4;color:#1a1a2e}
+  </style>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style_v2.css') }}">
+  <style>
+    /* === 骨架屏（Skeleton Screen）工具类 === */
+    /* 在数据加载完成前，用灰色占位块代替真实内容，避免页面抖动 */
+    @keyframes skeleton-shimmer {
+      0%   { background-position: -400px 0; }
+      100% { background-position: 400px 0; }
+    }
+    .skeleton {
+      background: linear-gradient(90deg,
+        var(--skeleton-base, #e0e0e0) 0%,
+        var(--skeleton-shine, #f5f5f5) 40%,
+        var(--skeleton-base, #e0e0e0) 80%
+      );
+      background-size: 800px 100%;
+      animation: skeleton-shimmer 1.5s ease-in-out infinite;
+      border-radius: 4px;
+      color: transparent !important;
+      user-select: none;
+      pointer-events: none;
+    }
+    /* 常用变体 */
+    .skeleton-text {
+      height: 14px;
+      margin-bottom: 8px;
+    }
+    .skeleton-text.skeleton-short { width: 60%; }
+    .skeleton-title {
+      height: 24px;
+      width: 50%;
+      margin-bottom: 12px;
+    }
+    .skeleton-avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+    }
+    .skeleton-thumb {
+      width: 100%;
+      padding-bottom: 56.25%; /* 16:9 比例 */
+      border-radius: 6px;
+    }
+    /* 深色模式下调整颜色 */
+    [data-theme="dark"] .skeleton {
+      --skeleton-base: #2a2a2a;
+      --skeleton-shine: #3a3a3a;
+    }
+
+    /* === 可访问性增强 === */
+
+    /* 屏幕阅读器专用文字：视觉上隐藏，但读屏软件能读到 */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    /* 焦点环：键盘导航时清晰可见，鼠标点击时不显示（全局兜底） */
+    :focus-visible {
+      outline: 3px solid var(--accent, #507fa8);
+      outline-offset: 3px;
+      border-radius: 2px;
+    }
+
+    /* 按钮焦点环 */
+    button:focus-visible,
+    [role="button"]:focus-visible,
+    .btn:focus-visible {
+      outline: 3px solid var(--accent, #507fa8);
+      outline-offset: 2px;
+    }
+
+    /* 链接焦点环 */
+    a:focus-visible {
+      outline: 3px solid var(--accent, #507fa8);
+      outline-offset: 2px;
+      border-radius: 2px;
+    }
+
+    /* 输入框焦点环 */
+    input:focus-visible,
+    textarea:focus-visible,
+    select:focus-visible {
+      outline: 3px solid var(--accent, #507fa8);
+      outline-offset: 2px;
+      border-color: var(--accent, #507fa8);
+    }
+
+    /* 链接悬停效果：下划线 + 颜色变化 */
+    a:hover {
+      text-decoration: underline;
+      color: var(--text-link-hover, #2d567e);
+      transition: color 0.2s ease, text-decoration 0.2s ease;
+    }
+  </style>
+  {% block head %}{% endblock %}
+<script>
+// 图片加载失败 → 显示默认占位图
+window.addEventListener('error',function(e){
+  if(e.target.tagName==='IMG'&&e.target.src){
+    e.target.src='/resources/placeholders/ImageNotFound.jpg';
+    e.target.style.objectFit='cover';
+    e.target.onerror=null;
+  }
+},true);
+</script>
 </head>
-<body>
-<header class="navbar">
+<body><header class="navbar">
   <div class="nav-inner">
-    <a href=" " class="logo">80GOTV</a >
-    <button class="hamburger" id="hamburger">☰</button>
-    <nav class="nav-links" id="navLinks">
-      <a href="/">首页</a >
-      <a href="/news">News</a >
-      <a href="/matches">Matches</a >
-      <a href="/results">Results</a >
-      <a href="/events">Events</a >
-      <a href="/players">Players</a >
-      <a href="/stats">Stats</a >
-    </nav>
-    <button id="themeToggle" class="theme-btn">🌓</button>
+    <a href="/" class="logo">
+      <img loading="lazy" src="{{ url_for('static', filename='logos/80gotv-mark.png') }}" class="site-logo-mark" alt="80GOTV">
+      <span>80GOTV</span>
+    </a>
+    <button class="hamburger" id="hamburger" aria-expanded="false" aria-label="打开菜单">☰</button>
+    <nav class="nav-links" id="navLinks" aria-label="主导航">
+      <a href="/news">新闻</a>
+      <a href="/matches">比赛</a>
+      <a href="/results">赛果</a>
+      <div class="nav-dropdown">
+        <a href="/events" class="nav-dropdown-toggle">赛事</a>
+        <div class="nav-dropdown-menu">
+          <a href="/events">全部赛事</a>
+          <a href="/events?status=ongoing">进行中</a>
+          <a href="/events?status=completed">历史赛事</a>
+          <a href="/events?view=calendar">日历</a>
+        </div>
+      </div>
+      <div class="nav-dropdown">
+        <a href="/players" class="nav-dropdown-toggle">选手</a>
+        <div class="nav-dropdown-menu">
+          <a href="/players">全部选手</a>
+          <a href="/players?filter=mvps">MVP 选手</a>
+          <a href="/players?filter=evps">EVP 选手</a>
+          <a href="/players?filter=top10">TOP 10</a>
+        </div>
+      </div>
+      <div class="nav-dropdown">
+        <a href="/stats" class="nav-dropdown-toggle">数据</a>
+        <div class="nav-dropdown-menu">
+          <a href="/stats?tab=overview">总览</a>
+          <a href="/stats?tab=players">选手排行</a>
+          <a href="/stats?tab=maps">地图</a>
+          <a href="/stats?tab=awards">荣誉堂</a>
+        </div>
+      </div>
+      <a href="/predictions">预测</a>
+      <a href="/dashboard">数据看板</a>
+      <a href="/forum" id="navForum">论坛</a>
+          </nav>
+    <form class="search-form" action="/search" method="get" role="search" id="searchForm" autocomplete="off">
+      <input type="search" name="q" placeholder="搜索..." aria-label="站内搜索" value="{{ request.args.get('q', '') }}" id="searchInput">
+      <div class="search-dropdown" id="searchDropdown"></div>
+    </form>
+    <button id="searchToggle" class="search-toggle" aria-label="搜索" title="搜索">🔍</button>
+    <span class="user-nav" aria-label="用户菜单">
+      {% if session.user_id %}
+      <button class="notif-bell" title="通知" id="notifBell" onclick="toggleNotifPopup()">
+        🔔
+        {% if unread_count %}<span class="notif-badge" id="notifBadge">{{ unread_count }}</span>{% endif %}
+      </button>
+      <a href="/profile" class="username">{% if session.admin_id %}<span class="admin-badge-small">ADMIN</span> {% endif %}{{ session.user_username }}</a>
+      {% if session.admin_id %}<a href="/admin">后台管理</a>{% endif %}
+      <a href="/logout">退出</a>
+      {% elif session.admin_id %}
+      <a href="/admin" class="username"><span class="admin-badge-small">ADMIN</span> {{ session.admin_username }}</a>
+      <a href="/admin">后台管理</a>
+      <a href="/admin/logout">退出</a>
+      {% else %}
+      <a href="/login">登录</a>
+      {% endif %}
+    </span>
+    <button id="themeToggle" class="theme-btn" aria-label="切换主题" title="切换深色/浅色模式">🌙</button>
+    <select id="languageSelect" class="language-select" aria-label="语言">
+      <option value="auto">跟随系统</option>
+      <option value="zh">中文</option>
+      <option value="en">English</option>
+    </select>
   </div>
 </header>
 
-<main class="layout">
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="flash-container">
+    {% for category, message in messages %}
+    <div class="alert alert-{{ category }}">{{ message }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endwith %}
+
+<main class="layout {% block layout_class %}{% endblock %}">
   <section class="main-col">{% block main %}{% endblock %}</section>
   <aside class="side-col">{% block side %}{% endblock %}</aside>
 </main>
 
 <footer class="footer">© 八十中 80GO CS交流群 · 仅供学习交流使用 · QQ群号：668460739</footer>
-<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+<script>
+  window._csrfToken = {{ csrf_token|tojson }};
+  window._curUserId = {{ session.get('user_id')|tojson }};
+  window._curIsAdmin = {{ ('admin_id' in session)|tojson }};
+  window._curUsername = {{ session.get('user_username')|tojson }};
+</script>
+<script src="{{ url_for('static', filename='js/main.js') }}?v=20260606-real-tabs1"></script>
+<script src="{{ url_for('static', filename='js/front_api.js') }}?v=20260605-mobile-api-pass2"></script>
+<script src="{{ url_for('static', filename='js/i18n.js') }}?v=20260614-fullsite-lang2"></script>
+<script src="{{ url_for('static', filename='js/svg_icons.js') }}?v=20260620-svg1"></script>
+<script src="{{ url_for('static', filename='js/stats_side_switch.js') }}?v=20260605-side-ajax3"></script>
+{% block extra_js %}{% endblock %}
+
+{# 通知浮窗 #}
+<div class="notif-popup" id="notifPopup" style="display:none">
+  <div class="notif-popup-head">
+    <span>通知</span>
+    <button class="notif-popup-close" onclick="toggleNotifPopup()">✕</button>
+  </div>
+  <div class="notif-popup-list" id="notifPopupList">加载中...</div>
+  <div class="notif-popup-foot">
+    <a href="/notifications">查看全部</a>
+    <button onclick="markAllRead()">全部已读</button>
+  </div>
+</div>
+<script>
+function toggleNotifPopup(){
+  var p=document.getElementById('notifPopup');
+  if(p.style.display==='none'||!p.style.display){
+    var bell=document.getElementById('notifBell');
+    var rect=bell.getBoundingClientRect();
+    p.style.top=(rect.bottom+4)+'px';
+    p.style.right=(window.innerWidth-rect.right)+'px';
+    p.style.display='block';
+    loadNotifs();
+  }
+  else{p.style.display='none';}
+}
+function loadNotifs(){
+  fetch('/api/front/notifications').then(function(r){return r.json();}).then(function(d){
+    var list=document.getElementById('notifPopupList');
+    if(!d.authenticated){list.innerHTML='<div class=notif-popup-empty>请先登录</div>';return;}
+    if(!d.notifications||!d.notifications.length){list.innerHTML='<div class=notif-popup-empty>暂无通知</div>';return;}
+    var h='';
+    d.notifications.forEach(function(n){
+      h+='<a class=notif-popup-item href="'+n.link+'" onclick="markRead('+n.id+')">'+n.message+'<small>'+n.created_at+'</small></a>';
+    });
+    list.innerHTML=h;
+  });
+}
+function markRead(id){
+  fetch('/notifications/read/'+id,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'csrf_token={{ csrf_token }}'});
+}
+function markAllRead(){
+  fetch('/notifications/read-all',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'csrf_token={{ csrf_token }}'}).then(function(){
+    document.getElementById('notifBadge')&&(document.getElementById('notifBadge').style.display='none');
+    loadNotifs();
+  });
+}
+document.addEventListener('click',function(e){var p=document.getElementById('notifPopup');if(p&&p.style.display==='block'&&!p.contains(e.target)&&e.target!==document.getElementById('notifBell')){p.style.display='none';}});
+
+// === 意见反馈 ===
+(function(){
+  var html = '<div id="fbBtn" style="position:fixed;bottom:24px;right:24px;z-index:9999;width:48px;height:48px;border-radius:50%;background:#5881bc;color:#fff;font-size:22px;border:none;cursor:pointer;box-shadow:0 2px 12px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;transition:transform 0.2s" title="意见反馈">💬</div>'
+    + '<div id="fbOverlay" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.5)">'
+    + '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--card-bg,#fff);color:var(--text,#333);border-radius:8px;padding:24px;width:90%;max-width:420px;box-shadow:0 4px 24px rgba(0,0,0,0.3)">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><b style="font-size:18px">意见反馈</b><span id="fbClose" style="font-size:24px;cursor:pointer;line-height:1">&times;</span></div>'
+    + '<div style="margin-bottom:12px"><select id="fbType" style="width:100%;padding:8px;border:1px solid var(--border,#ddd);border-radius:4px;background:var(--bg,#fafafa);color:var(--text,#333);font-size:14px"><option value="suggestion">建议</option><option value="bug">Bug 报告</option><option value="question">问题</option><option value="other">其他</option></select></div>'
+    + '<div style="margin-bottom:12px"><textarea id="fbContent" rows="5" placeholder="写下你的反馈..." style="width:100%;padding:10px;border:1px solid var(--border,#ddd);border-radius:4px;resize:vertical;font-size:14px;background:var(--bg,#fafafa);color:var(--text,#333)" maxlength="2000"></textarea></div>'
+    + '<div style="margin-bottom:12px"><input id="fbContact" placeholder="联系方式（选填）" style="width:100%;padding:8px;border:1px solid var(--border,#ddd);border-radius:4px;font-size:14px;background:var(--bg,#fafafa);color:var(--text,#333)"></div>'
+    + '<div id="fbMsg" style="color:#5881bc;font-size:13px;margin-bottom:8px;display:none"></div>'
+    + '<button id="fbSubmit" style="width:100%;padding:10px;background:#5881bc;color:#fff;border:none;border-radius:4px;font-size:15px;cursor:pointer;font-weight:600">提交</button>'
+    + '</div></div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+
+  var overlay = document.getElementById('fbOverlay');
+  document.getElementById('fbBtn').onclick = function(){ overlay.style.display='block'; };
+  document.getElementById('fbClose').onclick = function(){ overlay.style.display='none'; };
+  overlay.onclick = function(e){ if(e.target===overlay) overlay.style.display='none'; };
+
+  var submitting = false;
+  document.getElementById('fbSubmit').onclick = function(){
+    if(submitting) return;
+    var content = document.getElementById('fbContent').value.trim();
+    if(content.length < 2){ document.getElementById('fbMsg').textContent='请至少写2个字'; document.getElementById('fbMsg').style.display='block'; return; }
+    submitting = true;
+    var btn = document.getElementById('fbSubmit');
+    btn.textContent = '提交中...'; btn.disabled = true;
+
+    fetch('/api/feedback/submit', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        type: document.getElementById('fbType').value,
+        content: content,
+        contact: document.getElementById('fbContact').value.trim(),
+        page_url: location.href
+      })
+    }).then(function(r){ return r.json(); }).then(function(d){
+      document.getElementById('fbMsg').textContent = d.ok ? '✅ 感谢反馈！' : '❌ '+ (d.error||'提交失败');
+      document.getElementById('fbMsg').style.display = 'block';
+      document.getElementById('fbMsg').style.color = d.ok ? '#4caf50' : '#e74c3c';
+      if(d.ok){ setTimeout(function(){ overlay.style.display='none'; document.getElementById('fbContent').value=''; document.getElementById('fbMsg').style.display='none'; }, 1500); }
+      submitting = false; btn.textContent='提交'; btn.disabled=false;
+    }).catch(function(){
+      document.getElementById('fbMsg').textContent='❌ 网络错误，请稍后再试';
+      document.getElementById('fbMsg').style.display = 'block';
+      document.getElementById('fbMsg').style.color = '#e74c3c';
+      submitting = false; btn.textContent='提交'; btn.disabled=false;
+    });
+  };
+})();
+</script>
+
+<!--
+  ===== 骨架屏使用示例 =====
+  在需要等待数据加载的区域，用这些占位元素撑住高度，
+  数据回来后用 JS 替换掉即可。
+
+  文本占位：
+    <div class="skeleton skeleton-text"></div>
+    <div class="skeleton skeleton-text skeleton-short"></div>
+
+  标题占位：
+    <div class="skeleton skeleton-title"></div>
+
+  头像占位：
+    <div class="skeleton skeleton-avatar"></div>
+
+  缩略图/卡片占位：
+    <div class="skeleton skeleton-thumb"></div>
+
+  注意：skeleton 元素只作占位，没有宽高内容，记得给容器设好尺寸。
+-->
 </body>
 </html>

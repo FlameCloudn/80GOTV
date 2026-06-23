@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+{% block title %}个人主页 - 80GOTV{% endblock %}
+{% block main %}
+<div class="player-header">
+  {% if user.avatar %}
+    <img src="{{ url_for('static', filename='avatars/' + user.avatar) }}" class="avatar-xl" style="object-fit:cover;" loading="lazy">
+  {% else %}
+    <div class="avatar-xl">{{ user.username[0] }}</div>
+  {% endif %}
+  <div class="player-info">
+    <h1>{{ user.username }}</h1>
+    <div class="meta">
+      {% if player %}<span>{{ player.nickname }} · {{ player.team_name or '无队伍' }}</span>{% endif %}
+      {% if user.steam_id64 %}<span>Steam64: {{ user.steam_id64 }}</span>{% endif %}
+    </div>
+  </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+    <div class="alert alert-{{ category }}" style="padding:10px 16px;margin-bottom:16px;border-radius:0;font-size:14px;{% if category=='success' %}background:#d4edda;color:#155724;{% else %}background:#f8d7da;color:#721c24;{% endif %}">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
+<!-- 参加的赛事 -->
+{% if events_participated %}
+<h3 class="section-title" style="margin-top:20px;">🏆 我的赛事</h3>
+<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
+  {% for ev in events_participated %}
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;
+              background:var(--bg-card);border-radius:0;border:1px solid var(--border-color);
+              transition:all 0.2s;{% if ev.is_active %}border-left:3px solid #22c55e;{% endif %}">
+    <div>
+      <div style="font-weight:700;font-size:15px;color:var(--text-primary);">{{ ev.name }}</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">
+        {{ ev.start_date|date_display if ev.start_date else '-' }} ~ {{ ev.end_date|date_display if ev.end_date else '-' }}
+        · {{ ev.match_count }} 场比赛
+        {% if ev.is_active %}<span style="color:#22c55e;font-weight:600;"> · 进行中</span>{% endif %}
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-shrink:0;">
+      <a href="/events/{{ ev.id }}" class="roll-btn" style="font-size:12px;padding:6px 14px;text-decoration:none;
+         {% if not ev.is_active %}background:#22c55e;{% endif %}">
+        {% if ev.is_active %}查看/BP{% else %}查看赛事{% endif %}
+      </a>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if player %}
+<h3 class="section-title">选手信息</h3>
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-value">{{ player.nickname }}</div>
+    <div class="stat-label">游戏昵称</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">{{ player.team_name or '无' }}</div>
+    <div class="stat-label">所属队伍</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">{{ player.steam_id or '-' }}</div>
+    <div class="stat-label">Steam ID</div>
+  </div>
+</div>
+
+<div style="margin-top:16px;">
+  <a href="/players/{{ player.id }}" class="btn-back" style="display:inline-block;">查看选手数据 →</a>
+</div>
+{% endif %}
+
+<h3 class="section-title" style="margin-top:28px;">修改头像</h3>
+<div class="card" style="padding:16px;">
+  <form method="post" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+    <input type="hidden" name="action" value="avatar">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      {% if user.avatar %}
+      <img src="{{ url_for('static', filename='avatars/' + user.avatar) }}" style="width:64px;height:64px;border-radius:0;object-fit:cover;" loading="lazy">
+      {% else %}
+      <div style="width:64px;height:64px;border-radius:0;background:var(--bg-card);display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--text-muted);border:2px solid var(--border-color);">{{ user.username[0] }}</div>
+      {% endif %}
+      <input type="file" name="avatar" accept="image/*" style="font-size:14px;">
+      <button type="submit" style="padding:8px 18px;background:#5881bc;color:#fff;border:none;border-radius:0;cursor:pointer;font-weight:600;">上传头像</button>
+    </div>
+  </form>
+</div>
+
+<h3 class="section-title" style="margin-top:24px;">修改昵称</h3>
+<div class="card" style="padding:16px;">
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+    <input type="hidden" name="action" value="nickname">
+    <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+      <div style="flex:1;min-width:200px;">
+        <label style="font-size:13px;color:var(--text-muted);">新昵称</label>
+        <input type="text" name="nickname" value="{{ user.username }}" required minlength="2" maxlength="20"
+               style="width:100%;padding:10px;border:1px solid var(--border-color);border-radius:0;font-size:14px;background:var(--bg-card);color:var(--text-primary);margin-top:4px;">
+      </div>
+      <button type="submit" style="padding:10px 18px;background:#5881bc;color:#fff;border:none;border-radius:0;cursor:pointer;font-weight:600;">修改昵称</button>
+    </div>
+  </form>
+</div>
+
+<h3 class="section-title" style="margin-top:24px;">修改密码</h3>
+<div class="card" style="padding:16px;">
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+    <input type="hidden" name="action" value="password">
+    <div style="display:flex;flex-direction:column;gap:12px;max-width:400px;">
+      <div>
+        <label style="font-size:13px;color:var(--text-muted);">当前密码</label>
+        <input type="password" name="old_password" required
+               style="width:100%;padding:10px;border:1px solid var(--border-color);border-radius:0;font-size:14px;background:var(--bg-card);color:var(--text-primary);margin-top:4px;">
+      </div>
+      <div>
+        <label style="font-size:13px;color:var(--text-muted);">新密码</label>
+        <input type="password" name="new_password" required minlength="8"
+               style="width:100%;padding:10px;border:1px solid var(--border-color);border-radius:0;font-size:14px;background:var(--bg-card);color:var(--text-primary);margin-top:4px;">
+      </div>
+      <div>
+        <label style="font-size:13px;color:var(--text-muted);">确认新密码</label>
+        <input type="password" name="new_password2" required minlength="8"
+               style="width:100%;padding:10px;border:1px solid var(--border-color);border-radius:0;font-size:14px;background:var(--bg-card);color:var(--text-primary);margin-top:4px;">
+      </div>
+      <button type="submit" style="padding:10px 18px;background:#5881bc;color:#fff;border:none;border-radius:0;cursor:pointer;font-weight:600;">修改密码</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block side %}
+<h3 class="section-title">账户信息</h3>
+<div class="card small">
+  <div><b>用户名：</b>{{ user.username }}</div>
+  <div><b>Steam64 ID：</b>{{ user.steam_id64 or '未绑定' }}</div>
+  <div><b>注册时间：</b>{{ user.created_at|date_display if user.created_at else '-' }}</div>
+  <div><b>身份：</b>{{ '选手' if player else '游客' }}</div>
+</div>
+{% endblock %}

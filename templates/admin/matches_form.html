@@ -2,127 +2,93 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>{% if match %}编辑比赛{% else %}添加比赛{% endif %}</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     body{font-family:sans-serif;background:#f5f5f5}
-    
-    /* 顶部导航栏 */
+
     .top-nav{
       background:white;
-      border-bottom:2px solid #ff5722;
+      border-bottom:2px solid #5881bc;
       padding:15px 30px;
       display:flex;
       justify-content:space-between;
       align-items:center;
       margin-bottom:20px;
     }
-    .top-nav .logo{
-      font-size:18px;
-      font-weight:bold;
-      color:#ff5722;
-    }
-    .top-nav .nav-links{
-      display:flex;
-      gap:20px;
-      align-items:center;
-    }
-    .top-nav a{
-      color:#333;
-      text-decoration:none;
-      padding:8px 15px;
-      border-radius:4px;
-      transition:all 0.2s;
-    }
-    .top-nav a:hover{
-      background:#f5f5f5;
-      color:#ff5722;
-    }
-    .top-nav .logout-btn{
-      background:#ff5722;
-      color:white;
-      padding:8px 15px;
-      border-radius:4px;
-    }
-    .top-nav .logout-btn:hover{
-      background:#e64a19;
-    }
-    
-    .container{padding:0 30px 30px}
-    .form-container{
-      max-width:700px;
+    .top-nav .logo{font-size:18px;font-weight:bold;color:#5881bc}
+    .top-nav .nav-links{display:flex;gap:20px;align-items:center}
+    .top-nav a{color:#333;text-decoration:none;padding:8px 15px;border-radius:0;transition:all 0.2s}
+    .top-nav a:hover{background:#f5f5f5;color:#5881bc}
+    .top-nav .logout-btn{background:#5881bc;color:white;padding:8px 15px;border-radius:0;
       margin:0 auto;
       background:white;
       padding:30px;
-      border-radius:8px;
+      border-radius:0;
     }
     h2{margin-bottom:30px;color:#333}
     .form-group{margin-bottom:20px}
-    .form-row{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:20px;
-    }
-    label{
-      display:block;
-      margin-bottom:8px;
-      font-weight:600;
-      color:#333;
-    }
+    .form-row{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+    label{display:block;margin-bottom:8px;font-weight:600;color:#333}
     input,select{
-      width:100%;
-      padding:12px;
-      border:1px solid #ddd;
-      border-radius:4px;
-      font-size:14px;
-      font-family:inherit;
+      width:100%;padding:12px;border:1px solid #ddd;border-radius:0;
+      font-size:14px;font-family:inherit;
     }
-    input:focus,select:focus{
-      outline:none;
-      border-color:#ff5722;
-    }
-    .form-actions{
-      display:flex;
-      gap:10px;
-      margin-top:30px;
-    }
+    input:focus,select:focus{outline:none;border-color:#5881bc}
+    .form-actions{display:flex;gap:10px;margin-top:30px}
     .btn{
-      padding:12px 24px;
-      border:none;
-      border-radius:4px;
-      font-size:14px;
-      font-weight:600;
-      cursor:pointer;
-      text-decoration:none;
-      display:inline-block;
+      padding:12px 24px;border:none;border-radius:0;
+      font-size:14px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;
     }
-    .btn-primary{background:#ff5722;color:white}
-    .btn-primary:hover{background:#e64a19}
+    .btn-primary{background:#5881bc;color:white}
+    .btn-primary:hover{background:#4a6fa3}
     .btn-secondary{background:#ddd;color:#333}
     .btn-secondary:hover{background:#ccc}
-    .alert{
-      padding:12px 20px;
-      margin-bottom:20px;
-      border-radius:4px;
+    .alert{padding:12px 20px;margin-bottom:20px;border-radius:0;color:#721c24}
+
+    .mode-tabs{display:flex;gap:0;margin-bottom:24px;border-radius:0;overflow:hidden;border:2px solid #5881bc}
+    .mode-tab{flex:1;padding:14px;text-align:center;cursor:pointer;font-weight:700;font-size:15px;
+      background:#fff;color:#5881bc;transition:all 0.2s;border:none;font-family:inherit}
+    .mode-tab.active{background:#5881bc;color:#fff}
+    .mode-tab:not(.active):hover{background:#fff0ed}
+
+    .field-section{border:1px solid #e0e0e0;border-radius:0;padding:16px;margin-bottom:20px}
+    .field-section h3{font-size:15px;font-weight:700;margin-bottom:12px}
+    .field-section.team1 h3{color:#5881bc}
+    .field-section.team2 h3{color:#333}
+
+    .section-divider{border-top:1px solid #e0e0e0;margin:20px 0;padding-top:10px}
+    .section-divider span{font-size:13px;color:#999;font-weight:600}
+
+    .readonly-teams{display:flex;flex-wrap:wrap;gap:8px}
+    .player-tag{
+      display:inline-block;background:#fff0ed;color:#5881bc;
+      padding:4px 12px;border-radius:0;font-size:13px;font-weight:600;
+      border:1px solid #ffcdd2
     }
-    .alert-error{background:#f8d7da;color:#721c24}
+    details.optional{border:1px solid #ddd;border-radius:0;padding:14px;margin:20px 0}
+    details.optional summary{cursor:pointer;font-weight:700;color:#5881bc}
+    details.optional .optional-body{padding-top:16px}
+    .map-row{display:block}
+    .map-row.with-results{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(120px,.55fr)}
   </style>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-comfort.css') }}">
 </head>
 <body>
 
-<!-- 顶部导航栏 -->
 <div class="top-nav">
   <div class="logo">🎮 CS2 后台管理</div>
   <div class="nav-links">
-    <a href=" ">📊 首页</a >
-    <a href="/admin/teams">👥 队伍</a >
-    <a href="/admin/players">🎯 选手</a >
-    <a href="/admin/events">🏆 赛事</a >
-    <a href="/admin/matches">⚔️ 比赛</a >
-    <a href="/admin/news">📰 新闻</a >
+    <a href="/admin">📊 首页</a>
+    <a href="/admin/teams">👥 队伍</a>
+    <a href="/admin/players">🎯 选手</a>
+    <a href="/admin/events">🏆 赛事</a>
+    <a href="/admin/matches">⚔️ 比赛</a>
+    <a href="/admin/news">📰 新闻</a>
     <span style="color:#ccc">|</span>
     <span style="color:#666">{{ session.admin_username }}</span>
-    <a href="/admin/logout" class="logout-btn">退出</a >
+    <a href="/admin/logout" class="logout-btn">退出</a>
   </div>
 </div>
 
@@ -137,8 +103,12 @@
 
   <div class="form-container">
     <h2>{% if match %}✏️ 编辑比赛{% else %}➕ 添加比赛{% endif %}</h2>
-    
+
     <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+
+      <!-- ===== 赛事 ===== -->
       <div class="form-group">
         <label>赛事 *</label>
         <select name="event_id" required>
@@ -150,76 +120,177 @@
           {% endfor %}
         </select>
       </div>
-      
-      <div class="form-row">
-        <div class="form-group">
-          <label>队伍1 *</label>
-          <select name="team1_id" required>
-            <option value="">选择队伍</option>
-            {% for t in teams %}
-            <option value="{{ t.id }}" {% if match and match.team1_id==t.id %}selected{% endif %}>
-              {{ t.name }}
-            </option>
-            {% endfor %}
-          </select>
-        </div>
-        
-        <div class="form-group">
-          <label>队伍2 *</label>
-          <select name="team2_id" required>
-            <option value="">选择队伍</option>
-            {% for t in teams %}
-            <option value="{{ t.id }}" {% if match and match.team2_id==t.id %}selected{% endif %}>
-              {{ t.name }}
-            </option>
-            {% endfor %}
-          </select>
-        </div>
-      </div>
-      
-      <div class="form-row">
-        <div class="form-group">
-          <label>队伍1 比分</label>
-          <input type="number" name="team1_score" value="{{ match.team1_score if match else 0 }}" min="0">
-        </div>
-        
-        <div class="form-group">
-          <label>队伍2 比分</label>
-          <input type="number" name="team2_score" value="{{ match.team2_score if match else 0 }}" min="0">
-        </div>
-      </div>
-      
-      <div class="form-row">
-        <div class="form-group">
-          <label>比赛时间 *</label>
-          <input type="datetime-local" name="match_time" 
-                 value="{{ match.match_time[:16] if match else '' }}" required>
-        </div>
-        
-        <div class="form-group">
-          <label>BO 格式 *</label>
-          <select name="bo_format" required>
-            <option value="BO1" {% if match and match.bo_format=='BO1' %}selected{% endif %}>BO1</option>
-            <option value="BO3" {% if match and match.bo_format=='BO3' %}selected{% endif %}>BO3</option>
-            <option value="BO5" {% if match and match.bo_format=='BO5' %}selected{% endif %}>BO5</option>
-          </select>
-        </div>
-      </div>
-      
+
+      <!-- ===== 比赛时间 ===== -->
       <div class="form-group">
-        <label>状态 *</label>
-        <select name="status" required>
-          <option value="upcoming" {% if match and match.status=='upcoming' %}selected{% endif %}>未开始</option>
-          <option value="live" {% if match and match.status=='live' %}selected{% endif %}>进行中</option>
-          <option value="completed" {% if match and match.status=='completed' %}selected{% endif %}>已结束</option>
-        </select>
+        <label>比赛时间 *</label>
+        <input type="datetime-local" name="match_time"
+               value="{{ match.match_time[:16] if match else '' }}" required>
       </div>
 
-            <div class="form-row">
+      <div class="form-group">
+        <label>比赛阶段</label>
+        <input type="text" name="stage" value="{{ match.stage if match and match.stage else '' }}"
+               placeholder="例如：GF、SF、QF（可不填）">
+      </div>
+
+      <!-- ===== 创建比赛时选择参赛方 ===== -->
+      {% if not match %}
+        <!-- 队伍1 -->
+        <div class="field-section team1">
+          <h3>队伍1</h3>
+          <div style="display:flex;gap:16px;margin-bottom:12px">
+            <label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer">
+              <input type="radio" name="side1_type" value="team" {% if not team1_player_ids %}checked{% endif %}
+                     onchange="toggleSide('1')"> 选择队伍
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer">
+              <input type="radio" name="side1_type" value="players" {% if team1_player_ids %}checked{% endif %}
+                     onchange="toggleSide('1')"> 选择五名选手
+            </label>
+          </div>
+          <div id="side1_team">
+            <select name="side1_id">
+              <option value="">选择队伍</option>
+              {% for t in teams %}
+              <option value="{{ t.id }}" {% if match and match.team1_id==t.id %}selected{% endif %}>{{ t.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div id="side1_players" style="display:none">
+            {% for i in range(5) %}
+            <select name="side1_p{{ i }}" style="margin-bottom:4px">
+              <option value="">选手 {{ i+1 }}</option>
+              {% for p in all_players %}
+              <option value="{{ p.id }}" {% if team1_player_ids|length > i and team1_player_ids[i] == p.id %}selected{% endif %}>{{ p.nickname }}{% if p.team_name %} ({{ p.team_name }}){% endif %}</option>
+              {% endfor %}
+            </select>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- 队伍2 -->
+        <div class="field-section team2">
+          <h3>队伍2</h3>
+          <div style="display:flex;gap:16px;margin-bottom:12px">
+            <label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer">
+              <input type="radio" name="side2_type" value="team" {% if not team2_player_ids %}checked{% endif %}
+                     onchange="toggleSide('2')"> 选择队伍
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer">
+              <input type="radio" name="side2_type" value="players" {% if team2_player_ids %}checked{% endif %}
+                     onchange="toggleSide('2')"> 选择五名选手
+            </label>
+          </div>
+          <div id="side2_team">
+            <select name="side2_id">
+              <option value="">选择队伍</option>
+              {% for t in teams %}
+              <option value="{{ t.id }}" {% if match and match.team2_id==t.id %}selected{% endif %}>{{ t.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div id="side2_players" style="display:none">
+            {% for i in range(5) %}
+            <select name="side2_p{{ i }}" style="margin-bottom:4px">
+              <option value="">选手 {{ i+1 }}</option>
+              {% for p in all_players %}
+              <option value="{{ p.id }}" {% if team2_player_ids|length > i and team2_player_ids[i] == p.id %}selected{% endif %}>{{ p.nickname }}{% if p.team_name %} ({{ p.team_name }}){% endif %}</option>
+              {% endfor %}
+            </select>
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
+
+      <!-- ============================== -->
+      <!-- ===== 编辑模式：队伍/选手 + 可选 Demo 刷新选手 ===== -->
+      <!-- ============================== -->
+      {% if match %}
+      <div class="section-divider"><span>👥 参赛队伍（创建后不可修改）</span></div>
+
+      <div class="field-section team1">
+        <h3>队伍1</h3>
+        <div class="readonly-teams">
+          {% if team1_player_ids %}
+            {% for pid in team1_player_ids %}
+              {% for p in all_players %}{% if p.id == pid %}<span class="player-tag">{{ p.nickname }}</span>{% endif %}{% endfor %}
+            {% endfor %}
+          {% else %}
+            <span class="player-tag">{{ match.team1_name or '未设置' }}</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="field-section team2">
+        <h3>队伍2</h3>
+        <div class="readonly-teams">
+          {% if team2_player_ids %}
+            {% for pid in team2_player_ids %}
+              {% for p in all_players %}{% if p.id == pid %}<span class="player-tag">{{ p.nickname }}</span>{% endif %}{% endfor %}
+            {% endfor %}
+          {% else %}
+            <span class="player-tag">{{ match.team2_name or '未设置' }}</span>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- ============================== -->
+      <!-- ===== 共享：BO格式 + 地图 + 比分 + 状态 ===== -->
+      <!-- ============================== -->
+      <div class="section-divider"><span>⚙️ 比赛设置</span></div>
+
+      <!-- BO格式 -->
+      {% if match %}
+      <input type="hidden" name="bo_format" id="boFormat" value="{{ match.bo_format }}">
+      {% else %}
+      <div class="form-group">
+        <label>BO 格式</label>
+        <select name="bo_format" id="boFormat" onchange="updateMapFields()">
+          <option value="BO1" {% if match and match.bo_format=='BO1' %}selected{% endif %}>BO1</option>
+          <option value="BO3" {% if match and match.bo_format=='BO3' %}selected{% endif %}>BO3</option>
+          <option value="BO5" {% if match and match.bo_format=='BO5' %}selected{% endif %}>BO5</option>
+        </select>
+      </div>
+      {% endif %}
+
+      <!-- 地图模式切换（仅添加时可选） -->
+      {% if not match %}
+      <div class="form-group" id="mapModeToggleGroup">
+        <label>地图模式</label>
+        <div class="mode-tabs" id="mapModeTabs">
+          <button type="button" class="mode-tab active" data-map-mode="manual" onclick="switchMapMode('manual')">
+            🗺️ 手动选图
+          </button>
+          <button type="button" class="mode-tab" data-map-mode="bp" onclick="switchMapMode('bp')">
+            🔒 在线 BP
+          </button>
+        </div>
+      </div>
+      {% endif %}
+
+      <div id="manualMapSection">
+
+      <!-- 图一 -->
+      <div class="form-row map-row{% if match %} with-results{% endif %}">
         <div class="form-group">
           <label>图一</label>
-          <input type="text" name="map1" value="{{ match.map1 if match else '' }}" placeholder="如 de_mirage，未定留空">
+          <select name="map1">
+            <option value="">选择地图</option>
+            <option value="de_mirage" {% if match and match.map1=='de_mirage' %}selected{% endif %}>Mirage</option>
+            <option value="de_dust2" {% if match and match.map1=='de_dust2' %}selected{% endif %}>Dust2</option>
+            <option value="de_inferno" {% if match and match.map1=='de_inferno' %}selected{% endif %}>Inferno</option>
+            <option value="de_nuke" {% if match and match.map1=='de_nuke' %}selected{% endif %}>Nuke</option>
+            <option value="de_ancient" {% if match and match.map1=='de_ancient' %}selected{% endif %}>Ancient</option>
+            <option value="de_anubis" {% if match and match.map1=='de_anubis' %}selected{% endif %}>Anubis</option>
+            <option value="de_overpass" {% if match and match.map1=='de_overpass' %}selected{% endif %}>Overpass</option>
+            <option value="de_vertigo" {% if match and match.map1=='de_vertigo' %}selected{% endif %}>Vertigo</option>
+            <option value="de_train" {% if match and match.map1=='de_train' %}selected{% endif %}>Train</option>
+            <option value="de_cache" {% if match and match.map1=='de_cache' %}selected{% endif %}>Cache</option>
+          </select>
         </div>
+        {% if match %}
         <div class="form-group">
           <label style="visibility:hidden">-</label>
           <div style="display:flex;align-items:center;gap:8px">
@@ -228,13 +299,37 @@
             <input type="number" name="map1_t2" value="{{ match.map1_t2 if match else 0 }}" min="0" style="width:50px;text-align:center" placeholder="-">
           </div>
         </div>
+        <div class="form-group">
+          <label style="visibility:hidden">-</label>
+          <select name="map1_picked_by" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:0;font-size:13px">
+            <option value="">—</option>
+            <option value="t1" {% if match and match.map1_picked_by=='t1' %}selected{% endif %}>T1 Pick</option>
+            <option value="t2" {% if match and match.map1_picked_by=='t2' %}selected{% endif %}>T2 Pick</option>
+            <option value="decider" {% if match and match.map1_picked_by=='decider' %}selected{% endif %}>Decider</option>
+          </select>
+        </div>
+        {% endif %}
       </div>
 
-      <div class="form-row">
+      <!-- 图二 -->
+      <div class="form-row map-row{% if match %} with-results{% endif %}" id="map2Row">
         <div class="form-group">
           <label>图二</label>
-          <input type="text" name="map2" value="{{ match.map2 if match else '' }}" placeholder="如 de_dust2，未定留空">
+          <select name="map2">
+            <option value="">选择地图</option>
+            <option value="de_mirage" {% if match and match.map2=='de_mirage' %}selected{% endif %}>Mirage</option>
+            <option value="de_dust2" {% if match and match.map2=='de_dust2' %}selected{% endif %}>Dust2</option>
+            <option value="de_inferno" {% if match and match.map2=='de_inferno' %}selected{% endif %}>Inferno</option>
+            <option value="de_nuke" {% if match and match.map2=='de_nuke' %}selected{% endif %}>Nuke</option>
+            <option value="de_ancient" {% if match and match.map2=='de_ancient' %}selected{% endif %}>Ancient</option>
+            <option value="de_anubis" {% if match and match.map2=='de_anubis' %}selected{% endif %}>Anubis</option>
+            <option value="de_overpass" {% if match and match.map2=='de_overpass' %}selected{% endif %}>Overpass</option>
+            <option value="de_vertigo" {% if match and match.map2=='de_vertigo' %}selected{% endif %}>Vertigo</option>
+            <option value="de_train" {% if match and match.map2=='de_train' %}selected{% endif %}>Train</option>
+            <option value="de_cache" {% if match and match.map2=='de_cache' %}selected{% endif %}>Cache</option>
+          </select>
         </div>
+        {% if match %}
         <div class="form-group">
           <label style="visibility:hidden">-</label>
           <div style="display:flex;align-items:center;gap:8px">
@@ -243,13 +338,37 @@
             <input type="number" name="map2_t2" value="{{ match.map2_t2 if match else 0 }}" min="0" style="width:50px;text-align:center" placeholder="-">
           </div>
         </div>
+        <div class="form-group">
+          <label style="visibility:hidden">-</label>
+          <select name="map2_picked_by" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:0;font-size:13px">
+            <option value="">—</option>
+            <option value="t1" {% if match and match.map2_picked_by=='t1' %}selected{% endif %}>T1 Pick</option>
+            <option value="t2" {% if match and match.map2_picked_by=='t2' %}selected{% endif %}>T2 Pick</option>
+            <option value="decider" {% if match and match.map2_picked_by=='decider' %}selected{% endif %}>Decider</option>
+          </select>
+        </div>
+        {% endif %}
       </div>
 
-      <div class="form-row">
+      <!-- 图三 -->
+      <div class="form-row map-row{% if match %} with-results{% endif %}" id="map3Row">
         <div class="form-group">
           <label>图三</label>
-          <input type="text" name="map3" value="{{ match.map3 if match else '' }}" placeholder="如 de_inferno，未定留空">
+          <select name="map3">
+            <option value="">选择地图</option>
+            <option value="de_mirage" {% if match and match.map3=='de_mirage' %}selected{% endif %}>Mirage</option>
+            <option value="de_dust2" {% if match and match.map3=='de_dust2' %}selected{% endif %}>Dust2</option>
+            <option value="de_inferno" {% if match and match.map3=='de_inferno' %}selected{% endif %}>Inferno</option>
+            <option value="de_nuke" {% if match and match.map3=='de_nuke' %}selected{% endif %}>Nuke</option>
+            <option value="de_ancient" {% if match and match.map3=='de_ancient' %}selected{% endif %}>Ancient</option>
+            <option value="de_anubis" {% if match and match.map3=='de_anubis' %}selected{% endif %}>Anubis</option>
+            <option value="de_overpass" {% if match and match.map3=='de_overpass' %}selected{% endif %}>Overpass</option>
+            <option value="de_vertigo" {% if match and match.map3=='de_vertigo' %}selected{% endif %}>Vertigo</option>
+            <option value="de_train" {% if match and match.map3=='de_train' %}selected{% endif %}>Train</option>
+            <option value="de_cache" {% if match and match.map3=='de_cache' %}selected{% endif %}>Cache</option>
+          </select>
         </div>
+        {% if match %}
         <div class="form-group">
           <label style="visibility:hidden">-</label>
           <div style="display:flex;align-items:center;gap:8px">
@@ -258,17 +377,273 @@
             <input type="number" name="map3_t2" value="{{ match.map3_t2 if match else 0 }}" min="0" style="width:50px;text-align:center" placeholder="-">
           </div>
         </div>
+        <div class="form-group">
+          <label style="visibility:hidden">-</label>
+          <select name="map3_picked_by" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:0;font-size:13px">
+            <option value="">—</option>
+            <option value="t1" {% if match and match.map3_picked_by=='t1' %}selected{% endif %}>T1 Pick</option>
+            <option value="t2" {% if match and match.map3_picked_by=='t2' %}selected{% endif %}>T2 Pick</option>
+            <option value="decider" {% if match and match.map3_picked_by=='decider' %}selected{% endif %}>Decider</option>
+          </select>
+        </div>
+        {% endif %}
       </div>
 
+      <!-- 图四 -->
+      <div class="form-row map-row{% if match %} with-results{% endif %}" id="map4Row">
+        <div class="form-group">
+          <label>图四</label>
+          <select name="map4">
+            <option value="">选择地图</option>
+            <option value="de_mirage" {% if match and match.map4=='de_mirage' %}selected{% endif %}>Mirage</option>
+            <option value="de_dust2" {% if match and match.map4=='de_dust2' %}selected{% endif %}>Dust2</option>
+            <option value="de_inferno" {% if match and match.map4=='de_inferno' %}selected{% endif %}>Inferno</option>
+            <option value="de_nuke" {% if match and match.map4=='de_nuke' %}selected{% endif %}>Nuke</option>
+            <option value="de_ancient" {% if match and match.map4=='de_ancient' %}selected{% endif %}>Ancient</option>
+            <option value="de_anubis" {% if match and match.map4=='de_anubis' %}selected{% endif %}>Anubis</option>
+            <option value="de_overpass" {% if match and match.map4=='de_overpass' %}selected{% endif %}>Overpass</option>
+            <option value="de_vertigo" {% if match and match.map4=='de_vertigo' %}selected{% endif %}>Vertigo</option>
+            <option value="de_train" {% if match and match.map4=='de_train' %}selected{% endif %}>Train</option>
+            <option value="de_cache" {% if match and match.map4=='de_cache' %}selected{% endif %}>Cache</option>
+          </select>
+        </div>
+        {% if match %}
+        <div class="form-group">
+          <label style="visibility:hidden">-</label>
+          <div style="display:flex;align-items:center;gap:8px">
+            <input type="number" name="map4_t1" value="{{ match.map4_t1 if match else 0 }}" min="0" style="width:50px;text-align:center" placeholder="-">
+            <span style="color:#999;font-weight:bold">:</span>
+            <input type="number" name="map4_t2" value="{{ match.map4_t2 if match else 0 }}" min="0" style="width:50px;text-align:center" placeholder="-">
+          </div>
+        </div>
+        <div class="form-group">
+          <label style="visibility:hidden">-</label>
+          <select name="map4_picked_by" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:0;font-size:13px">
+            <option value="">—</option>
+            <option value="t1" {% if match and match.map4_picked_by=='t1' %}selected{% endif %}>T1 Pick</option>
+            <option value="t2" {% if match and match.map4_picked_by=='t2' %}selected{% endif %}>T2 Pick</option>
+            <option value="decider" {% if match and match.map4_picked_by=='decider' %}selected{% endif %}>Decider</option>
+          </select>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- 图五 -->
+      <div class="form-row map-row{% if match %} with-results{% endif %}" id="map5Row">
+        <div class="form-group">
+          <label>图五</label>
+          <select name="map5">
+            <option value="">选择地图</option>
+            <option value="de_mirage" {% if match and match.map5=='de_mirage' %}selected{% endif %}>Mirage</option>
+            <option value="de_dust2" {% if match and match.map5=='de_dust2' %}selected{% endif %}>Dust2</option>
+            <option value="de_inferno" {% if match and match.map5=='de_inferno' %}selected{% endif %}>Inferno</option>
+            <option value="de_nuke" {% if match and match.map5=='de_nuke' %}selected{% endif %}>Nuke</option>
+            <option value="de_ancient" {% if match and match.map5=='de_ancient' %}selected{% endif %}>Ancient</option>
+            <option value="de_anubis" {% if match and match.map5=='de_anubis' %}selected{% endif %}>Anubis</option>
+            <option value="de_overpass" {% if match and match.map5=='de_overpass' %}selected{% endif %}>Overpass</option>
+            <option value="de_vertigo" {% if match and match.map5=='de_vertigo' %}selected{% endif %}>Vertigo</option>
+            <option value="de_train" {% if match and match.map5=='de_train' %}selected{% endif %}>Train</option>
+            <option value="de_cache" {% if match and match.map5=='de_cache' %}selected{% endif %}>Cache</option>
+          </select>
+        </div>
+        {% if match %}
+        <div class="form-group">
+          <label style="visibility:hidden">-</label>
+          <div style="display:flex;align-items:center;gap:8px">
+            <input type="number" name="map5_t1" value="{{ match.map5_t1 if match else 0 }}" min="0" style="width:50px;text-align:center" placeholder="-">
+            <span style="color:#999;font-weight:bold">:</span>
+            <input type="number" name="map5_t2" value="{{ match.map5_t2 if match else 0 }}" min="0" style="width:50px;text-align:center" placeholder="-">
+          </div>
+        </div>
+        <div class="form-group">
+          <label style="visibility:hidden">-</label>
+          <select name="map5_picked_by" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:0;font-size:13px">
+            <option value="">—</option>
+            <option value="t1" {% if match and match.map5_picked_by=='t1' %}selected{% endif %}>T1 Pick</option>
+            <option value="t2" {% if match and match.map5_picked_by=='t2' %}selected{% endif %}>T2 Pick</option>
+            <option value="decider" {% if match and match.map5_picked_by=='decider' %}selected{% endif %}>Decider</option>
+          </select>
+        </div>
+        {% endif %}
+      </div>
+
+      {% if match %}
+      <!-- 大比分 -->
+      <div class="form-row" id="overallScoreRow">
+        <div class="form-group">
+          <label>队伍1 大比分</label>
+          <input type="number" name="team1_score" value="{{ match.team1_score if match else 0 }}" min="0">
+        </div>
+        <div class="form-group">
+          <label>队伍2 大比分</label>
+          <input type="number" name="team2_score" value="{{ match.team2_score if match else 0 }}" min="0">
+        </div>
+      </div>
+
+      <!-- 缺图选项 -->
+      <div class="form-group" id="noMapSection">
+        <label style="font-size:13px;color:#666;margin-bottom:6px">未打的图（如 2:0 则勾选图三）</label>
+        <div style="display:flex;gap:16px;flex-wrap:wrap">
+          <label id="noMap3Label" style="display:flex;align-items:center;gap:4px;font-weight:400;cursor:pointer;font-size:13px">
+            <input type="checkbox" name="no_map3" value="1" {% if match and not match.has_map3 %}checked{% endif %}> 无图三
+          </label>
+          <label id="noMap4Label" style="display:none;align-items:center;gap:4px;font-weight:400;cursor:pointer;font-size:13px">
+            <input type="checkbox" name="no_map4" value="1" {% if match and not match.has_map4 %}checked{% endif %}> 无图四
+          </label>
+          <label id="noMap5Label" style="display:none;align-items:center;gap:4px;font-weight:400;cursor:pointer;font-size:13px">
+            <input type="checkbox" name="no_map5" value="1" {% if match and not match.has_map5 %}checked{% endif %}> 无图五
+          </label>
+        </div>
+      </div>
+      {% endif %}
+      </div><!-- /manualMapSection -->
+
+      <!-- 在线 BP 密码 -->
+      <div id="bpModeSection" {% if not match %}style="display:none"{% endif %}>
+      <div class="form-group">
+        <label>🔒 在线 BP 密码 <span style="font-weight:400;color:#999;font-size:12px">（设置后选手可通过此密码参与在线 BP）</span></label>
+        <input type="password" name="bp_password"
+               placeholder="{% if match and match.bp_password %}留空则保持原密码{% else %}留空则不启用在线 BP{% endif %}" style="width:100%;max-width:300px">
+        {% if match and match.bp_password %}
+        <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px;font-weight:400;color:#999">
+          <input type="checkbox" name="clear_bp_password" value="1" style="width:auto"> 清除现有 BP 密码
+        </label>
+        {% endif %}
+      </div>
+      </div><!-- /bpModeSection -->
+
+      {% if match %}
+      <!-- BP 流程在 BP 完成后补录 -->
+      <div class="form-group" id="bpProcessGroup">
+        <label>Ban/Pick 流程</label>
+        <textarea name="bp_process" rows="8" placeholder="每行一步，例如：
+1. Spirit removed Inferno
+2. The MongolZ removed Anubis
+3. Spirit picked Dust2
+4. The MongolZ picked Ancient
+5. The MongolZ removed Overpass
+6. Spirit removed Nuke
+7. Mirage was left over"
+        style="width:100%;padding:12px;border:1px solid #ddd;border-radius:0;font-size:14px;font-family:inherit;resize:vertical">{{ match.bp_process if match else '' }}</textarea>
+      </div>
+      {% endif %}
+
+      <details class="optional" {% if match and (match.stream_url or match.watch_urls or match.server_address) %}open{% endif %}>
+        <summary>可选：直播、观赛平台与比赛服务器</summary>
+        <div class="optional-body">
+          <div class="form-group">
+            <label>B站直播间链接</label>
+            <input type="url" name="stream_url" value="{{ match.stream_url if match else '' }}"
+                   placeholder="https://live.bilibili.com/ROOMID" style="width:100%">
+          </div>
+
+          <div class="form-group">
+            <label>📺 观赛平台链接 <span style="font-weight:400;color:#999;font-size:12px">（平台名+URL，前台显示为可点击按钮）</span></label>
+            <div id="watchUrlContainer" style="display:flex;flex-direction:column;gap:8px"></div>
+            <button type="button" onclick="addWatchUrl()" style="margin-top:8px;padding:6px 16px;border:1px dashed #5881bc;border-radius:0;background:none;color:#5881bc;cursor:pointer;font-size:13px">+ 添加平台</button>
+          </div>
+
+          <div class="form-group">
+            <label>🖥️ 比赛服务器地址 <span style="font-weight:400;color:#999;font-size:12px">（可直接粘贴 TGPro 连接串）</span></label>
+            <input type="text" name="server_address" value="{{ match.server_address if match else '' }}"
+                   placeholder="password xxx;connect 82.156.150.252:52218" style="width:100%;max-width:500px">
+          </div>
+        </div>
+      </details>
+
+
+      <!-- 状态 -->
+      {% if match %}
+      <div class="form-group">
+        <label>状态</label>
+        <select name="status">
+          <option value="upcoming" {% if match.status=='upcoming' %}selected{% endif %}>未开始</option>
+          <option value="live" {% if match.status in ('live', 'ongoing') %}selected{% endif %}>进行中</option>
+          <option value="completed" {% if match.status=='completed' %}selected{% endif %}>已结束</option>
+          <option value="cancelled" {% if match.status=='cancelled' %}selected{% endif %}>已取消</option>
+        </select>
+      </div>
+      {% endif %}
+
       <div class="form-actions">
-        <button type="submit" class="btn btn-primary">
+        <button type="submit" class="btn btn-primary" id="submitBtn">
           {% if match %}💾 保存修改{% else %}✅ 添加比赛{% endif %}
         </button>
-        <a href="/admin/matches" class="btn btn-secondary">❌ 取消</a >
+        <a href="/admin/matches" class="btn btn-secondary">❌ 取消</a>
       </div>
     </form>
   </div>
 </div>
 
+<script>
+function updateMapFields() {
+  var bo = document.getElementById('boFormat').value;
+  var max = bo === 'BO1' ? 1 : (bo === 'BO3' ? 3 : 5);
+  document.getElementById('map2Row').style.display = max >= 2 ? '' : 'none';
+  document.getElementById('map3Row').style.display = max >= 3 ? '' : 'none';
+  document.getElementById('map4Row').style.display = max >= 4 ? '' : 'none';
+  document.getElementById('map5Row').style.display = max >= 5 ? '' : 'none';
+  var noMap3 = document.getElementById('noMap3Label');
+  var noMap4 = document.getElementById('noMap4Label');
+  var noMap5 = document.getElementById('noMap5Label');
+  if (noMap3) noMap3.style.display = max >= 3 ? '' : 'none';
+  if (noMap4) noMap4.style.display = max >= 4 ? '' : 'none';
+  if (noMap5) noMap5.style.display = max >= 5 ? '' : 'none';
+}
+
+function toggleSide(num) {
+  var checked = document.querySelector('input[name="side'+num+'_type"]:checked');
+  if (!checked) return;
+  var isTeam = checked.value === 'team';
+  document.getElementById('side'+num+'_team').style.display = isTeam ? 'block' : 'none';
+  document.getElementById('side'+num+'_players').style.display = isTeam ? 'none' : 'block';
+  var sel = document.querySelector('select[name="side'+num+'_id"]');
+  if (sel) sel.required = isTeam;
+}
+
+// Watch URLs
+var watchUrls = {{ ((match.watch_urls|json_loads if match and match.watch_urls else None) or [])|tojson }};
+window._watchUrlIdx = watchUrls.length;
+
+function escapeWatchAttr(value) {
+  return String(value).replace(/[&<>"']/g, function(ch) {
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
+  });
+}
+
+function addWatchUrl(name, url) {
+  name = name || ''; url = url || '';
+  var idx = window._watchUrlIdx++;
+  var div = document.createElement('div');
+  div.style.cssText = 'display:flex;gap:8px;align-items:center';
+  div.innerHTML = '<input type="text" name="watch_name_' + idx + '" value="' + escapeWatchAttr(name) + '" placeholder="平台名（如 Bilibili）" style="flex:1;min-width:100px">' +
+    '<input type="url" name="watch_url_' + idx + '" value="' + escapeWatchAttr(url) + '" placeholder="https://..." style="flex:2">' +
+    '<button type="button" onclick="this.parentElement.remove()" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:18px;padding:0 4px">&times;</button>';
+  document.getElementById('watchUrlContainer').appendChild(div);
+}
+
+watchUrls.forEach(function(w) { addWatchUrl(w.name, w.url); });
+
+function switchMapMode(mode) {
+  document.querySelectorAll('#mapModeTabs .mode-tab').forEach(function(t) {
+    t.classList.toggle('active', t.dataset.mapMode === mode);
+  });
+  var manual = document.getElementById('manualMapSection');
+  var bp = document.getElementById('bpModeSection');
+  if (manual) manual.style.display = mode === 'manual' ? '' : 'none';
+  if (bp) bp.style.display = mode === 'bp' ? '' : 'none';
+}
+
+// Init
+updateMapFields();
+toggleSide('1');
+toggleSide('2');
+{% if not match %}
+switchMapMode('manual');
+{% endif %}
+</script>
+
+<script src="{{ url_for('static', filename='js/i18n.js') }}?v=20260614-fullsite-lang2"></script>
+<script src="{{ url_for('static', filename='js/svg_icons.js') }}?v=20260620-svg1"></script>
 </body>
 </html>

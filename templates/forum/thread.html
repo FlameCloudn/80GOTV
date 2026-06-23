@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}{{ thread.title }} - 论坛{% endblock %}
+{% block head %}
+<style>
+.thread-header{background:var(--h-panel);border:1px solid var(--h-panel-line);border-radius:0;padding:14px 16px;margin-bottom:10px}
+.thread-header h1{font-size:22px;margin:0 0 var(--space-md)}
+.thread-meta{font-size:13px;color:var(--text-muted);display:flex;flex-wrap:wrap;gap:var(--space-lg)}
+.breadcrumb{margin-bottom:var(--space-md);font-size:13px;color:var(--text-muted)}
+.breadcrumb a{color:var(--text-link)}
+.thread-body{background:var(--h-panel);border:1px solid var(--h-panel-line);border-radius:0;padding:14px 16px;margin-bottom:10px}
+.thread-body .content{line-height:1.8;word-break:break-word}
+.post-list{background:var(--h-panel);border:1px solid var(--h-panel-line);border-radius:0;overflow:hidden}
+.post-item{padding:12px 14px;border-bottom:1px solid var(--h-panel-line)}
+.post-item:last-child{border-bottom:none}
+.post-header{display:flex;align-items:center;gap:var(--space-md);margin-bottom:var(--space-md)}
+.post-avatar{width:36px;height:36px;border-radius:0;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;overflow:hidden}
+.post-avatar img{width:100%;height:100%;object-fit:cover}
+.post-user{font-weight:600;font-size:14px}
+.post-time{font-size:12px;color:var(--text-muted);margin-left:auto}
+.post-number{font-size:11px;color:var(--text-muted);background:var(--bg-hover);padding:2px 8px;border-radius:0;word-break:break-word;font-size:14px}
+.post-footer{display:flex;gap:var(--space-md);margin-top:var(--space-md);font-size:12px}
+.reply-form-section{background:var(--h-panel);border:1px solid var(--h-panel-line);border-radius:0;padding:14px 16px;margin-top:10px}
+.reply-form-section h3{margin:0 0 var(--space-md);font-size:16px}
+.reply-form-section textarea{width:100%;resize:vertical;min-height:120px;background:var(--bg-primary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:0;padding:10px;font-family:inherit;font-size:14px}
+.reply-form-footer{display:flex;justify-content:flex-end;margin-top:var(--space-md)}
+.pagination{display:flex;justify-content:center;gap:var(--space-sm);margin-top:var(--space-lg)}
+.pagination a,.pagination span{padding:var(--space-sm) var(--space-md);background:var(--bg-card);border:1px solid var(--border-color);border-radius:0;font-size:13px;color:var(--text-primary)}
+.pagination a:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.pagination .current{background:var(--accent);color:#fff;border-color:var(--accent)}
+.locked-badge{background:#e74c3c;color:#fff;font-size:11px;padding:2px 8px;border-radius:0;margin-left:var(--space-sm)}
+.pinned-badge{background:var(--accent);color:#fff;font-size:11px;padding:2px 8px;border-radius:0;margin-left:var(--space-sm)}
+</style>
+{% endblock %}
+{% block main %}
+<div class="breadcrumb">
+  <a href="{{ url_for('forum_index') }}">论坛</a> ›
+  {{ thread.title }}
+</div>
+<div class="thread-header">
+  <h1>
+    {{ thread.title }}
+    {% if thread.is_pinned %}<span class="pinned-badge">置顶</span>{% endif %}
+    {% if thread.is_locked %}<span class="locked-badge">已锁定</span>{% endif %}
+  </h1>
+  {% if thread.tags %}
+  <div style="margin-bottom:var(--space-md);display:flex;gap:6px;flex-wrap:wrap">
+    {% for tag in thread.tags.split(',') %}{% set ts = tag.strip() %}{% if ts %}<a href="{{ url_for('forum_index', tag=ts) }}" class="tag-chip">{{ ts }}</a>{% endif %}{% endfor %}
+  </div>
+  {% endif %}
+  <div class="thread-meta">
+    <span>👤 {{ thread.username }}</span>
+    <span>🕐 {{ thread.created_at|datetime_display }}</span>
+    <span>👁 {{ thread.view_count }} 浏览</span>
+    <span>💬 {{ thread.reply_count }} 回复</span>
+  </div>
+</div>
+
+<!-- 楼主帖 -->
+<div class="thread-body">
+  <div class="post-header">
+    {% if thread.avatar %}
+    <div class="post-avatar"><img loading="lazy" src="{{ url_for('static', filename='avatars/' + thread.avatar) }}" alt=""></div>
+    {% else %}
+    <div class="post-avatar">{{ (thread.username or '?')[0]|upper }}</div>
+    {% endif %}
+    <span class="post-user">{{ thread.username }}</span>
+    {% if thread.username and thread.username.lower() == 'flamecloud_' %}<span class="admin-badge-small">ADMIN</span>{% endif %}
+    <span class="post-time">{{ thread.created_at|datetime_display }}</span>
+    <span class="post-number">#1</span>
+  </div>
+  <div class="post-body content">{{ thread.content }}</div>
+</div>
+
+<!-- 回复列表 -->
+{% if posts %}
+<div class="post-list">
+  {% for post in posts %}
+  {% set post_num = (page - 1) * 20 + loop.index + 1 %}
+  <div class="post-item" id="post-{{ post.id }}">
+    <div class="post-header">
+      {% if post.avatar %}
+      <div class="post-avatar"><img loading="lazy" src="{{ url_for('static', filename='avatars/' + post.avatar) }}" alt=""></div>
+      {% else %}
+      <div class="post-avatar">{{ (post.username or '?')[0]|upper }}</div>
+      {% endif %}
+      <span class="post-user">{{ post.username }}</span>
+      {% if post.username and post.username.lower() == 'flamecloud_' %}<span class="admin-badge-small">ADMIN</span>{% endif %}
+      <span class="post-time">{{ post.created_at|datetime_display }}</span>
+      <span class="post-number">#{{ post_num }}</span>
+    </div>
+    <div class="post-body">{{ post.content }}</div>
+    <div class="post-footer">
+      <button class="comment-like-btn{% if post.user_liked %} liked{% endif %}" data-cid="{{ post.id }}" data-liked="{{ 1 if post.user_liked else 0 }}">
+        <span class="like-icon">❤</span> <span class="like-count">{{ post.like_count or 0 }}</span>
+      </button>
+      {% if (session.user_id and session.user_id == post.user_id) or session.admin_id or (session.user_username or '')|lower == 'flamecloud_' %}
+      <form class="comment-delete-form" data-cid="{{ post.id }}" style="display:inline">
+        <button type="submit" class="comment-delete-btn">删除</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if total_pages > 1 %}
+<div class="pagination">
+  {% if page > 1 %}<a href="?page={{ page - 1 }}">上一页</a>{% endif %}
+  {% for p in range(1, total_pages + 1) %}
+    {% if p == page %}<span class="current">{{ p }}</span>
+    {% else %}<a href="?page={{ p }}">{{ p }}</a>{% endif %}
+  {% endfor %}
+  {% if page < total_pages %}<a href="?page={{ page + 1 }}">下一页</a>{% endif %}
+</div>
+{% endif %}
+
+<!-- 回复表单 -->
+{% if session.user_id %}
+{% if not thread.is_locked %}
+<div class="reply-form-section">
+  <h3>回复帖子</h3>
+  <form method="post" action="{{ url_for('forum_thread_reply', thread_id=thread.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <textarea name="content" rows="4" placeholder="发表你的看法..." required></textarea>
+    <div class="reply-form-footer">
+      <button type="submit" class="btn btn-primary">发表回复</button>
+    </div>
+  </form>
+</div>
+{% else %}
+<div class="reply-form-section" style="text-align:center;color:var(--text-muted)">该帖子已锁定，无法回复</div>
+{% endif %}
+{% else %}
+<div class="reply-form-section" style="text-align:center">
+  <a href="{{ url_for('user_login') }}">登录</a> 后即可回复
+</div>
+{% endif %}
+{% endblock %}

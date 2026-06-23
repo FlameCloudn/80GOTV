@@ -1,0 +1,675 @@
+{% extends 'base.html' %}
+{% block title %}BP 房间 - {{ team1_name }} 对 {{ team2_name }}{% endblock %}
+{% block head %}
+<style>
+.bp-container{max-width:1100px;margin:0 auto;padding:20px}
+
+/* 头部 */
+.bp-header{text-align:center;margin-bottom:20px}
+.bp-header .bo-badge{display:inline-block;background:var(--accent);color:#fff;padding:4px 16px;border-radius:0;font-size:14px;font-weight:700;margin-bottom:8px}
+.bp-header .event-name{color:var(--text-muted);font-size:13px;margin-bottom:12px}
+.bp-teams{display:flex;align-items:center;justify-content:center;gap:28px;margin-bottom:8px}
+.bp-team{text-align:center}
+.bp-team .name{font-size:18px;font-weight:700;color:var(--text-primary)}
+.bp-team .role{font-size:11px;color:var(--text-muted)}
+.bp-vs{font-size:24px;font-weight:900;color:var(--text-muted)}
+.bp-team.my-team .name{color:var(--accent)}
+
+/* 状态栏 */
+.bp-status-bar{text-align:center;margin-bottom:20px;font-size:15px;color:var(--text-primary);font-weight:600;min-height:28px}
+.bp-timer{display:none;width:max-content;min-width:150px;margin:-10px auto 18px;padding:7px 16px;border:2px solid var(--accent);background:var(--bg-card);color:var(--text-primary);font-size:20px;font-weight:800;text-align:center;font-variant-numeric:tabular-nums}
+.bp-timer .timer-label{font-size:11px;font-weight:500;color:var(--text-muted);margin-right:8px;vertical-align:2px}
+.bp-timer.warning{border-color:#f59e0b;color:#f59e0b}
+.bp-timer.expired{border-color:#ef4444;color:#ef4444;min-width:260px}
+
+/* 步骤指示器 */
+.bp-steps-indicator{display:flex;justify-content:center;gap:4px;margin-bottom:20px;flex-wrap:wrap}
+.bp-step-dot{width:24px;height:24px;border-radius:0;background:var(--border-color);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;transition:all 0.3s}
+.bp-step-dot.done{background:var(--accent)}
+.bp-step-dot.current{background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse-dot 1s infinite}
+.bp-step-dot.ban-dot.done{background:#ef4444}
+.bp-step-dot.pick-dot.done{background:#22c55e}
+@keyframes pulse-dot{0%,100%{box-shadow:0 0 4px var(--accent)}50%{box-shadow:0 0 16px var(--accent)}}
+
+/* 地图池 */
+.bp-section-label{text-align:center;font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:10px}
+.bp-map-pool{display:flex;flex-direction:column;gap:10px;align-items:stretch;margin-bottom:24px;max-width:500px;margin-left:0;margin-right:auto}
+.bp-map-card{
+  width:100%;height:80px;border-radius:0;text-align:center;
+  border:3px solid var(--border-color);transition:all 0.2s;
+  font-size:17px;font-weight:700;color:#fff;user-select:none;
+  position:relative;display:flex;align-items:center;justify-content:center;
+  background-size:cover;background-position:center;
+  text-shadow:0 1px 3px rgba(0,0,0,0.8);
+  letter-spacing:1px;
+}
+.bp-map-card .map-overlay{
+  position:absolute;top:0;left:0;right:0;bottom:0;border-radius:0;
+}
+.bp-map-card .map-name{position:relative;z-index:1}
+.bp-map-card .map-status{
+  position:absolute;bottom:6px;right:6px;font-size:10px;font-weight:600;
+  padding:2px 7px;border-radius:0;z-index:1;text-shadow:none;
+}
+
+.bp-map-card.available{border-color:var(--border-color);cursor:default}
+.bp-map-card.available .map-status{background:rgba(0,0,0,0.55);color:#aaa}
+
+.bp-map-card.banned{filter:grayscale(0.85) brightness(0.5);border-color:#ef4444;cursor:not-allowed}
+.bp-map-card.banned .map-status{background:rgba(239,68,68,0.7);color:#fff}
+
+.bp-map-card.picked{filter:brightness(0.95);cursor:default}
+.bp-map-card.picked.t1{border-color:#5881bc;box-shadow:0 0 16px rgba(88,129,188,0.4)}
+.bp-map-card.picked.t2{border-color:#e07b3c;box-shadow:0 0 16px rgba(224,123,60,0.4)}
+.bp-map-card.picked.remaining{border-color:#facc15;box-shadow:0 0 16px rgba(250,204,21,0.4)}
+.bp-map-card.picked .map-status{background:rgba(34,197,94,0.7);color:#fff}
+.bp-map-card.picked.remaining .map-status{background:rgba(250,204,21,0.7);color:#111}
+
+.bp-map-card.clickable{border-color:var(--accent);cursor:pointer;animation:glow-card 1.5s ease-in-out infinite}
+.bp-map-card.clickable:hover{transform:translateY(-4px);filter:brightness(1.15);box-shadow:0 8px 20px rgba(88,129,188,0.45);animation:none}
+.bp-map-card.clickable.ban-action{border-color:#ef4444}
+.bp-map-card.clickable.ban-action:hover{filter:brightness(0.8);box-shadow:0 8px 20px rgba(239,68,68,0.45)}
+.bp-map-card.clickable.pick-action{border-color:#22c55e}
+.bp-map-card.clickable.pick-action:hover{filter:brightness(1.2);box-shadow:0 8px 20px rgba(34,197,94,0.45)}
+@keyframes glow-card{0%,100%{box-shadow:0 0 6px rgba(88,129,188,0.3)}50%{box-shadow:0 0 22px rgba(88,129,188,0.6)}}
+
+/* 已选地图行 */
+.bp-picks-section{margin-bottom:24px}
+.bp-picks-row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.bp-pick-slot{
+  min-width:110px;padding:12px 16px;border-radius:0;text-align:center;
+  background:var(--bg-card);border:2px solid var(--border-color);font-size:13px;font-weight:600;
+}
+.bp-pick-slot .pick-num{font-size:10px;color:var(--text-muted);display:block;margin-top:2px}
+.bp-pick-slot.t1{border-color:#5881bc;background:rgba(88,129,188,0.08)}
+.bp-pick-slot.t2{border-color:#e07b3c;background:rgba(224,123,60,0.08)}
+.bp-pick-slot.remaining{border-color:#facc15;background:rgba(250,204,21,0.08);border-style:dashed}
+
+/* Roll 区域 */
+.roll-area{text-align:center;margin-bottom:20px}
+.roll-dice-row{display:flex;align-items:center;justify-content:center;gap:24px;margin-bottom:16px}
+.roll-team-dice{text-align:center}
+.roll-team-dice .dice-label{font-size:13px;color:var(--text-muted);margin-bottom:6px}
+.roll-dice{
+  width:80px;height:80px;border-radius:0;border:3px solid var(--border-color);background:var(--bg-card);
+  display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:900;
+  color:var(--text-muted);transition:all 0.4s
+}
+.roll-dice.rolled{border-color:var(--accent);color:var(--accent);background:rgba(88,129,188,0.08)}
+.roll-dice.winner{border-color:#22c55e;color:#22c55e;box-shadow:0 0 16px rgba(34,197,94,0.3);background:rgba(34,197,94,0.08)}
+
+/* 按钮 */
+.bp-btn{
+  padding:12px 32px;background:var(--accent);color:#fff;border:none;border-radius:0;
+  font-size:15px;font-weight:700;cursor:pointer;transition:all 0.2s;display:inline-block
+}
+.bp-btn:hover{opacity:0.85;transform:translateY(-1px)}
+.bp-btn:disabled{opacity:0.4;cursor:not-allowed;transform:none}
+.bp-btn.secondary{background:var(--bg-card);border:2px solid var(--border-color);color:var(--text-primary)}
+.bp-btn.secondary:hover{border-color:var(--accent);color:var(--accent);background:var(--bg-hover)}
+.bp-btn.danger{background:#ef4444}
+.bp-btn.success{background:#22c55e}
+
+/* 选边 */
+.side-btns{display:flex;gap:8px;justify-content:center;margin-top:6px}
+.side-btn{
+  padding:8px 22px;border-radius:0;font-size:14px;font-weight:700;cursor:pointer;border:2px solid var(--border-color);
+  background:var(--bg-card);color:var(--text-primary);transition:all 0.15s
+}
+.side-btn.ct:hover{background:#5881bc;color:#fff;border-color:#5881bc}
+.side-btn.t:hover{background:#e07b3c;color:#fff;border-color:#e07b3c}
+
+/* 操作区 */
+.bp-action-area{text-align:center;margin-top:12px;min-height:48px}
+.bp-waiting{color:var(--text-muted);font-size:14px;padding:12px}
+
+/* 密码弹窗 */
+.pw-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);
+  display:flex;align-items:center;justify-content:center;z-index:1000}
+.pw-box{background:var(--bg-primary);padding:32px;border-radius:0;width:380px;max-width:90vw;
+  text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.4)}
+.pw-box h2{margin-bottom:6px;font-size:20px}
+.pw-box p{color:var(--text-muted);margin-bottom:18px;font-size:13px}
+.pw-box input{width:100%;padding:12px;border:2px solid var(--border-color);border-radius:0;
+  font-size:15px;background:var(--bg-card);color:var(--text-primary);text-align:center;margin-bottom:14px;box-sizing:border-box}
+.pw-box input:focus{border-color:var(--accent);outline:none}
+.pw-box .btn{padding:12px 32px;border:none;border-radius:0;font-size:15px;font-weight:700;cursor:pointer}
+.pw-error{color:#ef4444;font-size:13px;margin-top:10px}
+
+/* 响应式 */
+@media(max-width:768px){
+  .bp-map-card{height:72px;font-size:14px}
+  .bp-teams{gap:14px}
+  .bp-team .name{font-size:15px}
+  .roll-dice{width:60px;height:60px;font-size:26px}
+  .bp-map-pool{gap:6px;max-width:100%}
+}
+@media(max-width:600px){
+  .bp-container{padding:8px}
+  .bp-teams{flex-direction:column;gap:8px}
+  .bp-map-grid{grid-template-columns:repeat(3,1fr)}
+  .bp-map-pool{grid-template-columns:repeat(3,1fr)}
+  .bp-team .name{font-size:14px}
+}
+</style>
+{% endblock %}
+{% block main %}
+<div class="bp-container">
+  <div class="bp-header">
+    <div class="bo-badge">{{ match.bo_format or 'BO3' }}</div>
+    {% if match.event_name %}<div class="event-name">{{ match.event_name }}</div>{% endif %}
+    <div class="bp-teams">
+      <div class="bp-team{% if my_team == 't1' %} my-team{% endif %}">
+        <span class="name">{{ team1_name }}</span>
+        {% if my_team == 't1' %}<div class="role">你的队伍</div>{% endif %}
+      </div>
+      <span class="bp-vs">VS</span>
+      <div class="bp-team{% if my_team == 't2' %} my-team{% endif %}">
+        <span class="name">{{ team2_name }}</span>
+        {% if my_team == 't2' %}<div class="role">你的队伍</div>{% endif %}
+      </div>
+    </div>
+    {% if is_admin %}<div style="margin-top:10px"><span style="background:#ef4444;color:#fff;padding:2px 10px;border-radius:0;font-size:11px;font-weight:700">管理员模式</span></div>{% endif %}
+  </div>
+
+  <div id="bp-status-bar" class="bp-status-bar">加载中...</div>
+  <div id="bp-timer" class="bp-timer" aria-live="polite"></div>
+  <div id="bp-steps-indicator" class="bp-steps-indicator"></div>
+  <div id="bp-section-label" class="bp-section-label"></div>
+  <div id="map-pool" class="bp-map-pool"></div>
+  <div class="bp-picks-section">
+    <div class="bp-section-label">已选地图</div>
+    <div id="picks-row" class="bp-picks-row"></div>
+  </div>
+  <div id="action-area" class="bp-action-area"></div>
+  {% if is_admin %}
+  <div style="text-align:center;margin-top:24px;padding-top:16px;border-top:1px solid var(--border-color)">
+    <button class="bp-btn danger" onclick="resetBP()" style="font-size:13px;padding:8px 20px">🔄 重置 BP</button>
+  </div>
+  {% endif %}
+</div>
+
+{% if not bp_verified and match.bp_password %}
+<div class="pw-overlay" id="pw-overlay">
+  <div class="pw-box">
+    <h2>BP 房间</h2>
+    <p>请输入管理员提供的 BP 密码</p>
+    <input type="password" id="bp-pw-input" placeholder="输入密码..." autofocus>
+    <button type="button" class="btn" style="background:var(--accent);color:#fff;" onclick="verifyPassword()">进入房间</button>
+    <div class="pw-error" id="pw-error"></div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+{% block extra_js %}
+<script>
+var matchId = {{ match.id }};
+var myTeam = {{ ('"' + my_team + '"')|safe if my_team else 'null' }};
+var teamNames = { 't1': {{ team1_name|tojson }}, 't2': {{ team2_name|tojson }} };
+var isAdmin = {{ is_admin|tojson }};
+var ALL_MAPS = ['Dust2', 'Mirage', 'Inferno', 'Nuke', 'Overpass', 'Ancient', 'Anubis'];
+var MAP_DISPLAY = {'Dust2':'Dust2','Mirage':'Mirage','Inferno':'Inferno','Nuke':'Nuke','Overpass':'Overpass','Ancient':'Ancient','Anubis':'Anubis'};
+var MAP_FILE = {'Dust2':'dust2','Mirage':'mirage','Inferno':'inferno','Nuke':'nuke','Overpass':'overpass','Ancient':'ancient','Anubis':'anubis'};
+var bpState = null;
+var actionPending = false;
+{% if bp_state %}bpState = {{ bp_state|tojson|safe }};{% endif %}
+
+function apiAction(data) {
+  if (actionPending) {
+    return Promise.resolve({ok: false, msg: '操作正在提交，请稍候'});
+  }
+  actionPending = true;
+  return fetch('/api/bp/' + matchId + '/action', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRF-Token': '{{ csrf_token }}'},
+    body: JSON.stringify(data)
+  }).then(function(r) {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }).catch(function(err) {
+    console.error('BP API error:', err);
+    showToast('操作失败: ' + err.message + '，请刷新页面后重试', 'error');
+    return {ok: false, msg: err.message};
+  }).finally(function() {
+    actionPending = false;
+  });
+}
+
+function getActingTeam(stepIdx) {
+  if (!bpState || stepIdx >= (bpState.steps||[]).length) return null;
+  var step = bpState.steps[stepIdx];
+  var fp = bpState.first_picker;
+  if (step.team === 'first') {
+    return bpState.first_choice === 'first' ? fp : (fp === 't1' ? 't2' : 't1');
+  }
+  return bpState.first_choice === 'first' ? (fp === 't1' ? 't2' : 't1') : fp;
+}
+
+function getTeamName(t) { return t === 't1' ? teamNames.t1 : teamNames.t2; }
+
+function startBP() {
+  apiAction({action: 'start'}).then(function(d) {
+    if (d.ok) { bpState = d.state; renderAll(); }
+    else { showToast(d.msg || '启动失败', 'error'); }
+  });
+}
+function getOpTeam() {
+  // 管理员模式返回当前应操作的队伍，普通用户返回自己的队伍
+  if (!bpState) return myTeam;
+  if (bpState.status === 'bp' && bpState.first_choice !== null) {
+    var idx = bpState.current_step;
+    if (idx < (bpState.steps||[]).length) return getActingTeam(idx);
+  }
+  if (bpState.status === 'side_select') {
+    // 侧边选择：返回第一个待选边的队伍的对手
+    var picks = bpState.picks || [];
+    for (var i = 0; i < picks.length; i++) {
+      var p = picks[i];
+      if (p.picked_by !== 'remaining' && !p.side) {
+        return p.picked_by === 't1' ? 't2' : 't1';
+      }
+    }
+  }
+  return myTeam;
+}
+
+function doRoll(team) {
+  apiAction({action: 'roll', team: team}).then(function(d) {
+    if (d.ok) { bpState = d.state; renderAll(); }
+    else showToast(d.msg, 'error');
+  });
+}
+function doChooseOrder(team, choice) {
+  apiAction({action: 'choose_order', team: team, choice: choice}).then(function(d) {
+    if (d.ok) { bpState = d.state; renderAll(); }
+    else showToast(d.msg, 'error');
+  });
+}
+function doBan(team, map) {
+  apiAction({action: 'ban', team: team, map: map}).then(function(d) {
+    if (d.ok) { bpState = d.state; renderAll(); }
+    else showToast(d.msg, 'error');
+  });
+}
+function doPick(team, map) {
+  apiAction({action: 'pick', team: team, map: map}).then(function(d) {
+    if (d.ok) { bpState = d.state; renderAll(); }
+    else showToast(d.msg, 'error');
+  });
+}
+function doChooseSide(team, mapName, side) {
+  apiAction({action: 'choose_side', team: team, map: mapName, side: side}).then(function(d) {
+    if (d.ok) { bpState = d.state; renderAll(); }
+    else showToast(d.msg, 'error');
+  });
+}
+
+function verifyPassword() {
+  var pw = document.getElementById('bp-pw-input').value;
+  var btn = document.querySelector('#pw-overlay .btn');
+  var errEl = document.getElementById('pw-error');
+  if (!pw) { errEl.textContent = '请输入密码'; return; }
+  btn.disabled = true; btn.textContent = '验证中...';
+  fetch('/bp/' + matchId + '/verify', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'},
+    body: 'csrf_token={{ csrf_token }}&password=' + encodeURIComponent(pw)
+  }).then(function(r) {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }).then(function(data) {
+    if (data.ok) {
+      document.getElementById('pw-overlay').style.display = 'none';
+      bpState = data.bp_state;
+      renderAll();
+      setInterval(pollState, 3000);
+    } else {
+      errEl.textContent = data.msg;
+      btn.disabled = false; btn.textContent = '进入房间';
+    }
+  }).catch(function() {
+    errEl.textContent = '网络错误，请重试';
+    btn.disabled = false; btn.textContent = '进入房间';
+  });
+}
+document.getElementById('bp-pw-input') && document.getElementById('bp-pw-input').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') verifyPassword();
+});
+
+// ======================== 渲染 ========================
+
+function renderAll() {
+  renderStepIndicator();
+  renderPool();
+  renderPicks();
+  renderStatus();
+  renderActions();
+  renderTimer();
+}
+
+function renderTimer() {
+  var el = document.getElementById('bp-timer');
+  if (!el) return;
+
+  var deadline = bpState ? Number(bpState.turn_deadline) : 0;
+  if (!deadline || bpState.status === 'completed') {
+    el.style.display = 'none';
+    el.className = 'bp-timer';
+    el.innerHTML = '';
+    return;
+  }
+
+  var remaining = Math.max(0, Math.ceil(deadline - Date.now() / 1000));
+  var minutes = Math.floor(remaining / 60);
+  var seconds = remaining % 60;
+  var timeText = String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+
+  el.style.display = 'block';
+  el.className = 'bp-timer';
+  if (remaining === 0) {
+    el.className += ' expired';
+    el.innerHTML = '<span class="timer-label">本次操作</span>00:00 · 已超时，可继续操作';
+  } else {
+    if (remaining <= 30) el.className += ' warning';
+    el.innerHTML = '<span class="timer-label">本次操作剩余</span>' + timeText;
+  }
+}
+
+function renderStepIndicator() {
+  var html = '';
+  if (!bpState) { document.getElementById('bp-steps-indicator').innerHTML = ''; return; }
+  var steps = bpState.steps || [];
+  var cur = bpState.current_step || 0;
+  for (var i = 0; i < steps.length; i++) {
+    var s = steps[i];
+    var cls = 'bp-step-dot';
+    if (i < cur) cls += ' ' + s.action + '-dot done';
+    else if (i === cur && bpState.status === 'bp') cls += ' current';
+    var label = s.action === 'ban' ? 'B' : 'P';
+    var progress = i === cur ? (bpState.current_step_progress || 0) : 0;
+    var remaining = Math.max(0, s.count - progress);
+    html += '<div class="' + cls + '" title="' + (s.action==='ban'?'Ban':'Pick') + '，本轮还剩 ' + remaining + ' 张">' + label + '</div>';
+  }
+  document.getElementById('bp-steps-indicator').innerHTML = html;
+}
+
+function renderPool() {
+  var pool = bpState ? (bpState.pool || []) : ALL_MAPS;
+  var bans = bpState ? (bpState.bans || []) : [];
+  var picks = bpState ? (bpState.picks || []) : [];
+  var pickMapNames = picks.map(function(p) { return p.map; });
+
+  // 判断是否轮到我操作（管理员可以操作任意队伍）
+  var myTurn = false, currentAction = null, actingTeam = null;
+  if (bpState && bpState.status === 'bp' && bpState.first_choice !== null) {
+    var idx = bpState.current_step;
+    if (idx < (bpState.steps||[]).length) {
+      actingTeam = getActingTeam(idx);
+      if (isAdmin || actingTeam === myTeam) {
+        myTurn = true;
+        currentAction = bpState.steps[idx].action;
+      }
+    }
+  }
+
+  var html = '';
+  for (var i = 0; i < ALL_MAPS.length; i++) {
+    var map = ALL_MAPS[i];
+    var imgUrl = '/resources/maps/' + (MAP_FILE[map] || map.toLowerCase()) + '.webp';
+    var displayName = MAP_DISPLAY[map] || map;
+    var cls = 'bp-map-card';
+    var onclick = '';
+    var statusText = '';
+
+    if (bans.indexOf(map) !== -1) {
+      cls += ' banned';
+      statusText = '已被 Ban';
+    } else if (pickMapNames.indexOf(map) !== -1) {
+      var pick = picks.find(function(p) { return p.map === map; }) || {};
+      cls += ' picked';
+      if (pick.picked_by === 't1') { cls += ' t1'; statusText = getTeamName('t1') + ' 选'; }
+      else if (pick.picked_by === 't2') { cls += ' t2'; statusText = getTeamName('t2') + ' 选'; }
+      else { cls += ' remaining'; statusText = '剩余地图'; }
+    } else if (myTurn && pool.indexOf(map) !== -1) {
+      cls += ' clickable ' + (currentAction === 'ban' ? 'ban-action' : 'pick-action');
+      var actTeam = isAdmin ? actingTeam : myTeam;
+      var act = currentAction === 'ban' ? 'ban' : 'pick';
+      onclick = ' onclick="do' + (currentAction === 'ban' ? 'Ban' : 'Pick') + '(\x27' + actTeam + '\x27,\x27' + map + '\x27)"';
+      statusText = (isAdmin ? getTeamName(actingTeam) + ' ' : '') + (currentAction === 'ban' ? 'Ban' : 'Pick');
+    } else if (pool.indexOf(map) !== -1) {
+      cls += ' available';
+      statusText = bpState ? 'TBA' : '地图池';
+    } else {
+      cls += ' available';
+      statusText = '';
+    }
+
+    html += '<div class="' + cls + '" style="background-image:url(' + imgUrl + ')"' + onclick + '>';
+    html += '<span class="map-overlay"></span>';
+    html += '<span class="map-name">' + displayName + '</span>';
+    if (statusText) html += '<span class="map-status">' + statusText + '</span>';
+    html += '</div>';
+  }
+  document.getElementById('map-pool').innerHTML = html;
+}
+
+function renderPicks() {
+  var picks = bpState ? (bpState.picks || []) : [];
+  if (picks.length === 0) {
+    document.getElementById('picks-row').innerHTML = '<span style="color:var(--text-muted);font-size:13px">暂无</span>';
+    return;
+  }
+  var html = '';
+  for (var i = 0; i < picks.length; i++) {
+    var p = picks[i];
+    var cls = 'bp-pick-slot';
+    if (p.picked_by === 't1') cls += ' t1';
+    else if (p.picked_by === 't2') cls += ' t2';
+    else cls += ' remaining';
+    var label = p.map;
+    if (p.side) label += ' (' + p.side + ')';
+    html += '<div class="' + cls + '">' + label + '<span class="pick-num">图 ' + (i+1) + '</span></div>';
+  }
+  document.getElementById('picks-row').innerHTML = html;
+}
+
+function renderStatus() {
+  var el = document.getElementById('bp-status-bar');
+  if (!bpState) {
+    el.innerHTML = '等待 BP 开始...';
+    return;
+  }
+
+  var status = bpState.status;
+  var html = '';
+
+  if (status === 'rolling') {
+    var rolls = bpState.rolls || {};
+    var t1r = rolls.t1, t2r = rolls.t2;
+    if (t1r == null && t2r == null) {
+      html = '双方 Roll 点决定先手 — 点数大者可以选择先 Ban/Pick 或后 Ban/Pick';
+    } else if (bpState.first_picker) {
+      html = 'Roll 结果: ' + getTeamName('t1') + ' <b>' + (t1r!=null?t1r:'?') + '</b> — ' + getTeamName('t2') + ' <b>' + (t2r!=null?t2r:'?') + '</b>  →  <span style="color:#22c55e">' + getTeamName(bpState.first_picker) + ' 胜出!</span>';
+    } else {
+      html = 'Roll: ' + getTeamName('t1') + '=<b>' + (t1r!=null?t1r:'?') + '</b>  ' + getTeamName('t2') + '=<b>' + (t2r!=null?t2r:'?') + '</b>  (等待另一方)';
+    }
+  } else if (status === 'bp') {
+    if (bpState.first_choice === null && bpState.first_picker) {
+      html = '<span style="color:var(--accent)">' + getTeamName(bpState.first_picker) + '</span> Roll 胜出 — 请选择先手或后手';
+    } else {
+      var idx = bpState.current_step;
+      var steps = bpState.steps;
+      if (idx < steps.length) {
+        var acting = getActingTeam(idx);
+        var step = steps[idx];
+        var act = step.action === 'ban' ? 'Ban' : 'Pick';
+        var remaining = Math.max(1, step.count - (bpState.current_step_progress || 0));
+        var isMe = acting === myTeam;
+        html = '<span style="color:' + (isMe || isAdmin ? '#22c55e' : 'var(--accent)') + '">' + getTeamName(acting) + '</span> '
+             + act + ' ' + remaining + ' 张图 (' + (idx+1) + '/' + steps.length + ')'
+             + (isMe ? ' <span style="color:#22c55e;font-size:13px">● 你的回合</span>' : '')
+             + (isAdmin && !isMe ? ' <span style="color:var(--accent);font-size:13px">● 替对方操作</span>' : '');
+      } else {
+        html = 'BP 阶段完成';
+      }
+    }
+  } else if (status === 'side_select') {
+    html = '选边阶段 — 被选图的对手为每张图选择 CT 或 T 起始方';
+  } else if (status === 'completed') {
+    html = '<span style="color:#22c55e">BP 已完成! 地图数据已同步到比赛。</span>';
+  }
+  el.innerHTML = html;
+}
+
+function renderActions() {
+  var area = document.getElementById('action-area');
+  if (!bpState) {
+    area.innerHTML = '<button class="bp-btn" onclick="startBP()">开始 BP</button>';
+    return;
+  }
+
+  var status = bpState.status;
+  var html = '';
+
+  if (status === 'rolling') {
+    var rolls = bpState.rolls || {};
+    var t1r = rolls.t1, t2r = rolls.t2;
+
+    // Roll dice display
+    html = '<div class="roll-dice-row">';
+    html += '<div class="roll-team-dice"><div class="dice-label">' + getTeamName('t1') + '</div>';
+    html += '<div class="roll-dice' + (t1r != null ? ' rolled' : '') + (bpState.first_picker === 't1' ? ' winner' : '') + '">' + (t1r != null ? t1r : '?') + '</div></div>';
+    html += '<div style="font-size:20px;color:var(--text-muted);font-weight:900">VS</div>';
+    html += '<div class="roll-team-dice"><div class="dice-label">' + getTeamName('t2') + '</div>';
+    html += '<div class="roll-dice' + (t2r != null ? ' rolled' : '') + (bpState.first_picker === 't2' ? ' winner' : '') + '">' + (t2r != null ? t2r : '?') + '</div></div>';
+    html += '</div>';
+
+    // Roll buttons
+    if (!bpState.first_picker) {
+      if (isAdmin) {
+        // Admin can roll for either team
+        if (t1r == null) {
+          html += '<button class="bp-btn" onclick="doRoll(\x27t1\x27)" style="margin-right:12px">' + getTeamName('t1') + ' Roll</button>';
+        }
+        if (t2r == null) {
+          html += '<button class="bp-btn secondary" onclick="doRoll(\x27t2\x27)">' + getTeamName('t2') + ' Roll</button>';
+        }
+        if (t1r != null && t2r == null) {
+          html += '<div style="color:var(--text-muted);font-size:13px;margin-top:8px">等待 ' + getTeamName('t2') + ' Roll...</div>';
+        } else if (t2r != null && t1r == null) {
+          html += '<div style="color:var(--text-muted);font-size:13px;margin-top:8px">等待 ' + getTeamName('t1') + ' Roll...</div>';
+        }
+      } else {
+        if (t1r == null && myTeam === 't1') {
+          html += '<button class="bp-btn" onclick="doRoll(\x27t1\x27)">' + getTeamName('t1') + ' Roll</button>';
+        } else if (t2r == null && myTeam === 't2') {
+          html += '<button class="bp-btn" onclick="doRoll(\x27t2\x27)">' + getTeamName('t2') + ' Roll</button>';
+        } else if (t1r == null || t2r == null) {
+          html += '<div class="bp-waiting">等待对方 Roll...</div>';
+        }
+      }
+    }
+  } else if (status === 'bp' && bpState.first_choice === null && bpState.first_picker) {
+    // Roll winner chooses first/second
+    if (isAdmin || myTeam === bpState.first_picker) {
+      html = '<div style="margin-bottom:10px;font-size:14px">';
+      if (isAdmin) html += '[管理员] 替 ' + getTeamName(bpState.first_picker) + ' 选择：';
+      else html += '作为 Roll 胜方，你选择：';
+      html += '</div>';
+      html += '<button class="bp-btn" onclick="doChooseOrder(\x27' + bpState.first_picker + '\x27,\x27first\x27)" style="margin-right:12px">先手</button>';
+      html += '<button class="bp-btn secondary" onclick="doChooseOrder(\x27' + bpState.first_picker + '\x27,\x27second\x27)">后手</button>';
+      html += '<div style="color:var(--text-muted);font-size:12px;margin-top:10px">先手 = 先 Ban/Pick · 后手 = 后 Ban/Pick</div>';
+    } else {
+      html = '<div class="bp-waiting">等待 ' + getTeamName(bpState.first_picker) + ' 选择先手/后手...</div>';
+    }
+  } else if (status === 'bp') {
+    var idx = bpState.current_step;
+    if (idx < (bpState.steps||[]).length) {
+      var acting = getActingTeam(idx);
+      if (isAdmin) {
+        html = '<div style="background:rgba(88,129,188,0.08);border:1px solid var(--accent);border-radius:0;padding:8px 16px;display:inline-block">';
+        html += '<span style="color:var(--accent);font-weight:700">[管理员] </span>';
+        html += '当前轮到 <b>' + getTeamName(acting) + '</b> — 点击上方地图替其操作</div>';
+      } else if (acting !== myTeam) {
+        html = '<div class="bp-waiting">等待 ' + getTeamName(acting) + ' 操作...</div>';
+      } else {
+        html = '<div style="color:var(--text-muted);font-size:13px">点击上方地图卡片执行操作</div>';
+      }
+    }
+  } else if (status === 'side_select') {
+    var picks = bpState.picks || [];
+    for (var i = 0; i < picks.length; i++) {
+      var p = picks[i];
+      if (p.picked_by === 'remaining' || p.side) continue;
+      var sideTeam = p.picked_by === 't1' ? 't2' : 't1';
+      html += '<div style="margin-bottom:14px"><b>' + p.map + '</b> — 由 ' + getTeamName(sideTeam) + ' 选边';
+      if (isAdmin || myTeam === sideTeam) {
+        html += '<div class="side-btns">';
+        html += '<button class="side-btn ct" data-bp-action="choose_side" data-bp-team="' + sideTeam + '" data-bp-map="' + p.map + '" data-bp-side="CT">CT 方</button>';
+        html += '<button class="side-btn t" data-bp-action="choose_side" data-bp-team="' + sideTeam + '" data-bp-map="' + p.map + '" data-bp-side="T">T 方</button>';
+        html += '</div>';
+        if (isAdmin) html += '<div style="color:var(--text-muted);font-size:10px;margin-top:2px">替 ' + getTeamName(sideTeam) + ' 操作</div>';
+      } else {
+        html += '<div style="color:var(--text-muted);font-size:12px;margin-top:4px">等待 ' + getTeamName(sideTeam) + ' 选边...</div>';
+      }
+      html += '</div>';
+    }
+    if (!html) html = '<div class="bp-waiting">所有地图已选边完毕</div>';
+  } else if (status === 'completed') {
+    html = '<a href="/matches/' + matchId + '" class="bp-btn" style="text-decoration:none;display:inline-block">查看比赛详情</a>';
+  }
+
+  area.innerHTML = html;
+}
+
+
+	// 事件委托：处理选边按钮点击（使用 data 属性代替 inline onclick，更可靠）
+	(function() {
+	  var actionArea = document.getElementById('action-area');
+	  if (actionArea && !actionArea._bpSideListener) {
+	    actionArea._bpSideListener = true;
+	    actionArea.addEventListener('click', function(e) {
+	      var btn = e.target.closest('.side-btn');
+	      if (!btn) return;
+	      var team = btn.getAttribute('data-bp-team');
+	      var map = btn.getAttribute('data-bp-map');
+	      var side = btn.getAttribute('data-bp-side');
+	      if (team && map && side) doChooseSide(team, map, side);
+	    });
+	  }
+	})();
+
+function pollState() {
+  if (!bpState || bpState.status === 'completed') return;
+  fetch('/api/bp/' + matchId + '/state').then(function(r) { return r.json(); }).then(function(data) {
+    if (data.ok && JSON.stringify(data.state) !== JSON.stringify(bpState)) {
+      bpState = data.state;
+      renderAll();
+    }
+  });
+}
+
+function resetBP() {
+  showConfirm('确认重置 BP？这将清除所有 Ban/Pick 记录。', '重置确认').then(function(yes) {
+    if (!yes) return;
+    fetch('/api/bp/' + matchId + '/reset', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRF-Token': '{{ csrf_token }}'}
+    }).then(function(r) { return r.json(); }).then(function(data) {
+      if (data.ok) {
+        bpState = null;
+        renderAll();
+      } else {
+        showToast(data.msg, 'error');
+      }
+    });
+  });
+}
+
+{% if bp_verified or not match.bp_password %}
+renderAll();
+setInterval(pollState, 3000);
+{% endif %}
+setInterval(renderTimer, 1000);
+</script>
+{% endblock %}
