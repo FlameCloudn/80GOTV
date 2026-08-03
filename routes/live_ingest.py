@@ -543,6 +543,11 @@ def _save_gsi_payload(conn, data, map_name, forced_match_id=None):
             pass
     merged = _sanitize_live_state(merged)
     previous_gsi = merged.get("gsi", {}) or {}
+    previous_map_name = normalize_map_name((previous_gsi.get("map", {}) or {}).get("name", ""))
+    current_map_name = normalize_map_name(map_name)
+    if previous_map_name and current_map_name and previous_map_name != current_map_name:
+        for key in ("round_history", "kill_markers", "kill_events", "bomb_events"):
+            merged[key] = []
     # 只在阵亡瞬间记录位置，网页不会显示所有选手的实时坐标。
     _record_gsi_deaths(merged, data)
     _record_gsi_bomb_events(merged, data)

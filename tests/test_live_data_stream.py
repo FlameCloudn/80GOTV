@@ -44,8 +44,8 @@ class LiveDataStreamTests(unittest.TestCase):
             "INSERT INTO events(name, status) VALUES('Live Event', 'ongoing')"
         ).lastrowid
         self.match_id = conn.execute(
-            """INSERT INTO matches(event_id, team1_id, team2_id, match_time, status, map1)
-               VALUES(?, ?, ?, ?, 'live', 'de_nuke')""",
+            """INSERT INTO matches(event_id, team1_id, team2_id, match_time, status, map1, map2)
+               VALUES(?, ?, ?, ?, 'live', 'de_nuke', 'de_mirage')""",
             (event_id, team1_id, team2_id, datetime.now().isoformat(timespec="seconds")),
         ).lastrowid
         conn.commit()
@@ -196,6 +196,29 @@ class LiveDataStreamTests(unittest.TestCase):
         history = json.loads(row["live_state"])["round_history"]
         self.assertEqual(len(history), 1)
         self.assertEqual(history[0]["round"], 11)
+
+    def test_new_map_clears_previous_map_live_events(self):
+        self.assertEqual(self._post(self._payload()).status_code, 200)
+
+        next_map = self._payload()
+        next_map["map"]["name"] = "de_mirage"
+        next_map["map"]["round"] = 0
+        next_map["map"]["round_wins"] = {}
+        next_map["bomb"] = {"state": "carried"}
+        self.assertEqual(self._post(next_map).status_code, 200)
+
+        conn = get_db()
+        row = conn.execute(
+            "SELECT live_state FROM live_match_data WHERE match_id=?",
+            (self.match_id,),
+        ).fetchone()
+        conn.close()
+        state = json.loads(row["live_state"])
+        self.assertEqual(state["gsi"]["map"]["name"], "de_mirage")
+        self.assertEqual(state.get("round_history"), [])
+        self.assertEqual(state.get("kill_markers"), [])
+        self.assertEqual(state.get("kill_events"), [])
+        self.assertEqual(state.get("bomb_events"), [])
 
     def test_every_round_win_code_selects_the_correct_icon_reason(self):
         cases = {
