@@ -1,5 +1,8 @@
 {% extends 'base.html' %}
 {% block title %}数据仪表盘 - 80GOTV{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard_awards.css') }}?v=20260711-1">
+{% endblock %}
 {% block main %}
 <div class="dashboard-summary">
   <div class="dashboard-summary-item"><span>MVP 数量</span><b>{{ medal_totals.mvp_count or 0 }}</b></div>
@@ -33,7 +36,7 @@
 {% block side %}{% endblock %}
 
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="{{ versioned_url('static/vendor/chartjs/chart.umd.min.js') }}"></script>
 <script>
 (function(){
   var textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim() || '#4a4a4a';

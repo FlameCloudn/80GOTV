@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block title %}在线对战 - 80GOTV{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ versioned_url('static/css/guess_player.css') }}">
+{% endblock %}
+{% block layout_class %}no-side-layout guess-player-layout{% endblock %}
+{% block main %}
+<div class="guess-game guess-multiplayer" data-i18n-ignore>
+  <nav class="guess-mode-tabs" aria-label="游戏模式">
+    <a href="{{ url_for('guess_player_page') }}">每日挑战</a>
+    <a href="{{ url_for('guess_player_practice_page') }}">自由游玩</a>
+    <a href="{{ url_for('guess_player_multiplayer_page') }}" class="active">在线对战</a>
+  </nav>
+
+  <header class="guess-heading h-panel">
+    <div>
+      <span class="guess-kicker">MULTIPLAYER</span>
+      <h1>在线猜选手</h1>
+      <p>两名玩家使用同一道题，先猜中者获胜</p>
+    </div>
+    <div class="guess-source">8 次机会 · 房间码加入</div>
+  </header>
+
+  <div class="guess-lobby-grid">
+    <section class="guess-lobby-section h-panel">
+      <div class="h-panel-title">创建房间</div>
+      <form method="post" action="{{ url_for('guess_player_multiplayer_create') }}" class="guess-lobby-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <fieldset class="guess-pool-picker">
+          <legend>题库</legend>
+          <label>
+            <input type="radio" name="pool_mode" value="noob" checked>
+            <span><strong>Noob</strong><small>年度 Top 20 与世界前 5 战队阵容</small></span>
+          </label>
+          <label>
+            <input type="radio" name="pool_mode" value="pro">
+            <span><strong>Pro</strong><small>完整选手数据库</small></span>
+          </label>
+        </fieldset>
+        <button type="submit" class="guess-primary-action">创建对战</button>
+      </form>
+    </section>
+
+    <section class="guess-lobby-section h-panel">
+      <div class="h-panel-title">加入房间</div>
+      <form method="post" action="{{ url_for('guess_player_multiplayer_join') }}" class="guess-lobby-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label class="guess-room-code-field">
+          <span>房间码</span>
+          <input name="room_code" inputmode="text" maxlength="6" autocomplete="off" required placeholder="例如 A7K9PX">
+        </label>
+        <button type="submit" class="guess-primary-action">加入对战</button>
+      </form>
+    </section>
+  </div>
+</div>
+{% endblock %}
+{% block side %}{% endblock %}

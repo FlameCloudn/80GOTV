@@ -1,10 +1,13 @@
 """Online match Ban/Pick room and APIs."""
 
 import json
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from flask import flash, jsonify, redirect, render_template, request, session, url_for
 
 from models import get_db
+from services.match_service import supplement_temp_teams
 from utils.bp_manager import normalize_bp_state
 from utils.helpers import is_admin as _helper_is_admin
 from utils.rate_limiter import rate_limit
@@ -15,6 +18,25 @@ from utils.web_helpers import (
     is_hashed_bp_password,
 )
 from web_app import app
+
+
+def _bp_window_is_open(match):
+    """Do not expose BP before the 20-minute pre-match window."""
+    if not match or str(match["status"] or "").lower() in {"completed", "cancelled"}:
+        return False
+    raw_time = str(match["match_time"] or "").strip()
+    if not raw_time:
+        return False
+    try:
+        start_at = datetime.fromisoformat(raw_time)
+    except ValueError:
+        return False
+    timezone = ZoneInfo("Asia/Shanghai")
+    if start_at.tzinfo is None:
+        start_at = start_at.replace(tzinfo=timezone)
+    else:
+        start_at = start_at.astimezone(timezone)
+    return datetime.now(timezone) >= start_at - timedelta(minutes=20)
 
 
 def _load_player_ids(raw_value):
@@ -88,10 +110,14 @@ def bp_room(match_id):
         conn.close()
         flash("比赛不存在", "error")
         return redirect(url_for("user_profile"))
+    match = supplement_temp_teams(match)
+    if not is_admin and not _bp_window_is_open(match):
+        conn.close()
+        flash("BP 暂未开始，将在开赛前 20 分钟开放", "info")
+        return redirect(url_for("match_detail", slug=match["slug"] or match_id))
 
-    # 默认队伍名
-    team1_name = match["team1_name"] or "TEAM 1"
-    team2_name = match["team2_name"] or "TEAM 2"
+    team1_name = match["team1_name"]
+    team2_name = match["team2_name"]
 
     # 查找选手身份
     player = None
@@ -208,6 +234,9 @@ def bp_verify(match_id):
     if not match or not match["bp_password"]:
         conn.close()
         return jsonify({"ok": False, "msg": "该比赛未设置 BP 密码"})
+    if not is_admin and not _bp_window_is_open(match):
+        conn.close()
+        return jsonify({"ok": False, "msg": "BP 将在开赛前 20 分钟开放"}), 403
 
     if not is_admin and not _get_current_player_team(conn, match):
         conn.close()

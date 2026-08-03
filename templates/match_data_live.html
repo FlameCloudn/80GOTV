@@ -1,56 +1,149 @@
 <style>
-  .data-live{--ct:#68a8e8;--ct-deep:#17395e;--t:#e9bb55;--t-deep:#58441b;--live-text:#f7f9fb;--live-muted:#aeb8c2;--live-bg:#111820;--live-panel:#10151b;--live-panel-2:#1b222a;--live-row:rgba(255,255,255,.018);--live-row-line:rgba(255,255,255,.05);--live-line:rgba(255,255,255,.1);--radar-bg:#3b4853;--radar-brightness:1.9;margin:0 0 var(--space-lg);padding:14px;color:var(--live-text);background:var(--live-bg);border-radius:0;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
-  .data-live .live-heading h2{font-size:17px;margin:0;font-weight:700;letter-spacing:0;color:var(--live-text)}
-  .data-live .source-badge{padding:4px 8px;border-radius:0;background:#3b2d14;color:#ffd782;font-size:11px}
+  .data-live{--ct:#68a8e8;--ct-deep:#17395e;--t:#e9bb55;--t-deep:#58441b;--live-text:#f7f9fb;--live-muted:#aeb8c2;--live-bg:#111820;--live-panel:#10151b;--live-panel-2:#1b222a;--live-row:rgba(255,255,255,.018);--live-row-line:rgba(255,255,255,.05);--live-line:rgba(255,255,255,.1);--radar-bg:#3b4853;--radar-brightness:1.9;margin:0 0 10px;padding:9px;color:var(--live-text);background:var(--live-bg);letter-spacing:0}
+  .data-live .live-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:24px;margin-bottom:7px}
+  .data-live .live-heading h2{font-size:15px;line-height:1.2;margin:0;font-weight:700;color:var(--live-text);letter-spacing:0}
+  .data-live .source-badge{padding:3px 7px;background:#3b2d14;color:#ffd782;font-size:10px;line-height:1.4}
   .data-live .source-badge.online{background:#153d2a;color:#7fe2a8}
-  .data-live .live-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}
-  .data-live .scoreboard,.data-live .radar-panel{background:var(--live-panel);border:1px solid var(--live-line);border-radius:0;overflow:hidden}
-  .data-live .score-top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;min-height:76px;padding:0 18px;background:var(--live-panel);border-bottom:1px solid var(--live-line)}
-  .data-live .score-side{display:flex;align-items:center;gap:10px;min-width:0}
+  .data-live .live-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:7px}
+  .data-live .scoreboard,.data-live .radar-panel{background:var(--live-panel);border:1px solid var(--live-line);overflow:hidden}
+  .data-live .score-top{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;min-height:58px;padding:0 12px;background:var(--live-panel);border-bottom:1px solid var(--live-line)}
+  .data-live .score-side{display:flex;align-items:center;gap:7px;min-width:0}
   .data-live .score-side.right{justify-content:flex-end;text-align:right}
-  .data-live .side-tag{display:inline-flex;align-items:center;justify-content:center;width:28px;height:22px;border-radius:0;font-size:11px;font-weight:800}
-  .data-live .side-tag.ct{background:var(--ct-deep);color:var(--ct)}.data-live .side-tag.t{background:var(--t-deep);color:var(--t)}
-  .data-live .team-name{font-size:16px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .data-live .score-center{text-align:center;padding:0 18px}.data-live .score{font-size:38px;font-weight:800;line-height:1}
-  .data-live .match-meta{font-size:11px;color:var(--live-muted);margin-top:5px}.data-live .timer{color:var(--live-text);font-weight:700}
-  .data-live .round-strip{display:flex;gap:7px;align-items:center;min-height:34px;padding:6px 10px;background:var(--live-bg);border-top:1px solid var(--live-line);border-bottom:1px solid var(--live-line);overflow-x:auto}
-  .data-live .round-result{display:block;width:16px;height:16px;object-fit:contain;flex:0 0 16px}
-  .data-live .round-empty{font-size:11px;color:#77818c}
+  .data-live .side-tag{display:inline-flex;align-items:center;justify-content:center;width:25px;height:19px;font-size:10px;font-weight:800}
+  .data-live .side-tag.ct{background:var(--ct-deep);color:var(--ct)}
+  .data-live .side-tag.t{background:var(--t-deep);color:var(--t)}
+  .data-live .team-name{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .data-live .score-center{text-align:center;padding:0 12px}
+  .data-live .score{font-size:30px;font-weight:800;line-height:1}
+  .data-live .side-score.ct{color:var(--ct)}
+  .data-live .side-score.t{color:var(--t)}
+  .data-live .match-meta{font-size:10px;color:var(--live-muted);margin-top:3px}
+  .data-live .timer{color:var(--live-text);font-weight:700}
   .data-live .team-block+.team-block{border-top:1px solid var(--live-line)}
-  .data-live .team-bar,.data-live .player-row{display:grid;grid-template-columns:minmax(125px,1fr) 54px 58px 68px 45px 48px 36px 36px 36px 46px;align-items:center;column-gap:5px}
-  .data-live .team-bar{height:34px;padding:0 10px;background:var(--live-panel-2);color:var(--live-muted);font-size:10px;text-align:center}
-  .data-live .team-bar .team-label{text-align:left;font-size:12px;font-weight:800;color:var(--live-text)}
-  .data-live .player-row{height:45px;padding:0 10px;background:var(--live-row);border-top:1px solid var(--live-row-line);font-size:12px;text-align:center}
-  .data-live .player-row.dead{opacity:.47}.data-live .player-main{display:flex;align-items:center;gap:8px;min-width:0;text-align:left}
-  .data-live .player-avatar{display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:0;background:#27313c;color:#d7e1eb;font-size:12px;font-weight:800;overflow:hidden;flex:0 0 28px}
-  .data-live .player-avatar img{width:100%;height:100%;object-fit:cover}.data-live .player-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}
-  .data-live .weapon-img{display:block;max-width:46px;max-height:17px;margin:0 auto;object-fit:contain}.data-live .armor-img{width:18px;height:18px;object-fit:contain}
-  .data-live .money{color:var(--live-text)}.data-live .kills,.data-live .deaths,.data-live .adr{color:var(--live-text);font-weight:700}
-  .data-live .hp-wrap{display:flex;align-items:center}.data-live .hp-bar{position:relative;display:flex;align-items:center;width:56px;height:14px;border-radius:0;background:#34404b;overflow:hidden}.data-live .hp-fill{position:absolute;inset:0 auto 0 0;background:#43a91f}.data-live .hp-fill.low{background:#d59a2f}.data-live .hp-fill.crit{background:#c94747}.data-live .hp-num{position:relative;z-index:1;padding-left:4px;font-size:10px;font-weight:700;color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.65)}
-  .data-live .panel-footer{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:34px;padding:0 10px;color:var(--live-muted);font-size:11px}
-  .data-live .bomb{display:flex;align-items:center;gap:6px;color:#cfd7df}.data-live .bomb.active{color:#ffca62;font-weight:700}.data-live .bomb img{width:20px;height:20px;object-fit:contain}
-  .data-live .radar-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-bottom:1px solid var(--live-line)}
-  .data-live .radar-title{font-size:13px;font-weight:800}.data-live .radar-map{font-size:11px;color:var(--live-muted)}
-  .data-live .game-log-body{display:grid;grid-template-columns:minmax(0,1fr) 320px;height:320px;background:var(--live-panel)}
-  .data-live .radar{position:relative;width:320px;height:320px;background:var(--radar-bg) center/cover no-repeat;border-left:1px solid var(--live-line);overflow:hidden;background-blend-mode:luminosity}
+  .data-live .team-bar,.data-live .player-row{display:grid;grid-template-columns:minmax(118px,1fr) 48px 54px 62px 38px 46px 30px 30px 30px 40px;align-items:center;column-gap:4px}
+  .data-live .team-bar{height:27px;padding:0 8px;background:var(--live-panel-2);color:var(--live-muted);font-size:9px;text-align:center}
+  .data-live .team-bar .team-label{text-align:left;font-size:11px;font-weight:800;color:var(--live-text)}
+  .data-live .player-row{height:36px;padding:0 8px;background:var(--live-row);border-top:1px solid var(--live-row-line);font-size:11px;text-align:center}
+  .data-live .team-block.side-ct .team-bar{background:rgba(23,57,94,.78)}
+  .data-live .team-block.side-ct .player-row{background:rgba(23,57,94,.34)}
+  .data-live .team-block.side-t .team-bar{background:rgba(88,68,27,.78)}
+  .data-live .team-block.side-t .player-row{background:rgba(88,68,27,.34)}
+  .data-live .player-row.dead{opacity:.47}
+  .data-live .player-main{display:flex;align-items:center;gap:6px;min-width:0;text-align:left}
+  .data-live .player-avatar{display:flex;align-items:center;justify-content:center;width:24px;height:24px;background:#27313c;color:#d7e1eb;font-size:10px;font-weight:800;overflow:hidden;flex:0 0 24px}
+  .data-live .player-avatar img{width:100%;height:100%;object-fit:cover}
+  .data-live .player-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}
+  .data-live .weapon-slot,.data-live .armor-slot{display:flex;align-items:center;justify-content:center;min-width:0}
+  .data-live .weapon-img{display:block;max-width:42px;max-height:15px;object-fit:contain}
+  .data-live .armor-img{width:16px;height:16px;object-fit:contain}
+  .data-live .money,.data-live .kills,.data-live .deaths,.data-live .adr{color:var(--live-text)}
+  .data-live .kills,.data-live .deaths,.data-live .adr{font-weight:700}
+  .data-live .hp-wrap{display:flex;align-items:center}
+  .data-live .hp-bar{position:relative;display:flex;align-items:center;width:52px;height:12px;background:#34404b;overflow:hidden}
+  .data-live .hp-fill{position:absolute;inset:0 auto 0 0;background:#43a91f}
+  .data-live .hp-fill.low{background:#d59a2f}
+  .data-live .hp-fill.crit{background:#c94747}
+  .data-live .hp-num{position:relative;z-index:1;padding-left:3px;font-size:9px;font-weight:700;color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.65)}
+  .data-live .round-board{display:grid;grid-template-rows:24px 1px 24px;padding:3px 0;background:var(--live-bg);border-top:1px solid var(--live-line);border-bottom:1px solid var(--live-line)}
+  .data-live .round-lane{display:block;min-width:0}
+  .data-live .round-divider{height:1px;margin:0 4px;background:rgba(255,255,255,.14)}
+  .data-live .round-lane-cells{display:grid;grid-template-columns:repeat(24,minmax(0,1fr));gap:1px;min-width:0;height:100%;padding:0 4px;overflow:hidden}
+  .data-live .round-lane.team1 .round-lane-cells{align-items:end}
+  .data-live .round-lane.team2 .round-lane-cells{align-items:start}
+  .data-live .round-cell{display:flex;align-items:center;justify-content:center;justify-self:center;width:min(100%,20px);height:auto;aspect-ratio:1;min-width:0}
+  .data-live .round-result{display:block;width:18px;height:18px;max-width:92%;max-height:92%;object-fit:contain}
+  .data-live .round-empty{font-size:9px;color:#77818c}
+  .data-live .panel-footer{display:flex;align-items:center;justify-content:space-between;gap:7px;min-height:27px;padding:0 8px;color:var(--live-muted);font-size:10px}
+  .data-live .bomb{display:flex;align-items:center;gap:5px;color:#cfd7df}
+  .data-live .bomb.active{color:#ffca62;font-weight:700}
+  .data-live .bomb img{width:16px;height:16px;object-fit:contain}
+  .data-live .radar-head{display:flex;align-items:center;justify-content:space-between;gap:7px;min-height:29px;padding:0 9px;border-bottom:1px solid var(--live-line)}
+  .data-live .radar-title{font-size:12px;font-weight:800}
+  .data-live .radar-map{font-size:10px;color:var(--live-muted)}
+  .data-live .game-log-body{display:grid;grid-template-columns:minmax(0,1fr) 250px;height:250px;min-height:0;background:var(--live-panel);overflow:hidden}
+  .data-live .radar{position:relative;width:250px;height:250px;background:var(--radar-bg) center/cover no-repeat;border-left:1px solid var(--live-line);overflow:hidden;background-blend-mode:luminosity}
   .data-live .radar:before{content:"";position:absolute;z-index:1;inset:0;background:rgba(4,9,14,.56)}
   .data-live .radar-image{position:absolute;z-index:2;inset:0;width:100%;height:100%;object-fit:contain;opacity:1;filter:brightness(var(--radar-brightness)) contrast(1.22)}
   .data-live #killMarkers{position:absolute;z-index:3;inset:0;pointer-events:none}
-  .data-live .kill-marker{position:absolute;width:18px;height:18px;opacity:.85;transform:translate(-50%,-50%);filter:drop-shadow(0 1px 2px rgba(0,0,0,.85))}
-  .data-live .kill-marker:before,.data-live .kill-marker:after{content:"";position:absolute;left:8px;top:0;width:2px;height:18px;border-radius:0;background:currentColor}
-  .data-live .kill-marker:before{transform:rotate(45deg)}.data-live .kill-marker:after{transform:rotate(-45deg)}
-  .data-live .kill-marker.ct{color:var(--ct)}.data-live .kill-marker.t{color:var(--t)}
-  .data-live .kill-feed{min-width:0;background:var(--live-panel)}.data-live .kill-feed-list{height:100%;overflow-y:auto;padding:5px 8px 8px;scrollbar-color:#56616c var(--live-bg);scrollbar-width:thin}
-  .data-live .kill-line{display:flex;align-items:center;justify-content:flex-start;gap:5px;width:max-content;max-width:100%;min-height:32px;margin-top:5px;padding:3px 7px;border:1px solid var(--live-line);border-radius:0;background:var(--live-bg);font-size:14px}
-  .data-live .kill-line.round-over{border-color:var(--ct);color:var(--live-text)}.data-live .kill-line.round-over.t{border-color:var(--t)}
-  .data-live .kill-line.bomb-planted{border-color:#d9a817;color:#f4cc45}.data-live .plant-icon{width:18px;height:18px;object-fit:contain}
-  .data-live .round-winner.ct{color:var(--ct);font-weight:800}.data-live .round-winner.t{color:var(--t);font-weight:800}
-  .data-live .kill-name{max-width:118px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:800}.data-live .kill-name.ct{color:var(--ct)}.data-live .kill-name.t{color:var(--t)}
-  .data-live .kill-assist{max-width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:800}.data-live .kill-assist.ct{color:var(--ct)}.data-live .kill-assist.t{color:var(--t)}.data-live .kill-plus{color:#6f7b86}.data-live .kill-weapon{display:flex;align-items:center;justify-content:center;width:46px;height:20px;flex:0 0 46px}.data-live .kill-weapon .weapon-img{max-width:44px;max-height:19px}.data-live .kill-headshot{width:18px;height:18px;object-fit:contain}.data-live .kill-victim{margin-left:0}.data-live .kill-round{color:#76828d;font-size:11px;white-space:nowrap}
-  @media(max-width:980px){.data-live .game-log-body{grid-template-columns:minmax(0,1fr) 280px;height:280px}.data-live .radar{width:280px;height:280px}}
-  @media(max-width:680px){.data-live{padding:8px}.data-live .score-top{padding:0 9px;min-height:64px}.data-live .score-center{padding:0 8px}.data-live .score{font-size:29px}.data-live .team-name{font-size:13px}.data-live .team-bar,.data-live .player-row{grid-template-columns:minmax(92px,1fr) 42px 54px 45px 26px 26px 36px}.data-live .team-bar span:nth-child(3),.data-live .player-row>*:nth-child(3){display:none}.data-live .team-bar span:nth-child(5),.data-live .player-row>*:nth-child(5){display:none}.data-live .team-bar span:nth-child(8),.data-live .player-row>*:nth-child(8){display:none}.data-live .player-row{height:42px;padding:0 7px;column-gap:3px}.data-live .team-bar{padding:0 7px;column-gap:3px}.data-live .player-avatar{width:24px;height:24px;flex-basis:24px}.data-live .hp-bar{width:28px}.data-live .money{font-size:10px}.data-live .game-log-body{display:flex;height:auto;flex-direction:column}.data-live .radar{order:1;width:100%;height:auto;aspect-ratio:1/1;border-left:0;border-bottom:1px solid var(--live-line)}.data-live .kill-feed{order:2}.data-live .kill-feed-list{height:190px}}
+  .data-live .kill-marker{position:absolute;width:16px;height:16px;opacity:.88;transform:translate(-50%,-50%);filter:drop-shadow(0 1px 2px rgba(0,0,0,.85))}
+  .data-live .kill-marker:before,.data-live .kill-marker:after{content:"";position:absolute;left:7px;top:0;width:2px;height:16px;background:currentColor}
+  .data-live .kill-marker:before{transform:rotate(45deg)}
+  .data-live .kill-marker:after{transform:rotate(-45deg)}
+  .data-live .kill-marker.ct{color:var(--ct)}
+  .data-live .kill-marker.t{color:var(--t)}
+  .data-live .kill-feed{min-width:0;min-height:0;height:100%;background:var(--live-panel);overflow:hidden}
+  .data-live .kill-feed-list{box-sizing:border-box;height:100%;min-height:0;max-height:100%;overflow-x:hidden;overflow-y:auto;padding:3px 6px 6px;scrollbar-color:#56616c var(--live-bg);scrollbar-width:thin;scrollbar-gutter:stable;overscroll-behavior:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch}
+  .data-live .kill-line{display:flex;align-items:center;justify-content:flex-start;gap:4px;width:max-content;max-width:100%;min-height:25px;margin-top:3px;padding:2px 6px;border:1px solid var(--live-line);background:var(--live-bg);font-size:12px;line-height:1.2}
+  .data-live .kill-line.round-over{border-color:var(--ct)}
+  .data-live .kill-line.round-over.t{border-color:var(--t)}
+  .data-live .kill-line.reason-bomb-exploded{border-color:#e24c38}
+  .data-live .kill-line.reason-bomb-defused{border-color:#4f9ee8}
+  .data-live .kill-line.reason-time-expired{border-color:#a48ac8}
+  .data-live .kill-line.bomb-planted{border-color:#d9a817;color:#f4cc45}
+  .data-live .plant-icon,.data-live .reason-icon{width:15px;height:15px;object-fit:contain;flex:0 0 15px}
+  .data-live .round-winner.ct{color:var(--ct);font-weight:800}
+  .data-live .round-winner.t{color:var(--t);font-weight:800}
+  .data-live .kill-name{max-width:105px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:800}
+  .data-live .kill-name.ct{color:var(--ct)}
+  .data-live .kill-name.t{color:var(--t)}
+  .data-live .kill-assist{max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:800}
+  .data-live .kill-assist.ct{color:var(--ct)}
+  .data-live .kill-assist.t{color:var(--t)}
+  .data-live .kill-plus{color:#6f7b86}
+  .data-live .kill-weapon{display:flex;align-items:center;justify-content:center;width:39px;height:17px;flex:0 0 39px}
+  .data-live .kill-weapon .weapon-img{max-width:38px;max-height:16px}
+  .data-live .kill-headshot{width:15px;height:15px;object-fit:contain}
+  .data-live .kill-round{color:#76828d;font-size:9px;white-space:nowrap}
+  .data-live .event-text{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  @media(max-width:980px){
+    .data-live .game-log-body{grid-template-columns:minmax(0,1fr) 220px;height:220px}
+    .data-live .radar{width:220px;height:220px}
+  }
+  @media(max-width:680px){
+    .data-live{padding:5px}
+    .data-live .live-heading{min-height:20px;margin-bottom:4px}
+    .data-live .live-heading h2{font-size:13px}
+    .data-live .source-badge{font-size:9px;padding:2px 5px}
+    .data-live .score-top{padding:0 6px;min-height:47px}
+    .data-live .score-center{padding:0 6px}
+    .data-live .score{font-size:24px}
+    .data-live .match-meta{font-size:8px;margin-top:2px}
+    .data-live .team-name{font-size:11px}
+    .data-live .side-tag{width:21px;height:17px;font-size:9px}
+    .data-live .team-bar,.data-live .player-row{grid-template-columns:minmax(84px,1fr) 38px 47px 39px 24px 31px}
+    .data-live .team-bar span:nth-child(3),.data-live .player-row>*:nth-child(3),
+    .data-live .team-bar span:nth-child(5),.data-live .player-row>*:nth-child(5),
+    .data-live .team-bar span:nth-child(8),.data-live .player-row>*:nth-child(8),
+    .data-live .team-bar span:nth-child(9),.data-live .player-row>*:nth-child(9){display:none}
+    .data-live .team-bar{height:23px;padding:0 5px;column-gap:2px;font-size:8px}
+    .data-live .team-bar .team-label{font-size:9px}
+    .data-live .player-row{height:29px;padding:0 5px;column-gap:2px;font-size:9px}
+    .data-live .player-main{gap:4px}
+    .data-live .player-avatar{width:20px;height:20px;flex-basis:20px;font-size:9px}
+    .data-live .weapon-img{max-width:34px;max-height:13px}
+    .data-live .hp-bar{width:37px;height:10px}
+    .data-live .hp-num{font-size:8px}
+    .data-live .money{font-size:8px}
+    .data-live .round-board{grid-template-rows:20px 1px 20px;padding:2px 0}
+    .data-live .round-cell{width:min(100%,16px);height:auto}
+    .data-live .round-result{width:14px;height:14px}
+    .data-live .panel-footer{min-height:23px;padding:0 5px;font-size:8px}
+    .data-live .bomb img{width:13px;height:13px}
+    .data-live .radar-head{min-height:25px;padding:0 6px}
+    .data-live .radar-title{font-size:10px}
+    .data-live .game-log-body{grid-template-columns:minmax(0,1fr) min(42vw,160px);height:170px}
+    .data-live .radar{align-self:center;width:100%;height:auto;aspect-ratio:1/1;border-left:1px solid var(--live-line)}
+    .data-live .kill-feed-list{padding:2px 4px 4px}
+    .data-live .kill-line{gap:3px;min-height:22px;margin-top:2px;padding:2px 4px;font-size:10px}
+    .data-live .kill-name{max-width:74px}
+    .data-live .kill-assist{max-width:52px}
+    .data-live .kill-weapon{width:31px;height:14px;flex-basis:31px}
+    .data-live .kill-weapon .weapon-img{max-width:30px;max-height:13px}
+    .data-live .kill-headshot,.data-live .plant-icon,.data-live .reason-icon{width:12px;height:12px;flex-basis:12px}
+    .data-live .kill-round{display:none}
+  }
 </style>
-<div class="data-live" id="data-live">
+<div class="data-live" id="data-live" data-i18n-ignore>
   <div class="live-heading">
     <h2>比赛数据直播</h2>
     <span class="source-badge" id="sourceBadge">等待观战账号连接</span>
@@ -58,32 +151,36 @@
   <div class="live-grid">
     <section class="scoreboard">
       <header class="score-top">
-        <div class="score-side"><span class="side-tag ct">CT</span><span class="team-name" id="team1Name">{{ match.team1_name or 'CT' }}</span></div>
+        <div class="score-side"><span class="side-tag ct" id="team1SideTag">CT</span><span class="team-name" id="team1Name">{{ match.team1_name or '队伍 1' }}</span></div>
         <div class="score-center">
-          <div class="score"><span id="liveScore1">0</span> : <span id="liveScore2">0</span></div>
+          <div class="score"><span class="side-score ct" id="liveScore1">0</span> : <span class="side-score t" id="liveScore2">0</span></div>
           <div class="match-meta">R<span id="roundNum">-</span> <span id="mapName">-</span> <span class="timer" id="timer">-</span></div>
         </div>
-        <div class="score-side right"><span class="team-name" id="team2Name">{{ match.team2_name or 'T' }}</span><span class="side-tag t">T</span></div>
+        <div class="score-side right"><span class="team-name" id="team2Name">{{ match.team2_name or '队伍 2' }}</span><span class="side-tag t" id="team2SideTag">T</span></div>
       </header>
-      <div class="team-block">
-        <div class="team-bar"><span class="team-label">CT 选手</span><span>手枪</span><span>主武器</span><span>血量</span><span>护甲</span><span>金钱</span><span>K</span><span>A</span><span>D</span><span>ADR</span></div>
+      <div class="team-block side-ct" id="team1Block">
+        <div class="team-bar"><span class="team-label" id="team1RosterLabel">CT 选手</span><span>手枪</span><span>主武器</span><span>血量</span><span>护甲</span><span>金钱</span><span>K</span><span>A</span><span>D</span><span>ADR</span></div>
         <div id="team1Players"></div>
       </div>
-      <div class="round-strip" id="roundStrip"><span class="round-empty">等待回合数据</span></div>
-      <div class="team-block">
-        <div class="team-bar"><span class="team-label">T 选手</span><span>手枪</span><span>主武器</span><span>血量</span><span>护甲</span><span>金钱</span><span>K</span><span>A</span><span>D</span><span>ADR</span></div>
+      <div class="round-board" id="roundBoard">
+        <div class="round-lane team1"><div class="round-lane-cells" id="roundTeam1"></div></div>
+        <div class="round-divider" aria-hidden="true"></div>
+        <div class="round-lane team2"><div class="round-lane-cells" id="roundTeam2"></div></div>
+      </div>
+      <div class="team-block side-t" id="team2Block">
+        <div class="team-bar"><span class="team-label" id="team2RosterLabel">T 选手</span><span>手枪</span><span>主武器</span><span>血量</span><span>护甲</span><span>金钱</span><span>K</span><span>A</span><span>D</span><span>ADR</span></div>
         <div id="team2Players"></div>
       </div>
       <footer class="panel-footer">
         <span id="updatedAt">尚未收到数据</span>
-        <span class="bomb" id="bombState"><img loading="lazy" src="/resources/icons/match/bomb.webp" alt="">炸弹状态：-</span>
+        <span class="bomb" id="bombState"><img loading="lazy" id="bombStateIcon" src="/resources/icons/match/bomb.webp" alt=""><span id="bombStateText">炸弹状态：-</span></span>
       </footer>
     </section>
     <aside class="radar-panel">
       <div class="radar-head"><span class="radar-title">比赛日志</span><span class="radar-map" id="radarMap">-</span></div>
       <div class="game-log-body">
         <div class="kill-feed">
-          <div class="kill-feed-list" id="killFeed"><div class="kill-line"><span class="victim">等待数据</span></div></div>
+          <div class="kill-feed-list" id="killFeed" role="log" aria-label="比赛事件" tabindex="0"><div class="kill-line" data-feed-placeholder><span class="kill-round">等待数据</span></div></div>
         </div>
         <div class="radar" id="radar">
           <img loading="lazy" class="radar-image" id="radarImage" src="/resources/radars/mirage.svg" alt="">
@@ -100,51 +197,111 @@ const SUPPORTED_MAPS = new Set(['dust2','mirage','inferno','nuke','overpass','an
 const MAP_OVERVIEWS = {
   dust2:{x:-2476,y:3239,scale:4.4},mirage:{x:-3230,y:1713,scale:5},
   inferno:{x:-2087,y:3870,scale:4.9},nuke:{x:-3453,y:2887,scale:7},
-  overpass:{x:-4831,y:1781,scale:5.2},vertigo:{x:-3168,y:1762,scale:4},
+  overpass:{x:-4831,y:1781,scale:5.2},ancient:{x:-2953,y:2164,scale:5},
+  anubis:{x:-2796,y:3328,scale:5.22},vertigo:{x:-3168,y:1762,scale:4},
   cache:{x:-2000,y:3250,scale:5.5},train:{x:-2477,y:2392,scale:4.7}
 };
-const MAP_BOUNDS = {
-  ancient:{x0:-3200,y0:-3800,x1:4200,y1:3700},
-  anubis:{x0:-2900,y0:-2500,x1:3200,y1:3200}
-};
-const WEAPON_ICONS = {
-  ak47:'ak47',awp:'awp',m4a1:'m4a1',m4a1silencer:'m4a1_silencer',deagle:'deagle',
-  uspsilencer:'usp_silencer',glock:'glock',famas:'famas',galilar:'galilar',
-  p250:'p250',mp9:'mp9',elite:'elite',hkp2000:'hkp2000'
-};
-function escapeHtml(value){const div=document.createElement('div');div.textContent=String(value??'');return div.innerHTML}
-function escapeAttr(value){return escapeHtml(value).replace(/"/g,'&quot;')}
+const MAP_BOUNDS = {};
+const SVG_WEAPONS = new Set(['aug','bizon','cz75a','decoy','g3sg1','incgrenade','m249','mag7','molotov','mp5sd','negev','nova','p90','revolver','sawedoff','scar20','sg556','smokegrenade','ssg08','taser','ump45','xm1014']);
+const WEAPON_ALIASES = {m4a1silencer:'m4a1_silencer',uspsilencer:'usp_silencer',hkp2000:'hkp2000'};
+const feedNodes = new Map();
+let roundSignature = '';
+let markerSignature = '';
+let currentRadarKey = '';
+let initialFeedRendered = false;
+let fetchTimer = 0;
+let fetching = false;
+
+function setText(id,value){
+  const el=document.getElementById(id),text=String(value??'');
+  if(el&&el.textContent!==text)el.textContent=text;
+}
 function mapKey(name){return String(name||'').toLowerCase().replace('de_','').replace(/[^a-z0-9]/g,'')}
-function mapDisplay(name){return String(name||'').replace(/^(de_|cs_)/i,'').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}
-function weaponIcon(name){
+function mapDisplay(name){return String(name||'').replace(/^(de_|cs_)/i,'').replace(/_/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase()})}
+function sideClass(value){
+  const side=String(value||'').toLowerCase();
+  return side==='ct'||side==='t1'||side==='team1'?'ct':'t';
+}
+function weaponAsset(name){
   if(!name||name==='-')return '';
-  const key=String(name).toLowerCase().replace('weapon_','').replace(/[^a-z0-9]/g,'');
-  const icon=WEAPON_ICONS[key]||key;
-  return `<img loading="lazy" class="weapon-img" src="${ICON_BASE}${icon}.${icon==='hkp2000'?'png':'webp'}" onerror="this.style.display='none'" alt="">`;
+  let key=String(name).toLowerCase().replace('weapon_','').replace(/[^a-z0-9_]/g,'');
+  key=WEAPON_ALIASES[key]||key;
+  const extension=key==='hkp2000'?'png':(SVG_WEAPONS.has(key)?'svg':'webp');
+  return ICON_BASE+key+'.'+extension;
 }
-function armorIcon(armor,helmet){
-  if(helmet)return '<img loading="lazy" class="armor-img" src="/resources/icons/match/kevlar_helmet.webp" alt="">';
-  if(Number(armor)>0)return '<img loading="lazy" class="armor-img" src="/resources/icons/match/kevlar.webp" alt="">';
-  return '-';
+function setImage(img,src){
+  if(!img)return;
+  if(!src){img.hidden=true;img.removeAttribute('src');img.dataset.src='';return}
+  if(img.dataset.src===src)return;
+  img.dataset.src=src;
+  img.hidden=false;
+  img.onerror=function(){img.hidden=true};
+  img.src=src;
 }
-function avatar(player){
-  if(player.avatar)return `<span class="player-avatar"><img loading="lazy" src="${escapeAttr(player.avatar)}" onerror="this.parentElement.textContent='${escapeAttr((player.name||'?')[0])}'" alt=""></span>`;
-  return `<span class="player-avatar">${escapeHtml((player.name||'?')[0])}</span>`;
+function createPlayerRow(){
+  const row=document.createElement('div');
+  row.className='player-row dead';
+  row.innerHTML='<span class="player-main"><span class="player-avatar"><img loading="lazy" hidden alt=""><span data-avatar-fallback>-</span></span><span class="player-name">-</span></span><span class="weapon-slot" data-field="secondary"><img loading="lazy" class="weapon-img" hidden alt=""></span><span class="weapon-slot" data-field="primary"><img loading="lazy" class="weapon-img" hidden alt=""></span><span class="hp-wrap"><span class="hp-bar" hidden><span class="hp-fill"></span><span class="hp-num">-</span></span><span data-hp-empty>-</span></span><span class="armor-slot"><img loading="lazy" class="armor-img" hidden alt=""><span data-armor-empty>-</span></span><span class="money">-</span><span class="kills">0</span><span data-field="assists">0</span><span class="deaths">0</span><span class="adr">0</span>';
+  return row;
+}
+function ensurePlayerRows(target){
+  const container=document.getElementById(target);
+  if(container.children.length===5)return Array.from(container.children);
+  const fragment=document.createDocumentFragment();
+  for(let index=0;index<5;index+=1)fragment.appendChild(createPlayerRow());
+  container.replaceChildren(fragment);
+  return Array.from(container.children);
+}
+function updateWeapon(slot,name){
+  const img=slot.querySelector('img');
+  const src=weaponAsset(name);
+  setImage(img,src);
+  slot.title=name&&name!=='-'?String(name).replace('weapon_',''):'';
+}
+function updatePlayerRow(row,player){
+  const empty=!player;
+  row.classList.toggle('dead',empty||player.alive===false);
+  const avatarBox=row.querySelector('.player-avatar');
+  const avatarImg=avatarBox.querySelector('img');
+  const avatarFallback=avatarBox.querySelector('[data-avatar-fallback]');
+  const name=empty?'-':(player.name||'-');
+  setImage(avatarImg,empty?'':player.avatar);
+  avatarImg.onerror=function(){avatarImg.hidden=true;avatarFallback.hidden=false};
+  avatarFallback.hidden=Boolean(!empty&&player.avatar);
+  avatarFallback.textContent=empty?'-':String(name).charAt(0);
+  const nameEl=row.querySelector('.player-name');
+  if(nameEl.textContent!==name)nameEl.textContent=name;
+  nameEl.title=empty?'':name;
+  updateWeapon(row.querySelector('[data-field="secondary"]'),empty?'':player.secondary);
+  updateWeapon(row.querySelector('[data-field="primary"]'),empty?'':player.primary);
+
+  const hp=empty?NaN:Number(player.hp);
+  const hpKnown=Number.isFinite(hp);
+  const hpBar=row.querySelector('.hp-bar');
+  const hpEmpty=row.querySelector('[data-hp-empty]');
+  hpBar.hidden=!hpKnown;
+  hpEmpty.hidden=hpKnown;
+  if(hpKnown){
+    const fill=row.querySelector('.hp-fill');
+    fill.style.width=Math.max(0,Math.min(100,hp))+'%';
+    fill.className='hp-fill'+(hp>60?'':(hp>30?' low':' crit'));
+    row.querySelector('.hp-num').textContent=String(hp);
+  }
+
+  const armorImg=row.querySelector('.armor-img');
+  const armorEmpty=row.querySelector('[data-armor-empty]');
+  const armorSrc=empty?'':(player.helmet?ICON_BASE+'kevlar_helmet.webp':(Number(player.armor)>0?ICON_BASE+'kevlar.webp':''));
+  setImage(armorImg,armorSrc);
+  armorEmpty.hidden=Boolean(armorSrc);
+  row.querySelector('.money').textContent=empty||player.money==='-'?'-':'$'+Number(player.money||0);
+  row.querySelector('.kills').textContent=String(empty?0:Number(player.kills||0));
+  row.querySelector('[data-field="assists"]').textContent=String(empty?0:Number(player.assists||0));
+  row.querySelector('.deaths').textContent=String(empty?0:Number(player.deaths||0));
+  row.querySelector('.adr').textContent=String(empty?0:Number(player.adr||0));
 }
 function renderTeam(target,players){
-  const rows=[...(players||[])];
-  while(rows.length<5)rows.push(null);
-  document.getElementById(target).innerHTML=rows.slice(0,5).map(player=>{
-    if(!player)return '<div class="player-row dead"><span class="player-main"><span class="player-avatar">-</span><span class="player-name">-</span></span><span>-</span><span>-</span><span>-</span><span>-</span><span>-</span><span>-</span><span>-</span><span>-</span><span>-</span></div>';
-    const hp=Number(player.hp),hpKnown=Number.isFinite(hp),hpClass=hp>60?'':(hp>30?' low':' crit');
-    return `<div class="player-row${player.alive===false?' dead':''}">
-      <span class="player-main">${avatar(player)}<span class="player-name" title="${escapeAttr(player.name)}">${escapeHtml(player.name||'-')}</span></span>
-      <span>${weaponIcon(player.secondary)}</span><span>${weaponIcon(player.primary)}</span>
-      <span class="hp-wrap">${hpKnown?`<span class="hp-bar"><span class="hp-fill${hpClass}" style="width:${Math.max(0,Math.min(100,hp))}%"></span><span class="hp-num">${hp}</span></span>`:'-'}</span>
-      <span>${armorIcon(player.armor,player.helmet)}</span><span class="money">${player.money==='-'?'-':'$'+Number(player.money||0)}</span>
-      <span class="kills">${Number(player.kills||0)}</span><span>${Number(player.assists||0)}</span><span class="deaths">${Number(player.deaths||0)}</span><span class="adr">${Number(player.adr||0)}</span>
-    </div>`;
-  }).join('');
+  const rows=ensurePlayerRows(target);
+  for(let index=0;index<5;index+=1)updatePlayerRow(rows[index],(players||[])[index]||null);
 }
 function radarPoint(x,y,mapName){
   const key=mapKey(mapName),overview=MAP_OVERVIEWS[key];
@@ -156,62 +313,203 @@ function radarPoint(x,y,mapName){
 }
 function renderRadarMap(mapName){
   const requested=mapKey(mapName),key=SUPPORTED_MAPS.has(requested)?requested:'mirage';
-  document.getElementById('radar').style.backgroundImage=`url("/resources/map_landscapes/${encodeURIComponent(key)}.png")`;
-  document.getElementById('radarImage').src=`/resources/radars/${encodeURIComponent(key)}.svg`;
+  if(key===currentRadarKey)return;
+  currentRadarKey=key;
+  document.getElementById('radar').style.backgroundImage='url("/resources/map_landscapes/'+encodeURIComponent(key)+'.png")';
+  setImage(document.getElementById('radarImage'),'/resources/radars/'+encodeURIComponent(key)+'.svg');
 }
-function renderKills(data){
-  const all=[...(data.kill_markers||[])],round=Number(data.round||0);
-  const current=all.filter(k=>Number(k.round)===round).slice(-10);
-  document.getElementById('killMarkers').innerHTML=current.map(k=>{
-    const p=radarPoint(k.x,k.y,data.map_name),side=String(k.side||'').toLowerCase()==='ct'?'ct':'t';
-    return `<span class="kill-marker ${side}" style="left:${p.left}%;top:${p.top}%" title="${escapeAttr(k.name||'未知选手')}"></span>`;
-  }).join('');
-  const inferred=current.map(k=>({round:k.round,victim:k.name,victim_side:k.side}));
-  const latestKills=[...(data.kill_events&&data.kill_events.length?data.kill_events:inferred)].filter(k=>Number(k.round)===round).slice(-10);
-  const latestPlants=[...(data.bomb_events||[])].filter(k=>Number(k.round)===round).slice(-4);
-  const history=[...(data.round_history||[])];
-  const latestRound=history.length?history[history.length-1]:null;
-  const score=history.reduce((total,item)=>{
-    const side=String(item.side||item.winner||'').toLowerCase();
-    if(side==='ct'||side==='t1')total.ct+=1;
-    if(side==='t'||side==='t2')total.t+=1;
-    return total;
-  },{ct:0,t:0});
-  const completedSide=String(latestRound?.side||latestRound?.winner||'').toLowerCase();
-  const winnerSide=completedSide==='ct'||completedSide==='t1'?'ct':(completedSide==='t'||completedSide==='t2'?'t':'');
-  const roundScore={
-    ct:Number.isFinite(Number(latestRound?.score_ct))?Number(latestRound.score_ct):score.ct,
-    t:Number.isFinite(Number(latestRound?.score_t))?Number(latestRound.score_t):score.t
-  };
-  const currentEvents=[
-    ...latestKills.map((event,index)=>({...event,type:'kill',order:Number(event.captured_at_epoch)||index})),
-    ...latestPlants.map((event,index)=>({...event,type:'plant',order:Number(event.captured_at_epoch)||latestKills.length+index}))
-  ].sort((a,b)=>b.order-a.order).slice(0,10);
-  const killLines=currentEvents.map(k=>{
-    if(k.type==='plant')return `<div class="kill-line bomb-planted">
-      <span class="kill-name t">${escapeHtml(k.player||'T Player')}</span>
-      <img loading="lazy" class="plant-icon" src="/resources/icons/match/bombplant.webp" alt="">
-      <span>planted the bomb on ${escapeHtml(k.site||'?')} (${Number(k.alive_t||0)}on${Number(k.alive_ct||0)})</span>
-    </div>`;
-    const killerSide=String(k.killer_side||'').toLowerCase()==='ct'?'ct':'t',assisterSide=String(k.assister_side||k.killer_side||'').toLowerCase()==='ct'?'ct':'t',victimSide=String(k.victim_side||'').toLowerCase()==='ct'?'ct':'t';
-    return `<div class="kill-line">
-      <span class="kill-name ${killerSide}">${escapeHtml(k.killer||'-')}</span>
-      ${k.assister?`<span class="kill-plus">+</span><span class="kill-assist ${assisterSide}">${escapeHtml(k.assister)}</span>`:''}
-      <span class="kill-weapon">${weaponIcon(k.weapon)}</span>
-      ${k.headshot?'<img loading="lazy" class="kill-headshot" src="/resources/icons/match/headshot.webp" alt="">':''}
-      <span class="kill-name kill-victim ${victimSide}">${escapeHtml(k.victim||'未知选手')}</span>
-      <span class="kill-round">R${Number(k.round||0)}</span>
-    </div>`;
+function renderMarkers(data){
+  const round=Number(data.round||0);
+  const markers=(data.kill_markers||[]).filter(function(item){return Number(item.round)===round}).slice(-10);
+  const signature=JSON.stringify(markers.map(function(item){return [item.id,item.x,item.y,item.side]}));
+  if(signature===markerSignature)return;
+  markerSignature=signature;
+  const fragment=document.createDocumentFragment();
+  markers.forEach(function(marker){
+    const point=radarPoint(marker.x,marker.y,data.map_name);
+    const node=document.createElement('span');
+    node.className='kill-marker '+sideClass(marker.side);
+    node.style.left=point.left+'%';
+    node.style.top=point.top+'%';
+    node.title=marker.name||'未知选手';
+    fragment.appendChild(node);
   });
-  if(latestRound&&winnerSide)killLines.push(`<div class="kill-line round-over ${winnerSide}"><span>Round over - Winner:</span><span class="round-winner ${winnerSide}">${winnerSide.toUpperCase()}</span><span>(${roundScore.ct} - ${roundScore.t}) - ${escapeHtml(latestRound.reason||'Round completed')}</span></div>`);
-  document.getElementById('killFeed').innerHTML=killLines.length?killLines.join(''):'<div class="kill-line"><span class="kill-round">本回合尚无击杀</span></div>';
+  document.getElementById('killMarkers').replaceChildren(fragment);
+}
+function reasonCode(round){
+  if(round.reason_code)return round.reason_code;
+  const reason=String(round.reason||'').toLowerCase();
+  if(reason.includes('bombed')||reason.includes('explode'))return 'bomb_exploded';
+  if(reason.includes('defus'))return 'bomb_defused';
+  if(reason.includes('saved')||reason.includes('time'))return 'time_expired';
+  if(reason.includes('elimin'))return 'elimination';
+  return 'completed';
+}
+function reasonLabel(code){
+  return {bomb_exploded:'C4 爆炸',bomb_defused:'C4 拆除',time_expired:'时间耗尽',elimination:'敌方全灭',completed:'回合结束'}[code]||'回合结束';
+}
+function reasonIcon(code,side){
+  if(code==='bomb_exploded')return ICON_BASE+'bomb_exploded.svg';
+  if(code==='bomb_defused')return ICON_BASE+'bomb_defused.svg';
+  if(code==='time_expired')return ICON_BASE+'stopwatch.svg';
+  return ICON_BASE+(side==='ct'?'ct_win.svg':'t_win.svg');
 }
 function renderRounds(rounds){
-  const el=document.getElementById('roundStrip');
-  el.innerHTML=rounds&&rounds.length?rounds.map(r=>`<img loading="lazy" class="round-result" src="${ICON_BASE}${r.winner==='t1'?'ct_win.svg':'t_win.svg'}" alt="">`).join(''):'<span class="round-empty">等待回合数据</span>';
+  const safe=(Array.isArray(rounds)?rounds:[]).filter(function(round){
+    const roundNumber=Number(round.round);
+    return Number.isFinite(roundNumber)&&roundNumber>=0&&roundNumber<24;
+  });
+  const signature=JSON.stringify(safe.map(function(round){return [round.id,round.round,round.side,round.winner,round.reason_code,round.reason]}));
+  if(signature===roundSignature)return;
+  roundSignature=signature;
+  const team1Rounds=document.createDocumentFragment(),team2Rounds=document.createDocumentFragment();
+  const roundByNumber=new Map(safe.map(function(round){return [Number(round.round),round]}));
+  for(let roundIndex=0;roundIndex<24;roundIndex+=1){
+    const round=roundByNumber.get(roundIndex);
+    const winnerTeam=round&&['t1','t2'].includes(String(round.winner||'').toLowerCase())?String(round.winner).toLowerCase():'';
+    const rawSide=String(round&&round.side||'').toLowerCase();
+    const winnerSide=rawSide==='ct'||rawSide==='t'?rawSide:(winnerTeam==='t1'?'ct':'t');
+    const code=round?reasonCode(round):'completed';
+    ['t1','t2'].forEach(function(teamKey){
+      const wonByThisTeam=Boolean(round)&&teamKey===winnerTeam;
+      const cell=document.createElement('span');
+      cell.className='round-cell'+(wonByThisTeam?'':' empty');
+      cell.title='第 '+(roundIndex+1)+' 回合'+(wonByThisTeam?' · '+winnerSide.toUpperCase()+' · '+reasonLabel(code):'');
+      if(wonByThisTeam){
+        const img=document.createElement('img');
+        img.loading='lazy';img.className='round-result';img.alt='';
+        img.src=reasonIcon(code,winnerSide);
+        cell.appendChild(img);
+      }
+      (teamKey==='t1'?team1Rounds:team2Rounds).appendChild(cell);
+    });
+  }
+  document.getElementById('roundTeam1').replaceChildren(team1Rounds);
+  document.getElementById('roundTeam2').replaceChildren(team2Rounds);
+}
+function eventOrder(event,type,index){
+  const exact=Number(event.captured_at_epoch);
+  if(Number.isFinite(exact)&&exact>0)return exact;
+  const parsed=Date.parse(event.captured_at||'');
+  if(Number.isFinite(parsed))return parsed/1000;
+  const typeOffset=type==='round'?0.8:(type==='plant'?0.4:0);
+  return Number(event.round||0)*1000+index+typeOffset;
+}
+function collectFeedEvents(data){
+  const items=[];
+  (data.kill_events||[]).forEach(function(event,index){
+    items.push({id:'kill:'+(event.id||event.round+':'+index+':'+event.victim),type:'kill',data:event,order:eventOrder(event,'kill',index)});
+  });
+  (data.bomb_events||[]).forEach(function(event,index){
+    items.push({id:'plant:'+(event.id||event.round+':'+index+':'+event.player),type:'plant',data:event,order:eventOrder(event,'plant',index)});
+  });
+  (data.round_history||[]).forEach(function(event,index){
+    items.push({id:'round:'+(event.id||event.round+':'+(event.side||event.winner)),type:'round',data:event,order:eventOrder(event,'round',index)});
+  });
+  return items.sort(function(a,b){return b.order-a.order}).slice(0,36);
+}
+function addText(parent,className,text){
+  const node=document.createElement('span');
+  node.className=className;
+  node.textContent=String(text??'');
+  parent.appendChild(node);
+  return node;
+}
+function updateFeedNode(node,item){
+  const event=item.data||{};
+  const signature=JSON.stringify(event);
+  if(node.dataset.signature===signature)return;
+  node.dataset.signature=signature;
+  node.replaceChildren();
+  if(item.type==='kill'){
+    node.className='kill-line';
+    const killerSide=sideClass(event.killer_side),victimSide=sideClass(event.victim_side);
+    addText(node,'kill-name '+killerSide,event.killer||'-');
+    if(event.assister){
+      addText(node,'kill-plus','+');
+      addText(node,'kill-assist '+sideClass(event.assister_side||event.killer_side),event.assister);
+    }
+    const weapon=document.createElement('span');
+    weapon.className='kill-weapon';
+    const weaponSrc=weaponAsset(event.weapon);
+    if(weaponSrc){
+      const img=document.createElement('img');
+      img.loading='lazy';img.className='weapon-img';img.alt='';img.src=weaponSrc;
+      img.onerror=function(){img.hidden=true};
+      weapon.appendChild(img);
+    }
+    node.appendChild(weapon);
+    if(event.headshot){
+      const headshot=document.createElement('img');
+      headshot.loading='lazy';headshot.className='kill-headshot';headshot.src=ICON_BASE+'headshot.webp';headshot.alt='';
+      node.appendChild(headshot);
+    }
+    addText(node,'kill-name '+victimSide,event.victim||'未知选手');
+    addText(node,'kill-round','R'+(Number(event.round||0)+1));
+    return;
+  }
+  if(item.type==='plant'){
+    node.className='kill-line bomb-planted';
+    addText(node,'kill-name t',event.player||'T Player');
+    const icon=document.createElement('img');
+    icon.loading='lazy';icon.className='plant-icon';icon.src=ICON_BASE+'bombplant.webp';icon.alt='';
+    node.appendChild(icon);
+    addText(node,'event-text','在 '+(event.site||'?')+' 点安放 C4 · '+Number(event.alive_t||0)+'v'+Number(event.alive_ct||0));
+    addText(node,'kill-round','R'+(Number(event.round||0)+1));
+    return;
+  }
+  const side=sideClass(event.side||event.winner),code=reasonCode(event);
+  node.className='kill-line round-over '+side+' reason-'+code.replace(/_/g,'-');
+  const icon=document.createElement('img');
+  icon.loading='lazy';icon.className='reason-icon';icon.src=reasonIcon(code,side);icon.alt='';
+  node.appendChild(icon);
+  addText(node,'event-text','回合结束 · 胜方 ');
+  addText(node,'round-winner '+side,side.toUpperCase());
+  addText(node,'event-text',' ('+Number(event.score_ct||0)+' - '+Number(event.score_t||0)+') · '+reasonLabel(code));
+}
+function syncKillFeed(data){
+  const feed=document.getElementById('killFeed');
+  const items=collectFeedEvents(data);
+  if(!items.length){
+    if(!initialFeedRendered)return;
+    if(!feedNodes.size){
+      const placeholder=document.createElement('div');
+      placeholder.className='kill-line';placeholder.dataset.feedPlaceholder='1';
+      addText(placeholder,'kill-round','等待数据');
+      feed.replaceChildren(placeholder);
+    }
+    return;
+  }
+  const wanted=new Set(items.map(function(item){return item.id}));
+  Array.from(feedNodes.entries()).forEach(function(entry){
+    if(!wanted.has(entry[0])){entry[1].remove();feedNodes.delete(entry[0])}
+  });
+  const missing=[];
+  items.forEach(function(item){
+    let node=feedNodes.get(item.id);
+    if(!node){
+      node=document.createElement('div');
+      node.dataset.eventId=item.id;
+      feedNodes.set(item.id,node);
+      missing.push({item:item,node:node});
+    }
+    updateFeedNode(node,item);
+  });
+  if(!initialFeedRendered){
+    const fragment=document.createDocumentFragment();
+    items.forEach(function(item){fragment.appendChild(feedNodes.get(item.id))});
+    feed.replaceChildren(fragment);
+    initialFeedRendered=true;
+    return;
+  }
+  const placeholder=feed.querySelector('[data-feed-placeholder]');
+  if(placeholder)placeholder.remove();
+  missing.sort(function(a,b){return a.item.order-b.item.order}).forEach(function(entry){
+    feed.prepend(entry.node);
+  });
 }
 function bombIcon(bomb){
-  const state=String(bomb?.state||'');
+  const state=String(bomb&&bomb.state||'');
   if(state==='exploded')return ICON_BASE+'bomb_exploded.svg';
   if(state==='defused')return ICON_BASE+'bomb_defused.svg';
   if(state==='planted'||state==='planting')return ICON_BASE+'bombplant.webp';
@@ -221,7 +519,7 @@ function bombLabel(bomb){
   const states={planted:'已安放',carried:'携带中',dropped:'已掉落',defused:'已拆除',exploded:'已爆炸',planting:'正在安放',defusing:'正在拆除'};
   if(!bomb||!bomb.state)return '炸弹状态：-';
   const seconds=Number(bomb.countdown);
-  return '炸弹状态：'+(states[bomb.state]||bomb.state)+(Number.isFinite(seconds)?` ${seconds.toFixed(1)}s`:'');
+  return '炸弹状态：'+(states[bomb.state]||bomb.state)+(Number.isFinite(seconds)?' '+seconds.toFixed(1)+'s':'');
 }
 function formatUpdatedAt(value){
   if(!value)return '尚未收到数据';
@@ -229,20 +527,68 @@ function formatUpdatedAt(value){
   if(Number.isNaN(date.getTime()))return '更新：'+String(value).replace('T',' ').slice(0,16);
   return '更新：'+date.toLocaleString('zh-CN',{hour12:false,year:'numeric',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit'});
 }
+function currentTeamSides(team1,team2){
+  const first=String(team1&&team1.side||'').toUpperCase();
+  const second=String(team2&&team2.side||'').toUpperCase();
+  if((first==='CT'||first==='T')&&(second==='CT'||second==='T')&&first!==second)return [first,second];
+  if(first==='CT'||first==='T')return [first,first==='CT'?'T':'CT'];
+  if(second==='CT'||second==='T')return [second==='CT'?'T':'CT',second];
+  return ['CT','T'];
+}
+function applyTeamSide(teamNumber,side){
+  const sideKey=side.toLowerCase();
+  const tag=document.getElementById('team'+teamNumber+'SideTag');
+  tag.className='side-tag '+sideKey;
+  tag.textContent=side;
+  document.getElementById('team'+teamNumber+'Block').className='team-block side-'+sideKey;
+  document.getElementById('team'+teamNumber+'RosterLabel').textContent=side+' 选手';
+  document.getElementById('liveScore'+teamNumber).className='side-score '+sideKey;
+}
 function render(data){
   const sourceText={gsi:'观战账号已连接',gotv:'GOTV 数据已连接',a2s:'比赛服务器已连接，等待观战账号',stale_gsi:'观战账号连接已中断'};
-  document.getElementById('sourceBadge').textContent=sourceText[data.source]||'等待观战账号连接';
-  document.getElementById('sourceBadge').classList.toggle('online',data.source==='gsi'||data.source==='gotv'||data.source==='a2s');
-  document.getElementById('liveScore1').textContent=data.team1?.score??0;document.getElementById('liveScore2').textContent=data.team2?.score??0;
-  document.getElementById('team1Name').textContent=data.team1?.name||'CT';document.getElementById('team2Name').textContent=data.team2?.name||'T';
-  document.getElementById('roundNum').textContent=data.round??'-';document.getElementById('mapName').textContent=mapDisplay(data.map_name)||'-';document.getElementById('timer').textContent=data.timer||'-';
-  document.getElementById('radarMap').textContent=mapDisplay(data.map_name)||'-';document.getElementById('updatedAt').textContent=formatUpdatedAt(data.updated_at);
-  const bomb=document.getElementById('bombState');bomb.innerHTML=`<img loading="lazy" src="${bombIcon(data.bomb)}" alt="">`+escapeHtml(bombLabel(data.bomb));bomb.classList.toggle('active',Boolean(data.bomb?.state));
-  renderTeam('team1Players',data.players_t1);renderTeam('team2Players',data.players_t2);renderRounds(data.round_history);renderRadarMap(data.map_name);renderKills(data);
+  const badge=document.getElementById('sourceBadge');
+  setText('sourceBadge',sourceText[data.source]||'等待观战账号连接');
+  badge.classList.toggle('online',data.source==='gsi'||data.source==='gotv'||data.source==='a2s');
+  const team1=data.team1||{};
+  const team2=data.team2||{};
+  const sides=currentTeamSides(team1,team2);
+  setText('liveScore1',team1.score??0);
+  setText('liveScore2',team2.score??0);
+  setText('team1Name',team1.name||'队伍 1');
+  setText('team2Name',team2.name||'队伍 2');
+  applyTeamSide(1,sides[0]);
+  applyTeamSide(2,sides[1]);
+  setText('roundNum',data.round??'-');
+  setText('mapName',mapDisplay(data.map_name)||'-');
+  setText('timer',data.timer||'-');
+  setText('radarMap',mapDisplay(data.map_name)||'-');
+  setText('updatedAt',formatUpdatedAt(data.updated_at));
+  setImage(document.getElementById('bombStateIcon'),bombIcon(data.bomb));
+  setText('bombStateText',bombLabel(data.bomb));
+  document.getElementById('bombState').classList.toggle('active',Boolean(data.bomb&&data.bomb.state));
+  renderTeam('team1Players',data.players_t1);
+  renderTeam('team2Players',data.players_t2);
+  renderRounds(data.round_history);
+  renderRadarMap(data.map_name);
+  renderMarkers(data);
+  syncKillFeed(data);
 }
 async function fetchLive(){
-  try{const response=await fetch(`/api/live/${MATCH_ID}`);const data=await response.json();if(data.ok)render(data)}
-  catch(error){console.error('Live fetch error:',error)}
+  if(fetching)return;
+  fetching=true;
+  try{
+    const response=await fetch('/api/live/'+MATCH_ID,{cache:'no-store'});
+    const data=await response.json();
+    if(data.ok)render(data);
+  }catch(error){
+    console.error('Live fetch error:',error);
+  }finally{
+    fetching=false;
+    window.clearTimeout(fetchTimer);
+    fetchTimer=window.setTimeout(fetchLive,1000);
+  }
 }
-fetchLive();setInterval(fetchLive,1000);
+ensurePlayerRows('team1Players');
+ensurePlayerRows('team2Players');
+fetchLive();
 </script>

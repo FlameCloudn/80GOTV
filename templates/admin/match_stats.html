@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
+  {% include "_i18n_bootstrap.html" %}
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>录入比赛数据</title>
@@ -67,20 +68,7 @@
 </head>
 <body>
 
-<div class="top-nav">
-  <div class="logo">🎮 CS2 后台管理</div>
-  <div class="nav-links">
-    <a href="/admin">📊 首页</a>
-    <a href="/admin/teams">👥 队伍</a >
-    <a href="/admin/players">🎯 选手</a >
-    <a href="/admin/events">🏆 赛事</a >
-    <a href="/admin/matches">⚔️ 比赛</a >
-    <a href="/admin/news">📰 新闻</a >
-    <span style="color:#ccc">|</span>
-    <span style="color:#666">{{ session.admin_username }}</span>
-    <a href="/admin/logout" class="logout-btn">退出</a >
-  </div>
-</div>
+{% include "admin/_top_nav.html" %}
 
 <div class="container">
   {% with messages = get_flashed_messages(with_categories=true) %}
@@ -203,11 +191,11 @@
         {% if not readonly %}
         <div class="form-actions">
           <button type="submit" class="btn btn-primary">💾 保存此图数据</button>
-          <a href="/admin/matches" class="btn btn-secondary">❌ 返回</a >
+          <a href="/admin/matches" class="btn btn-secondary">❌ 返回</a>
         </div>
         {% else %}
         <div class="form-actions">
-          <a href="/admin/matches" class="btn btn-secondary">❌ 返回</a >
+          <a href="/admin/matches" class="btn btn-secondary">❌ 返回</a>
         </div>
         {% endif %}
       </form>
@@ -227,7 +215,7 @@ function switchTab(idx) {
   });
 }
 </script>
-<script src="{{ url_for('static', filename='js/i18n.js') }}?v=20260614-fullsite-lang2"></script>
+<script src="{{ versioned_url('static/js/i18n.js') }}"></script>
 <script src="{{ url_for('static', filename='js/svg_icons.js') }}?v=20260620-svg1"></script>
 </body>
 </html>

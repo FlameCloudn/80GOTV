@@ -58,16 +58,18 @@
     });
   }
 
-  function renderHomeActivity(target, news) {
+  function renderHomeActivity(target, threads) {
     target.replaceChildren();
-    if (!news || !news.length) {
-      target.appendChild(emptyNode('暂无动态'));
+    if (!threads || !threads.length) {
+      var empty = makeLink('/forum', 'h-empty');
+      empty.textContent = '暂无论坛动态';
+      target.appendChild(empty);
       return;
     }
-    news.slice(0, 8).forEach(function (item) {
+    threads.slice(0, 8).forEach(function (item) {
       var row = makeLink(item.url, 'h-activity-row');
-      row.appendChild(setIgnoreI18n(make('span', '', text(item.title, '未命名新闻'))));
-      row.appendChild(make('small', '', text(item.comments, '0')));
+      row.appendChild(setIgnoreI18n(make('span', '', text(item.title, '未命名帖子'))));
+      row.appendChild(make('small', '', text(item.replies, '0')));
       target.appendChild(row);
     });
   }
@@ -97,7 +99,7 @@
         var activity = root.querySelector('[data-front-home-target="activity"]');
         var recent = root.querySelector('[data-front-home-target="recent"]');
         if (matches) renderHomeMatches(matches, data.matches);
-        if (activity) renderHomeActivity(activity, data.news);
+        if (activity) renderHomeActivity(activity, data.forum_activity);
         if (recent) renderHomeRecent(recent, data.recent_results);
         root.setAttribute('data-api-ready', '1');
       })
@@ -131,16 +133,13 @@
 
       var teams = make('div', 'match-schedule-teams');
       var teamA = make('div', 'match-schedule-team');
-      teamA.appendChild(make('span', 'match-team-mark', 'A'));
-      teamA.appendChild(setIgnoreI18n(make('span', 'team-name', text(match.team1, 'TBD'))));
+      appendMatchTeam(teamA, match.team1_logo, 'A', match.team1_full || match.team1);
       var teamB = make('div', 'match-schedule-team');
-      teamB.appendChild(make('span', 'match-team-mark', 'B'));
-      teamB.appendChild(setIgnoreI18n(make('span', 'team-name', text(match.team2, 'TBD'))));
+      appendMatchTeam(teamB, match.team2_logo, 'B', match.team2_full || match.team2);
       teams.appendChild(teamA);
       teams.appendChild(teamB);
 
       var meta = make('div', 'match-schedule-meta');
-      meta.appendChild(setIgnoreI18n(make('span', '', text(match.event, '未分组赛事'))));
       var eventText = text(match.event, '未分组赛事');
       var eventNode = make('span', '', eventText);
       if (match.event) setIgnoreI18n(eventNode);
@@ -152,6 +151,20 @@
       row.appendChild(meta);
       target.appendChild(row);
     });
+  }
+
+  function appendMatchTeam(container, logoUrl, fallback, teamName) {
+    if (logoUrl) {
+      var logo = document.createElement('img');
+      logo.className = 'match-team-logo';
+      logo.src = logoUrl;
+      logo.alt = '';
+      logo.loading = 'lazy';
+      container.appendChild(logo);
+    } else {
+      container.appendChild(make('span', 'match-team-mark', fallback));
+    }
+    container.appendChild(setIgnoreI18n(make('span', 'team-name', text(teamName, 'TBD'))));
   }
 
   function hydrateMatches() {

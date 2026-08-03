@@ -9,8 +9,11 @@ from pathlib import Path
 from flask import abort, render_template, request
 
 from models import get_db
+from services.home_service import load_home_feed
 from services.match_service import score_predictions
+from services.performance_service import weighted_average_sql
 from utils.demo_parser import normalize_map_name
+from utils.match_utils import get_sql_match_completed
 from web_app import app, logger
 
 TIME_FILTERS = [
@@ -26,6 +29,15 @@ SIDE_OPTIONS = [
     {"value": "t", "label": "T 方"},
 ]
 SIDE_VALUES = {item["value"] for item in SIDE_OPTIONS}
+RANKING_OPTIONS = [
+    {"value": "rating", "label": "RATING"},
+    {"value": "kd", "label": "K/D"},
+    {"value": "adr", "label": "ADR"},
+    {"value": "maps", "label": "地图数"},
+]
+RANKING_VALUES = {item["value"] for item in RANKING_OPTIONS}
+STATS_TABS = ("overview", "players", "matches", "events", "maps", "compare")
+_SQL_MATCH_COMPLETED = get_sql_match_completed()
 OVERVIEW_DETAIL_SECTIONS = {
     "best-players": {"title": "最佳选手", "kind": "players", "order": "rating"},
     "top-events": {"title": "冠军赛事", "kind": "events", "order": "matches"},
@@ -45,7 +57,26 @@ def _current_filters():
     side_key = (request.args.get("side") or "both").strip().lower()
     if side_key not in SIDE_VALUES:
         side_key = "both"
-    return {"time": time_key, "map": map_key, "side": side_key}
+    event_id = request.args.get("event", type=int)
+    ranking = (request.args.get("ranking") or "rating").strip().lower()
+    if ranking not in RANKING_VALUES:
+        ranking = "rating"
+    return {
+        "time": time_key,
+        "map": map_key,
+        "side": side_key,
+        "event": event_id,
+        "ranking": ranking,
+    }
+
+
+def _is_unfiltered(filters):
+    return (
+        filters["time"] == "all"
+        and filters["map"] == "all"
+        and filters["side"] == "both"
+        and filters.get("event") is None
+    )
 
 
 def _stats_where(filters, extra=None):
@@ -58,6 +89,9 @@ def _stats_where(filters, extra=None):
     if filters["map"] != "all":
         clauses.append("ms.map_name = ?")
         params.append(filters["map"])
+    if filters.get("event") is not None:
+        clauses.append("m.event_id = ?")
+        params.append(filters["event"])
     if not clauses:
         return "", params
     return " WHERE " + " AND ".join(clauses), params
@@ -70,6 +104,9 @@ def _match_where(filters, extra=None):
     if months:
         clauses.append("m.match_time >= datetime('now', ?)")
         params.append(f"-{months} months")
+    if filters.get("event") is not None:
+        clauses.append("m.event_id = ?")
+        params.append(filters["event"])
     if not clauses:
         return "", params
     return " WHERE " + " AND ".join(clauses), params
@@ -93,8 +130,8 @@ def _side_expr(side):
     return {
         "kills": "SUM(COALESCE(ms.kills, 0))",
         "deaths": "SUM(COALESCE(ms.deaths, 0))",
-        "rating": "AVG(ms.rating)",
-        "adr": "AVG(ms.adr)",
+        "rating": weighted_average_sql("ms.rating", "ms.rounds_played"),
+        "adr": weighted_average_sql("ms.adr", "ms.rounds_played"),
     }
 
 
@@ -618,12 +655,63 @@ def _available_maps(conn):
     return maps
 
 
+def _available_events(conn):
+    return conn.execute(
+        """
+        SELECT DISTINCT e.id, e.name, e.start_date
+        FROM events e
+        JOIN matches m ON m.event_id=e.id
+        JOIN match_stats ms ON ms.match_id=m.id
+        ORDER BY COALESCE(e.start_date, '') DESC, e.name ASC
+        """
+    ).fetchall()
+
+
 def _player_rankings(conn, filters, order="rating", limit=50):
+    if _is_unfiltered(filters):
+        order_sql = {
+            "rating": "s.avg_rating DESC, s.maps DESC, p.nickname ASC",
+            "kd": "kd DESC, s.avg_rating DESC, p.nickname ASC",
+            "adr": "s.avg_adr DESC, s.avg_rating DESC, p.nickname ASC",
+            "maps": "s.maps DESC, s.avg_rating DESC, p.nickname ASC",
+            "pistol": "s.first_kills DESC, opening_success DESC, s.avg_rating DESC",
+        }.get(order, "s.avg_rating DESC, s.maps DESC")
+        return conn.execute(
+            f"""
+            SELECT p.nickname, p.id, p.avatar, t.short_name AS team,
+                   s.avg_rating AS rating,
+                   s.total_kills AS kills,
+                   s.total_deaths AS deaths,
+                   s.rounds_played AS rounds,
+                   s.total_kills - s.total_deaths AS kd_diff,
+                   (s.total_kills * 1.0 / NULLIF(s.total_deaths, 0)) AS kd,
+                   s.avg_adr AS adr,
+                   s.avg_kast AS kast,
+                   s.avg_impact AS impact,
+                   s.avg_hs AS hs,
+                   s.clutches_won AS clutch,
+                   s.first_kills,
+                   s.first_deaths,
+                   (s.first_kills * 1.0 /
+                    NULLIF(s.first_kills + s.first_deaths, 0)) AS opening_success,
+                   s.maps
+            FROM player_performance_summary s
+            JOIN players p ON s.player_id=p.id
+            LEFT JOIN teams t ON p.team_id=t.id
+            WHERE s.maps > 0
+            ORDER BY {order_sql}
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+
     expr = _side_expr(filters["side"])
     where_sql, params = _stats_where(filters)
     order_sql = {
         "rating": "rating IS NULL, rating DESC, maps DESC, p.nickname ASC",
         "kd": "kd IS NULL, kd DESC, rating DESC, p.nickname ASC",
+        "adr": "adr IS NULL, adr DESC, rating DESC, p.nickname ASC",
+        "maps": "maps DESC, rating DESC, p.nickname ASC",
         "pistol": "first_kills DESC, opening_success DESC, rating DESC",
     }.get(order, "rating IS NULL, rating DESC")
     return conn.execute(
@@ -659,18 +747,29 @@ def _player_rankings(conn, filters, order="rating", limit=50):
 
 
 def _flash_rankings(conn, filters, limit=50):
-    """闪光弹排名：优先从 CSDA 缓存获取完整数据，回退到 match_stats。
+    """Read persisted flash metrics without opening multi-megabyte cache files."""
+    if _is_unfiltered(filters):
+        return conn.execute(
+            """
+            SELECT p.nickname, p.id, p.avatar,
+                   s.maps, s.rounds_played AS rounds,
+                   (s.flash_count * 1.0 / NULLIF(s.maps, 0)) AS thrown,
+                   (s.flash_blinded_seconds / NULLIF(s.maps, 0)) AS blinded,
+                   (s.flash_enemy_seconds / NULLIF(s.maps, 0)) AS opp_flashed,
+                   ((s.flash_enemy_seconds - s.flash_blinded_seconds) /
+                    NULLIF(s.maps, 0)) AS diff,
+                   (s.flash_assists * 1.0 / NULLIF(s.maps, 0)) AS fa,
+                   (s.opponent_flash_maps * 1.0 /
+                    NULLIF(s.flash_maps, 0)) AS success
+            FROM player_performance_summary s
+            JOIN players p ON s.player_id=p.id
+            WHERE s.maps > 0
+            ORDER BY success DESC, diff DESC, s.maps DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
 
-    CSDA 缓存可提供: thrown, blinded(被闪时长), opp_flashed(致盲敌人时长),
-    diff(差值), fa(闪光助攻), success(成功率)
-    match_stats 回退提供基础数据。
-    """
-    # 优先尝试 CSDA 缓存（数据更完整）
-    csda_rows = _csda_flash_stats(filters, limit)
-    if csda_rows:
-        return csda_rows
-
-    # 回退：使用 match_stats 基础数据
     where_sql, params = _stats_where(filters)
     return conn.execute(
         f"""
@@ -678,13 +777,12 @@ def _flash_rankings(conn, filters, limit=50):
                COUNT(ms.id) AS maps,
                SUM(COALESCE(ms.rounds_played, 0)) AS rounds,
                AVG(ms.flash_count) AS thrown,
-               0.0 AS blinded,
-               AVG(ms.enemies_flashed) AS opp_flashed,
-               AVG(ms.enemies_flashed) - 0.0 AS diff,
-               (SUM(CASE WHEN ms.enemies_flashed > 0 THEN 1 ELSE 0 END) * 1.0 /
-                NULLIF(SUM(ms.flash_count), 0)) AS fa,
-               (SUM(CASE WHEN ms.enemies_flashed > 0 THEN 1 ELSE 0 END) * 1.0 /
-                NULLIF(COUNT(ms.id), 0)) AS success
+               AVG(ms.flash_blinded_seconds) AS blinded,
+               AVG(ms.flash_enemy_seconds) AS opp_flashed,
+               AVG(ms.flash_enemy_seconds - ms.flash_blinded_seconds) AS diff,
+               AVG(ms.flash_assists) AS fa,
+               (SUM(CASE WHEN ms.flash_enemy_seconds > 0 THEN 1 ELSE 0 END) * 1.0 /
+                NULLIF(SUM(CASE WHEN ms.flash_count > 0 THEN 1 ELSE 0 END), 0)) AS success
         FROM match_stats ms
         JOIN players p ON ms.player_id=p.id
         JOIN matches m ON ms.match_id=m.id
@@ -700,7 +798,8 @@ def _flash_rankings(conn, filters, limit=50):
 
 def _top_teams(conn, filters, limit=8):
     expr = _side_expr(filters["side"])
-    where_sql, params = _stats_where(filters)
+    # Temporary match-side teams use negative IDs and are not real team records.
+    where_sql, params = _stats_where(filters, ["ms.team_id > 0"])
     return conn.execute(
         f"""
         SELECT
@@ -741,11 +840,12 @@ def _top_events(conn, filters, limit=20):
     where_sql, params = _stats_where(filters)
     return conn.execute(
         f"""
-        SELECT e.id, e.name,
+        SELECT e.id, e.name, e.slug, e.status, e.start_date, e.end_date,
                COUNT(DISTINCT m.id) AS matches,
+               COUNT(DISTINCT CAST(m.id AS TEXT) || ':' ||
+                     COALESCE(ms.map_name, '')) AS maps,
                GROUP_CONCAT(DISTINCT COALESCE(t.short_name, t.name)) AS champion_teams,
-               GROUP_CONCAT(DISTINCT t.id) AS champion_team_ids,
-               COALESCE(e.start_date, '') AS start_date
+               GROUP_CONCAT(DISTINCT t.id) AS champion_team_ids
         FROM events e
         JOIN matches m ON m.event_id=e.id
         JOIN match_stats ms ON ms.match_id=m.id
@@ -760,47 +860,7 @@ def _top_events(conn, filters, limit=20):
     ).fetchall()
 
 
-def _top_weapons(filters):
-    conn = get_db()
-    where_sql, params = _stats_where(filters)
-    match_ids = None
-    if where_sql:
-        match_ids = {
-            int(r["match_id"])
-            for r in conn.execute(
-                f"""
-                SELECT DISTINCT ms.match_id
-                FROM match_stats ms
-                JOIN matches m ON ms.match_id=m.id
-                {where_sql}
-            """,
-                params,
-            ).fetchall()
-        }
-    conn.close()
-    weapon_counter = Counter()
-    cache_dir = Path(app.instance_path) / "replay_cache"
-    target_map = normalize_map_name(filters["map"]) if filters["map"] != "all" else ""
-    if cache_dir.exists():
-        for cache_file in cache_dir.glob("match_*_slot_*.json"):
-            match_id_match = re.match(r"match_(\d+)_slot_\d+\.json$", cache_file.name)
-            if not match_id_match:
-                continue
-            match_id = int(match_id_match.group(1))
-            if match_ids is not None and match_id not in match_ids:
-                continue
-            try:
-                cache_data = json.loads(cache_file.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                continue
-            data = cache_data.get("data") or {}
-            cache_map = normalize_map_name(data.get("map_name") or data.get("map") or "")
-            if target_map and cache_map and cache_map != target_map:
-                continue
-            for kill in data.get("kills") or []:
-                weapon = str((kill or {}).get("weapon") or "").strip().lower()
-                if weapon:
-                    weapon_counter[weapon] += 1
+def _format_top_weapons(weapon_counter):
     weapon_names = {
         "ak47": "ak47",
         "m4a1_silencer": "m4a1_silencer",
@@ -855,6 +915,40 @@ def _top_weapons(filters):
     return weapons
 
 
+def _top_weapons(conn, filters):
+    clauses = ["ke.weapon IS NOT NULL", "TRIM(ke.weapon) != ''"]
+    params = []
+    months = TIME_FILTER_MAP[filters["time"]]["months"]
+    if months:
+        clauses.append("m.match_time >= datetime('now', ?)")
+        params.append(f"-{months} months")
+    if filters["map"] != "all":
+        clauses.append("ke.map_name=?")
+        params.append(filters["map"])
+    where_sql = " WHERE " + " AND ".join(clauses)
+    weapon_counter = Counter()
+    rows = conn.execute(
+        f"""
+        SELECT ke.weapon, COUNT(*) AS kills
+        FROM match_kill_events ke
+        JOIN matches m ON m.id=ke.match_id
+        {where_sql}
+        GROUP BY ke.weapon
+        """,
+        tuple(params),
+    ).fetchall()
+    for row in rows:
+        weapon = str(row["weapon"] or "").strip().lower().removeprefix("weapon_")
+        weapon = weapon.replace("-", "").replace(" ", "_")
+        weapon = {
+            "usps": "usp_silencer",
+            "m4a1s": "m4a1_silencer",
+        }.get(weapon, weapon)
+        if weapon and weapon not in {"world", "worldent"}:
+            weapon_counter[weapon] += int(row["kills"] or 0)
+    return _format_top_weapons(weapon_counter)
+
+
 def _overview_context(conn, filters):
     overview = {
         "total_players": conn.execute("SELECT COUNT(*) AS cnt FROM players").fetchone()["cnt"],
@@ -868,9 +962,12 @@ def _overview_context(conn, filters):
         "avg_adr": conn.execute("SELECT AVG(adr) AS v FROM match_stats").fetchone()["v"],
     }
     overview["top_player"] = conn.execute("""
-        SELECT p.nickname, p.id, AVG(ms.rating) AS r, COUNT(ms.id) AS m
-        FROM match_stats ms JOIN players p ON ms.player_id=p.id
-        GROUP BY p.id HAVING m >= 5 ORDER BY r DESC LIMIT 1
+        SELECT p.nickname, p.id, s.avg_rating AS r, s.maps AS m
+        FROM player_performance_summary s
+        JOIN players p ON s.player_id=p.id
+        WHERE s.maps >= 5
+        ORDER BY s.avg_rating DESC, s.maps DESC
+        LIMIT 1
     """).fetchone()
     overview["top_team"] = conn.execute("""
         SELECT t.name, t.short_name, t.id, COUNT(m.id) AS cnt,
@@ -895,7 +992,7 @@ def _overview_context(conn, filters):
     overview["top_players"] = _player_rankings(conn, filters, "rating", 8)
     overview["top_teams"] = _top_teams(conn, filters, 8)
     overview["top_events"] = _top_events(conn, filters, 5)
-    overview["top_weapons"] = _top_weapons(filters)
+    overview["top_weapons"] = _top_weapons(conn, filters)
     return overview
 
 
@@ -999,13 +1096,143 @@ def _map_statistics(conn, filters):
     return rows, map_top_players
 
 
+def _match_statistics(conn, filters, limit=100):
+    extra = [_SQL_MATCH_COMPLETED]
+    params = []
+    months = TIME_FILTER_MAP[filters["time"]]["months"]
+    if months:
+        extra.append("m.match_time >= datetime('now', ?)")
+        params.append(f"-{months} months")
+    if filters.get("event") is not None:
+        extra.append("m.event_id = ?")
+        params.append(filters["event"])
+    if filters["map"] != "all":
+        extra.append(
+            "EXISTS (SELECT 1 FROM match_stats filtered_ms "
+            "WHERE filtered_ms.match_id=m.id AND filtered_ms.map_name=?)"
+        )
+        params.append(filters["map"])
+    where_sql = " WHERE " + " AND ".join(extra)
+    return conn.execute(
+        f"""
+        SELECT m.id, m.slug, m.match_time, m.bo_format, m.stage,
+               m.team1_score, m.team2_score,
+               COALESCE(t1.short_name, t1.name, 'Team 1') AS team1_name,
+               COALESCE(t2.short_name, t2.name, 'Team 2') AS team2_name,
+               t1.logo AS team1_logo, t2.logo AS team2_logo,
+               e.id AS event_id, e.slug AS event_slug, e.name AS event_name,
+               (SELECT COUNT(DISTINCT counted_ms.map_name)
+                FROM match_stats counted_ms
+                WHERE counted_ms.match_id=m.id
+                  AND counted_ms.map_name IS NOT NULL
+                  AND counted_ms.map_name != '') AS maps
+        FROM matches m
+        LEFT JOIN teams t1 ON m.team1_id=t1.id
+        LEFT JOIN teams t2 ON m.team2_id=t2.id
+        LEFT JOIN events e ON m.event_id=e.id
+        {where_sql}
+        ORDER BY COALESCE(m.match_time, '') DESC, m.id DESC
+        LIMIT ?
+        """,
+        (*params, limit),
+    ).fetchall()
+
+
+def _comparison_players(conn):
+    return conn.execute(
+        """
+        SELECT p.id, p.nickname, p.avatar, t.short_name AS team
+        FROM player_performance_summary s
+        JOIN players p ON s.player_id=p.id
+        LEFT JOIN teams t ON p.team_id=t.id
+        WHERE s.maps > 0
+        ORDER BY p.nickname COLLATE NOCASE
+        """
+    ).fetchall()
+
+
+def _comparison_profile(conn, player_id, filters):
+    expr = _side_expr(filters["side"])
+    where_sql, filter_params = _stats_where(filters, ["ms.player_id = ?"])
+    row = conn.execute(
+        f"""
+        SELECT p.id, p.nickname, p.avatar, t.short_name AS team,
+               COUNT(DISTINCT ms.match_id) AS matches,
+               COUNT(ms.id) AS maps,
+               SUM(COALESCE(ms.rounds_played, 0)) AS rounds,
+               {expr["kills"]} AS kills,
+               {expr["deaths"]} AS deaths,
+               ({expr["kills"]} * 1.0 / NULLIF({expr["deaths"]}, 0)) AS kd,
+               ({expr["kills"]} * 1.0 /
+                NULLIF(SUM(COALESCE(ms.rounds_played, 0)), 0)) AS kpr,
+               {expr["rating"]} AS rating,
+               {expr["adr"]} AS adr,
+               AVG(ms.kast) AS kast,
+               AVG(ms.impact) AS impact,
+               AVG(ms.headshot_percentage) AS hs
+        FROM match_stats ms
+        JOIN matches m ON ms.match_id=m.id
+        JOIN players p ON ms.player_id=p.id
+        LEFT JOIN teams t ON p.team_id=t.id
+        {where_sql}
+        GROUP BY p.id
+        HAVING COUNT(ms.id) > 0
+        """,
+        (player_id, *filter_params),
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def _comparison_context(conn, filters):
+    players = _comparison_players(conn)
+    id1 = request.args.get("id1", type=int)
+    id2 = request.args.get("id2", type=int)
+    left = _comparison_profile(conn, id1, filters) if id1 else None
+    right = _comparison_profile(conn, id2, filters) if id2 else None
+    metrics = []
+    if left and right:
+        metric_specs = (
+            ("RATING 2.0", "rating", 2, ""),
+            ("K/D", "kd", 2, ""),
+            ("ADR", "adr", 1, ""),
+            ("KAST", "kast", 1, "%"),
+            ("影响力", "impact", 2, ""),
+            ("爆头率", "hs", 1, "%"),
+            ("每回合击杀", "kpr", 2, ""),
+            ("比赛数", "matches", 0, ""),
+            ("地图数", "maps", 0, ""),
+        )
+        for label, key, digits, suffix in metric_specs:
+            left_value = left.get(key)
+            right_value = right.get(key)
+            if left_value is None or right_value is None:
+                continue
+            metrics.append(
+                {
+                    "label": label,
+                    "left": left_value,
+                    "right": right_value,
+                    "left_display": f"{left_value:.{digits}f}{suffix}",
+                    "right_display": f"{right_value:.{digits}f}{suffix}",
+                }
+            )
+    return {
+        "players": players,
+        "left": left,
+        "right": right,
+        "id1": id1,
+        "id2": id2,
+        "metrics": metrics,
+    }
+
+
 def _award_groups(conn):
     medals = [
         dict(r)
         for r in conn.execute("""
         SELECT pm.id, pm.type, pm.evp_rank, pm.reason, pm.player_id, pm.event_id, pm.match_id,
                p.nickname, p.avatar,
-               e.name AS event_name, e.start_date AS event_date,
+               e.name AS event_name, e.slug AS event_slug, e.start_date AS event_date,
                t.short_name AS team_short, t.name AS team_name
         FROM player_medals pm
         JOIN players p ON pm.player_id = p.id
@@ -1018,7 +1245,7 @@ def _award_groups(conn):
         dict(r)
         for r in conn.execute("""
         SELECT ec.id, ec.event_id, ec.team_id,
-               e.name AS event_name, e.start_date AS event_date,
+               e.name AS event_name, e.slug AS event_slug, e.start_date AS event_date,
                t.name AS team_name, t.short_name AS team_short, t.logo
         FROM event_champions ec
         JOIN events e ON ec.event_id = e.id
@@ -1028,59 +1255,81 @@ def _award_groups(conn):
     ]
     event_groups = {}
     for medal in medals:
-        key = (medal["event_id"], medal["event_name"], medal["event_date"])
+        key = (
+            medal["event_id"],
+            medal["event_slug"],
+            medal["event_name"],
+            medal["event_date"],
+        )
         event_groups.setdefault(key, {"medals": [], "champions": []})["medals"].append(medal)
     for champion in champions:
-        key = (champion["event_id"], champion["event_name"], champion["event_date"])
+        key = (
+            champion["event_id"],
+            champion["event_slug"],
+            champion["event_name"],
+            champion["event_date"],
+        )
         event_groups.setdefault(key, {"medals": [], "champions": []})["champions"].append(champion)
-    return sorted(event_groups.items(), key=lambda x: x[0][2] or "", reverse=True)
+    return sorted(event_groups.items(), key=lambda x: x[0][3] or "", reverse=True)
 
 
 @app.route("/stats")
 def stats_page():
-    """数据排行榜 - Overview / Players / Maps / Awards"""
+    """HLTV-style statistics hub backed only by recorded site data."""
     tab = request.args.get("tab", "overview")
-    if tab not in ("overview", "players", "maps", "awards"):
+    if tab == "awards":
+        tab = "events"
+    if tab not in STATS_TABS:
         tab = "overview"
     filters = _current_filters()
 
     conn = get_db()
-    map_options = _available_maps(conn)
+    try:
+        map_options = _available_maps(conn)
+        event_options = _available_events(conn)
+        sidebar_feed = load_home_feed(conn)
 
-    # 只计算当前激活的 tab 需要的数据，避免一次性执行所有查询
-    overview = None
-    rankings = None
-    flash_rankings = None
-    map_stats = None
-    map_top_players = None
-    sorted_groups = None
+        # Only query the active view. This keeps the six real-data pages quick.
+        overview = None
+        rankings = None
+        matches = None
+        events = None
+        map_stats = None
+        map_top_players = None
+        comparison = None
 
-    if tab == "overview":
-        overview = _overview_context(conn, filters)
-        rankings = _player_rankings(conn, filters, "rating", 50)
-    elif tab == "players":
-        rankings = _player_rankings(conn, filters, "rating", 50)
-        flash_rankings = _flash_rankings(conn, filters, 50)
-    elif tab == "maps":
-        map_stats, map_top_players = _map_statistics(conn, filters)
-    elif tab == "awards":
-        sorted_groups = _award_groups(conn)
-
-    conn.close()
+        if tab == "overview":
+            overview = _overview_context(conn, filters)
+        elif tab == "players":
+            rankings = _player_rankings(conn, filters, filters["ranking"], 100)
+        elif tab == "matches":
+            matches = _match_statistics(conn, filters, 100)
+        elif tab == "events":
+            events = _top_events(conn, filters, 100)
+        elif tab == "maps":
+            map_stats, map_top_players = _map_statistics(conn, filters)
+        elif tab == "compare":
+            comparison = _comparison_context(conn, filters)
+    finally:
+        conn.close()
 
     return render_template(
         "stats.html",
         rankings=rankings,
+        matches=matches,
+        events=events,
+        comparison=comparison,
         tab=tab,
         filters=filters,
         time_options=TIME_FILTERS,
+        ranking_options=RANKING_OPTIONS,
         map_options=map_options,
+        event_options=event_options,
         side_options=SIDE_OPTIONS,
         map_stats=map_stats,
         map_top_players=map_top_players,
         overview=overview,
-        event_groups=sorted_groups,
-        flash_rankings=flash_rankings,
+        sidebar_feed=sidebar_feed,
     )
 
 
@@ -1092,16 +1341,20 @@ def stats_overview_detail(section):
     filters = _current_filters()
     config = OVERVIEW_DETAIL_SECTIONS[section]
     conn = get_db()
-    if config["kind"] == "events":
-        rows = _top_events(conn, filters, 100)
-    elif config["kind"] == "flashes":
-        rows = _flash_rankings(conn, filters, 100)
-    elif config["kind"] == "pistol":
-        rows = _pistol_rounds(filters, 100)
-    else:
-        rows = _player_rankings(conn, filters, config["order"], 100)
-    map_options = _available_maps(conn)
-    conn.close()
+    try:
+        if config["kind"] == "events":
+            rows = _top_events(conn, filters, 100)
+        elif config["kind"] == "flashes":
+            rows = _flash_rankings(conn, filters, 100)
+        elif config["kind"] == "pistol":
+            rows = _pistol_rounds(filters, 100)
+        else:
+            rows = _player_rankings(conn, filters, config["order"], 100)
+        map_options = _available_maps(conn)
+        event_options = _available_events(conn)
+        sidebar_feed = load_home_feed(conn)
+    finally:
+        conn.close()
     return render_template(
         "stats_detail.html",
         section=section,
@@ -1110,7 +1363,9 @@ def stats_overview_detail(section):
         filters=filters,
         time_options=TIME_FILTERS,
         map_options=map_options,
+        event_options=event_options,
         side_options=SIDE_OPTIONS,
+        sidebar_feed=sidebar_feed,
     )
 
 
@@ -1125,7 +1380,7 @@ def predictions_page():
 
     # 积分排行榜（Total Points）
     points_rows = conn.execute("""
-        SELECT u.username, u.id AS user_id, u.avatar,
+        SELECT u.username, u.id AS user_id, u.avatar, u.is_cheater,
                COUNT(v.id) AS total_votes,
                SUM(CASE WHEN v.points_earned > 0 THEN 1 ELSE 0 END) AS correct_votes,
                SUM(v.points_earned) AS total_points,

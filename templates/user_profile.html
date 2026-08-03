@@ -1,28 +1,30 @@
 {% extends 'base.html' %}
+{% from "_user_badges.html" import cheater_badge %}
 {% block title %}个人主页 - 80GOTV{% endblock %}
 {% block main %}
 <div class="player-header">
-  {% if user.avatar %}
-    <img src="{{ url_for('static', filename='avatars/' + user.avatar) }}" class="avatar-xl" style="object-fit:cover;" loading="lazy">
-  {% else %}
-    <div class="avatar-xl">{{ user.username[0] }}</div>
-  {% endif %}
+  <span class="profile-avatar-overlay-wrap">
+    {% if user.avatar %}
+      <img src="{{ url_for('static', filename='avatars/' + user.avatar) }}" class="avatar-xl" style="object-fit:cover;" loading="lazy">
+    {% else %}
+      <span class="avatar-xl">{{ user.username[0] }}</span>
+    {% endif %}
+    {% if user.is_cheater %}
+      <img src="{{ url_for('static', filename='images/pac_cheating_overlay.png') }}" class="pac-avatar-overlay profile-pac-overlay" alt="作弊封禁" loading="lazy">
+    {% endif %}
+  </span>
   <div class="player-info">
-    <h1>{{ user.username }}</h1>
+    <h1>
+      <span data-i18n-ignore>{{ user.username }}{% if user.is_bashizhong_student != 0 and user.group_username %} <span class="user-group-handle">@{{ user.group_username }}</span>{% endif %}</span>
+      {{ cheater_badge(user.is_cheater) }}
+    </h1>
     <div class="meta">
       {% if player %}<span>{{ player.nickname }} · {{ player.team_name or '无队伍' }}</span>{% endif %}
       {% if user.steam_id64 %}<span>Steam64: {{ user.steam_id64 }}</span>{% endif %}
+      {% if user.is_bashizhong_student == 1 %}<a href="#group-username-settings" class="btn-back" style="padding:4px 10px;font-size:12px;">修改群昵称</a>{% endif %}
     </div>
   </div>
 </div>
-
-{% with messages = get_flashed_messages(with_categories=true) %}
-  {% if messages %}
-    {% for category, message in messages %}
-    <div class="alert alert-{{ category }}" style="padding:10px 16px;margin-bottom:16px;border-radius:0;font-size:14px;{% if category=='success' %}background:#d4edda;color:#155724;{% else %}background:#f8d7da;color:#721c24;{% endif %}">{{ message }}</div>
-    {% endfor %}
-  {% endif %}
-{% endwith %}
 
 <!-- 参加的赛事 -->
 {% if events_participated %}
@@ -41,7 +43,7 @@
       </div>
     </div>
     <div style="display:flex;gap:8px;flex-shrink:0;">
-      <a href="/events/{{ ev.id }}" class="roll-btn" style="font-size:12px;padding:6px 14px;text-decoration:none;
+      <a href="{{ event_path(ev) }}" class="roll-btn" style="font-size:12px;padding:6px 14px;text-decoration:none;
          {% if not ev.is_active %}background:#22c55e;{% endif %}">
         {% if ev.is_active %}查看/BP{% else %}查看赛事{% endif %}
       </a>
@@ -90,6 +92,30 @@
     </div>
   </form>
 </div>
+
+{% if user.is_bashizhong_student == 1 %}
+<h3 id="group-username-settings" class="section-title" style="margin-top:24px;scroll-margin-top:64px;">修改群昵称</h3>
+<div class="card" style="padding:16px;">
+  {% if not user.group_username %}
+  <div style="margin-bottom:12px;padding:10px 12px;border:1px solid #d9a9ad;background:#fff0f1;color:#a9363e;">群昵称为必填项，填写后才能继续使用其他网站功能。</div>
+  {% endif %}
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="action" value="group_username">
+    <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+      <div style="flex:1;min-width:200px;">
+        <label for="groupUsername" style="font-size:13px;color:var(--text-muted);">群昵称 <span style="color:#bd3e46;">*</span></label>
+        <input id="groupUsername" type="text" name="group_username" value="{{ user.group_username or '' }}" required maxlength="40"
+               {% if not user.group_username %}autofocus{% endif %}
+               placeholder="例如：Crinia_"
+               style="width:100%;padding:10px;border:1px solid var(--border-color);border-radius:0;font-size:14px;background:var(--bg-card);color:var(--text-primary);margin-top:4px;">
+        <div style="font-size:12px;color:var(--text-muted);margin-top:6px;">保存后显示为“选手昵称 @群昵称”；可以随时修改，但不能留空。</div>
+      </div>
+      <button type="submit" style="padding:10px 18px;background:#5881bc;color:#fff;border:none;border-radius:0;cursor:pointer;font-weight:600;">保存群昵称</button>
+    </div>
+  </form>
+</div>
+{% endif %}
 
 <h3 class="section-title" style="margin-top:24px;">修改昵称</h3>
 <div class="card" style="padding:16px;">
@@ -140,6 +166,9 @@
 <h3 class="section-title">账户信息</h3>
 <div class="card small">
   <div><b>用户名：</b>{{ user.username }}</div>
+  {% if user.is_bashizhong_student != 0 and user.group_username %}<div><b>群昵称：</b>{{ user.group_username }}</div>{% endif %}
+  <div><b>来源：</b>{% if user.is_bashizhong_student == 1 %}八十中{% elif user.is_bashizhong_student == 0 %}外校{% else %}待设置{% endif %}</div>
+  {% if user.is_cheater %}<div><b>标记：</b>{{ cheater_badge(user.is_cheater) }}</div>{% endif %}
   <div><b>Steam64 ID：</b>{{ user.steam_id64 or '未绑定' }}</div>
   <div><b>注册时间：</b>{{ user.created_at|date_display if user.created_at else '-' }}</div>
   <div><b>身份：</b>{{ '选手' if player else '游客' }}</div>

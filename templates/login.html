@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="zh-CN" data-theme="light">
 <head>
+  {% include "_i18n_bootstrap.html" %}
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="light dark">
@@ -90,21 +91,17 @@
       content:"80";position:absolute;right:-20px;bottom:-85px;
       font-size:260px;font-weight:800;line-height:1;color:rgba(255,255,255,.06);letter-spacing:-24px;
     }
-    .brand-top,.brand-copy,.brand-points{position:relative;z-index:1}
+    .brand-top,.brand-copy{position:relative;z-index:1}
     .brand-top{display:flex;align-items:center;gap:12px;font-size:18px;font-weight:750;letter-spacing:.5px}
     .brand-mark{
       width:44px;height:44px;border:1px solid rgba(255,255,255,.55);border-radius:13px;
-      display:grid;place-items:center;background:rgba(255,255,255,.12);font-weight:800;
+      display:block;object-fit:cover;background:#fff;
       box-shadow:inset 0 0 0 4px rgba(255,255,255,.06);
     }
-    .brand-eyebrow{margin:0 0 13px;color:rgba(255,255,255,.72);font-size:12px;font-weight:700;letter-spacing:2px}
-    .brand-copy h1{max-width:300px;margin:0;font-size:35px;line-height:1.25;letter-spacing:-.5px}
-    .brand-copy p{max-width:310px;margin:18px 0 0;color:rgba(255,255,255,.76);font-size:15px;line-height:1.75}
-    .brand-points{display:flex;gap:10px;flex-wrap:wrap}
-    .brand-point{
-      padding:7px 11px;border:1px solid rgba(255,255,255,.18);border-radius:999px;
-      color:rgba(255,255,255,.82);background:rgba(16,41,61,.18);font-size:12px;
-    }
+    .brand-copy{position:absolute;top:50%;left:44px;right:44px;transform:translateY(-50%);text-align:left}
+    .brand-copy h1{margin:0;line-height:1.35;letter-spacing:1px}
+    .brand-title-en{display:block;font-size:26px;white-space:nowrap}
+    .brand-title-cn{display:block;margin-top:5px;font-size:38px;letter-spacing:2px;white-space:nowrap}
 
     .form-panel{padding:40px 46px 32px;display:flex;flex-direction:column;justify-content:center;min-width:0}
     .form-heading{margin-bottom:22px}
@@ -130,6 +127,14 @@
     .form-group{margin-bottom:15px}
     .form-label{display:block;margin-bottom:6px;color:var(--text-secondary);font-size:13px;font-weight:650}
     .required{color:var(--error)}
+    .school-status-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+    .school-status-option{position:relative;cursor:pointer}
+    .school-status-option input{position:absolute;opacity:0;pointer-events:none}
+    .school-status-option span{display:grid;gap:3px;min-height:58px;padding:11px 13px;border:1px solid var(--border);border-radius:6px;background:var(--input-bg);box-sizing:border-box}
+    .school-status-option small{color:var(--text-muted);font-size:11px}
+    .school-status-option input:checked+span{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent);background:var(--accent-soft)}
+    .school-status-option input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
+    .form-group[hidden]{display:none}
     .text-input,.file-input{
       width:100%;height:44px;padding:0 13px;border:1px solid var(--border);border-radius:10px;
       color:var(--text-primary);background:var(--input-bg);transition:.2s;
@@ -144,6 +149,16 @@
     }
     .field-note{display:block;margin-top:5px;color:var(--text-muted);font-size:12px}
     .field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .email-action-row{display:grid;grid-template-columns:minmax(0,1fr) 112px;gap:8px;margin-bottom:8px}
+    .email-action-button{
+      height:44px;padding:0 10px;border:1px solid var(--border);border-radius:10px;
+      color:var(--accent);background:var(--input-bg);font-weight:650;cursor:pointer;
+    }
+    .email-action-button:hover{border-color:var(--accent);background:var(--accent-soft)}
+    .email-action-button:disabled{opacity:.55;cursor:not-allowed}
+    .email-status{display:block;min-height:18px;color:var(--text-muted);font-size:12px}
+    .email-status.success{color:var(--success)}
+    .email-status.error{color:var(--error)}
     .password-wrap{position:relative}
     .password-wrap .text-input{padding-right:58px}
     .password-toggle{
@@ -152,27 +167,17 @@
     }
     .password-toggle:hover{color:var(--accent);background:var(--accent-soft)}
 
-    .account-types{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-    .account-option{position:relative;display:block;cursor:pointer}
-    .account-option input{position:absolute;opacity:0;pointer-events:none}
-    .option-card{
-      min-height:61px;padding:10px 11px;border:1px solid var(--border);border-radius:10px;
-      display:flex;align-items:center;gap:10px;background:var(--input-bg);transition:.2s;
+    .application-notice{
+      margin-bottom:15px;padding:11px 13px;border:1px solid var(--border);border-radius:10px;
+      color:var(--text-secondary);background:var(--accent-soft);font-size:13px;line-height:1.55;
     }
-    .option-dot{width:17px;height:17px;border:2px solid var(--border);border-radius:50%;flex:0 0 auto;box-shadow:inset 0 0 0 4px var(--input-bg)}
-    .option-text strong{display:block;font-size:13px}
-    .option-text small{display:block;margin-top:1px;color:var(--text-muted);font-size:11px}
-    .account-option:hover .option-card{border-color:color-mix(in srgb,var(--accent) 55%,var(--border))}
-    .account-option input:checked + .option-card{border-color:var(--accent);background:var(--accent-soft)}
-    .account-option input:checked + .option-card .option-dot{border-color:var(--accent);background:var(--accent);box-shadow:inset 0 0 0 4px var(--accent-soft)}
-    .account-option input:focus-visible + .option-card{outline:3px solid rgba(80,127,168,.3);outline-offset:2px}
+    .form-trap{position:absolute!important;left:-10000px!important;width:1px!important;height:1px!important;overflow:hidden!important}
 
     .captcha-block{margin-bottom:15px}
-    .captcha-row{display:grid;grid-template-columns:118px minmax(0,1fr) 42px;gap:8px}
-    .captcha-question{
-      min-height:44px;padding:0 10px;border:1px solid var(--border);border-radius:10px;
-      display:flex;align-items:center;justify-content:center;color:var(--accent);background:var(--accent-soft);
-      font:700 14px/1.2 Consolas,'Courier New',monospace;letter-spacing:.4px;user-select:none;white-space:nowrap;
+    .captcha-row{display:grid;grid-template-columns:150px minmax(0,1fr) 42px;gap:8px}
+    .captcha-image{
+      width:150px;height:44px;border:1px solid var(--border);border-radius:10px;
+      display:block;object-fit:cover;background:var(--input-bg);user-select:none;
     }
     .captcha-refresh{
       width:42px;height:44px;padding:0;border:1px solid var(--border);border-radius:10px;
@@ -202,7 +207,7 @@
       body{padding:72px 16px 24px;align-items:flex-start}
       .auth-shell{display:block;max-width:500px;border-radius:20px}
       .brand-panel{min-height:auto;padding:25px 28px}
-      .brand-copy,.brand-points{display:none}
+      .brand-copy{display:none}
       .brand-top{font-size:17px}
       .brand-mark{width:39px;height:39px;border-radius:11px}
       .form-panel{padding:30px 28px 26px}
@@ -213,9 +218,8 @@
       .form-panel{padding:26px 18px 22px}
       .form-heading h2{font-size:22px}
       .field-row{grid-template-columns:1fr;gap:0}
-      .captcha-row{grid-template-columns:104px minmax(0,1fr) 42px}
-      .account-types{gap:7px}
-      .option-card{padding:9px 8px}
+      .captcha-row{grid-template-columns:118px minmax(0,1fr) 42px}
+      .captcha-image{width:118px}
     }
   </style>
 </head>
@@ -233,18 +237,11 @@
   <main class="auth-shell">
     <section class="brand-panel" aria-label="80GOTV 介绍">
       <div class="brand-top">
-        <span class="brand-mark">80</span>
+        <img class="brand-mark" src="{{ url_for('static', filename='logos/80gotv-mark.png') }}" alt="80GOTV">
         <span>80GOTV</span>
       </div>
       <div class="brand-copy">
-        <p class="brand-eyebrow">CS2 赛事数据平台</p>
-        <h1>每一场对局，都值得被看见。</h1>
-        <p>查看比赛、选手数据与精彩回放，记录属于你的每一次高光。</p>
-      </div>
-      <div class="brand-points" aria-hidden="true">
-        <span class="brand-point">比赛数据</span>
-        <span class="brand-point">实时战况</span>
-        <span class="brand-point">Demo 回放</span>
+        <h1><span class="brand-title-en">80GO Counter-Strike 2</span><span class="brand-title-cn">数据统计网站</span></h1>
       </div>
     </section>
 
@@ -252,10 +249,10 @@
       <div class="form-heading">
         {% if active_tab == 'login' %}
         <h2>欢迎回来</h2>
-        <p>登录账号，继续查看你的赛事内容</p>
+        <p>登录以查看数据</p>
         {% else %}
-        <h2>创建账号</h2>
-        <p>选择适合你的身份，加入 80GOTV</p>
+        <h2>申请账号</h2>
+        <p>完成 Steam 验证后提交，管理员审核通过即可登录</p>
         {% endif %}
       </div>
 
@@ -292,8 +289,8 @@
           <div class="captcha-block">
             <label class="form-label" for="loginCaptcha">安全验证</label>
             <div class="captcha-row">
-              <span class="captcha-question" id="captchaText">{{ session.get('captcha_text', '') }}</span>
-              <input class="text-input" id="loginCaptcha" type="text" name="captcha" placeholder="填写答案" autocomplete="off" inputmode="numeric" maxlength="4">
+              <img class="captcha-image" id="captchaImage" src="/captcha/image?t={{ range(100000, 999999)|random }}" alt="验证码">
+              <input class="text-input" id="loginCaptcha" type="text" name="captcha" placeholder="输入图片字符" autocomplete="off" autocapitalize="characters" maxlength="5">
               <button type="button" class="captcha-refresh" onclick="reloadCaptcha()" aria-label="换一个验证码" title="换一个验证码">↻</button>
             </div>
           </div>
@@ -306,27 +303,43 @@
       </div>
       {% else %}
       <div class="tab-content active">
-        <form method="post" action="/register" enctype="multipart/form-data">
+        <form method="post" action="/register" enctype="multipart/form-data" id="registerForm" novalidate>
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <div class="form-trap" aria-hidden="true">
+            <label for="registerWebsite">网站</label>
+            <input id="registerWebsite" type="text" name="website" tabindex="-1" autocomplete="off">
+          </div>
+
+          <div class="application-notice">访客注册已关闭。目前仅接受选手申请，必须验证 Steam，并由管理员审核。</div>
 
           <div class="form-group">
-            <span class="form-label">注册身份 <span class="required">*</span></span>
-            <div class="account-types">
-              <label class="account-option">
-                <input type="radio" name="reg_type" value="player" {% if request.form.get('reg_type', 'player') == 'player' %}checked{% endif %} onchange="toggleSteamFields()">
-                <span class="option-card">
-                  <span class="option-dot"></span>
-                  <span class="option-text"><strong>我是选手</strong><small>关联比赛数据</small></span>
-                </span>
+            <span class="form-label">你是否是或曾经是八十中学生？ <span class="required">*</span></span>
+            {% set submitted_school_status = request.form.get('is_bashizhong_student', '') %}
+            <div class="school-status-options">
+              <label class="school-status-option">
+                <input type="radio" name="is_bashizhong_student" value="1"
+                       {% if submitted_school_status == '1' %}checked{% endif %} required>
+                <span><strong>是</strong><small>还需填写群内用户名</small></span>
               </label>
-              <label class="account-option">
-                <input type="radio" name="reg_type" value="guest" {% if request.form.get('reg_type') == 'guest' %}checked{% endif %} onchange="toggleSteamFields()">
-                <span class="option-card">
-                  <span class="option-dot"></span>
-                  <span class="option-text"><strong>我是游客</strong><small>浏览和评论</small></span>
-                </span>
+              <label class="school-status-option">
+                <input type="radio" name="is_bashizhong_student" value="0"
+                       {% if submitted_school_status == '0' %}checked{% endif %} required>
+                <span><strong>不是</strong><small>选手资料显示世界标识</small></span>
               </label>
             </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="registerEmail">邮箱 <span class="required">*</span></label>
+            <div class="email-action-row">
+              <input class="text-input" id="registerEmail" type="email" name="email" required maxlength="254" autocomplete="email" value="{{ registration_email or '' }}" data-verified-email="{{ verified_email or '' }}" placeholder="用于接收六位验证码">
+              <button class="email-action-button" id="sendEmailCode" type="button">发送验证码</button>
+            </div>
+            <div class="email-action-row">
+              <input class="text-input" id="registerEmailCode" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="输入六位验证码">
+              <button class="email-action-button" id="verifyEmailCode" type="button">验证邮箱</button>
+            </div>
+            <small class="email-status {% if verified_email %}success{% endif %}" id="emailStatus">{% if verified_email %}邮箱已验证{% else %}验证码 10 分钟内有效{% endif %}</small>
           </div>
 
           <div class="field-row">
@@ -334,24 +347,29 @@
               <label class="form-label" for="registerUsername">用户名 <span class="required">*</span></label>
               <input class="text-input" id="registerUsername" type="text" name="username" required minlength="2" maxlength="20" autocomplete="username" value="{{ request.form.get('username', '') }}" placeholder="2-20 个字符">
             </div>
-            <div class="form-group">
-              <label class="form-label" for="registerAvatar">头像</label>
-              <input class="file-input" id="registerAvatar" type="file" name="avatar" accept="image/png,image/jpeg,image/gif">
+            <div class="form-group" id="registerGroupUsernameField">
+              <label class="form-label" for="registerGroupUsername">群内用户名 <span class="required">*</span></label>
+              <input class="text-input" id="registerGroupUsername" type="text" name="group_username" maxlength="40" autocomplete="nickname" value="{{ request.form.get('group_username', '') }}" placeholder="群聊中使用的名字">
             </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="registerAvatar">头像</label>
+            <input class="file-input" id="registerAvatar" type="file" name="avatar" accept="image/png,image/jpeg,image/gif">
           </div>
 
           <div class="field-row">
             <div class="form-group">
               <label class="form-label" for="registerPassword">密码 <span class="required">*</span></label>
               <div class="password-wrap">
-                <input class="text-input" id="registerPassword" type="password" name="password" required minlength="8" autocomplete="new-password" placeholder="至少 8 位">
+                <input class="text-input" id="registerPassword" type="password" name="password" required minlength="10" autocomplete="new-password" placeholder="至少 10 位，含字母和数字">
                 <button type="button" class="password-toggle" data-password-target="registerPassword">显示</button>
               </div>
             </div>
             <div class="form-group">
               <label class="form-label" for="registerPassword2">确认密码 <span class="required">*</span></label>
               <div class="password-wrap">
-                <input class="text-input" id="registerPassword2" type="password" name="password2" required minlength="8" autocomplete="new-password" placeholder="再次输入">
+                <input class="text-input" id="registerPassword2" type="password" name="password2" required minlength="10" autocomplete="new-password" placeholder="再次输入">
                 <button type="button" class="password-toggle" data-password-target="registerPassword2">显示</button>
               </div>
             </div>
@@ -360,8 +378,8 @@
           <div class="captcha-block">
             <label class="form-label" for="registerCaptcha">安全验证 <span class="required">*</span></label>
             <div class="captcha-row">
-              <span class="captcha-question" id="captchaTextReg">{{ session.get('captcha_text', '') }}</span>
-              <input class="text-input" id="registerCaptcha" type="text" name="captcha" required placeholder="填写答案" autocomplete="off" inputmode="numeric" maxlength="4">
+              <img class="captcha-image" id="captchaImageReg" src="/captcha/image?t={{ range(100000, 999999)|random }}" alt="验证码">
+              <input class="text-input" id="registerCaptcha" type="text" name="captcha" required placeholder="输入图片字符" autocomplete="off" autocapitalize="characters" maxlength="5">
               <button type="button" class="captcha-refresh" onclick="reloadCaptcha()" aria-label="换一个验证码" title="换一个验证码">↻</button>
             </div>
           </div>
@@ -377,16 +395,17 @@
                 使用 Steam 验证身份
               </a>
               {% endif %}
-              <small class="field-note">选手账号会用 Steam 身份匹配 Demo 数据</small>
+              <small class="field-note">Steam 身份用于匹配比赛数据，并防止重复申请</small>
             </div>
           </div>
 
-          <button type="submit" class="primary-button">创建账号</button>
+          <button type="submit" class="primary-button" data-submit-label="提交审核申请">提交审核申请</button>
+          <small class="email-status" id="registerSubmitStatus" aria-live="polite"></small>
         </form>
       </div>
       {% endif %}
 
-      <a href="/" class="back-link">← 返回首页</a>
+      <span class="back-link">80GOTV 仅限已审核成员访问</span>
     </section>
   </main>
 
@@ -412,26 +431,176 @@
         });
       });
 
-      toggleSteamFields();
-    })();
+      var emailInput = document.getElementById('registerEmail');
+      var emailCodeInput = document.getElementById('registerEmailCode');
+      var sendEmailButton = document.getElementById('sendEmailCode');
+      var verifyEmailButton = document.getElementById('verifyEmailCode');
+      var emailStatus = document.getElementById('emailStatus');
+      var registerForm = document.getElementById('registerForm');
+      var registerSubmitStatus = document.getElementById('registerSubmitStatus');
+      var groupUsernameField = document.getElementById('registerGroupUsernameField');
+      var groupUsernameInput = document.getElementById('registerGroupUsername');
+      function syncRegistrationSchoolFields() {
+        if (!registerForm || !groupUsernameField || !groupUsernameInput) return;
+        var selected = registerForm.querySelector('input[name="is_bashizhong_student"]:checked');
+        var student = selected && selected.value === '1';
+        groupUsernameField.hidden = !student;
+        groupUsernameInput.required = !!student;
+      }
+      if (registerForm) {
+        registerForm.querySelectorAll('input[name="is_bashizhong_student"]').forEach(function (radio) {
+          radio.addEventListener('change', syncRegistrationSchoolFields);
+        });
+        syncRegistrationSchoolFields();
+      }
+      if (emailInput && emailStatus) {
+        emailInput.addEventListener('input', function () {
+          var verified = (emailInput.dataset.verifiedEmail || '').toLowerCase();
+          if (verified && emailInput.value.trim().toLowerCase() !== verified) {
+            emailStatus.textContent = '邮箱已更改，请重新发送并验证';
+            emailStatus.className = 'email-status error';
+          }
+        });
+      }
 
-    function toggleSteamFields() {
-      var checked = document.querySelector('input[name="reg_type"]:checked');
-      var fields = document.getElementById('steamFields');
-      if (checked && fields) fields.style.display = checked.value === 'player' ? 'block' : 'none';
-    }
+      function applyCsrfToken(token) {
+        document.querySelectorAll('input[name="csrf_token"]').forEach(function (input) {
+          input.value = token;
+        });
+        return token;
+      }
+
+      function refreshCsrfToken() {
+        return fetch('/auth/csrf-token', {
+          credentials: 'same-origin',
+          cache: 'no-store',
+          headers: {'X-Requested-With': 'XMLHttpRequest'}
+        }).then(function (response) {
+          return response.json().then(function (data) {
+            if (!response.ok || !data.csrf_token) {
+              throw new Error('页面安全验证刷新失败，请刷新页面后重试');
+            }
+            return applyCsrfToken(data.csrf_token);
+          });
+        });
+      }
+
+      function emailRequest(path, values, retried) {
+        var csrf = document.querySelector('form[action="/register"] input[name="csrf_token"]');
+        values.set('csrf_token', csrf ? csrf.value : '');
+        return fetch(path, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          body: values.toString()
+        }).then(function (response) {
+          return response.json().then(function (data) {
+            if (response.status === 403 && !retried && /CSRF/i.test(data.error || '')) {
+              return refreshCsrfToken().then(function () {
+                return emailRequest(path, values, true);
+              });
+            }
+            if (!response.ok) throw new Error(data.error || '操作失败，请稍后再试');
+            return data;
+          });
+        });
+      }
+
+      if (registerForm) {
+        registerForm.addEventListener('submit', function (event) {
+          event.preventDefault();
+          if (registerForm.dataset.submitting === '1') return;
+          registerForm.dataset.submitting = '1';
+          var submitButton = registerForm.querySelector('button[type="submit"]');
+          if (submitButton) {
+            submitButton.disabled = true;
+            submitButton.textContent = '正在提交...';
+          }
+          if (registerSubmitStatus) {
+            registerSubmitStatus.textContent = '正在向服务器提交审核申请，请勿重复点击';
+            registerSubmitStatus.className = 'email-status';
+          }
+
+          var sent = false;
+          function submitNow() {
+            if (sent) return;
+            sent = true;
+            window.clearTimeout(fallbackTimer);
+            HTMLFormElement.prototype.submit.call(registerForm);
+          }
+          var fallbackTimer = window.setTimeout(submitNow, 3500);
+          refreshCsrfToken().then(submitNow).catch(submitNow);
+        });
+      }
+
+      if (sendEmailButton) {
+        sendEmailButton.addEventListener('click', function () {
+          var email = emailInput.value.trim();
+          if (!email || !emailInput.checkValidity()) {
+            emailInput.reportValidity();
+            return;
+          }
+          sendEmailButton.disabled = true;
+          emailStatus.textContent = '正在发送...';
+          emailStatus.className = 'email-status';
+          emailRequest('/auth/email/send-code', new URLSearchParams({email: email}))
+            .then(function (data) {
+              emailStatus.textContent = data.message;
+              emailStatus.className = 'email-status success';
+              var seconds = 60;
+              sendEmailButton.textContent = seconds + ' 秒后重发';
+              var timer = setInterval(function () {
+                seconds -= 1;
+                sendEmailButton.textContent = seconds + ' 秒后重发';
+                if (seconds <= 0) {
+                  clearInterval(timer);
+                  sendEmailButton.disabled = false;
+                  sendEmailButton.textContent = '重新发送';
+                }
+              }, 1000);
+            })
+            .catch(function (error) {
+              sendEmailButton.disabled = false;
+              emailStatus.textContent = error.message;
+              emailStatus.className = 'email-status error';
+            });
+        });
+      }
+
+      if (verifyEmailButton) {
+        verifyEmailButton.addEventListener('click', function () {
+          verifyEmailButton.disabled = true;
+          emailRequest('/auth/email/verify-code', new URLSearchParams({
+            email: emailInput.value.trim(),
+            code: emailCodeInput.value.trim()
+          })).then(function (data) {
+            emailInput.dataset.verifiedEmail = emailInput.value.trim().toLowerCase();
+            emailStatus.textContent = data.message;
+            emailStatus.className = 'email-status success';
+            verifyEmailButton.textContent = '已验证';
+          }).catch(function (error) {
+            verifyEmailButton.disabled = false;
+            emailStatus.textContent = error.message;
+            emailStatus.className = 'email-status error';
+          });
+        });
+      }
+
+    })();
 
     function reloadCaptcha() {
       fetch('/captcha/reload')
-        .then(function (response) { return response.text(); })
-        .then(function (text) {
-          var loginCaptcha = document.getElementById('captchaText');
-          var registerCaptcha = document.getElementById('captchaTextReg');
-          if (loginCaptcha) loginCaptcha.textContent = text;
-          if (registerCaptcha) registerCaptcha.textContent = text;
+        .then(function () {
+          var loginCaptcha = document.getElementById('captchaImage');
+          var registerCaptcha = document.getElementById('captchaImageReg');
+          var source = '/captcha/image?t=' + Date.now();
+          if (loginCaptcha) loginCaptcha.src = source;
+          if (registerCaptcha) registerCaptcha.src = source;
         });
     }
   </script>
-  <script src="{{ url_for('static', filename='js/i18n.js') }}?v=20260614-fullsite-lang2"></script>
+  <script src="{{ versioned_url('static/js/i18n.js') }}"></script>
 </body>
 </html>

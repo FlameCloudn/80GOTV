@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
+  {% include "_i18n_bootstrap.html" %}
   <meta charset="utf-8">
   <title>队伍管理</title>
   <style>
@@ -162,7 +163,7 @@
   </table>
 </div>
 
-<script src="{{ url_for('static', filename='js/i18n.js') }}?v=20260614-fullsite-lang2"></script>
+<script src="{{ versioned_url('static/js/i18n.js') }}"></script>
 <script src="{{ url_for('static', filename='js/svg_icons.js') }}?v=20260620-svg1"></script>
 </body>
 </html>

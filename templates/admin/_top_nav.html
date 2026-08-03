@@ -1,0 +1,28 @@
+<div class="top-nav">
+  <div class="logo">CS2 后台管理</div>
+  <div class="nav-links">
+    <a href="/admin">首页</a>
+    <a href="/admin/teams">队伍</a>
+    <a href="/admin/players">选手</a>
+    <a href="/admin/events">赛事</a>
+    <a href="/admin/matches">比赛</a>
+    <a href="/admin/news">新闻</a>
+    <a href="/admin/top10">年度 TOP 10</a>
+    <a href="/admin/registrations">账号审核</a>
+    <a href="/admin/nicknames">昵称管理</a>
+    <a href="/">查看前台</a>
+    <span class="admin-nav-divider" aria-hidden="true"></span>
+    <label class="admin-language-control">
+      <span class="sr-only">语言</span>
+      <select id="languageSelect" aria-label="语言">
+        <option value="auto">跟随系统</option>
+        <option value="zh">中文</option>
+        <option value="en">English</option>
+      </select>
+    </label>
+    <span class="admin-account" data-i18n-ignore>
+      {{ session.admin_username }}{% if current_user_group_username %}<span class="admin-account-handle">@{{ current_user_group_username }}</span>{% endif %}
+    </span>
+    <a href="/admin/logout" class="logout-btn">退出</a>
+  </div>
+</div>

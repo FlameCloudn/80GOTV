@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
+  {% include "_i18n_bootstrap.html" %}
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>对阵图编辑 — {{ event.name }}</title>
@@ -127,11 +128,34 @@
       width:36px;text-align:center;font-weight:700;font-size:15px;color:#333;
       border:none;background:transparent;font-family:inherit;
     }
-    .slot-team .team-score:focus{outline:none;background:#eef4fb;border-radius:0;border:none;color:#ccc;cursor:pointer;font-size:14px;padding:0 2px;
-    }
+    .slot-team.auto-slot{background:#f1f3f5;border-style:dashed;color:#7a8793}
+    .readonly-score{display:inline-flex;align-items:center;justify-content:center}
+    .slot-auto-label{font-size:11px;color:#8795a3}
+    .slot-team .remove-team-btn{background:none;border:none;color:#aaa;cursor:pointer;font-size:14px;padding:0 2px}
     .slot-team .remove-team-btn:hover{color:#e74c3c}
 
     .slot-vs{text-align:center;font-size:11px;color:#aaa;padding:2px 0}
+    .slot-match-settings{
+      display:grid;grid-template-columns:minmax(190px,1fr) 104px;gap:10px;
+      margin-top:10px;padding-top:9px;border-top:1px solid #e4e8ed;
+    }
+    .slot-binding-row,.slot-time-row,.slot-bo-row{
+      display:flex;align-items:center;gap:8px;color:#667789;font-size:12px;font-weight:600;
+    }
+    .slot-binding-row{grid-column:1/-1}
+    .slot-binding-row select{
+      min-width:0;flex:1;padding:6px 8px;border:1px solid #c9d3df;background:#fff;
+      color:#273747;font:inherit;
+    }
+    .slot-time-row input{
+      min-width:0;flex:1;padding:6px 8px;border:1px solid #c9d3df;background:#fff;
+      color:#273747;font:inherit;
+    }
+    .slot-bo-row select{
+      min-width:0;flex:1;padding:6px;border:1px solid #c9d3df;background:#fff;
+      color:#273747;font:inherit;
+    }
+    .slot-binding-row select:focus,.slot-time-row input:focus,.slot-bo-row select:focus{outline:none;border-color:#5881bc}
 
     .bracket-section-label{
       font-size:12px;font-weight:700;color:#666;margin:20px 0 10px;
@@ -228,20 +252,7 @@
 </head>
 <body>
 
-<div class="top-nav">
-  <div class="logo">CS2 后台管理</div>
-  <div class="nav-links">
-    <a href="/admin">首页</a>
-    <a href="/admin/teams">队伍</a>
-    <a href="/admin/players">选手</a>
-    <a href="/admin/events">赛事</a>
-    <a href="/admin/matches">比赛</a>
-    <a href="/admin/news">新闻</a>
-    <span style="color:#ccc">|</span>
-    <span style="color:#666">{{ session.admin_username }}</span>
-    <a href="/admin/logout" class="logout-btn">退出</a>
-  </div>
-</div>
+{% include "admin/_top_nav.html" %}
 
 <div class="container">
   {% with messages = get_flashed_messages(with_categories=true) %}
@@ -264,21 +275,27 @@
       <option value="8de">8 队双败淘汰</option>
       <option value="4se">4 队单败淘汰</option>
       <option value="8se">8 队单败淘汰</option>
-      <option value="swiss">瑞士制</option>
+      <option value="swiss" disabled>瑞士制（自动晋级规则开发中）</option>
     </select>
-    <label style="margin-left:8px">赛事名：</label>
-    <input type="text" id="tournamentName" placeholder="如：春季杯淘汰赛" style="padding:8px 10px;border:1px solid #ddd;border-radius:0;font-size:13px;width:180px;font-family:inherit">
+    <label style="margin-left:8px">默认赛制：</label>
+    <select id="bracketBoFormat">
+      <option value="BO1">BO1</option>
+      <option value="BO3" selected>BO3</option>
+      <option value="BO5">BO5</option>
+    </select>
     <div class="toolbar-spacer"></div>
     <button class="btn btn-secondary" onclick="resetBracket()">重置</button>
-    <button class="btn btn-primary" onclick="saveBracket()">保存对阵图</button>
+    <button class="btn btn-primary" id="saveBracketBtn" onclick="saveBracket()">保存并生成全部比赛</button>
     <a href="/admin/events" class="btn btn-secondary">返回</a>
   </div>
+
+  <div class="alert alert-info">可为每个槽位绑定该赛事中已经创建的比赛。绑定后只同步时间、比分和晋级结果，不会重新创建或更换比赛。</div>
 
   <div class="editor-layout">
     <!-- 队伍池 -->
     <div class="team-pool-panel">
       <h3>队伍池</h3>
-      <p class="team-pool-hint">拖拽队伍到对阵图槽位</p>
+      <p class="team-pool-hint">只拖拽到首轮槽位，后续对阵由赛果决定</p>
       <input type="text" class="team-pool-search" id="teamSearch" placeholder="搜索队伍..." oninput="filterTeams()">
       <div class="team-pool-list" id="teamPool"></div>
     </div>
@@ -293,46 +310,16 @@
   </div>
 </div>
 
-<!-- 比赛编辑弹窗 -->
-<div class="modal-overlay" id="matchModal" style="display:none">
-  <div class="modal">
-    <h3 id="modalTitle">编辑比赛</h3>
-    <div class="form-group">
-      <label>比分</label>
-      <div style="display:flex;gap:8px;align-items:center">
-        <input type="number" id="modalScore1" min="0" max="3" style="width:60px;text-align:center">
-        <span>:</span>
-        <input type="number" id="modalScore2" min="0" max="3" style="width:60px;text-align:center">
-      </div>
-    </div>
-    <div class="form-group">
-      <label>关联比赛</label>
-      <select id="modalMatchId">
-        <option value="">-- 不关联 --</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label>地图比分</label>
-      <div id="modalMapScores"></div>
-      <button class="btn btn-sm btn-secondary" onclick="addMapRow()" style="margin-top:4px">+ 添加地图</button>
-    </div>
-    <div class="modal-actions">
-      <button class="btn btn-sm btn-danger" id="modalDeleteBtn" style="margin-right:auto;display:none" onclick="deleteMatch()">删除比赛</button>
-      <button class="btn btn-secondary" onclick="closeModal()">取消</button>
-      <button class="btn btn-primary" onclick="saveMatch()">确定</button>
-    </div>
-  </div>
-</div>
-
 <script>
   // CSRF token
   window._csrfToken = '{{ csrf_token }}';
   window._eventId = {{ event.id }};
+  window._eventName = {{ event.name|tojson }};
   // 初始数据
   window._bracketData = {{ bracket_data|tojson if bracket_data else 'null' }};
   window._eventMatches = {{ event_matches|tojson }};
 </script>
-<script src="/static/js/bracket_editor.js"></script>
-<script src="{{ url_for('static', filename='js/i18n.js') }}?v=20260614-fullsite-lang2"></script>
+<script src="{{ versioned_url('static/js/bracket_editor.js') }}"></script>
+<script src="{{ versioned_url('static/js/i18n.js') }}"></script>
 </body>
 </html>

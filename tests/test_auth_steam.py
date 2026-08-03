@@ -197,6 +197,21 @@ class SteamAuthTests(unittest.TestCase):
                 "76561198000000000",
             )
 
+    @patch.object(
+        auth.urllib.request,
+        "urlopen",
+        side_effect=[OSError("temporary Steam disconnect"), _SteamResponse()],
+    )
+    @patch.object(auth.time, "sleep")
+    def test_steam_verification_retries_a_temporary_disconnect(self, _sleep, urlopen):
+        auth.Config.PUBLIC_BASE_URL = "auto"
+        query = self._start()
+        response = self._complete_valid_response(query)
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.headers["Location"].endswith("/register"))
+        self.assertEqual(urlopen.call_count, 2)
+        _sleep.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -3,26 +3,31 @@
 import logging
 
 from blueprints.admin import admin_bp
+from config import validate_production_config
 from models import init_tables
 
 # 导入后，各模块会把自己的页面地址注册到 app。
 from routes import (  # noqa: F401,E402
     auth,
     bp,
+    broadcast,
     comments,
     events,
     feedback,
     forum,
     front_api,
+    games,
+    guess_player,
     home,
     live,
     live_ingest,
+    map_quiz,
     match_assets,
     matches,
     news,
     notifications,
+    player_bingo,
     players,
-    replay,
     search,
     sitemap,
     stats,
@@ -30,7 +35,17 @@ from routes import (  # noqa: F401,E402
 from utils.live_poller import start_poller
 from web_app import app
 
+validate_production_config()
 app.register_blueprint(admin_bp)
+
+
+def _local_server_options():
+    return {
+        "debug": False,
+        "use_reloader": False,
+        "port": 5000,
+        "host": "127.0.0.1",
+    }
 
 
 if __name__ == "__main__":
@@ -85,4 +100,4 @@ if __name__ == "__main__":
 
     threading.Thread(target=_startup_check, daemon=True).start()
 
-    app.run(debug=True, use_reloader=True, port=5000, host="0.0.0.0")
+    app.run(**_local_server_options())

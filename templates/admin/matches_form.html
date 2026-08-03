@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
+  {% include "_i18n_bootstrap.html" %}
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>{% if match %}编辑比赛{% else %}添加比赛{% endif %}</title>
@@ -46,6 +47,11 @@
     .btn-secondary{background:#ddd;color:#333}
     .btn-secondary:hover{background:#ccc}
     .alert{padding:12px 20px;margin-bottom:20px;border-radius:0;color:#721c24}
+    .alert-info{background:#e8f1f8;color:#355b78;border:1px solid #c6d8e6}
+    .test-mode-control{border:1px solid #c6d8e6;background:#f4f8fb;padding:14px 16px}
+    .test-mode-toggle{display:flex;align-items:center;gap:9px;margin:0;cursor:pointer}
+    .test-mode-toggle input{width:18px;height:18px;margin:0;flex:0 0 18px}
+    .field-hint{margin:7px 0 0 27px;color:#6a7f91;font-size:13px;line-height:1.5}
 
     .mode-tabs{display:flex;gap:0;margin-bottom:24px;border-radius:0;overflow:hidden;border:2px solid #5881bc}
     .mode-tab{flex:1;padding:14px;text-align:center;cursor:pointer;font-weight:700;font-size:15px;
@@ -77,20 +83,7 @@
 </head>
 <body>
 
-<div class="top-nav">
-  <div class="logo">🎮 CS2 后台管理</div>
-  <div class="nav-links">
-    <a href="/admin">📊 首页</a>
-    <a href="/admin/teams">👥 队伍</a>
-    <a href="/admin/players">🎯 选手</a>
-    <a href="/admin/events">🏆 赛事</a>
-    <a href="/admin/matches">⚔️ 比赛</a>
-    <a href="/admin/news">📰 新闻</a>
-    <span style="color:#ccc">|</span>
-    <span style="color:#666">{{ session.admin_username }}</span>
-    <a href="/admin/logout" class="logout-btn">退出</a>
-  </div>
-</div>
+{% include "admin/_top_nav.html" %}
 
 <div class="container">
   {% with messages = get_flashed_messages(with_categories=true) %}
@@ -102,7 +95,21 @@
   {% endwith %}
 
   <div class="form-container">
+    {% set current_status = match.status if match else 'new' %}
+    {% set setup_editable = not match or current_status == 'upcoming' %}
     <h2>{% if match %}✏️ 编辑比赛{% else %}➕ 添加比赛{% endif %}</h2>
+
+    {% if match %}
+      {% if current_status == 'upcoming' %}
+      <div class="alert alert-info">赛前设置仍可修改。比分将在数据直播收到数据后自动显示。</div>
+      {% elif current_status in ('live', 'ongoing') %}
+      <div class="alert alert-info">比赛进行中：赛事、时间、赛制、地图和比分已锁定，比分只由数据直播更新。</div>
+      {% elif current_status == 'completed' %}
+      <div class="alert alert-info">比赛已结束：比分为直播记录，可补充 Ban/Pick 流程、直播和观赛链接。</div>
+      {% else %}
+      <div class="alert alert-info">比赛已取消：仅保留状态、直播链接和观赛信息修改。</div>
+      {% endif %}
+    {% endif %}
 
     <form method="post">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -111,7 +118,7 @@
       <!-- ===== 赛事 ===== -->
       <div class="form-group">
         <label>赛事 *</label>
-        <select name="event_id" required>
+        <select name="event_id" {% if setup_editable %}required{% else %}disabled{% endif %}>
           <option value="">选择赛事</option>
           {% for e in events %}
           <option value="{{ e.id }}" {% if match and match.event_id==e.id %}selected{% endif %}>
@@ -125,17 +132,32 @@
       <div class="form-group">
         <label>比赛时间 *</label>
         <input type="datetime-local" name="match_time"
-               value="{{ match.match_time[:16] if match else '' }}" required>
+               value="{{ match.match_time[:16] if match and match.match_time else '' }}"
+               {% if setup_editable %}required{% else %}disabled{% endif %}>
       </div>
 
       <div class="form-group">
         <label>比赛阶段</label>
         <input type="text" name="stage" value="{{ match.stage if match and match.stage else '' }}"
-               placeholder="例如：GF、SF、QF（可不填）">
+               placeholder="例如：GF、SF、QF（可不填）" {% if not setup_editable %}disabled{% endif %}>
       </div>
+
+      {% if not match %}
+      <div class="form-group test-mode-control">
+        <label class="test-mode-toggle" for="testMode">
+          <input type="checkbox" id="testMode" name="is_test_mode" value="1" onchange="toggleTestMode()">
+          <span>测试模式</span>
+        </label>
+        <div class="field-hint">开启后参赛方可留空，也可以为每边选择 1 至 5 名测试选手。</div>
+      </div>
+      {% elif match.is_test_mode %}
+      <input type="hidden" name="is_test_mode" value="1">
+      <div class="alert alert-info">这是一场测试比赛，不要求填写参赛队伍或选手。</div>
+      {% endif %}
 
       <!-- ===== 创建比赛时选择参赛方 ===== -->
       {% if not match %}
+      <div id="matchParticipants">
         <!-- 队伍1 -->
         <div class="field-section team1">
           <h3>队伍1</h3>
@@ -146,7 +168,7 @@
             </label>
             <label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer">
               <input type="radio" name="side1_type" value="players" {% if team1_player_ids %}checked{% endif %}
-                     onchange="toggleSide('1')"> 选择五名选手
+                     onchange="toggleSide('1')"> 选择选手
             </label>
           </div>
           <div id="side1_team">
@@ -179,7 +201,7 @@
             </label>
             <label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer">
               <input type="radio" name="side2_type" value="players" {% if team2_player_ids %}checked{% endif %}
-                     onchange="toggleSide('2')"> 选择五名选手
+                     onchange="toggleSide('2')"> 选择选手
             </label>
           </div>
           <div id="side2_team">
@@ -201,6 +223,7 @@
             {% endfor %}
           </div>
         </div>
+      </div>
       {% endif %}
 
       <!-- ============================== -->
@@ -242,9 +265,7 @@
       <div class="section-divider"><span>⚙️ 比赛设置</span></div>
 
       <!-- BO格式 -->
-      {% if match %}
-      <input type="hidden" name="bo_format" id="boFormat" value="{{ match.bo_format }}">
-      {% else %}
+      {% if not match or setup_editable %}
       <div class="form-group">
         <label>BO 格式</label>
         <select name="bo_format" id="boFormat" onchange="updateMapFields()">
@@ -253,6 +274,8 @@
           <option value="BO5" {% if match and match.bo_format=='BO5' %}selected{% endif %}>BO5</option>
         </select>
       </div>
+      {% else %}
+      <input type="hidden" name="bo_format" id="boFormat" value="{{ match.bo_format }}">
       {% endif %}
 
       <!-- 地图模式切换（仅添加时可选） -->
@@ -276,7 +299,7 @@
       <div class="form-row map-row{% if match %} with-results{% endif %}">
         <div class="form-group">
           <label>图一</label>
-          <select name="map1">
+          <select name="map1" {% if not setup_editable %}disabled{% endif %}>
             <option value="">选择地图</option>
             <option value="de_mirage" {% if match and match.map1=='de_mirage' %}selected{% endif %}>Mirage</option>
             <option value="de_dust2" {% if match and match.map1=='de_dust2' %}selected{% endif %}>Dust2</option>
@@ -294,14 +317,14 @@
         <div class="form-group">
           <label style="visibility:hidden">-</label>
           <div style="display:flex;align-items:center;gap:8px">
-            <input type="number" name="map1_t1" value="{{ match.map1_t1 if match else 0 }}" min="0" style="width:50px;text-align:center" placeholder="-">
+            <input type="number" value="{{ match.map1_t1 if match else 0 }}" min="0" style="width:50px;text-align:center" placeholder="-" disabled title="由数据直播自动更新">
             <span style="color:#999;font-weight:bold">:</span>
-            <input type="number" name="map1_t2" value="{{ match.map1_t2 if match else 0 }}" min="0" style="width:50px;text-align:center" placeholder="-">
+            <input type="number" value="{{ match.map1_t2 if match else 0 }}" min="0" style="width:50px;text-align:center" placeholder="-" disabled title="由数据直播自动更新">
           </div>
         </div>
         <div class="form-group">
           <label style="visibility:hidden">-</label>
-          <select name="map1_picked_by" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:0;font-size:13px">
+          <select name="map1_picked_by" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:0;font-size:13px" {% if not setup_editable %}disabled{% endif %}>
             <option value="">—</option>
             <option value="t1" {% if match and match.map1_picked_by=='t1' %}selected{% endif %}>T1 Pick</option>
             <option value="t2" {% if match and match.map1_picked_by=='t2' %}selected{% endif %}>T2 Pick</option>
@@ -315,7 +338,7 @@
       <div class="form-row map-row{% if match %} with-results{% endif %}" id="map2Row">
         <div class="form-group">
           <label>图二</label>
-          <select name="map2">
+          <select name="map2" {% if not setup_editable %}disabled{% endif %}>
             <option value="">选择地图</option>
             <option value="de_mirage" {% if match and match.map2=='de_mirage' %}selected{% endif %}>Mirage</option>
             <option value="de_dust2" {% if match and match.map2=='de_dust2' %}selected{% endif %}>Dust2</option>
@@ -333,14 +356,14 @@
         <div class="form-group">
           <label style="visibility:hidden">-</label>
           <div style="display:flex;align-items:center;gap:8px">
-            <input type="number" name="map2_t1" value="{{ match.map2_t1 if match else 0 }}" min="0" style="width:50px;text-align:center" placeholder="-">
+            <input type="number" value="{{ match.map2_t1 if match else 0 }}" min="0" style="width:50px;text-align:center" placeholder="-" disabled title="由数据直播自动更新">
             <span style="color:#999;font-weight:bold">:</span>
-            <input type="number" name="map2_t2" value="{{ match.map2_t2 if match else 0 }}" min="0" style="width:50px;text-align:center" placeholder="-">
+            <input type="number" value="{{ match.map2_t2 if match else 0 }}" min="0" style="width:50px;text-align:center" placeholder="-" disabled title="由数据直播自动更新">
           </div>
         </div>
         <div class="form-group">
           <label style="visibility:hidden">-</label>
-          <select name="map2_picked_by" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:0;font-size:13px">
+          <select name="map2_picked_by" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:0;font-size:13px" {% if not setup_editable %}disabled{% endif %}>
             <option value="">—</option>
             <option value="t1" {% if match and match.map2_picked_by=='t1' %}selected{% endif %}>T1 Pick</option>
             <option value="t2" {% if match and match.map2_picked_by=='t2' %}selected{% endif %}>T2 Pick</option>
@@ -354,7 +377,7 @@
       <div class="form-row map-row{% if match %} with-results{% endif %}" id="map3Row">
         <div class="form-group">
           <label>图三</label>
-          <select name="map3">
+          <select name="map3" {% if not setup_editable %}disabled{% endif %}>
             <option value="">选择地图</option>
             <option value="de_mirage" {% if match and match.map3=='de_mirage' %}selected{% endif %}>Mirage</option>
             <option value="de_dust2" {% if match and match.map3=='de_dust2' %}selected{% endif %}>Dust2</option>
@@ -372,14 +395,14 @@
         <div class="form-group">
           <label style="visibility:hidden">-</label>
           <div style="display:flex;align-items:center;gap:8px">
-            <input type="number" name="map3_t1" value="{{ match.map3_t1 if match else 0 }}" min="0" style="width:50px;text-align:center" placeholder="-">
+            <input type="number" value="{{ match.map3_t1 if match else 0 }}" min="0" style="width:50px;text-align:center" placeholder="-" disabled title="由数据直播自动更新">
             <span style="color:#999;font-weight:bold">:</span>
-            <input type="number" name="map3_t2" value="{{ match.map3_t2 if match else 0 }}" min="0" style="width:50px;text-align:center" placeholder="-">
+            <input type="number" value="{{ match.map3_t2 if match else 0 }}" min="0" style="width:50px;text-align:center" placeholder="-" disabled title="由数据直播自动更新">
           </div>
         </div>
         <div class="form-group">
           <label style="visibility:hidden">-</label>
-          <select name="map3_picked_by" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:0;font-size:13px">
+          <select name="map3_picked_by" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:0;font-size:13px" {% if not setup_editable %}disabled{% endif %}>
             <option value="">—</option>
             <option value="t1" {% if match and match.map3_picked_by=='t1' %}selected{% endif %}>T1 Pick</option>
             <option value="t2" {% if match and match.map3_picked_by=='t2' %}selected{% endif %}>T2 Pick</option>
@@ -393,7 +416,7 @@
       <div class="form-row map-row{% if match %} with-results{% endif %}" id="map4Row">
         <div class="form-group">
           <label>图四</label>
-          <select name="map4">
+          <select name="map4" {% if not setup_editable %}disabled{% endif %}>
             <option value="">选择地图</option>
             <option value="de_mirage" {% if match and match.map4=='de_mirage' %}selected{% endif %}>Mirage</option>
             <option value="de_dust2" {% if match and match.map4=='de_dust2' %}selected{% endif %}>Dust2</option>
@@ -411,14 +434,14 @@
         <div class="form-group">
           <label style="visibility:hidden">-</label>
           <div style="display:flex;align-items:center;gap:8px">
-            <input type="number" name="map4_t1" value="{{ match.map4_t1 if match else 0 }}" min="0" style="width:50px;text-align:center" placeholder="-">
+            <input type="number" value="{{ match.map4_t1 if match else 0 }}" min="0" style="width:50px;text-align:center" placeholder="-" disabled title="由数据直播自动更新">
             <span style="color:#999;font-weight:bold">:</span>
-            <input type="number" name="map4_t2" value="{{ match.map4_t2 if match else 0 }}" min="0" style="width:50px;text-align:center" placeholder="-">
+            <input type="number" value="{{ match.map4_t2 if match else 0 }}" min="0" style="width:50px;text-align:center" placeholder="-" disabled title="由数据直播自动更新">
           </div>
         </div>
         <div class="form-group">
           <label style="visibility:hidden">-</label>
-          <select name="map4_picked_by" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:0;font-size:13px">
+          <select name="map4_picked_by" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:0;font-size:13px" {% if not setup_editable %}disabled{% endif %}>
             <option value="">—</option>
             <option value="t1" {% if match and match.map4_picked_by=='t1' %}selected{% endif %}>T1 Pick</option>
             <option value="t2" {% if match and match.map4_picked_by=='t2' %}selected{% endif %}>T2 Pick</option>
@@ -432,7 +455,7 @@
       <div class="form-row map-row{% if match %} with-results{% endif %}" id="map5Row">
         <div class="form-group">
           <label>图五</label>
-          <select name="map5">
+          <select name="map5" {% if not setup_editable %}disabled{% endif %}>
             <option value="">选择地图</option>
             <option value="de_mirage" {% if match and match.map5=='de_mirage' %}selected{% endif %}>Mirage</option>
             <option value="de_dust2" {% if match and match.map5=='de_dust2' %}selected{% endif %}>Dust2</option>
@@ -450,14 +473,14 @@
         <div class="form-group">
           <label style="visibility:hidden">-</label>
           <div style="display:flex;align-items:center;gap:8px">
-            <input type="number" name="map5_t1" value="{{ match.map5_t1 if match else 0 }}" min="0" style="width:50px;text-align:center" placeholder="-">
+            <input type="number" value="{{ match.map5_t1 if match else 0 }}" min="0" style="width:50px;text-align:center" placeholder="-" disabled title="由数据直播自动更新">
             <span style="color:#999;font-weight:bold">:</span>
-            <input type="number" name="map5_t2" value="{{ match.map5_t2 if match else 0 }}" min="0" style="width:50px;text-align:center" placeholder="-">
+            <input type="number" value="{{ match.map5_t2 if match else 0 }}" min="0" style="width:50px;text-align:center" placeholder="-" disabled title="由数据直播自动更新">
           </div>
         </div>
         <div class="form-group">
           <label style="visibility:hidden">-</label>
-          <select name="map5_picked_by" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:0;font-size:13px">
+          <select name="map5_picked_by" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:0;font-size:13px" {% if not setup_editable %}disabled{% endif %}>
             <option value="">—</option>
             <option value="t1" {% if match and match.map5_picked_by=='t1' %}selected{% endif %}>T1 Pick</option>
             <option value="t2" {% if match and match.map5_picked_by=='t2' %}selected{% endif %}>T2 Pick</option>
@@ -468,51 +491,76 @@
       </div>
 
       {% if match %}
+      <div class="section-divider"><span>决胜图拼刀与选边</span></div>
+      <div class="form-row" id="deciderKnifeSection">
+        <div class="form-group">
+          <label>拼刀获胜队伍</label>
+          <select name="decider_knife_winner">
+            <option value="">尚未填写</option>
+            <option value="t1" {% if match.decider_knife_winner=='t1' %}selected{% endif %}>{{ match.team1_name or '队伍 1' }}</option>
+            <option value="t2" {% if match.decider_knife_winner=='t2' %}selected{% endif %}>{{ match.team2_name or '队伍 2' }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>胜者选择的起始阵营</label>
+          <select name="decider_start_side">
+            <option value="">尚未填写</option>
+            <option value="CT" {% if match.decider_start_side=='CT' %}selected{% endif %}>CT</option>
+            <option value="T" {% if match.decider_start_side=='T' %}selected{% endif %}>T</option>
+          </select>
+        </div>
+      </div>
+
       <!-- 大比分 -->
       <div class="form-row" id="overallScoreRow">
         <div class="form-group">
-          <label>队伍1 大比分</label>
-          <input type="number" name="team1_score" value="{{ match.team1_score if match else 0 }}" min="0">
+          <label>队伍1 大比分（数据直播）</label>
+          <input type="number" value="{{ match.team1_score if match else 0 }}" min="0" disabled>
         </div>
         <div class="form-group">
-          <label>队伍2 大比分</label>
-          <input type="number" name="team2_score" value="{{ match.team2_score if match else 0 }}" min="0">
+          <label>队伍2 大比分（数据直播）</label>
+          <input type="number" value="{{ match.team2_score if match else 0 }}" min="0" disabled>
         </div>
       </div>
 
       <!-- 缺图选项 -->
       <div class="form-group" id="noMapSection">
-        <label style="font-size:13px;color:#666;margin-bottom:6px">未打的图（如 2:0 则勾选图三）</label>
+        <label style="font-size:13px;color:#666;margin-bottom:6px">地图完成情况（由数据直播自动记录）</label>
         <div style="display:flex;gap:16px;flex-wrap:wrap">
-          <label id="noMap3Label" style="display:flex;align-items:center;gap:4px;font-weight:400;cursor:pointer;font-size:13px">
-            <input type="checkbox" name="no_map3" value="1" {% if match and not match.has_map3 %}checked{% endif %}> 无图三
+          <label id="noMap3Label" style="display:flex;align-items:center;gap:4px;font-weight:400;font-size:13px">
+            <input type="checkbox" {% if match and not match.has_map3 %}checked{% endif %} disabled> 无图三
           </label>
-          <label id="noMap4Label" style="display:none;align-items:center;gap:4px;font-weight:400;cursor:pointer;font-size:13px">
-            <input type="checkbox" name="no_map4" value="1" {% if match and not match.has_map4 %}checked{% endif %}> 无图四
+          <label id="noMap4Label" style="display:none;align-items:center;gap:4px;font-weight:400;font-size:13px">
+            <input type="checkbox" {% if match and not match.has_map4 %}checked{% endif %} disabled> 无图四
           </label>
-          <label id="noMap5Label" style="display:none;align-items:center;gap:4px;font-weight:400;cursor:pointer;font-size:13px">
-            <input type="checkbox" name="no_map5" value="1" {% if match and not match.has_map5 %}checked{% endif %}> 无图五
+          <label id="noMap5Label" style="display:none;align-items:center;gap:4px;font-weight:400;font-size:13px">
+            <input type="checkbox" {% if match and not match.has_map5 %}checked{% endif %} disabled> 无图五
           </label>
         </div>
       </div>
       {% endif %}
       </div><!-- /manualMapSection -->
 
-      <!-- 在线 BP 密码 -->
+      {% if setup_editable %}
+      <!-- 在线 BP 密码只在赛前设置 -->
       <div id="bpModeSection" {% if not match %}style="display:none"{% endif %}>
       <div class="form-group">
         <label>🔒 在线 BP 密码 <span style="font-weight:400;color:#999;font-size:12px">（设置后选手可通过此密码参与在线 BP）</span></label>
         <input type="password" name="bp_password"
                placeholder="{% if match and match.bp_password %}留空则保持原密码{% else %}留空则不启用在线 BP{% endif %}" style="width:100%;max-width:300px">
         {% if match and match.bp_password %}
+        <div class="field-hint" style="margin-left:0">当前状态：已设置。出于安全原因不会显示原密码，留空保存不会改变它。</div>
         <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px;font-weight:400;color:#999">
           <input type="checkbox" name="clear_bp_password" value="1" style="width:auto"> 清除现有 BP 密码
         </label>
         {% endif %}
       </div>
       </div><!-- /bpModeSection -->
+      {% elif match and match.bp_password %}
+      <div class="alert alert-info">在线 BP 密码：已设置。比赛开始后密码保持不变，不再允许从编辑页修改。</div>
+      {% endif %}
 
-      {% if match %}
+      {% if match and current_status == 'completed' %}
       <!-- BP 流程在 BP 完成后补录 -->
       <div class="form-group" id="bpProcessGroup">
         <label>Ban/Pick 流程</label>
@@ -592,13 +640,30 @@ function updateMapFields() {
 }
 
 function toggleSide(num) {
+  var testMode = document.getElementById('testMode');
   var checked = document.querySelector('input[name="side'+num+'_type"]:checked');
   if (!checked) return;
   var isTeam = checked.value === 'team';
   document.getElementById('side'+num+'_team').style.display = isTeam ? 'block' : 'none';
   document.getElementById('side'+num+'_players').style.display = isTeam ? 'none' : 'block';
   var sel = document.querySelector('select[name="side'+num+'_id"]');
-  if (sel) sel.required = isTeam;
+  if (sel) sel.required = isTeam && !(testMode && testMode.checked);
+}
+
+function toggleTestMode() {
+  var testMode = document.getElementById('testMode');
+  var participants = document.getElementById('matchParticipants');
+  if (!testMode || !participants) return;
+  var isTest = testMode.checked;
+  participants.hidden = isTest;
+  participants.style.display = isTest ? 'none' : '';
+  participants.querySelectorAll('input, select, textarea').forEach(function(control) {
+    control.disabled = isTest;
+  });
+  if (!isTest) {
+    toggleSide('1');
+    toggleSide('2');
+  }
 }
 
 // Watch URLs
@@ -636,6 +701,7 @@ function switchMapMode(mode) {
 
 // Init
 updateMapFields();
+toggleTestMode();
 toggleSide('1');
 toggleSide('2');
 {% if not match %}
@@ -643,7 +709,7 @@ switchMapMode('manual');
 {% endif %}
 </script>
 
-<script src="{{ url_for('static', filename='js/i18n.js') }}?v=20260614-fullsite-lang2"></script>
+<script src="{{ versioned_url('static/js/i18n.js') }}"></script>
 <script src="{{ url_for('static', filename='js/svg_icons.js') }}?v=20260620-svg1"></script>
 </body>
 </html>

@@ -42,8 +42,11 @@ sudo install -m 755 csda /usr/local/bin/csda
 ```bash
 sudo cp /srv/80gotv/app/deploy/80gotv-web.service /etc/systemd/system/
 sudo cp /srv/80gotv/app/deploy/80gotv-live.service /etc/systemd/system/
+sudo cp /srv/80gotv/app/deploy/80gotv-backup-*.service /etc/systemd/system/
+sudo cp /srv/80gotv/app/deploy/80gotv-backup-*.timer /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now 80gotv-web 80gotv-live
+sudo systemctl enable --now 80gotv-backup-daily.timer 80gotv-backup-full.timer
 ```
 
 6. 把 `deploy/Caddyfile.example` 中的域名替换后复制到 `/etc/caddy/Caddyfile`，然后检查并启动 HTTPS：
@@ -92,6 +95,20 @@ cd /srv/80gotv/app
 /srv/80gotv/venv/bin/python scripts/backup_site.py --full
 ```
 
-备份脚本不会删除旧备份，也不会把含密钥的 `.env` 放进压缩包。正式上线后再增加“每天日常备份、每周完整备份、复制到另一处”的定时任务。
+手动运行且不填写 `--keep` 时，备份脚本不会删除旧备份；定时器会保留最近 14 份日常备份和 8 份完整备份，只清理脚本自己生成的同类型旧文件。备份不会包含带密钥的 `.env`。使用 `systemctl list-timers '80gotv-backup-*'` 可以确认下次执行时间。仍建议定期把 `/srv/80gotv/backups` 复制到另一台设备。
+
+检查已有备份：
+
+```bash
+/srv/80gotv/venv/bin/python scripts/backup_site.py --verify /srv/80gotv/backups/备份文件.zip
+```
+
+恢复时先解压到新的空目录，不会覆盖现有资料：
+
+```bash
+/srv/80gotv/venv/bin/python scripts/restore_site.py /srv/80gotv/backups/备份文件.zip /srv/80gotv/restore-check
+```
+
+确认新目录中的数据库和文件都正确后，再停止服务并人工切换资料目录。
 
 恢复备份会覆盖现有资料，因此这里不提供自动恢复命令。需要恢复时先检查备份内容，再由管理员确认执行。

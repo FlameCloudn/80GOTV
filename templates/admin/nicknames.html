@@ -1,19 +1,21 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
+  {% include "_i18n_bootstrap.html" %}
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>昵称管理 - 80GOTV</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-comfort.css') }}">
   <style>
-    body{margin:0;background:#f4f6f8;color:#26313c;font-family:sans-serif}.ops{max-width:1320px;margin:auto;padding:24px}.head{display:flex;justify-content:space-between;gap:12px;align-items:center}.muted{color:#72808e;font-size:13px}
+    body{margin:0;background:#f4f6f8;color:#26313c;font-family:sans-serif}.muted{color:#72808e;font-size:13px}
     .merge,.table-wrap{background:#fff;border:1px solid #dce2e8;border-radius:0;padding:16px;margin-top:16px}.merge form{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
     select{min-width:220px}.btn{border:0;border-radius:0;padding:10px 15px;background:#416fa9;color:#fff;cursor:pointer;text-decoration:none}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px;border-bottom:1px solid #e7ebef;font-size:13px;vertical-align:top}.alias{display:inline-block;margin:2px 4px 2px 0;padding:2px 6px;border-radius:0;background:#edf1f5;color:#536170;font-size:12px}
   </style>
 </head>
 <body>
+{% include "admin/_top_nav.html" %}
 <div class="ops">
-  <div class="head"><div><h2>选手昵称管理</h2><div class="muted">正式昵称用于网站显示，Steam 和 Demo 中见过的旧昵称仍会保留。</div></div><a href="/admin">返回后台</a></div>
+  <div class="head"><div><h2>选手昵称管理</h2><div class="muted">正式昵称用于网站显示，Steam 和 Demo 中见过的旧昵称仍会保留。</div></div></div>
   {% with messages = get_flashed_messages(with_categories=true) %}{% for category,message in messages %}<div class="merge">{{ message }}</div>{% endfor %}{% endwith %}
   <section class="merge">
     <h3 style="margin-top:0">合并重复选手</h3>
@@ -35,6 +37,6 @@
     </tr>{% endfor %}</tbody></table>
   </div>
 </div>
-<script src="{{ url_for('static', filename='js/i18n.js') }}?v=20260614-fullsite-lang2"></script>
+<script src="{{ versioned_url('static/js/i18n.js') }}"></script>
 </body>
 </html>

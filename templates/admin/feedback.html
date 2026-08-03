@@ -1,33 +1,43 @@
-{% extends "base.html" %}
-{% block title %}用户反馈 — 80GOTV{% endblock %}
-{% block head %}
+<!doctype html>
+<html lang="zh-CN">
+<head>
+{% include "_i18n_bootstrap.html" %}
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>用户反馈 - 80GOTV</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin-comfort.css') }}">
 <style>
   .fb-table{width:100%;border-collapse:collapse;font-size:14px}
   .fb-table th{background:var(--bg,#f5f5f5);padding:10px 8px;text-align:left;border-bottom:2px solid var(--border,#ddd)}
   .fb-table td{padding:10px 8px;border-bottom:1px solid var(--border,#eee);vertical-align:top}
   .fb-table tr:hover{background:var(--bg,#fafafa)}
-  .fb-tag{display:inline-block;padding:2px 8px;border-radius:3px;font-size:12px;font-weight:600}
+  .fb-tag{display:inline-block;padding:2px 8px;border-radius:0;font-size:12px;font-weight:600}
   .fb-tag-bug{background:#fde8e8;color:#c0392b}
   .fb-tag-suggestion{background:#e8f4fd;color:#2980b9}
   .fb-tag-question{background:#fef3e0;color:#e67e22}
   .fb-tag-other{background:#eee;color:#666}
   .fb-status-open{border-left:3px solid #5881bc}
   .fb-status-closed{border-left:3px solid #ccc;opacity:0.6}
-  .fb-reply{background:var(--bg,#f9f9f9);padding:8px;border-radius:4px;margin-top:4px;font-size:13px}
+  .fb-reply{background:var(--bg,#f9f9f9);padding:8px;border-radius:0;margin-top:4px;font-size:13px}
   .fb-form{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .fb-form select{padding:6px;border:1px solid var(--border,#ccc);border-radius:4px}
-  .fb-form input{padding:6px 8px;border:1px solid var(--border,#ccc);border-radius:4px;flex:1;min-width:120px}
-  .fb-form button{padding:6px 16px;background:#5881bc;color:#fff;border:none;border-radius:4px;cursor:pointer}
+  .fb-form select{padding:6px;border:1px solid var(--border,#ccc);border-radius:0}
+  .fb-form input{padding:6px 8px;border:1px solid var(--border,#ccc);border-radius:0;flex:1;min-width:120px}
+  .fb-form button{padding:6px 16px;background:#5881bc;color:#fff;border:none;border-radius:0;cursor:pointer}
 </style>
-{% endblock %}
-
-{% block content %}
-<div style="max-width:1100px;margin:100px auto 40px;padding:0 20px">
-  <h2>📬 用户反馈</h2>
-  <p style="color:var(--muted,#888);margin-bottom:20px">{{ items|length }} 条</p>
+</head>
+<body>
+{% include "admin/_top_nav.html" %}
+<main class="admin-container">
+  <div class="header">
+    <div>
+      <h2>用户反馈</h2>
+      <p class="muted" style="margin:4px 0 0">{{ items|length }} 条</p>
+    </div>
+  </div>
 
   {% if items %}
-  <table class="fb-table">
+  <div class="table-wrap"><table class="fb-table">
     <thead>
       <tr><th>时间</th><th>类型</th><th>内容</th><th>用户</th><th>页面</th><th>状态</th></tr>
     </thead>
@@ -56,9 +66,12 @@
       </tr>
     {% endfor %}
     </tbody>
-  </table>
+  </table></div>
   {% else %}
   <p style="color:var(--muted,#888)">暂无反馈</p>
   {% endif %}
-</div>
-{% endblock %}
+</main>
+<script src="{{ versioned_url('static/js/i18n.js') }}"></script>
+<script src="{{ url_for('static', filename='js/svg_icons.js') }}?v=20260620-svg1"></script>
+</body>
+</html>

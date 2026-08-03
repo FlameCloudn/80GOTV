@@ -17,7 +17,7 @@
 <h3 class="section-title">新闻</h3>
 <div class="card-list h-compact-list">
   {% for n in results.news %}
-  <a class="card news-card" href="/news/{{ n.id }}">
+  <a class="card news-card" href="{{ news_path(n) }}">
     <div class="news-title">{{ n.title }}</div>
     {% if n.summary %}<div class="news-summary">{{ n.summary[:120] }}</div>{% endif %}
     <div class="meta">{{ n.publish_time|datetime_display }}</div>
@@ -30,9 +30,10 @@
 <h3 class="section-title">选手</h3>
 <div class="card-list h-compact-list">
   {% for p in results.players %}
+  {% set player_private_remark = private_remark_for_player(p.id) %}
+  {% set player_display_name = player_private_remark or p.nickname %}
   <a class="card result-card" href="/players/{{ p.id }}">
-    <span class="result-name">{{ p.nickname }}</span>
-    {% if p.real_name %}<span class="result-sub">{{ p.real_name }}</span>{% endif %}
+    <span class="result-name" data-i18n-ignore>{{ player_display_name }}{% if not player_private_remark and p.group_username %} <span class="user-group-handle">@{{ p.group_username }}</span>{% elif not player_private_remark and p.is_bashizhong_student == 0 %} <span class="player-origin-marker" aria-label="外校选手">🌐</span>{% endif %}</span>
     {% if p.team_name %}<span class="result-sub">{{ p.team_name }}</span>{% endif %}
   </a>
   {% endfor %}
@@ -55,7 +56,7 @@
 <h3 class="section-title">赛事</h3>
 <div class="card-list h-compact-list">
   {% for e in results.events %}
-  <a class="card result-card" href="/events/{{ e.id }}">
+  <a class="card result-card" href="{{ event_path(e) }}">
     <span class="result-name">{{ e.name }}</span>
     {% if e.start_date %}<span class="result-sub">{{ e.start_date|date_display }}</span>{% endif %}
   </a>

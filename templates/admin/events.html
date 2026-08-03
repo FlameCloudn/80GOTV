@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
+  {% include "_i18n_bootstrap.html" %}
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>赛事管理</title>
@@ -115,20 +116,7 @@
 <body>
 
 <!-- 顶部导航栏 -->
-<div class="top-nav">
-  <div class="logo">🎮 CS2 后台管理</div>
-  <div class="nav-links">
-    <a href="/admin">📊 首页</a>
-    <a href="/admin/teams">👥 队伍</a >
-    <a href="/admin/players">🎯 选手</a >
-    <a href="/admin/events">🏆 赛事</a >
-    <a href="/admin/matches">⚔️ 比赛</a >
-    <a href="/admin/news">📰 新闻</a >
-    <span style="color:#ccc">|</span>
-    <span style="color:#666">{{ session.admin_username }}</span>
-    <a href="/admin/logout" class="logout-btn">退出</a >
-  </div>
-</div>
+{% include "admin/_top_nav.html" %}
 
 <div class="container">
   {% with messages = get_flashed_messages(with_categories=true) %}
@@ -141,7 +129,7 @@
 
   <div class="header">
     <h2>赛事管理</h2>
-    <a href="/admin/events/add" class="btn btn-primary">➕ 添加赛事</a >
+    <a href="/admin/events/add" class="btn btn-primary">➕ 添加赛事</a>
   </div>
 
   <table>
@@ -172,9 +160,9 @@
           </span>
         </td>
         <td class="actions">
-          <a href="/admin/events/edit/{{ e.id }}">✏️ 编辑</a >
+          <a href="/admin/events/edit/{{ e.id }}">✏️ 编辑</a>
           <a href="/admin/events/{{ e.id }}/bracket">📋 对阵图</a>
-          <form method="post" action="/admin/events/delete/{{ e.id }}" style="display:inline" onsubmit="return window._confirmThen(event, '确定删除赛事【{{ e.name }}】吗？')"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" style="background:none;border:none;color:#5881bc;cursor:pointer;font-size:14px;padding:0">🗑️ 删除</button></form>
+          <form method="post" action="/admin/events/delete/{{ e.id }}" style="display:inline" data-confirm="确定删除赛事【{{ e.name }}】吗？" onsubmit="return window.confirm(this.dataset.confirm)"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" style="background:none;border:none;color:#5881bc;cursor:pointer;font-size:14px;padding:0">🗑️ 删除</button></form>
         </td>
       </tr>
       {% endfor %}
@@ -182,7 +170,7 @@
   </table>
 </div>
 
-<script src="{{ url_for('static', filename='js/i18n.js') }}?v=20260614-fullsite-lang2"></script>
+<script src="{{ versioned_url('static/js/i18n.js') }}"></script>
 <script src="{{ url_for('static', filename='js/svg_icons.js') }}?v=20260620-svg1"></script>
 </body>
 </html>

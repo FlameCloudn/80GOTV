@@ -5,10 +5,14 @@ window._csrfToken = window._csrfToken || (document.querySelector('input[name="cs
 const root = document.documentElement;
 const themeToggle = document.getElementById('themeToggle');
 
-function updateThemeIcon(t){ themeToggle.textContent = t === 'dark' ? '☀️' : '🌙'; }
+function updateThemeIcon(t){
+  if (!themeToggle) return;
+  themeToggle.setAttribute('aria-label', t === 'dark' ? '切换到浅色模式' : '切换到深色模式');
+}
 if(themeToggle){
   updateThemeIcon(root.getAttribute('data-theme') || 'light');
-  themeToggle.addEventListener('click', ()=>{
+  themeToggle.addEventListener('click', (e)=>{
+    e.stopPropagation();
     const current = root.getAttribute('data-theme');
     const next = current === 'dark' ? 'light' : 'dark';
     root.setAttribute('data-theme', next);
@@ -20,16 +24,113 @@ if(themeToggle){
 // ==================== 移动端搜索 ====================
 const searchToggle = document.getElementById('searchToggle');
 const searchForm = document.getElementById('searchForm');
+const mobileSearchBrowse = document.getElementById('mobileSearchBrowse');
+let mobileSearchBrowseLoaded = false;
+
+function mobileSearchCard(item, type) {
+  var label = item.nickname || item.name || '未命名';
+  var meta = '';
+  var image = '';
+  var initials = label.trim().slice(0, 2).toUpperCase();
+  if (type === 'players') {
+    if (item.group_username) label += ' @' + item.group_username;
+    meta = item.team || '选手';
+    image = item.avatar || '';
+  } else if (type === 'teams') {
+    meta = item.short_name || '战队';
+    image = item.logo || '';
+  } else {
+    meta = item.start_date || item.status || '赛事';
+  }
+  var visual = image
+    ? '<img src="' + escapeHtml(image) + '" alt="">'
+    : '<span class="mobile-search-card-fallback">' + escapeHtml(initials) + '</span>';
+  return '<a class="mobile-search-card" href="' + escapeHtml(item.url || '#') + '">' +
+    '<span class="mobile-search-card-visual">' + visual + '</span>' +
+    '<strong>' + escapeHtml(label) + '</strong>' +
+    '<small>' + escapeHtml(meta) + '</small>' +
+  '</a>';
+}
+
+function mobileSearchSection(titleZh, titleEn, type, items) {
+  if (!items || !items.length) return '';
+  return '<section class="mobile-search-section">' +
+    '<header><span class="mobile-search-section-title" data-label-zh="' + escapeHtml(titleZh) + '" data-label-en="' + escapeHtml(titleEn) + '"></span>' +
+      '<span class="mobile-search-section-controls">' +
+        '<button type="button" data-search-scroll="-1" aria-label="向左浏览">‹</button>' +
+        '<button type="button" data-search-scroll="1" aria-label="向右浏览">›</button>' +
+      '</span>' +
+    '</header>' +
+    '<div class="mobile-search-card-track">' + items.slice(0, 10).map(function(item) {
+      return mobileSearchCard(item, type);
+    }).join('') + '</div>' +
+  '</section>';
+}
+
+function loadMobileSearchBrowse() {
+  if (!mobileSearchBrowse || mobileSearchBrowseLoaded) return;
+  mobileSearchBrowseLoaded = true;
+  mobileSearchBrowse.innerHTML = '<div class="mobile-search-loading">正在加载推荐内容...</div>';
+  Promise.all([
+    fetch('/api/front/players?per_page=10', {credentials:'same-origin'}).then(function(r){ return r.json(); }),
+    fetch('/api/front/teams', {credentials:'same-origin'}).then(function(r){ return r.json(); }),
+    fetch('/api/front/events', {credentials:'same-origin'}).then(function(r){ return r.json(); })
+  ]).then(function(data) {
+    var html = mobileSearchSection('选手', 'Players', 'players', data[0].players || '') +
+      mobileSearchSection('战队', 'Teams', 'teams', data[1].teams || '') +
+      mobileSearchSection('赛事', 'Events', 'events', data[2].events || '');
+    mobileSearchBrowse.innerHTML = html || '<div class="mobile-search-loading">暂无推荐内容</div>';
+  }).catch(function() {
+    mobileSearchBrowseLoaded = false;
+    mobileSearchBrowse.innerHTML = '<div class="mobile-search-loading">推荐内容暂时无法加载</div>';
+  });
+}
+
+if (mobileSearchBrowse) {
+  mobileSearchBrowse.addEventListener('click', function(e) {
+    var button = e.target.closest('[data-search-scroll]');
+    if (!button) return;
+    var track = button.closest('.mobile-search-section').querySelector('.mobile-search-card-track');
+    var direction = Number(button.getAttribute('data-search-scroll')) || 1;
+    track.scrollBy({left: direction * Math.max(180, track.clientWidth * 0.72), behavior:'smooth'});
+  });
+}
+
+function setSearchOpen(isOpen) {
+  if (!searchToggle || !searchForm) return;
+  const searchInput = searchForm.querySelector('input');
+  searchForm.classList.toggle('open', isOpen);
+  searchToggle.classList.toggle('active', isOpen);
+  searchToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  searchToggle.setAttribute('aria-label', isOpen ? '关闭搜索' : '打开搜索');
+  if (isOpen) {
+    loadMobileSearchBrowse();
+    if (searchInput) {
+      if (window.matchMedia('(max-width:760px)').matches) {
+        searchInput.setAttribute('placeholder', ' ');
+      }
+      searchInput.focus();
+    }
+  } else {
+    var dropdown = document.getElementById('searchDropdown');
+    if (dropdown) dropdown.classList.remove('active');
+    if (mobileSearchBrowse) mobileSearchBrowse.classList.remove('query-active');
+  }
+}
+
 if (searchToggle && searchForm) {
   searchToggle.addEventListener('click', () => {
-    searchForm.classList.toggle('open');
-    if (searchForm.classList.contains('open')) {
-      searchForm.querySelector('input').focus();
-    }
+    setSearchOpen(!searchForm.classList.contains('open'));
   });
   document.addEventListener('click', (e) => {
     if (!searchToggle.contains(e.target) && !searchForm.contains(e.target)) {
-      searchForm.classList.remove('open');
+      setSearchOpen(false);
+    }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && searchForm.classList.contains('open')) {
+      setSearchOpen(false);
+      searchToggle.focus();
     }
   });
 }
@@ -51,6 +152,7 @@ if (searchToggle && searchForm) {
     clearTimeout(debounceTimer);
     if (abortController) abortController.abort();
     var q = input.value.trim();
+    if (mobileSearchBrowse) mobileSearchBrowse.classList.toggle('query-active', Boolean(q));
     if (!q) { hideDropdown(); return; }
     debounceTimer = setTimeout(function() {
       abortController = new AbortController();
@@ -126,29 +228,166 @@ if (searchToggle && searchForm) {
 // ==================== 移动端汉堡菜单 ====================
 const hamburger = document.getElementById('hamburger');
 const navLinks = document.getElementById('navLinks');
+let mobileNavUnderlay = null;
+
+function ensureMobileNavUnderlay(){
+  if (mobileNavUnderlay || !hamburger) return mobileNavUnderlay;
+  const navInner = hamburger.closest('.nav-inner');
+  if (!navInner) return null;
+
+  const shell = document.createElement('div');
+  const clone = navInner.cloneNode(true);
+  shell.className = 'mobile-nav-underlay-shell';
+  shell.setAttribute('aria-hidden', 'true');
+  shell.setAttribute('inert', '');
+  clone.querySelectorAll('[id]').forEach(function(el){
+    el.removeAttribute('id');
+  });
+  const clonedLinks = clone.querySelector('.nav-links');
+  const clonedMenuButton = clone.querySelector('.hamburger');
+  if (clonedLinks) clonedLinks.classList.remove('open');
+  if (clonedMenuButton) clonedMenuButton.setAttribute('aria-expanded', 'false');
+  shell.appendChild(clone);
+  shell.addEventListener('click', function(e){
+    e.preventDefault();
+    e.stopPropagation();
+    closeMenu();
+  });
+  document.body.appendChild(shell);
+  mobileNavUnderlay = shell;
+  return mobileNavUnderlay;
+}
+
+function setMobileNavUnderlayVisible(isVisible){
+  const shell = isVisible ? ensureMobileNavUnderlay() : mobileNavUnderlay;
+  if (shell) shell.classList.toggle('visible', isVisible);
+}
 
 function closeMenu(){
   navLinks.classList.remove('open');
   hamburger.setAttribute('aria-expanded', 'false');
+  hamburger.setAttribute('aria-label', '打开菜单');
+  setSearchOpen(false);
+  setMobileNavUnderlayVisible(false);
+  navLinks.querySelectorAll('.nav-dropdown.expanded').forEach(function(item){
+    item.classList.remove('expanded');
+  });
+  navLinks.querySelectorAll('.nav-dropdown-toggle').forEach(function(toggle){
+    toggle.setAttribute('aria-expanded', 'false');
+  });
 }
 if(hamburger && navLinks){
   hamburger.addEventListener('click', ()=>{
-    var isOpen = navLinks.classList.toggle('open');
-    hamburger.setAttribute('aria-expanded', isOpen);
+    if (navLinks.classList.contains('open')) {
+      closeMenu();
+      return;
+    }
+    ensureMobileNavUnderlay();
+    navLinks.classList.add('open');
+    hamburger.setAttribute('aria-expanded', 'true');
+    hamburger.setAttribute('aria-label', '关闭菜单');
+    setMobileNavUnderlayVisible(true);
   });
 
   // 点击菜单项后关闭菜单
   navLinks.querySelectorAll('a').forEach(link => {
-    link.addEventListener('click', closeMenu);
+    link.addEventListener('click', function(e){
+      if (link.classList.contains('nav-dropdown-toggle') &&
+          window.matchMedia('(max-width:760px)').matches &&
+          navLinks.classList.contains('open')) {
+        e.preventDefault();
+        var dropdown = link.closest('.nav-dropdown');
+        var willOpen = !dropdown.classList.contains('expanded');
+        navLinks.querySelectorAll('.nav-dropdown.expanded').forEach(function(item){
+          item.classList.remove('expanded');
+        });
+        navLinks.querySelectorAll('.nav-dropdown-toggle').forEach(function(toggle){
+          toggle.setAttribute('aria-expanded', 'false');
+        });
+        dropdown.classList.toggle('expanded', willOpen);
+        link.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+        return;
+      }
+      closeMenu();
+    });
   });
 
   // 点击外部关闭菜单
   document.addEventListener('click', (e)=>{
-    if(!hamburger.contains(e.target) && !navLinks.contains(e.target)){
+    var menuTools = [
+      document.getElementById('searchToggle'),
+      document.getElementById('searchForm'),
+      document.getElementById('themeToggle'),
+      document.querySelector('.user-nav')
+    ];
+    var clickedMenuTool = menuTools.some(function(el) {
+      return el && el.contains(e.target);
+    });
+    if(!hamburger.contains(e.target) && !navLinks.contains(e.target) && !clickedMenuTool){
       closeMenu();
     }
   });
+
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape' && navLinks.classList.contains('open')){
+      e.preventDefault();
+      closeMenu();
+      hamburger.focus();
+    }
+  });
 }
+
+// ==================== 桌面下拉菜单键盘操作 ====================
+(function initDropdownKeyboard(){
+  document.querySelectorAll('.nav-dropdown').forEach(function(dropdown, index){
+    var toggle = dropdown.querySelector(':scope > .nav-dropdown-toggle');
+    var menu = dropdown.querySelector(':scope > .nav-dropdown-menu');
+    if(!toggle || !menu) return;
+
+    if(!menu.id) menu.id = 'navDropdownMenu' + index;
+    toggle.setAttribute('aria-controls', menu.id);
+    toggle.setAttribute('aria-expanded', 'false');
+
+    function isDesktop(){
+      return window.matchMedia('(min-width:761px)').matches;
+    }
+
+    function setOpen(open){
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+
+    dropdown.addEventListener('focusin', function(){
+      if(isDesktop() && !dropdown.classList.contains('keyboard-closed')) setOpen(true);
+    });
+
+    dropdown.addEventListener('focusout', function(){
+      setTimeout(function(){
+        if(!dropdown.contains(document.activeElement)){
+          dropdown.classList.remove('keyboard-closed');
+          setOpen(false);
+        }
+      }, 0);
+    });
+
+    toggle.addEventListener('keydown', function(event){
+      if(!isDesktop() || event.key !== 'ArrowDown') return;
+      event.preventDefault();
+      dropdown.classList.remove('keyboard-closed');
+      setOpen(true);
+      var firstItem = menu.querySelector('a,button');
+      if(firstItem) firstItem.focus();
+    });
+
+    dropdown.addEventListener('keydown', function(event){
+      if(!isDesktop() || event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
+      dropdown.classList.add('keyboard-closed');
+      setOpen(false);
+      toggle.focus();
+    });
+  });
+})();
 
 // ==================== 页面内 Tab 切换 ====================
 (function() {
@@ -193,6 +432,68 @@ if(hamburger && navLinks){
   });
 })();
 
+// ==================== 赛事报名队伍：页面内更新 ====================
+(function() {
+  function submitRegistrationForm(form) {
+    var button = form.querySelector('button[type="submit"]');
+    var originalText = button ? button.textContent : '';
+    if (button) {
+      button.disabled = true;
+      button.textContent = '处理中...';
+    }
+
+    return fetch(form.action, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRF-Token': window._csrfToken || ''
+      },
+      body: new FormData(form)
+    })
+    .then(function(response) {
+      return response.json().catch(function() {
+        throw new Error('服务器返回了无法识别的内容');
+      });
+    })
+    .then(function(result) {
+      if (!result.success) {
+        window.showToast(result.error || '操作失败', 'error');
+        return;
+      }
+      var section = document.getElementById('eventRegistrationSection');
+      if (section && typeof result.html === 'string') {
+        section.innerHTML = result.html;
+      }
+      window.showToast(result.message || '操作成功', 'success');
+    })
+    .catch(function(error) {
+      window.showToast(error.message || '网络错误，请稍后重试', 'error');
+    })
+    .finally(function() {
+      if (button && document.body.contains(button)) {
+        button.disabled = false;
+        button.textContent = originalText;
+      }
+    });
+  }
+
+  document.addEventListener('submit', function(event) {
+    var form = event.target.closest('.event-reg-ajax-form');
+    if (!form) return;
+    event.preventDefault();
+
+    var confirmMessage = form.getAttribute('data-confirm');
+    if (confirmMessage) {
+      window.showConfirm(confirmMessage).then(function(confirmed) {
+        if (confirmed) submitRegistrationForm(form);
+      });
+      return;
+    }
+    submitRegistrationForm(form);
+  });
+})();
+
 // ==================== 评论回复 ====================
 function toggleReply(commentId) {
   var form = document.getElementById('reply-form-' + commentId);
@@ -224,12 +525,13 @@ function buildCommentHTML(c) {
   var likeHtml = '';
   if (window._curUserId) {
     var likedClass = c.user_liked ? ' liked' : '';
-    likeHtml = '<button class="comment-like-btn' + likedClass + '" data-cid="' + c.id + '" data-liked="' + (c.user_liked ? '1' : '0') + '"><span class="like-icon">❤</span> <span class="like-count">' + (c.like_count || 0) + '</span></button>';
+    likeHtml = '<button class="comment-like-btn' + likedClass + '" data-cid="' + c.id + '" data-liked="' + (c.user_liked ? '1' : '0') + '" title="点赞"><span class="like-icon">+</span> <span class="like-count">' + (c.like_count || 0) + '</span></button>';
   } else {
-    likeHtml = '<span class="comment-like-btn disabled" title="请先登录"><span class="like-icon">❤</span> <span class="like-count">' + (c.like_count || 0) + '</span></span>';
+    likeHtml = '<span class="comment-like-btn disabled" title="请先登录"><span class="like-icon">+</span> <span class="like-count">' + (c.like_count || 0) + '</span></span>';
   }
   var replyBtn = window._curUserId ? '<button class="reply-toggle" onclick="toggleReply(' + c.id + ')">回复</button>' : '';
-  var adminBadge = (c.username == 'flamecloud') ? '<span class="admin-badge-small">ADMIN</span> ' : '';
+  var adminBadge = ((c.username || '').toLowerCase() == 'flamecloud_') ? '<span class="admin-badge-small">ADMIN</span> ' : '';
+  var cheaterBadge = c.is_cheater ? '<span class="cheater-badge" title="该用户已被标记为作弊者">作弊者</span>' : '';
   var replyForm = window._curUserId ?
     '<form class="reply-form" id="reply-form-' + c.id + '" style="display:none">' +
     '<input type="hidden" name="csrf_token" value="' + (window._csrfToken || '') + '">' +
@@ -238,11 +540,12 @@ function buildCommentHTML(c) {
     '<div class="reply-form-footer"><button type="button" class="reply-cancel" onclick="toggleReply(' + c.id + ')">取消</button>' +
     '<button type="submit" class="reply-submit">回复</button></div></form>' : '';
   return '<div class="comment-item" id="comment-' + c.id + '">' +
-    '<div class="comment-header">' + avatarHtml +
-    '<b class="comment-author">' + adminBadge + escapeHtml(c.username) + '</b>' +
-    '<span class="comment-time">刚刚</span></div>' +
+    '<div class="comment-topbar"><a class="comment-floor" href="#comment-' + c.id + '">#' + (c.floor_number || c.id) + '</a>' +
+    '<div class="comment-user-line">' + avatarHtml +
+    '<b class="comment-author">' + adminBadge + escapeHtml(c.username) + cheaterBadge + '</b></div></div>' +
     '<p class="comment-body">' + escapeHtml(c.content) + '</p>' +
-    '<div class="comment-actions">' + likeHtml + replyBtn + deleteHtml + '</div>' +
+    '<div class="comment-footer"><time class="comment-time">' + escapeHtml(c.created_at || '刚刚') + '</time>' +
+    '<div class="comment-actions">' + likeHtml + replyBtn + deleteHtml + '</div></div>' +
     replyForm +
     '<div class="comment-replies"></div>' +
     '</div>';
@@ -587,13 +890,19 @@ document.addEventListener('click', function(e) {
     var iconMap = { error: '✕', success: '✓', info: 'ℹ' };
     var el = document.createElement('div');
     el.className = 'site-toast toast-' + type;
-    el.innerHTML = '<span class="site-toast-icon">' + (iconMap[type] || 'ℹ') + '</span>' +
-                   '<span class="site-toast-msg">' + msg + '</span>';
+    var icon = document.createElement('span');
+    icon.className = 'site-toast-icon';
+    icon.textContent = iconMap[type] || 'ℹ';
+    var message = document.createElement('span');
+    message.className = 'site-toast-msg';
+    message.textContent = String(msg || '');
+    el.appendChild(icon);
+    el.appendChild(message);
     ensureContainer().appendChild(el);
     setTimeout(function() {
       el.classList.add('toast-out');
       el.addEventListener('animationend', function() { if (el.parentNode) el.remove(); });
-    }, 3500);
+    }, type === 'error' ? 5500 : 3500);
   };
 
   window.showModal = function(msg, title) {

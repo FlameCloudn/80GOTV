@@ -1,0 +1,224 @@
+/* The standalone player comparison page keeps its controls inside the shared content frame. */
+html {
+  overflow-y: scroll;
+}
+
+body.page-player-compare {
+  overflow-x: hidden;
+}
+
+.page-player-compare .compare-container {
+  width: 100%;
+  max-width: 900px;
+  min-width: 0;
+  margin: 0 auto;
+  padding: 8px 0;
+  box-sizing: border-box;
+}
+
+.page-player-compare .compare-selector {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 32px minmax(0, 1fr) 72px;
+  gap: 10px;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+  margin-bottom: 12px;
+}
+
+.page-player-compare .compare-selector select,
+.page-player-compare .compare-selector button {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.page-player-compare .compare-selector select {
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 10px;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: 0;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.page-player-compare .compare-selector .compare-vs {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--text-muted);
+}
+
+.page-player-compare .compare-selector .compare-submit {
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 8px;
+  border: 1px solid var(--accent);
+  border-radius: 0;
+  color: #fff;
+  background: var(--accent);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.page-player-compare .compare-selector .compare-submit:hover {
+  filter: brightness(.92);
+}
+
+.page-player-compare .compare-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  min-width: 0;
+}
+
+.page-player-compare .compare-card,
+.page-player-compare .compare-stat-row,
+.page-player-compare .compare-card h3,
+.page-player-compare .compare-card .team,
+.page-player-compare .compare-stat-row .label,
+.page-player-compare .compare-stat-row .value {
+  min-width: 0;
+}
+
+.page-player-compare .compare-card {
+  box-sizing: border-box;
+  overflow: hidden;
+  padding: 12px;
+  border: 1px solid var(--h-panel-line);
+  border-radius: 0;
+  background: var(--h-panel);
+}
+
+.page-player-compare .compare-card h3,
+.page-player-compare .compare-card .team,
+.page-player-compare .compare-stat-row .label,
+.page-player-compare .compare-stat-row .value,
+.page-player-compare .compare-bars-label span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.page-player-compare .compare-card h3 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.page-player-compare .compare-card .team {
+  margin-bottom: 12px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.page-player-compare .compare-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.page-player-compare .compare-stat-row .label {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.page-player-compare .compare-stat-row .value {
+  flex: 0 0 auto;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.page-player-compare .compare-bars {
+  margin-top: 16px;
+}
+
+.page-player-compare .compare-bars-item {
+  min-width: 0;
+  margin-bottom: 10px;
+}
+
+.page-player-compare .compare-bars-label {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(72px, auto) minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  margin-bottom: 2px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.page-player-compare .compare-bars-label span:first-child {
+  text-align: left;
+}
+
+.page-player-compare .compare-bars-label span:nth-child(2) {
+  text-align: center;
+}
+
+.page-player-compare .compare-bars-label span:last-child {
+  text-align: right;
+}
+
+.page-player-compare .compare-bar {
+  display: flex;
+  width: 100%;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 0;
+}
+
+.page-player-compare .compare-bar .fill-a { background: var(--accent); }
+.page-player-compare .compare-bar .fill-b { background: #ff9800; }
+.page-player-compare .compare-bar .gap { background: var(--border-color); }
+
+.page-player-compare .empty-hint {
+  padding: 40px 12px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+@media (max-width: 700px) {
+  .page-player-compare .compare-container {
+    padding: 8px;
+  }
+
+  .page-player-compare .compare-selector {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .page-player-compare .compare-selector .compare-vs {
+    display: none;
+  }
+
+  .page-player-compare .compare-selector .compare-submit {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-player-compare .compare-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .page-player-compare .compare-bars-label {
+    grid-template-columns: minmax(0, 1fr) minmax(60px, auto) minmax(0, 1fr);
+    gap: 5px;
+  }
+}

@@ -1,19 +1,120 @@
 """Admin live operations, nickname management, award cards and backups."""
 
 import json
-from datetime import datetime
+import shutil
+import tempfile
+from datetime import date
 
-from flask import flash, redirect, render_template, request, send_file, url_for
+from flask import flash, redirect, render_template, request, send_file, session, url_for
 
 from blueprints.admin import admin_bp
 from config import BASE_DIR
 from models import get_db
 from services.award_service import build_event_award_poster
-from services.backup_service import create_backup_zip
+from services.backup_service import create_backup_file
 from services.player_service import merge_player_records
 from utils.match_utils import get_sql_effective_status
 from utils.web_helpers import admin_required as login_required
 from utils.web_helpers import csrf_required
+
+
+@admin_bp.route("/top10")
+@login_required
+def admin_top10():
+    """Manage the manually published yearly TOP 10 list."""
+    current_year = date.today().year
+    year = request.args.get("year", type=int) or current_year
+    if year < 2026 or year > current_year:
+        year = current_year
+
+    conn = get_db()
+    players = conn.execute(
+        "SELECT id, nickname FROM players ORDER BY nickname COLLATE NOCASE, id"
+    ).fetchall()
+    existing = {
+        row["rank"]: row["player_id"]
+        for row in conn.execute(
+            "SELECT rank, player_id FROM yearly_top_players WHERE year=? ORDER BY rank",
+            (year,),
+        ).fetchall()
+    }
+    published_years = [
+        row["year"]
+        for row in conn.execute(
+            "SELECT DISTINCT year FROM yearly_top_players ORDER BY year DESC"
+        ).fetchall()
+    ]
+    conn.close()
+    return render_template(
+        "admin/top10.html",
+        year=year,
+        current_year=current_year,
+        players=players,
+        existing=existing,
+        published_years=published_years,
+    )
+
+
+@admin_bp.route("/top10/save", methods=["POST"])
+@csrf_required
+@login_required
+def admin_top10_save():
+    """Replace or explicitly clear one year's published TOP 10 list."""
+    current_year = date.today().year
+    year_text = request.form.get("year", "").strip()
+    if not year_text.isdigit():
+        flash("年份无效", "error")
+        return redirect(url_for("admin.admin_top10"))
+    year = int(year_text)
+    if year < 2026 or year > current_year:
+        flash("只能管理 2026 年至今年的榜单", "error")
+        return redirect(url_for("admin.admin_top10", year=current_year))
+
+    conn = get_db()
+    try:
+        if request.form.get("action") == "clear":
+            conn.execute("DELETE FROM yearly_top_players WHERE year=?", (year,))
+            conn.commit()
+            flash(f"已清空 {year} 年 TOP 10", "success")
+            return redirect(url_for("admin.admin_top10", year=year))
+
+        player_ids = []
+        for rank in range(1, 11):
+            value = request.form.get(f"rank_{rank}", "").strip()
+            if not value.isdigit():
+                raise ValueError("必须完整选择第 1 至第 10 名")
+            player_ids.append(int(value))
+        if len(set(player_ids)) != 10:
+            raise ValueError("同一名选手不能重复出现")
+
+        placeholders = ",".join("?" for _ in player_ids)
+        valid_count = conn.execute(
+            f"SELECT COUNT(*) FROM players WHERE id IN ({placeholders})",
+            player_ids,
+        ).fetchone()[0]
+        if valid_count != 10:
+            raise ValueError("所选选手中存在无效档案")
+
+        conn.execute("DELETE FROM yearly_top_players WHERE year=?", (year,))
+        conn.executemany(
+            """INSERT INTO yearly_top_players(year, rank, player_id, decided_by)
+               VALUES(?,?,?,?)""",
+            [
+                (year, rank, player_id, session.get("admin_id"))
+                for rank, player_id in enumerate(player_ids, start=1)
+            ],
+        )
+        conn.commit()
+        flash(f"已公布 {year} 年 TOP 10", "success")
+    except ValueError as exc:
+        conn.rollback()
+        flash(str(exc), "error")
+    except Exception:
+        conn.rollback()
+        flash("保存失败，请稍后重试", "error")
+    finally:
+        conn.close()
+    return redirect(url_for("admin.admin_top10", year=year))
 
 
 @admin_bp.route("/live")
@@ -157,13 +258,16 @@ def admin_award_poster_image():
 @login_required
 def admin_backup_download():
     """Download database, avatar, demo and upload files as one ZIP."""
-    filename = f"80gotv_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
-    return send_file(
-        create_backup_zip(),
+    temp_dir = tempfile.mkdtemp(prefix="80gotv-admin-backup-")
+    backup_path = create_backup_file(temp_dir, include_demos=True)
+    response = send_file(
+        backup_path,
         mimetype="application/zip",
         as_attachment=True,
-        download_name=filename,
+        download_name=backup_path.name,
     )
+    response.call_on_close(lambda: shutil.rmtree(temp_dir, ignore_errors=True))
+    return response
 
 
 @admin_bp.route("/feedback")
@@ -185,8 +289,15 @@ def admin_feedback():
 def admin_feedback_status(fb_id):
     """更新反馈状态"""
     status = request.form.get("status", "open")
+    if status not in {"open", "reviewing", "resolved", "closed"}:
+        flash("反馈状态无效", "error")
+        return redirect(url_for("admin.admin_feedback"))
     reply = request.form.get("reply", "").strip()
     conn = get_db()
+    if not conn.execute("SELECT id FROM feedback WHERE id=?", (fb_id,)).fetchone():
+        conn.close()
+        flash("反馈不存在", "error")
+        return redirect(url_for("admin.admin_feedback"))
     conn.execute("UPDATE feedback SET status=?, admin_reply=? WHERE id=?", (status, reply, fb_id))
     conn.commit()
     conn.close()

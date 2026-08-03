@@ -8,6 +8,12 @@ import secrets
 
 from werkzeug.security import generate_password_hash
 
+from services.bracket_service import refresh_bracket_for_match
+from services.performance_service import (
+    build_demo_performance_payload,
+    persist_demo_performance_payload,
+    refresh_player_performance,
+)
 from services.player_service import (
     load_unique_player_alias_ids,
     record_player_nickname,
@@ -48,7 +54,10 @@ def auto_create_user_from_demo(conn, stat):
     for attempt in range(10):
         try:
             conn.execute(
-                "INSERT INTO users(username, password_hash, steam_id64, is_placeholder) VALUES(?,?,?,1)",
+                """INSERT INTO users(
+                       username, password_hash, steam_id64,
+                       is_placeholder, approval_status
+                   ) VALUES(?,?,?,1,'pending')""",
                 (username, generate_password_hash(secrets.token_hex(8)), steam_id),
             )
             break
@@ -137,6 +146,7 @@ def sync_match_scores(conn, match_id, map_slot, info, a_to_t1):
             "UPDATE matches SET team1_score = ?, team2_score = ? WHERE id = ?",
             (t1_wins, t2_wins, match_id),
         )
+        refresh_bracket_for_match(conn, match_id)
     return True
 
 
@@ -180,6 +190,7 @@ def analyze_demo(conn, match, demo_path):
     match_data = run_analysis(demo_path)
     players = parse_player_stats(match_data)
     info = get_match_info(match_data)
+    performance_data = build_demo_performance_payload(match_data)
 
     db_players = conn.execute(
         "SELECT p.*, t.name AS team_name FROM players p LEFT JOIN teams t ON p.team_id=t.id"
@@ -246,7 +257,14 @@ def analyze_demo(conn, match, demo_path):
         "source": info["source"],
         "players": players,
         "map_slot": map_slot,
-        "demo_data": json.dumps({"info": info, "players": players}, ensure_ascii=False),
+        "demo_data": json.dumps(
+            {
+                "info": info,
+                "players": players,
+                "performance_data": performance_data,
+            },
+            ensure_ascii=False,
+        ),
     }
 
 
@@ -275,8 +293,17 @@ def import_demo_data(conn, match_id, match, demo_data_str, map_slot):
     ).fetchall()
     alias_player_ids = load_unique_player_alias_ids(conn)
 
-    t1_key = match["team1_id"] if match["team1_id"] else -1
-    t2_key = match["team2_id"] if match["team2_id"] else -2
+    def _stored_team_id(value):
+        try:
+            value = int(value)
+        except (TypeError, ValueError):
+            return None
+        return value if value > 0 else None
+
+    # Older temporary teams used -1/-2 sentinels. They are not real rows in
+    # teams, so writing them into match_stats violates the foreign key.
+    t1_key = _stored_team_id(match["team1_id"])
+    t2_key = _stored_team_id(match["team2_id"])
 
     t1_pids_set = set(
         int(p) for p in (json.loads(match["team1_players"]) if match["team1_players"] else [])
@@ -305,8 +332,22 @@ def import_demo_data(conn, match_id, match, demo_data_str, map_slot):
         "A": t1_key if a_to_t1 else t2_key,
         "B": t2_key if a_to_t1 else t1_key,
     }
+    demo_to_match_side = {
+        "A": "t1" if a_to_t1 else "t2",
+        "B": "t2" if a_to_t1 else "t1",
+    }
 
     imported, skipped, created = 0, 0, 0
+    affected_player_ids = {
+        row["player_id"]
+        for row in conn.execute(
+            """SELECT DISTINCT player_id
+               FROM match_stats
+               WHERE match_id=? AND map_name=?""",
+            (match_id, map_name),
+        ).fetchall()
+        if row["player_id"]
+    }
     team_a_players = sorted(
         [s for s in players if s.get("team_letter") == "A"], key=lambda x: x["rating"], reverse=True
     )[:5]
@@ -334,12 +375,31 @@ def import_demo_data(conn, match_id, match, demo_data_str, map_slot):
                 skipped += 1
                 continue
         team_id = demo_to_match_team.get(letter, t1_key if letter == "A" else t2_key)
+        match_team_side = demo_to_match_side.get(letter)
         record_player_nickname(conn, db_player["id"], stat.get("name", ""), "demo")
-        _insert_match_stat(conn, match_id, db_player["id"], team_id, stat, map_name)
+        insert_match_stat(
+            conn,
+            match_id,
+            db_player["id"],
+            team_id,
+            match_team_side,
+            stat,
+            map_name,
+        )
+        affected_player_ids.add(db_player["id"])
         imported += 1
 
     sync_match_scores(conn, match_id, map_slot, info, a_to_t1)
     save_halftime_data(conn, match_id, map_slot, demo_data, a_to_t1)
+    affected_player_ids.update(
+        persist_demo_performance_payload(
+            conn,
+            match_id,
+            map_name,
+            demo_data.get("performance_data", {}),
+        )
+    )
+    refresh_player_performance(conn, affected_player_ids)
     return (
         imported,
         f"{info.get('map_name', '')} → {map_name}，成功 {imported} 人（新建 {created}，跳过 {skipped}）",
@@ -363,12 +423,13 @@ def _match_player_from_db(stat, db_players, alias_player_ids=None):
     return None
 
 
-def _insert_match_stat(conn, match_id, player_id, team_id, stat, map_name):
+def insert_match_stat(conn, match_id, player_id, team_id, match_team_side, stat, map_name):
     """插入一条 match_stat 记录"""
     columns = (
         "match_id",
         "player_id",
         "team_id",
+        "match_team_side",
         "kills",
         "deaths",
         "assists",
@@ -410,22 +471,29 @@ def _insert_match_stat(conn, match_id, player_id, team_id, stat, map_name):
         "rounds_played",
         "damage_delta_per_round",
         "rws_basic",
+        "clutch_1v1",
+        "clutch_1v2",
+        "clutch_1v3",
+        "clutch_1v4",
+        "clutch_1v5",
+        "flash_assists",
         "map_name",
     )
     values = (
         match_id,
         player_id,
         team_id,
-        stat["kills"],
-        stat["deaths"],
-        stat["assists"],
-        stat["adr"],
-        stat["kpr"],
-        stat["dpr"],
-        stat["rating"],
-        stat["impact"],
-        stat["kast"],
-        stat["headshot_percentage"],
+        match_team_side,
+        stat.get("kills", 0),
+        stat.get("deaths", 0),
+        stat.get("assists", 0),
+        stat.get("adr", 0),
+        stat.get("kpr", 0),
+        stat.get("dpr", 0),
+        stat.get("rating", 0),
+        stat.get("impact", 0),
+        stat.get("kast", 0),
+        stat.get("headshot_percentage", 0),
         stat.get("clutches_won", 0),
         stat.get("t_rating", 0),
         stat.get("ct_rating", 0),
@@ -457,6 +525,12 @@ def _insert_match_stat(conn, match_id, player_id, team_id, stat, map_name):
         stat.get("rounds_played", 0),
         stat.get("damage_delta_per_round", 0),
         stat.get("rws_basic", 0),
+        stat.get("clutch_1v1", 0),
+        stat.get("clutch_1v2", 0),
+        stat.get("clutch_1v3", 0),
+        stat.get("clutch_1v4", 0),
+        stat.get("clutch_1v5", 0),
+        stat.get("flash_assists", 0),
         map_name,
     )
     placeholders = ",".join("?" for _ in columns)

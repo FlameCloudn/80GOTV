@@ -1,10 +1,56 @@
 {% extends 'base.html' %}
 {% block title %}{{ config.title }} - 80GOTV{% endblock %}
+{% block head %}
+{% set detail_title_en = {
+  'best-players': 'Top players',
+  'top-events': 'Top events',
+  'kd': 'K/D',
+  'pistol-rounds': 'Pistol rounds',
+  'flashes': 'Flashes'
+}.get(section, config.title) %}
+<meta name="i18n-page-title" data-title-zh="{{ config.title }} - 80GOTV" data-title-en="{{ detail_title_en }} - 80GOTV">
+<link rel="stylesheet" href="{{ versioned_url('static/css/stats_hltv.css') }}">
+{% endblock %}
 {% block main %}
-<a href="/stats?tab=overview&time={{ filters.time }}&map={{ filters.map|urlencode }}&side={{ filters.side }}" class="stats-back-link">返回数据概览</a>
+{% set event_value = filters.event if filters.event else '' %}
+{% set qs_base = 'time=' ~ filters.time ~ '&map=' ~ (filters.map|urlencode) ~ '&side=' ~ filters.side ~ '&event=' ~ event_value ~ '&ranking=' ~ filters.ranking %}
+{% set tabs = [
+  ('overview', '总览'),
+  ('players', '选手'),
+  ('matches', '比赛'),
+  ('events', '赛事'),
+  ('maps', '地图'),
+  ('compare', '对比')
+] %}
+<div class="stats-hltv-shell">
+  <aside class="stats-local-rail" aria-label="数据统计导航">
+    <div class="stats-rail-title">
+      <span class="stats-lang-zh" data-i18n-ignore>数据导航</span>
+      <span class="stats-lang-en" data-i18n-ignore>Statistics</span>
+    </div>
+    <nav class="stats-rail-links">
+      {% for tab_id, tab_label in tabs %}
+      <a href="/stats?tab={{ tab_id }}&{{ qs_base }}" class="{% if tab_id == 'overview' %}active{% endif %}">{{ tab_label }}</a>
+      {% endfor %}
+    </nav>
+    <div class="stats-version"><small><span class="stats-lang-zh" data-i18n-ignore>游戏版本</span><span class="stats-lang-en" data-i18n-ignore>Version</span></small><strong>CS2</strong></div>
+  </aside>
 
-<form class="stats-filter-strip" method="get">
+  <div class="stats-workspace">
+<a href="/stats?tab=overview&{{ qs_base }}" class="stats-back-link">返回数据概览</a>
+
+<form class="stats-control-bar stats-detail-controls" method="get">
   <input type="hidden" name="side" value="{{ filters.side }}">
+  <input type="hidden" name="ranking" value="{{ filters.ranking }}">
+  <label>
+    <span>赛事筛选</span>
+    <select name="event" onchange="this.form.submit()">
+      <option value="" {% if not filters.event %}selected{% endif %}>全部赛事</option>
+      {% for event in event_options %}
+      <option value="{{ event.id }}" {% if filters.event == event.id %}selected{% endif %} data-i18n-ignore>{{ event.name }}</option>
+      {% endfor %}
+    </select>
+  </label>
   <label>
     <span>时间筛选</span>
     <select name="time" onchange="this.form.submit()">
@@ -22,21 +68,22 @@
       {% endfor %}
     </select>
   </label>
+  <div class="stats-version-control" aria-label="游戏版本"><span><span class="stats-lang-zh" data-i18n-ignore>版本</span><span class="stats-lang-en" data-i18n-ignore>Version</span></span><b>CS2</b></div>
 </form>
 
 <header class="stats-detail-heading">
   <h1>{{ config.title }}</h1>
   <p>
-    {% if filters.time == 'all' %}全部{% else %}{{ time_options|selectattr('value', 'equalto', filters.time)|map(attribute='label')|first }}{% endif %}
+    {% if filters.time == 'all' %}<span class="stats-lang-zh" data-i18n-ignore>全部</span><span class="stats-lang-en" data-i18n-ignore>All</span>{% else %}{{ time_options|selectattr('value', 'equalto', filters.time)|map(attribute='label')|first }}{% endif %}
     ·
-    {% if filters.map == 'all' %}全部地图{% else %}{{ filters.map|map_display }}{% endif %}
+    {% if filters.map == 'all' %}<span class="stats-lang-zh" data-i18n-ignore>全部地图</span><span class="stats-lang-en" data-i18n-ignore>All maps</span>{% else %}{{ filters.map|map_display }}{% endif %}
   </p>
 </header>
 
 {% if config.kind in ('players', 'flashes', 'pistol') %}
 <nav class="stats-side-tabs">
   {% for side in side_options %}
-  <a href="?time={{ filters.time }}&map={{ filters.map|urlencode }}&side={{ side.value }}" class="{% if filters.side == side.value %}active{% endif %}">{{ side.label }}</a>
+  <a href="?time={{ filters.time }}&map={{ filters.map|urlencode }}&event={{ event_value }}&ranking={{ filters.ranking }}&side={{ side.value }}" class="{% if filters.side == side.value %}active{% endif %}">{{ side.label }}</a>
   {% endfor %}
 </nav>
 {% endif %}
@@ -55,7 +102,7 @@
             <span class="no-champion">-</span>
           {% endif %}
         </td>
-        <td><a href="/events/{{ r.id }}" data-i18n-ignore>{{ r.name }}</a></td>
+        <td><a href="{{ event_path(r) }}" data-i18n-ignore>{{ r.name }}</a></td>
         <td>{{ r.matches or 0 }}</td>
       </tr>
       {% endfor %}
@@ -63,15 +110,36 @@
   </table>
 </div>
 {% elif section == 'flashes' %}
-<div class="stats-table stats-dense-table">
+<div class="stats-table stats-dense-table stats-flash-table">
   <table>
+    <colgroup>
+      <col class="stats-flash-player-col">
+      <col class="stats-flash-maps-col">
+      <col class="stats-flash-rounds-col">
+      <col class="stats-flash-thrown-col">
+      <col class="stats-flash-blinded-col">
+      <col class="stats-flash-opponent-col">
+      <col class="stats-flash-diff-col">
+      <col class="stats-flash-fa-col">
+      <col class="stats-flash-success-col">
+    </colgroup>
     <thead>
-      <tr><th>Player</th><th>Maps</th><th>Rounds</th><th>Thrown</th><th>Blinded</th><th>Opp Flashed</th><th>Diff</th><th>FA</th><th>Success</th></tr>
+      <tr>
+        <th><span class="stats-lang-zh" data-i18n-ignore>选手</span><span class="stats-lang-en" data-i18n-ignore>Player</span></th>
+        <th><span class="stats-lang-zh" data-i18n-ignore>地图</span><span class="stats-lang-en" data-i18n-ignore>Maps</span></th>
+        <th><span class="stats-lang-zh" data-i18n-ignore>回合数</span><span class="stats-lang-en" data-i18n-ignore>Rounds</span></th>
+        <th><span class="stats-lang-zh" data-i18n-ignore>投掷</span><span class="stats-lang-en" data-i18n-ignore>Thrown</span></th>
+        <th><span class="stats-lang-zh" data-i18n-ignore>致盲</span><span class="stats-lang-en" data-i18n-ignore>Blinded</span></th>
+        <th><span class="stats-lang-zh" data-i18n-ignore>敌方致盲</span><span class="stats-lang-en" data-i18n-ignore>Opp. flash</span></th>
+        <th><span class="stats-lang-zh" data-i18n-ignore>差值</span><span class="stats-lang-en" data-i18n-ignore>Diff</span></th>
+        <th><span class="stats-lang-zh" data-i18n-ignore>闪光助攻</span><span class="stats-lang-en" data-i18n-ignore>Flash assists</span></th>
+        <th><span class="stats-lang-zh" data-i18n-ignore>成功率</span><span class="stats-lang-en" data-i18n-ignore>Success</span></th>
+      </tr>
     </thead>
     <tbody>
       {% for r in rows %}
       <tr>
-        <td><a href="/players/{{ r.id }}" class="dense-player">{% if r.avatar %}<img src="{{ url_for('static', filename='avatars/' + r.avatar) }}" alt="{{ r.nickname }}" loading="lazy">{% else %}<span>{{ r.nickname[:1] }}</span>{% endif %}<b data-i18n-ignore>{{ r.nickname }}</b></a></td>
+        <td><a href="/players/{{ r.id }}" class="dense-player">{% set display_name = private_name_for_player(r.id, r.nickname) %}{% if r.avatar %}<img src="{{ avatar_thumbnail_url(r.avatar) }}" alt="{{ display_name }}" loading="lazy">{% else %}<span>{{ display_name[:1] }}</span>{% endif %}<b data-i18n-ignore>{{ display_name }}</b></a></td>
         <td>{{ r.maps or 0 }}</td>
         <td>{{ r.rounds or 0 }}</td>
         <td>{{ "%.2f"|format(r.thrown or 0) }}</td>
@@ -121,7 +189,7 @@
     <tbody>
       {% for r in rows %}
       <tr>
-        <td><a href="/players/{{ r.id }}" class="dense-player">{% if r.avatar %}<img src="{{ url_for('static', filename='avatars/' + r.avatar) }}" alt="{{ r.nickname }}" loading="lazy">{% else %}<span>{{ r.nickname[:1] }}</span>{% endif %}<b data-i18n-ignore>{{ r.nickname }}</b></a></td>
+        <td><a href="/players/{{ r.id }}" class="dense-player">{% set display_name = private_name_for_player(r.id, r.nickname) %}{% if r.avatar %}<img src="{{ avatar_thumbnail_url(r.avatar) }}" alt="{{ display_name }}" loading="lazy">{% else %}<span>{{ display_name[:1] }}</span>{% endif %}<b data-i18n-ignore>{{ display_name }}</b></a></td>
         <td>{{ r.maps }}</td>
         <td>{{ r.rounds or 0 }}</td>
         <td class="{% if r.kd_diff and r.kd_diff > 0 %}stat-pos{% elif r.kd_diff and r.kd_diff < 0 %}stat-neg{% endif %}">{{ "%+d"|format(r.kd_diff or 0) }}</td>
@@ -141,7 +209,7 @@
     <tbody>
       {% for r in rows %}
       <tr>
-        <td><a href="/players/{{ r.id }}" class="dense-player">{% if r.avatar %}<img src="{{ url_for('static', filename='avatars/' + r.avatar) }}" alt="{{ r.nickname }}" loading="lazy">{% else %}<span>{{ r.nickname[:1] }}</span>{% endif %}<b data-i18n-ignore>{{ r.nickname }}</b></a></td>
+        <td><a href="/players/{{ r.id }}" class="dense-player">{% set display_name = private_name_for_player(r.id, r.nickname) %}{% if r.avatar %}<img src="{{ avatar_thumbnail_url(r.avatar) }}" alt="{{ display_name }}" loading="lazy">{% else %}<span>{{ display_name[:1] }}</span>{% endif %}<b data-i18n-ignore>{{ display_name }}</b></a></td>
         <td data-i18n-ignore>{{ r.team or '-' }}</td>
         <td>{{ r.maps }}</td>
         <td>{{ r.kills or 0 }}</td>
@@ -162,7 +230,7 @@
     <tbody>
       {% for r in rows %}
       <tr>
-        <td><a href="/players/{{ r.id }}" class="dense-player">{% if r.avatar %}<img src="{{ url_for('static', filename='avatars/' + r.avatar) }}" alt="{{ r.nickname }}" loading="lazy">{% else %}<span>{{ r.nickname[:1] }}</span>{% endif %}<b data-i18n-ignore>{{ r.nickname }}</b></a></td>
+        <td><a href="/players/{{ r.id }}" class="dense-player">{% set display_name = private_name_for_player(r.id, r.nickname) %}{% if r.avatar %}<img src="{{ avatar_thumbnail_url(r.avatar) }}" alt="{{ display_name }}" loading="lazy">{% else %}<span>{{ display_name[:1] }}</span>{% endif %}<b data-i18n-ignore>{{ display_name }}</b></a></td>
         <td data-i18n-ignore>{{ r.team or '-' }}</td>
         <td>{{ r.maps }}</td>
         <td>{{ r.rounds or 0 }}</td>
@@ -179,7 +247,13 @@
 {% endif %}
 
 {% if not rows %}<div class="empty-state">暂无数据</div>{% endif %}
+  </div>
+</div>
 {% endblock %}
 
-{% block layout_class %}no-side-layout{% endblock %}
-{% block side %}{% endblock %}
+{% block layout_class %}stats-layout-shell{% endblock %}
+{% block side %}{% include '_stats_home_sidebar.html' %}{% endblock %}
+
+{% block extra_js %}
+<script src="{{ versioned_url('static/js/stats_side_switch.js') }}"></script>
+{% endblock %}

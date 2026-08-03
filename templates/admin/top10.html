@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>年度 TOP 10 - 80GOTV</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-comfort.css') }}">
+  <style>
+    body{margin:0;background:#f4f6f8;color:#26313c;font-family:sans-serif}
+    .top10-wrap{max-width:900px;margin:24px auto;padding:0 16px}
+    .top10-card{background:#fff;border:1px solid #dce2e8;padding:18px;margin-top:16px}
+    .top10-head,.top10-year-form,.top10-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    .top10-head{justify-content:space-between}.top10-head h2{margin:0}
+    .top10-grid{display:grid;grid-template-columns:90px minmax(240px,1fr);gap:10px;align-items:center}
+    .top10-grid label{font-weight:700}.top10-grid select{width:100%;min-height:38px}
+    .btn{border:0;padding:10px 16px;background:#416fa9;color:#fff;cursor:pointer;text-decoration:none}
+    .btn-danger{background:#b64b4b}.muted{color:#72808e;font-size:13px}
+    .flash{background:#fff;border:1px solid #dce2e8;padding:12px;margin-top:12px}
+    @media(max-width:600px){.top10-grid{grid-template-columns:1fr}.top10-grid label{margin-top:5px}}
+  </style>
+</head>
+<body>
+{% include "admin/_top_nav.html" %}
+<main class="top10-wrap">
+  <div class="top10-head">
+    <div>
+      <h2>年度 TOP 10</h2>
+      <div class="muted">榜单只在管理员保存后公开；每年必须选择 10 名不重复选手。</div>
+    </div>
+    <form method="get" class="top10-year-form">
+      <label for="year">年份</label>
+      <select id="year" name="year" onchange="this.form.submit()">
+        {% for item_year in range(current_year, 2025, -1) %}
+        <option value="{{ item_year }}" {% if item_year == year %}selected{% endif %}>{{ item_year }}</option>
+        {% endfor %}
+      </select>
+      <noscript><button class="btn" type="submit">切换</button></noscript>
+    </form>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}<div class="flash">{{ message }}</div>{% endfor %}
+  {% endwith %}
+
+  <section class="top10-card">
+    <form method="post" action="{{ url_for('admin.admin_top10_save') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="year" value="{{ year }}">
+      <div class="top10-grid">
+        {% for rank in range(1, 11) %}
+        <label for="rank_{{ rank }}">第 {{ rank }} 名</label>
+        <select id="rank_{{ rank }}" name="rank_{{ rank }}" required>
+          <option value="">选择选手</option>
+          {% for player in players %}
+          <option value="{{ player.id }}" {% if existing.get(rank) == player.id %}selected{% endif %}>#{{ player.id }} {{ player.nickname }}</option>
+          {% endfor %}
+        </select>
+        {% endfor %}
+      </div>
+      <div class="top10-actions" style="margin-top:16px">
+        <button class="btn" type="submit" name="action" value="save">保存并公布</button>
+        {% if existing %}
+        <button class="btn btn-danger" type="submit" name="action" value="clear" formnovalidate onclick="return confirm('确定清空 {{ year }} 年 TOP 10 吗？')">清空该年</button>
+        {% endif %}
+      </div>
+    </form>
+  </section>
+</main>
+</body>
+</html>

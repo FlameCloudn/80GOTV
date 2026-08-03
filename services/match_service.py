@@ -2,29 +2,68 @@
 比赛相关业务逻辑：临时队伍补全、赛事状态计算、预测计分
 """
 
+import json
 from datetime import datetime
+
+
+def _has_temp_players(value):
+    """Return whether a temporary match side contains an actual roster."""
+    if isinstance(value, (list, tuple, set, dict)):
+        return bool(value)
+    if value is None:
+        return False
+    text = str(value).strip()
+    if not text:
+        return False
+    try:
+        return bool(json.loads(text))
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return True
+
+
+def _single_temp_player_name(value, conn):
+    if conn is None:
+        return None
+    try:
+        player_ids = json.loads(value) if value else []
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return None
+    if not isinstance(player_ids, list) or len(player_ids) != 1:
+        return None
+    try:
+        player_id = int(player_ids[0])
+    except (TypeError, ValueError):
+        return None
+    row = conn.execute("SELECT nickname FROM players WHERE id=?", (player_id,)).fetchone()
+    return str(row["nickname"] or "").strip() if row else None
 
 
 def supplement_temp_teams(match_row, conn=None):
     """为临时选手队伍填充 team_name 和 short_name，确保前端渲染不崩溃。
     conn 参数已废弃，保留仅为兼容旧调用。"""
     m = dict(match_row)
-    if (not m.get("team1_id") or m.get("team1_id") == -1) and m.get("team1_players"):
-        m["team1_name"] = "TEAM 1"
-        m["t1s"] = "T1"
-    if (not m.get("team2_id") or m.get("team2_id") == -2) and m.get("team2_players"):
-        m["team2_name"] = "TEAM 2"
-        m["t2s"] = "T2"
-    # 为注册队伍补充空 short_name
-    if not m.get("t1s"):
-        m["t1s"] = (m.get("team1_name") or "T1")[:2]
-    if not m.get("t2s"):
-        m["t2s"] = (m.get("team2_name") or "T2")[:2]
-    # 兜底队伍名
+    if (not m.get("team1_id") or m.get("team1_id") == -1) and _has_temp_players(
+        m.get("team1_players")
+    ):
+        name = _single_temp_player_name(m.get("team1_players"), conn)
+        m["team1_name"] = name or "TEAM 1"
+        m["t1s"] = name or "T1"
+    if (not m.get("team2_id") or m.get("team2_id") == -2) and _has_temp_players(
+        m.get("team2_players")
+    ):
+        name = _single_temp_player_name(m.get("team2_players"), conn)
+        m["team2_name"] = name or "TEAM 2"
+        m["t2s"] = name or "T2"
+    # 尚未由真实赛果分配的对阵必须在所有页面显示 TBD。
     if not m.get("team1_name"):
-        m["team1_name"] = "TEAM 1"
+        m["team1_name"] = "TBD"
     if not m.get("team2_name"):
-        m["team2_name"] = "TEAM 2"
+        m["team2_name"] = "TBD"
+    # 为注册队伍补充空 short_name。
+    if not m.get("t1s"):
+        m["t1s"] = "TBD" if m["team1_name"] == "TBD" else m["team1_name"][:2]
+    if not m.get("t2s"):
+        m["t2s"] = "TBD" if m["team2_name"] == "TBD" else m["team2_name"][:2]
     # 补充 effective_status（若 SQL 未计算）
     if "effective_status" not in m:
         mt = m.get("match_time", "")

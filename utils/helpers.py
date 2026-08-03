@@ -212,35 +212,71 @@ def normalize_http_url(value):
     return value
 
 
-def make_match_slug(team1_name, team2_name, match_time, event_short_name):
-    """
-    根据队伍名、时间、赛事简称生成 URL 友好的 slug。
-    例如: team-a-vs-team-b-2026-spring-major
-    中文等非 ASCII 字符会被跳过。
-    """
+def normalize_internal_path(value):
+    """保存新闻跳转地址，只允许本站路径或 80gotv.cn 完整地址。"""
+    value = (value or "").strip()
+    if not value:
+        return None
+    parsed = urlsplit(value)
+    if parsed.scheme or parsed.netloc:
+        if parsed.scheme.lower() not in ("http", "https"):
+            return None
+        if (parsed.hostname or "").lower() not in ("80gotv.cn", "www.80gotv.cn"):
+            return None
+        path = parsed.path or "/"
+        if parsed.query:
+            path += "?" + parsed.query
+        if parsed.fragment:
+            path += "#" + parsed.fragment
+        return path
+    if not value.startswith("/") or value.startswith("//"):
+        return None
+    return value
+
+
+def slugify_url_part(value, fallback=""):
+    """把可读名称转换成稳定的 ASCII 网址片段。"""
     import re as _re
 
-    parts = []
-    for name in (team1_name or "", team2_name or ""):
-        # 只保留 ASCII 字母数字和空格
-        ascii_only = _re.sub(r"[^a-zA-Z0-9 ]", "", name).strip()
-        if ascii_only:
-            parts.append(ascii_only.lower().replace(" ", "-"))
+    value = _re.sub(r"[^a-zA-Z0-9]+", "-", str(value or "").strip().lower())
+    value = _re.sub(r"-+", "-", value).strip("-")
+    return value or fallback
+
+
+def make_event_slug(value, fallback="event"):
+    return slugify_url_part(value, fallback)[:80].rstrip("-") or fallback
+
+
+def ensure_unique_event_slug(conn, event_id, slug_base):
+    slug_base = make_event_slug(slug_base)
+    slug = slug_base
+    counter = 2
+    while True:
+        existing = conn.execute(
+            "SELECT id FROM events WHERE slug=? AND id<>?", (slug, event_id or -1)
+        ).fetchone()
+        if not existing:
+            return slug
+        suffix = f"-{counter}"
+        slug = slug_base[: 80 - len(suffix)].rstrip("-") + suffix
+        counter += 1
+
+
+def make_match_slug(team1_name, team2_name, match_time, event_short_name):
+    """
+    生成“赛事-队伍1-vs-队伍2-年-月-日”格式的网址名称。
+    """
+    event_part = slugify_url_part(event_short_name, "event")
+    team1_part = slugify_url_part(team1_name, "team1")
+    team2_part = slugify_url_part(team2_name, "team2")
+    date_part = "date-tbd"
     if match_time:
         try:
-            parts.append(str(match_time)[:4])  # 年份
-        except Exception:
+            year, month, day = str(match_time)[:10].split("-")
+            date_part = f"{int(year)}-{int(month)}-{int(day)}"
+        except (TypeError, ValueError):
             pass
-    if event_short_name:
-        short = _re.sub(r"[^a-zA-Z0-9 ]", "", event_short_name).strip()
-        if short:
-            parts.append(short.lower().replace(" ", "-"))
-    slug = "-vs-".join(parts[:2]) if len(parts) >= 2 else "match"
-    if len(parts) > 2:
-        slug = slug + "-" + "-".join(parts[2:])
-    # 去掉多余连字符
-    slug = _re.sub(r"-+", "-", slug).strip("-")
-    return slug or "match"
+    return f"{event_part}-{team1_part}-vs-{team2_part}-{date_part}"[:180].rstrip("-")
 
 
 def ensure_unique_match_slug(conn, match_id, slug_base):
@@ -272,12 +308,13 @@ def row_get(row, key, default=None):
 
 
 def build_comment_tree(comments):
-    """将扁平评论列表转为嵌套结构，含层级标记"""
+    """将按发布时间排列的评论转为嵌套结构，并标记楼层和层级。"""
     tree = []
     lookup = {}
-    for c in comments:
+    for floor_number, c in enumerate(comments, start=1):
         c = dict(c)
         c["replies"] = []
+        c["floor_number"] = floor_number
         lookup[c["id"]] = c
 
     for c in lookup.values():
@@ -311,9 +348,51 @@ def resolve_match_slug(slug):
             row = conn.execute("SELECT id FROM matches WHERE id=?", (int(slug),)).fetchone()
         else:
             row = conn.execute("SELECT id FROM matches WHERE slug=?", (slug,)).fetchone()
+            if not row:
+                row = conn.execute(
+                    "SELECT match_id AS id FROM match_slug_aliases WHERE slug=?", (slug,)
+                ).fetchone()
         return row["id"] if row else None
     finally:
         conn.close()
+
+
+def resolve_event_ref(conn, event_ref):
+    """用数字 ID 或赛事网址名称查找赛事。"""
+    value = str(event_ref or "").strip().lower()
+    if value.isdigit():
+        return conn.execute("SELECT * FROM events WHERE id=?", (int(value),)).fetchone()
+    event = conn.execute("SELECT * FROM events WHERE slug=?", (value,)).fetchone()
+    if event:
+        return event
+    return conn.execute(
+        """SELECT e.* FROM event_slug_aliases a
+           JOIN events e ON e.id=a.event_id WHERE a.slug=?""",
+        (value,),
+    ).fetchone()
+
+
+def event_path(event):
+    """模板和接口共用的赛事详情地址。"""
+    if hasattr(event, "keys") or isinstance(event, dict):
+        event_slug = row_get(event, "event_slug")
+        if event_slug or row_get(event, "event_id") is not None:
+            slug = event_slug
+            event_id = row_get(event, "event_id")
+        else:
+            slug = row_get(event, "slug")
+            event_id = row_get(event, "id")
+    else:
+        slug = None
+        event_id = event
+    return f"/events/{slug or event_id}"
+
+
+def news_path(news):
+    """新闻配置跳转页时优先使用该地址。"""
+    if hasattr(news, "keys") or isinstance(news, dict):
+        return row_get(news, "redirect_url") or f"/news/{row_get(news, 'id')}"
+    return f"/news/{news}"
 
 
 # ============ 管理员检查 ============

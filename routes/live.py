@@ -1,12 +1,52 @@
 """Read-only live-match API used by match pages."""
 
 import json
+import math
 
 from flask import jsonify
 
 from models import get_db
 from services.live_service import _is_recent_iso_timestamp, _load_live_player_profiles
 from web_app import app
+
+
+def _normalize_team_label(value):
+    return "".join(character for character in str(value or "").casefold() if character.isalnum())
+
+
+def _gsi_team_mapping(gsi, row):
+    identity = gsi.get("_80gotv", {}) if isinstance(gsi, dict) else {}
+    ct_identity = identity.get("team_ct")
+    t_identity = identity.get("team_t")
+    if {ct_identity, t_identity} == {"team1", "team2"}:
+        return {"CT": ct_identity, "T": t_identity}
+
+    gmap = gsi.get("map", {}) or {}
+    ct_name = _normalize_team_label((gmap.get("team_ct", {}) or {}).get("name"))
+    t_name = _normalize_team_label((gmap.get("team_t", {}) or {}).get("name"))
+    team1_labels = {
+        _normalize_team_label(row["scheduled_team1_name"]),
+        _normalize_team_label(row["scheduled_team1_short"]),
+    }
+    team2_labels = {
+        _normalize_team_label(row["scheduled_team2_name"]),
+        _normalize_team_label(row["scheduled_team2_short"]),
+    }
+    team1_labels.discard("")
+    team2_labels.discard("")
+    if ct_name in team1_labels or t_name in team2_labels:
+        return {"CT": "team1", "T": "team2"}
+    if ct_name in team2_labels or t_name in team1_labels:
+        return {"CT": "team2", "T": "team1"}
+    return {"CT": "team1", "T": "team2"}
+
+
+def _format_live_timer(value):
+    try:
+        seconds = max(0, int(math.ceil(float(value))))
+    except (TypeError, ValueError):
+        return "-"
+    return f"{seconds // 60}:{seconds % 60:02d}"
 
 
 @app.route("/api/live/<int:match_id>")
@@ -16,7 +56,9 @@ def api_live_match(match_id):
     row = conn.execute(
         """
         SELECT l.live_state, l.updated_at,
-               t1.name AS scheduled_team1_name, t2.name AS scheduled_team2_name
+               t1.name AS scheduled_team1_name, t2.name AS scheduled_team2_name,
+               t1.short_name AS scheduled_team1_short,
+               t2.short_name AS scheduled_team2_short
         FROM live_match_data l
         LEFT JOIN matches m ON l.match_id=m.id
         LEFT JOIN teams t1 ON m.team1_id=t1.id
@@ -38,6 +80,10 @@ def api_live_match(match_id):
         "kill_events": [],
         "bomb_events": [],
         "timer": "-",
+        "phase": "",
+        "phase_countdown": "",
+        "paused": False,
+        "pause_type": "",
         "has_gsi": False,
         "bomb": {},
         "server": {},
@@ -112,11 +158,35 @@ def api_live_match(match_id):
         result["updated_at"] = state.get("gsi_received_at") or row["updated_at"]
         gmap = gsi.get("map", {}) or {}
         gphase = gsi.get("phase_countdowns", {}) or {}
+        side_mapping = _gsi_team_mapping(gsi, row)
+        identity_side = {identity: side for side, identity in side_mapping.items()}
         result["map_name"] = gmap.get("name", "")
         result["mode"] = gmap.get("mode", "")
-        result["round"] = gmap.get("round", 0)
-        result["timer"] = str(gphase.get("phase_ends_in_seconds", "") or "-")
+        raw_round = int(gmap.get("round", 0) or 0)
+        round_phase = str((gsi.get("round", {}) or {}).get("phase", "") or "")
+        result["round"] = max(
+            1,
+            raw_round
+            if gmap.get("phase") == "gameover" or round_phase == "over"
+            else raw_round + 1,
+        )
+        result["timer"] = _format_live_timer(
+            gphase.get("phase_ends_in_seconds", gphase.get("phase_ends_in"))
+        )
         result["bomb"] = gsi.get("bomb", {}) or {}
+        countdown_phase = str(gphase.get("phase", "") or "")
+        result["phase_countdown"] = countdown_phase
+        result["paused"] = countdown_phase.startswith("timeout") or countdown_phase in {
+            "paused",
+            "pause",
+        }
+        result["pause_type"] = (
+            "tactical"
+            if countdown_phase.startswith("timeout")
+            else "technical"
+            if result["paused"]
+            else ""
+        )
 
         # allplayers 数据（HP/武器/护甲/金钱）。坐标仅用于服务端记录阵亡点。
         allplayers = gsi.get("allplayers", {}) or {}
@@ -154,7 +224,9 @@ def api_live_match(match_id):
                 "secondary": secondary,
                 "alive": pstate.get("health", 0) > 0,
             }
-            if pdata.get("team") == "CT" or pdata.get("team") == "team1":
+            player_side = str(pdata.get("team") or "")
+            player_identity = side_mapping.get(player_side, player_side)
+            if player_identity == "team1":
                 t1_players.append(entry)
             else:
                 t2_players.append(entry)
@@ -166,17 +238,22 @@ def api_live_match(match_id):
         ct = gmap.get("team_ct", {}) or {}
         terrorists = gmap.get("team_t", {}) or {}
         gr = gsi.get("round", {}) or {}
+        side_data = {"CT": ct, "T": terrorists}
+        team1_side = identity_side.get("team1", "CT")
+        team2_side = identity_side.get("team2", "T")
         result["team1"] = {
-            "name": ct.get("name") or "CT",
-            "score": ct.get("score", gr.get("ct_score", 0)),
-            "side": "CT",
+            "name": row["scheduled_team1_name"] or side_data[team1_side].get("name") or "Team 1",
+            "score": side_data[team1_side].get("score", 0),
+            "side": team1_side,
+            "timeouts_remaining": side_data[team1_side].get("timeouts_remaining", 0),
         }
         result["team2"] = {
-            "name": terrorists.get("name") or "T",
-            "score": terrorists.get("score", gr.get("t_score", 0)),
-            "side": "T",
+            "name": row["scheduled_team2_name"] or side_data[team2_side].get("name") or "Team 2",
+            "score": side_data[team2_side].get("score", 0),
+            "side": team2_side,
+            "timeouts_remaining": side_data[team2_side].get("timeouts_remaining", 0),
         }
-        result["phase"] = gr.get("phase", "")
+        result["phase"] = gr.get("phase", "") or countdown_phase
         result["round_history"] = state.get("round_history", [])
 
     # --- GOTV 数据（回退/补充） ---

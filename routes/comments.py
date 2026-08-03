@@ -100,8 +100,13 @@ def add_comment(target_type, target_id):
 
     conn.commit()
 
+    floor_number = conn.execute(
+        "SELECT COUNT(*) FROM comments WHERE target_type=? AND target_id=?",
+        (target_type, target_id),
+    ).fetchone()[0]
+
     user = conn.execute(
-        "SELECT username, avatar FROM users WHERE id=?", (session["user_id"],)
+        "SELECT username, avatar, is_cheater FROM users WHERE id=?", (session["user_id"],)
     ).fetchone()
     conn.close()
 
@@ -110,9 +115,11 @@ def add_comment(target_type, target_id):
             "success": True,
             "comment": {
                 "id": new_id,
+                "floor_number": floor_number,
                 "user_id": session["user_id"],
                 "username": user["username"],
                 "avatar": user["avatar"] or "",
+                "is_cheater": bool(user["is_cheater"]),
                 "content": content,
                 "parent_id": parent_id,
                 "created_at": "刚刚",
@@ -171,6 +178,29 @@ def delete_comment(comment_id):
         conn.execute(
             "UPDATE news SET comment_count = MAX(0, comment_count - ?) WHERE id=?",
             (total, comment["target_id"]),
+        )
+    elif comment["target_type"] == "forum_thread":
+        last_reply = conn.execute(
+            """SELECT user_id, created_at FROM comments
+               WHERE target_type='forum_thread' AND target_id=?
+               ORDER BY created_at DESC, id DESC LIMIT 1""",
+            (comment["target_id"],),
+        ).fetchone()
+        conn.execute(
+            """UPDATE forum_threads
+               SET reply_count=(
+                       SELECT COUNT(*) FROM comments
+                       WHERE target_type='forum_thread' AND target_id=?
+                   ),
+                   last_reply_at=COALESCE(?, created_at),
+                   last_reply_user_id=?
+               WHERE id=?""",
+            (
+                comment["target_id"],
+                last_reply["created_at"] if last_reply else None,
+                last_reply["user_id"] if last_reply else None,
+                comment["target_id"],
+            ),
         )
     conn.commit()
     conn.close()

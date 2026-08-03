@@ -1,11 +1,16 @@
 {% extends 'base.html' %}
-{% block title %}{{ player.nickname }} 数据 - 80GOTV{% endblock %}
+{% set player_private_remark = private_remark_for_player(player.id) %}
+{% set player_display_name = player_private_remark or player.nickname %}
+{% block title %}{{ player_display_name }} 数据 - 80GOTV{% endblock %}
 {% block layout_class %}player-detail-layout{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ versioned_url('static/css/player_profile_refresh.css') }}">
+{% endblock %}
 
 {% block main %}
-<a href="/players/{{ player.id }}" class="stats-back-link">返回选手资料</a>
+<a href="/players/{{ player.id }}" class="pd-back-link">返回选手资料</a>
 
-<form class="player-filter-strip" method="get">
+<form class="pd-filters" method="get">
   <input type="hidden" name="side" value="{{ filters.side }}">
   <label>
     <span>时间筛选</span>
@@ -26,7 +31,7 @@
   </label>
 </form>
 
-<nav class="player-detail-tabs" aria-label="选手数据导航" data-switch-tabs data-tab-group="player-stats">
+<nav class="pd-tabs" aria-label="选手数据导航" data-switch-tabs data-tab-group="player-stats">
   <a class="active" href="#overview" data-tab-target="overview" aria-selected="true">总览</a>
   <a href="#matches" data-tab-target="matches" aria-selected="false">比赛</a>
   <a href="#events" data-tab-target="events" aria-selected="false">赛事</a>
@@ -36,235 +41,189 @@
 </nav>
 
 <section id="overview" class="profile-tab-panel active" data-tab-panel="overview" data-tab-group="player-stats">
-
-<!-- ============ 选手摘要栏 ============ -->
-<div class="psb" style="--team-color:#2a6e9e">
-  <div class="psb-left">
-    <div class="psb-left-glow"></div>
-    <div class="psb-left-content">
-      <div class="psb-badge">{{ player.team_short or '80' }}</div>
+  <section class="pd-summary">
+    <div class="pd-player">
+      <div class="pd-team-mark" data-i18n-ignore>{{ player.team_short or '80' }}</div>
       {% if player.avatar %}
-      <img src="{{ url_for('static', filename='avatars/' + player.avatar) }}" class="psb-avatar" alt="{{ player.nickname }}" loading="lazy">
+      <img src="{{ url_for('static', filename='avatars/' + player.avatar) }}" class="pd-avatar" alt="{{ player_display_name }}" loading="eager">
       {% else %}
-      <div class="psb-avatar psb-avatar-fb">{{ player.nickname[:1] }}</div>
+      <div class="pd-avatar pd-avatar-fallback">{{ player_display_name[:1] }}</div>
       {% endif %}
-      <div class="psb-nickname">{{ player.nickname }}</div>
-      <div class="psb-meta">
-        <span>{{ player.real_name or player.team_name or '无队伍' }}</span>
-      </div>
-      <a href="/players/{{ player.id }}" class="psb-profile-btn">选手资料</a>
+      <div class="pd-player-name" data-i18n-ignore>{{ player_display_name }}</div>
+      {% if not player_private_remark and player.is_bashizhong_student != 0 and player.group_username %}<span class="user-group-handle" data-i18n-ignore>@{{ player.group_username }}</span>{% endif %}
+      {% if player.is_bashizhong_student == 0 %}<span class="pd-origin-marker" aria-label="外校选手">🌐</span>{% endif %}
+      <a href="/players/{{ player.id }}" class="pd-profile-link">选手资料</a>
     </div>
-  </div>
-  <div class="psb-right">
-    <div class="psb-top">
-      <span class="psb-maps">{{ player_summary.maps }} 地图</span>
-    </div>
-    <div class="psb-middle">
-      <div class="psb-side-rating psb-t-rating">
-        <div class="psb-side-val">{{ "%.2f"|format(player_summary.t_rating or 0) if player_summary.t_rating else '-' }}</div>
-        <div class="psb-side-lbl">T Rating</div>
-      </div>
-      <div class="psb-center-rating">
-        <div class="psb-half-circle" style="--pct:{{ player_summary.rating_pct or 50 }}%">
-          <div class="psb-half-inner">
-            <strong>{{ "%.2f"|format(player_summary.rating or 0) }}</strong>
-            <span>{{ player_summary.rating_label_cn or '-' }}</span>
+
+    <div class="pd-performance">
+      <div class="pd-map-count">{{ player_summary.maps }} 地图</div>
+      {% if player_summary.maps %}
+      <div class="pd-rating-row">
+        <div class="pd-rating-gauge pd-rating-t" style="--gauge-progress:{{ '%.2f'|format((player_summary.t_rating_pct or 0) / 2) }}%">
+          <span class="pd-rating-arc" aria-hidden="true"></span>
+          <div class="pd-rating-copy">
+            <strong>{{ "%.2f"|format(player_summary.t_rating) if player_summary.t_rating is not none else '-' }}</strong>
+            <span>T RATING</span>
           </div>
         </div>
-        <div class="psb-rating-lbl">RATING 2.0</div>
-      </div>
-      <div class="psb-side-rating psb-ct-rating">
-        <div class="psb-side-val">{{ "%.2f"|format(player_summary.ct_rating or 0) if player_summary.ct_rating else '-' }}</div>
-        <div class="psb-side-lbl">CT Rating</div>
-      </div>
-    </div>
-    <div class="psb-metrics">
-      {% macro metric(val, lbl, pct) %}
-      <div class="psb-metric">
-        <div class="psb-metric-top">
-          <b>{{ val }}</b>
-          <span>{{ lbl }}</span>
+        <div class="pd-rating-gauge pd-rating-main" style="--gauge-progress:{{ '%.2f'|format((player_summary.rating_pct or 0) / 2) }}%">
+          <span class="pd-rating-arc" aria-hidden="true"></span>
+          <div class="pd-rating-copy">
+            <strong class="{{ player_summary.rating|rating_class }}">{{ "%.2f"|format(player_summary.rating or 0) if player_summary.maps else '-' }}</strong>
+            <em>{{ player_summary.rating_label_cn or '-' }}</em>
+            <span>RATING 2.0</span>
+          </div>
         </div>
-        <div class="psb-metric-bar">
-          <i style="width:{{ pct }}%"></i>
+        <div class="pd-rating-gauge pd-rating-ct" style="--gauge-progress:{{ '%.2f'|format((player_summary.ct_rating_pct or 0) / 2) }}%">
+          <span class="pd-rating-arc" aria-hidden="true"></span>
+          <div class="pd-rating-copy">
+            <strong>{{ "%.2f"|format(player_summary.ct_rating) if player_summary.ct_rating is not none else '-' }}</strong>
+            <span>CT RATING</span>
+          </div>
         </div>
       </div>
-      {% endmacro %}
-      {{ metric("%+.2f"|format(player_summary.round_swing or 0) if player_summary.round_swing is not none else '-', 'ROUND SWING', [100, (player_summary.round_swing or 0)|abs * 18]|min) }}
-      {{ metric("%.2f"|format(player_summary.dpr or 0) if player_summary.dpr else '-', 'DPR', [100, (player_summary.dpr or 0) * 100]|min) }}
-      {{ metric("%.1f%%"|format(player_summary.kast or 0) if player_summary.kast else '-', 'KAST', [100, (player_summary.kast or 0)]|min) }}
-      {{ metric("%.1f%%"|format(player_summary.multi_kill or 0), 'MULTI-KILL', [100, (player_summary.multi_kill or 0) * 3]|min) }}
-      {{ metric("%.1f"|format(player_summary.adr or 0) if player_summary.adr else '-', 'ADR', [100, (player_summary.adr or 0) / 1.2]|min) }}
-      {{ metric("%.2f"|format(player_summary.kpr or 0) if player_summary.kpr else '-', 'KPR', [100, (player_summary.kpr or 0) * 100]|min) }}
+      <div class="pd-metrics">
+        {% macro metric(val, lbl, pct, key='') %}
+        <div class="pd-metric"{% if key %} data-metric="{{ key }}"{% endif %}>
+          <div><b>{{ val }}</b><span>{{ lbl }}</span></div>
+          <i style="--pct:{{ pct }}%"></i>
+        </div>
+        {% endmacro %}
+        {{ metric("%.2f"|format(player_summary.impact) if player_summary.impact is not none else '-', 'IMPACT', player_summary.impact_pct or 0, 'impact') }}
+        {{ metric("%.2f"|format(player_summary.dpr) if player_summary.dpr is not none else '-', 'DPR', [100, (player_summary.dpr or 0) * 100]|min) }}
+        {{ metric("%.1f%%"|format(player_summary.kast) if player_summary.kast is not none else '-', 'KAST', [100, (player_summary.kast or 0)]|min) }}
+        {{ metric("%.1f%%"|format(player_summary.multi_kill or 0), 'MULTI-KILL', [100, (player_summary.multi_kill or 0) * 3]|min) }}
+        {{ metric("%.1f"|format(player_summary.adr) if player_summary.adr is not none else '-', 'ADR', [100, (player_summary.adr or 0) / 1.2]|min) }}
+        {{ metric("%.2f"|format(player_summary.kpr) if player_summary.kpr is not none else '-', 'KPR', [100, (player_summary.kpr or 0) * 100]|min) }}
+      </div>
+      {% else %}
+      <div class="pd-summary-empty">暂无比赛数据</div>
+      {% endif %}
     </div>
-  </div>
-</div>
+  </section>
 
-<!-- ============ 角色统计 ============ -->
-<div class="role-stats-container">
-  <div class="role-stats-filter">
-    <div class="role-stats-side">
-      <span>Side:</span>
+  <div class="pd-stat-controls">
+    <div>
+      <span>阵营：</span>
       {% for side in side_options %}
-      <a class="rs-toggle {% if filters.side == side.value %}active{% endif %}" href="?time={{ filters.time }}&map={{ filters.map|urlencode }}&side={{ side.value }}">{{ side.label }}</a>
+      <a class="pd-toggle {% if filters.side == side.value %}active{% endif %}" href="?time={{ filters.time }}&map={{ filters.map|urlencode }}&side={{ side.value }}">{{ side.label }}</a>
       {% endfor %}
     </div>
-    <div class="role-stats-unit">
-      <span>统计单位：</span>
-      <span class="rs-toggle active">每回合</span>
-    </div>
+    <div><span>统计单位：</span><span class="pd-toggle active">每回合</span></div>
   </div>
 
-  {% for card in player_category_cards %}
-  <details class="rs-card {% if loop.first %}rs-open{% endif %}" {{ 'open' if loop.first else '' }}>
-    <summary class="rs-card-header">
-      <div class="rs-card-title">
-        <span class="rs-card-icon rs-icon-{{ loop.index }}"></span>
-        <span>{{ card.title }}</span>
-      </div>
-      <div class="rs-card-score">
-        <span>{{ card.score }}<small>/100</small></span>
-        <i class="rs-card-bar" style="--pct:{{ card.score }}%"></i>
-      </div>
-      <span class="rs-card-arrow"></span>
-    </summary>
-    <div class="rs-card-body">
-      {% for item in card['items'] %}
-      <div class="rs-row">
-        <div class="rs-row-top">
-          <span class="rs-row-label">{{ item.label }}</span>
-          <span class="rs-row-val">{{ item.value }}</span>
+  {% if player_summary.maps %}
+  <div class="pd-category-grid">
+    {% for card in player_category_cards %}
+    <details class="pd-category" {% if loop.index <= 2 %}open{% endif %}>
+      <summary>
+        <span class="pd-category-title"><i class="pd-category-dot pd-dot-{{ loop.index }}"></i>{{ card.title }}</span>
+        <span class="pd-category-score">{{ card.score }}<small>/100</small><i style="--pct:{{ card.score }}%"></i></span>
+        <span class="pd-chevron" aria-hidden="true"></span>
+      </summary>
+      <div class="pd-category-body">
+        {% for item in card['items'] %}
+        <div class="pd-category-row">
+          <div><span>{{ item.label }}</span><b>{{ item.value }}</b></div>
+          <i style="--pct:{{ item.pct }}%"></i>
         </div>
-        <div class="rs-row-bar">
-          <i style="width:{{ item.pct }}%"></i>
-          <span class="rs-avg-marker" style="left:50%"></span>
-        </div>
+        {% endfor %}
       </div>
-      {% endfor %}
-    </div>
-  </details>
-  {% endfor %}
-</div>
-
+    </details>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="h-empty pd-empty">暂无比赛数据</div>
+  {% endif %}
 </section>
 
-
-
-<script>
-(function() {
-  var cards = document.querySelectorAll('.rs-card');
-  cards.forEach(function(card) {
-    var body = card.querySelector('.rs-card-body');
-    if (!body) return;
-    card.querySelector('summary').addEventListener('click', function(e) {
-      e.preventDefault();
-      if (card.classList.contains('open')) {
-        body.style.maxHeight = body.scrollHeight + 'px';
-        void body.offsetHeight;
-        body.style.maxHeight = '0';
-        card.classList.remove('open');
-        setTimeout(function() { card.removeAttribute('open'); }, 420);
-      } else {
-        card.setAttribute('open', '');
-        card.classList.add('open');
-        body.style.maxHeight = body.scrollHeight + 'px';
-      }
-    });
-  });
-})();
-</script>
-
 {% if chart_data %}
-<section id="career" class="player-chart-panel profile-tab-panel" data-tab-panel="career" data-tab-group="player-stats" hidden>
+<section id="career" class="pd-panel profile-tab-panel" data-tab-panel="career" data-tab-group="player-stats" hidden>
   <h3>RATING 趋势</h3>
   <canvas id="ratingChart" height="260"></canvas>
 </section>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="{{ versioned_url('static/vendor/chartjs/chart.umd.min.js') }}"></script>
 <script>
 (function() {
-  var cd = {{ chart_data|safe }};
+  var chartData = {{ chart_data|safe }};
   var canvas = document.getElementById('ratingChart');
-  if (!canvas) return;
+  if (!canvas || !chartData.labels.length) return;
   var chart = null;
-  function initRatingChart() {
+  function drawChart() {
     if (chart) { chart.resize(); return; }
     chart = new Chart(canvas.getContext('2d'), {
-    type: 'line',
-    data: {
-      labels: cd.labels,
-      datasets: [{
-        label: 'RATING', data: cd.rating,
-        borderColor: '#2d74a5', backgroundColor: 'rgba(45,116,165,0.08)',
-        fill: true, tension: 0.25, pointRadius: 2, pointBackgroundColor: '#2d74a5'
-      }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { ticks: { color: '#697684', maxTicksLimit: 8, font: { size: 10 } }, grid: { color: 'rgba(0,0,0,.05)' } },
-        y: { ticks: { color: '#697684', font: { size: 10 } }, grid: { color: 'rgba(0,0,0,.06)' }, min: 0, suggestedMax: 2 }
+      type: 'line',
+      data: {
+        labels: chartData.labels,
+        datasets: [{
+          label: 'RATING',
+          data: chartData.rating,
+          borderColor: '#337bad',
+          backgroundColor: 'rgba(51,123,173,.08)',
+          fill: true,
+          tension: .25,
+          pointRadius: 2,
+          pointBackgroundColor: '#337bad'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#697684', maxTicksLimit: 8, font: { size: 10 } }, grid: { color: 'rgba(100,115,130,.08)' } },
+          y: { ticks: { color: '#697684', font: { size: 10 } }, grid: { color: 'rgba(100,115,130,.08)' }, min: 0, suggestedMax: 2 }
+        }
       }
-    }});
+    });
   }
   document.addEventListener('site:tab-activated', function(event) {
-    if (event.detail && event.detail.group === 'player-stats' && event.detail.tab === 'career') initRatingChart();
+    if (event.detail && event.detail.group === 'player-stats' && event.detail.tab === 'career') drawChart();
   });
-  if (!document.getElementById('career').hidden) initRatingChart();
 })();
 </script>
 {% else %}
-<section id="career" class="player-chart-panel profile-tab-panel" data-tab-panel="career" data-tab-group="player-stats" hidden>
+<section id="career" class="pd-panel profile-tab-panel" data-tab-panel="career" data-tab-group="player-stats" hidden>
   <h3>RATING 趋势</h3>
   <div class="h-empty">暂无趋势数据</div>
 </section>
 {% endif %}
 
-<section id="matches" class="player-recent-panel profile-tab-panel" data-tab-panel="matches" data-tab-group="player-stats" hidden>
+<section id="matches" class="pd-panel profile-tab-panel" data-tab-panel="matches" data-tab-group="player-stats" hidden>
   <h3>近期比赛</h3>
-  <div class="stats-table">
-    <table>
-      <thead><tr><th>日期</th><th>赛事</th><th>对阵</th><th>K-D-A</th><th>ADR</th><th>RATING</th></tr></thead>
+  <div class="pp-table-wrap">
+    <table class="pp-table">
+      <thead><tr><th>日期</th><th>赛事</th><th>对阵</th><th>比分</th><th>K-D-A</th><th>ADR</th><th>RATING</th></tr></thead>
       <tbody>
         {% for m in recent_matches %}
         <tr>
           <td>{{ m.match_time|date_display }}</td>
           <td data-i18n-ignore>{{ m.event_name or '-' }}</td>
-          <td>
-            <a href="/matches/{{ m.slug or m.id }}">
-              <span data-i18n-ignore>{{ m.t1s or 'TBD' }}</span>
-              <span>对</span>
-              <span data-i18n-ignore>{{ m.t2s or 'TBD' }}</span>
-            </a>
-          </td>
+          <td><a href="/matches/{{ m.slug or m.id }}"><span data-i18n-ignore>{{ m.t1s or 'TBD' }}</span> <span>对</span> <span data-i18n-ignore>{{ m.t2s or 'TBD' }}</span></a></td>
+          <td>{{ m.team1_score if m.team1_score is not none else '-' }} : {{ m.team2_score if m.team2_score is not none else '-' }}</td>
           <td>{{ m.kills }}-{{ m.deaths }}-{{ m.assists }}</td>
-          <td>{{ "%.1f"|format(m.adr) if m.adr else '-' }}</td>
-          <td class="{{ m.rating|rating_class }}"><b>{{ "%.2f"|format(m.rating) if m.rating else '-' }}</b></td>
+          <td>{{ "%.1f"|format(m.adr) if m.adr is not none else '-' }}</td>
+          <td class="{{ m.rating|rating_class }}"><b>{{ "%.2f"|format(m.rating) if m.rating is not none else '-' }}</b></td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
+  {% if not recent_matches %}<div class="h-empty">暂无比赛</div>{% endif %}
 </section>
 
-<section id="events" class="player-recent-panel profile-tab-panel" data-tab-panel="events" data-tab-group="player-stats" hidden>
+<section id="events" class="pd-panel profile-tab-panel" data-tab-panel="events" data-tab-group="player-stats" hidden>
   <h3>赛事</h3>
-  <div class="stats-table">
-    <table>
+  <div class="pp-table-wrap">
+    <table class="pp-table">
       <thead><tr><th>日期</th><th>赛事</th><th>对阵</th><th>RATING</th></tr></thead>
       <tbody>
         {% for m in recent_matches %}
         <tr>
           <td>{{ m.match_time|date_display }}</td>
           <td data-i18n-ignore>{{ m.event_name or '-' }}</td>
-          <td>
-            <a href="/matches/{{ m.slug or m.id }}">
-              <span data-i18n-ignore>{{ m.t1s or 'TBD' }}</span>
-              <span>对</span>
-              <span data-i18n-ignore>{{ m.t2s or 'TBD' }}</span>
-            </a>
-          </td>
-          <td class="{{ m.rating|rating_class }}"><b>{{ "%.2f"|format(m.rating) if m.rating else '-' }}</b></td>
+          <td><a href="/matches/{{ m.slug or m.id }}"><span data-i18n-ignore>{{ m.t1s or 'TBD' }}</span> <span>对</span> <span data-i18n-ignore>{{ m.t2s or 'TBD' }}</span></a></td>
+          <td class="{{ m.rating|rating_class }}"><b>{{ "%.2f"|format(m.rating) if m.rating is not none else '-' }}</b></td>
         </tr>
         {% endfor %}
       </tbody>
@@ -275,55 +234,56 @@
 
 <section id="clutches" class="profile-tab-panel" data-tab-panel="clutches" data-tab-group="player-stats" hidden>
   {% set clutch_cards = player_category_cards|selectattr('title', 'equalto', '残局')|list %}
-  {% if clutch_cards %}
+  {% if player_summary.maps and clutch_cards %}
   {% set card = clutch_cards[0] %}
-  <details class="rs-card rs-open" open>
-    <summary class="rs-card-header">
-      <div class="rs-card-title"><span>{{ card.title }}</span></div>
-      <div class="rs-card-score">
-        <span>{{ card.score }}<small>/100</small></span>
-        <i class="rs-card-bar" style="--pct:{{ card.score }}%"></i>
+  <div class="pd-category-grid pd-single-category">
+    <details class="pd-category" open>
+      <summary>
+        <span class="pd-category-title"><i class="pd-category-dot pd-dot-5"></i>{{ card.title }}</span>
+        <span class="pd-category-score">{{ card.score }}<small>/100</small><i style="--pct:{{ card.score }}%"></i></span>
+        <span class="pd-chevron" aria-hidden="true"></span>
+      </summary>
+      <div class="pd-category-body">
+        {% for item in card['items'] %}
+        <div class="pd-category-row"><div><span>{{ item.label }}</span><b>{{ item.value }}</b></div><i style="--pct:{{ item.pct }}%"></i></div>
+        {% endfor %}
       </div>
-      <span class="rs-card-arrow"></span>
-    </summary>
-    <div class="rs-card-body">
-      {% for item in card['items'] %}
-      <div class="rs-row">
-        <div class="rs-row-top">
-          <span class="rs-row-label">{{ item.label }}</span>
-          <span class="rs-row-val">{{ item.value }}</span>
-        </div>
-        <div class="rs-row-bar"><i style="width:{{ item.pct }}%"></i></div>
-      </div>
-      {% endfor %}
-    </div>
-  </details>
+    </details>
+  </div>
   {% else %}
   <div class="h-empty">暂无残局数据</div>
   {% endif %}
 </section>
 
 <section id="multi-kills" class="profile-tab-panel" data-tab-panel="multi-kills" data-tab-group="player-stats" hidden>
-  <div class="player-statistics-panel">
+  {% if player_summary.maps %}
+  <div class="pd-panel">
     <h3>多杀</h3>
-    <div class="player-statistics-grid">
-      <div><span>MULTI-KILL</span><b>{{ "%.1f"|format(player_summary.multi_kill or 0) }}%</b></div>
-      <div><span>地图数</span><b>{{ player_summary.maps }}</b></div>
-      <div><span>回合数</span><b>{{ player_summary.rounds }}</b></div>
-      <div><span>RATING 2.0</span><b class="{{ player_summary.rating|rating_class }}">{{ "%.2f"|format(player_summary.rating or 0) }}</b></div>
-    </div>
+    <dl class="pd-data-grid">
+      <div><dt>MULTI-KILL</dt><dd>{{ "%.1f"|format(player_summary.multi_kill or 0) }}%</dd></div>
+      <div><dt>地图数</dt><dd>{{ player_summary.maps }}</dd></div>
+      <div><dt>回合数</dt><dd>{{ player_summary.rounds }}</dd></div>
+      <div><dt>RATING 2.0</dt><dd class="{{ player_summary.rating|rating_class }}">{{ "%.2f"|format(player_summary.rating or 0) if player_summary.maps else '-' }}</dd></div>
+    </dl>
   </div>
+  {% else %}
+  <div class="h-empty">暂无比赛数据</div>
+  {% endif %}
 </section>
+{% endblock %}
 
+{% block extra_js %}
+<script src="{{ versioned_url('static/js/stats_side_switch.js') }}"></script>
 {% endblock %}
 
 {% block side %}
-<div class="h-panel">
+<div class="h-panel pp-side-panel">
   <h3 class="h-panel-title">选手信息</h3>
   <div class="player-side-info">
-    <div><span>队伍</span>{% if player.team_name %}<b data-i18n-ignore>{{ player.team_name }}</b>{% else %}<b>无</b>{% endif %}</div>
-    <div><span>昵称</span><b data-i18n-ignore>{{ player.nickname }}</b></div>
-    {% if player.real_name %}<div><span>真名</span><b data-i18n-ignore>{{ player.real_name }}</b></div>{% endif %}
+    {% if player.team_name %}<div><span>队伍</span><b data-i18n-ignore>{{ player.team_name }}</b></div>{% endif %}
+    <div><span>昵称</span><b data-i18n-ignore>{{ player_display_name }}</b></div>
+    {% if not player_private_remark and player.is_bashizhong_student != 0 and player.group_username %}<div><span>群内昵称</span><b data-i18n-ignore>{{ player.group_username }}</b></div>{% endif %}
+    <div><span>地图数</span><b>{{ player_summary.maps }}</b></div>
   </div>
 </div>
 {% endblock %}

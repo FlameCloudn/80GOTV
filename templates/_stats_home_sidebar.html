@@ -1,0 +1,47 @@
+{% if sidebar_feed %}
+<section class="h-panel">
+  <div class="h-panel-title h-panel-title-blue">今日比赛</div>
+  <div class="h-match-mini-list">
+    {% for match in sidebar_feed.matches %}
+    <a class="h-match-mini" href="/matches/{{ match.slug or match.id }}">
+      <span class="h-mini-status {% if match.effective_status == 'live' %}live{% endif %}">
+        {% if match.effective_status == 'live' %}直播{% elif match.match_time %}{{ match.match_time|time_display }}{% else %}TBD{% endif %}
+      </span>
+      <span class="h-mini-teams">
+        <b data-i18n-ignore>{{ match.t1s or match.team1_name or 'TBD' }}</b>
+        <b data-i18n-ignore>{{ match.t2s or match.team2_name or 'TBD' }}</b>
+      </span>
+      <span class="h-mini-bo">{{ match.bo_format }}</span>
+    </a>
+    {% endfor %}
+    {% if not sidebar_feed.matches %}<div class="h-empty">暂无比赛</div>{% endif %}
+  </div>
+</section>
+
+<section class="h-panel">
+  <div class="h-panel-title">近期动态</div>
+  <div class="h-activity-list">
+    {% for thread in sidebar_feed.forum_activity %}
+    <a class="h-activity-row" href="{{ url_for('forum_thread', thread_id=thread.id) }}">
+      <span data-i18n-ignore>{{ thread.title }}</span>
+      <small>{{ thread.reply_count or 0 }}</small>
+    </a>
+    {% endfor %}
+    {% if not sidebar_feed.forum_activity %}<a class="h-empty" href="{{ url_for('forum_index') }}">暂无论坛动态</a>{% endif %}
+  </div>
+</section>
+
+<section class="h-panel">
+  <div class="h-panel-title">近期赛果</div>
+  <div class="h-result-mini-list">
+    {% for result in sidebar_feed.recent %}
+    <a class="h-result-mini" href="/matches/{{ result.slug or result.id }}">
+      <span data-i18n-ignore>{{ result.t1s or result.team1_name }}</span>
+      <b>{{ result.team1_score }} : {{ result.team2_score }}</b>
+      <span data-i18n-ignore>{{ result.t2s or result.team2_name }}</span>
+    </a>
+    {% endfor %}
+    {% if not sidebar_feed.recent %}<div class="h-empty">暂无赛果</div>{% endif %}
+  </div>
+</section>
+{% endif %}

@@ -3,12 +3,17 @@
 from flask import jsonify, request, session
 
 from models import get_db
+from utils.rate_limiter import rate_limit
+from utils.web_helpers import csrf_required
 from web_app import app
 
 
 @app.route("/api/feedback/submit", methods=["POST"])
+@csrf_required
 def feedback_submit():
     """提交反馈"""
+    if not rate_limit("feedback_submit", 10, 3600, by_ip=True):
+        return jsonify({"ok": False, "error": "提交过于频繁，请稍后再试"}), 429
     data = request.get_json(silent=True) or {}
     content = (data.get("content") or "").strip()
     fb_type = data.get("type", "suggestion")

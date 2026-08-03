@@ -1,10 +1,11 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
+  {% include "_i18n_bootstrap.html" %}
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>{% if news %}编辑新闻{% else %}添加新闻{% endif %}</title>
-  <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+  <title>{% if news and news.id %}编辑新闻{% else %}添加新闻{% endif %}</title>
+  <link href="{{ url_for('static', filename='vendor/quill/quill.snow.css') }}?v=1.3.7" rel="stylesheet">
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     body{font-family:sans-serif;background:#f5f5f5}
@@ -17,8 +18,10 @@
     .top-nav .nav-links{display:flex;gap:20px;align-items:center}
     .top-nav a{color:#333;text-decoration:none;padding:8px 15px;border-radius:0;transition:all 0.2s}
     .top-nav a:hover{background:#f5f5f5;color:#5881bc}
-    .top-nav .logout-btn{background:#5881bc;color:white;padding:8px 15px;border-radius:0;margin:0 auto;background:white;padding:30px;border-radius:0;
-    }
+    .top-nav .logout-btn{background:#5881bc;color:white;padding:8px 15px;border-radius:0}
+    .top-nav .logout-btn:hover{background:#4a6fa3;color:white}
+    .container{padding:0 30px 30px}
+    .form-container{max-width:820px;margin:0 auto;background:white;padding:30px}
     h2{margin-bottom:30px;color:#333}
     .form-group{margin-bottom:20px}
     .form-row{display:grid;grid-template-columns:1fr 1fr;gap:20px}
@@ -36,26 +39,15 @@
     .alert-success{background:#d4edda;color:#155724}
 
     /* Quill editor height */
-    #editor{height:400px;margin-bottom:10px}
+    #editor{display:none;height:400px;margin-bottom:10px;background:#fff}
+    #contentTextarea{min-height:400px}
+    .editor-message{display:none;margin-top:8px;padding:9px 11px;border:1px solid #f0b8b8;background:#fff1f1;color:#8a2929;font-size:13px}
   </style>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-comfort.css') }}">
 </head>
 <body>
 
-<div class="top-nav">
-  <div class="logo">🎮 CS2 后台管理</div>
-  <div class="nav-links">
-    <a href="/admin">📊 首页</a>
-    <a href="/admin/teams">👥 队伍</a >
-    <a href="/admin/players">🎯 选手</a >
-    <a href="/admin/events">🏆 赛事</a >
-    <a href="/admin/matches">⚔️ 比赛</a >
-    <a href="/admin/news">📰 新闻</a >
-    <span style="color:#ccc">|</span>
-    <span style="color:#666">{{ session.admin_username }}</span>
-    <a href="/admin/logout" class="logout-btn">退出</a >
-  </div>
-</div>
+{% include "admin/_top_nav.html" %}
 
 <div class="container">
   {% with messages = get_flashed_messages(with_categories=true) %}
@@ -67,9 +59,9 @@
   {% endwith %}
 
   <div class="form-container">
-    <h2>{% if news %}✏️ 编辑新闻{% else %}📰 添加新闻{% endif %}</h2>
+    <h2>{% if news and news.id %}✏️ 编辑新闻{% else %}📰 添加新闻{% endif %}</h2>
 
-    <form method="post" id="newsForm" onsubmit="document.getElementById('contentTextarea').value = quill.root.innerHTML;">
+    <form method="post" id="newsForm">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 
       <div class="form-group">
@@ -81,12 +73,6 @@
         <label>摘要</label>
         <input type="text" name="summary" value="{{ news.summary if news else '' }}"
                placeholder="简短摘要，显示在列表页（可选）">
-      </div>
-
-      <div class="form-group">
-        <label>标签</label>
-        <input type="text" name="tags" value="{{ news.tags if news else '' }}"
-               placeholder="用逗号分隔多个标签，如：赛事, 更新, 公告">
       </div>
 
       <div class="form-group">
@@ -103,9 +89,17 @@
       </div>
 
       <div class="form-group">
+        <label>点击新闻后跳转到（可选）</label>
+        <input type="text" name="redirect_url" value="{{ news.redirect_url if news and news.redirect_url else '' }}"
+               placeholder="例如：/events/80cs-summer-major">
+        <small>留空时打开新闻正文；填写后，新闻卡片会直接前往这个本站页面。</small>
+      </div>
+
+      <div class="form-group">
         <label>正文 *</label>
-        <div id="editor"></div>
-        <textarea name="content" id="contentTextarea" style="display:none">{{ news.content if news else '' }}</textarea>
+        <div id="editor" data-i18n-ignore></div>
+        <textarea name="content" id="contentTextarea" data-i18n-ignore rows="18" required placeholder="新闻正文内容...">{{ news.content if news else '' }}</textarea>
+        <div class="editor-message" id="editorMessage" role="alert"></div>
       </div>
 
       <div class="form-row">
@@ -117,28 +111,43 @@
         <div class="form-group">
           <label>发布时间</label>
           <input type="datetime-local" name="publish_time"
-                 value="{{ news.publish_time[:16] if news else '' }}">
+                 value="{{ news.publish_time[:16] if news and news.publish_time else '' }}">
           <small>留空则使用当前时间</small>
         </div>
       </div>
 
       <div class="form-actions">
         <button type="submit" class="btn btn-primary">
-          {% if news %}💾 保存修改{% else %}📢 发布新闻{% endif %}
+          {% if news and news.id %}💾 保存修改{% else %}📢 发布新闻{% endif %}
         </button>
-        <a href="/admin/news" class="btn btn-secondary">❌ 取消</a >
+        <a href="/admin/news" class="btn btn-secondary">❌ 取消</a>
       </div>
     </form>
   </div>
 </div>
 
-<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+<script src="{{ url_for('static', filename='vendor/quill/quill.min.js') }}?v=1.3.7"></script>
 <script>
-var quill = new Quill('#editor', {
-  theme: 'snow',
-  placeholder: '新闻正文内容...',
-  modules: {
-    toolbar: {
+(function () {
+  var form = document.getElementById('newsForm');
+  var editorElement = document.getElementById('editor');
+  var contentTextarea = document.getElementById('contentTextarea');
+  var editorMessage = document.getElementById('editorMessage');
+  function showEditorMessage(message) {
+    editorMessage.textContent = message;
+    editorMessage.style.display = 'block';
+  }
+  if (!window.Quill) {
+    showEditorMessage('富文本编辑器加载失败，已切换到普通文本框，仍可正常编辑和保存。');
+    return;
+  }
+  editorElement.style.display = 'block';
+  contentTextarea.style.display = 'none';
+  contentTextarea.removeAttribute('required');
+  var quill = new Quill('#editor', {
+    theme: 'snow',
+    placeholder: '新闻正文内容...',
+    modules: {toolbar: {
       container: [
         ['bold', 'italic', 'underline', 'strike'],
         [{'header': 1}, {'header': 2}],
@@ -147,41 +156,51 @@ var quill = new Quill('#editor', {
         ['link', 'image'],
         ['clean']
       ],
-      handlers: {
-        image: function() {
-          var input = document.createElement('input');
-          input.setAttribute('type', 'file');
-          input.setAttribute('accept', 'image/*');
-          input.click();
-          input.onchange = function() {
-            var file = input.files[0];
-            if (!file) return;
-            var fd = new FormData();
-            fd.append('image', file);
-            var range = quill.getSelection();
-            fetch('/admin/upload/image', {method: 'POST', body: fd})
-              .then(function(r) { return r.json(); })
-              .then(function(data) {
-                if (data.url) {
-                  quill.insertEmbed(range.index, 'image', data.url);
-                }
-              })
-              .catch(function() { showToast('图片上传失败', 'error'); });
-          };
-        }
-      }
+      handlers: {image: function () {
+        var input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = function () {
+          var file = input.files && input.files[0];
+          if (!file) return;
+          var fd = new FormData();
+          fd.append('image', file);
+          fd.append('csrf_token', {{ csrf_token|tojson }});
+          var range = quill.getSelection(true) || {index: quill.getLength()};
+          fetch('/admin/upload/image', {
+            method: 'POST',
+            headers: {'X-Requested-With': 'XMLHttpRequest'},
+            body: fd
+          }).then(function (response) {
+            return response.json().then(function (data) {
+              if (!response.ok) throw new Error(data.error || '图片上传失败');
+              return data;
+            });
+          }).then(function (data) {
+            quill.insertEmbed(range.index, 'image', data.url);
+          }).catch(function (error) {
+            showEditorMessage(error.message || '图片上传失败');
+          });
+        };
+        input.click();
+      }}
+    }}
+  });
+  if (contentTextarea.value) quill.root.innerHTML = contentTextarea.value;
+  form.addEventListener('submit', function (event) {
+    var content = quill.root.innerHTML.trim();
+    if (!quill.getText().trim() && !quill.root.querySelector('img')) {
+      event.preventDefault();
+      showEditorMessage('请填写新闻正文');
+      quill.focus();
+      return;
     }
-  }
-});
-
-// Load existing content into Quill
-var existing = document.getElementById('contentTextarea').value;
-if (existing) {
-  quill.root.innerHTML = existing;
-}
+    contentTextarea.value = content;
+  });
+})();
 </script>
 
-<script src="{{ url_for('static', filename='js/i18n.js') }}?v=20260614-fullsite-lang2"></script>
+<script src="{{ versioned_url('static/js/i18n.js') }}"></script>
 <script src="{{ url_for('static', filename='js/svg_icons.js') }}?v=20260620-svg1"></script>
 </body>
 </html>

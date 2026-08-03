@@ -3,6 +3,7 @@
 import signal
 import threading
 
+from config import validate_production_config
 from models import init_tables
 from utils.live_poller import start_poller, stop_poller
 
@@ -14,6 +15,7 @@ def _request_shutdown(_signum, _frame):
 
 
 def main():
+    validate_production_config()
     init_tables()
     signal.signal(signal.SIGTERM, _request_shutdown)
     signal.signal(signal.SIGINT, _request_shutdown)

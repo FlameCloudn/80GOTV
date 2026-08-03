@@ -1,8 +1,12 @@
+{% from "_user_badges.html" import cheater_badge %}
 <!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#151b22" media="(prefers-color-scheme: dark)">
   <title>{% block title %}80GOTV{% endblock %}</title>
   <script>
     // 提前应用主题，避免页面闪烁（必须在CSS之前执行）
@@ -12,12 +16,13 @@
       document.documentElement.setAttribute('data-theme', t);
     })();
   </script>
+  {% include "_i18n_bootstrap.html" %}
   <style>
     /* 阻止白屏闪烁；颜色与body背景(#d9dee4/#151b22)一致 */
     html{background:#151b22;color:#e0e0e0}
     html[data-theme="light"]{background:#d9dee4;color:#1a1a2e}
   </style>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style_v2.css') }}">
+  <link rel="stylesheet" href="{{ versioned_url('static/css/style_v2.css') }}">
   <style>
     /* === 骨架屏（Skeleton Screen）工具类 === */
     /* 在数据加载完成前，用灰色占位块代替真实内容，避免页面抖动 */
@@ -119,6 +124,8 @@
     }
   </style>
   {% block head %}{% endblock %}
+  <link rel="stylesheet" href="{{ versioned_url('static/css/hltv_refresh.css') }}">
+  <link rel="stylesheet" href="{{ versioned_url('static/css/mobile_hltv.css') }}">
 <script>
 // 图片加载失败 → 显示默认占位图
 window.addEventListener('error',function(e){
@@ -130,19 +137,20 @@ window.addEventListener('error',function(e){
 },true);
 </script>
 </head>
-<body><header class="navbar">
+<body class="page-{{ request.endpoint|default('site', true)|replace('.', '-')|replace('_', '-') }}"><header class="navbar">
   <div class="nav-inner">
     <a href="/" class="logo">
-      <img loading="lazy" src="{{ url_for('static', filename='logos/80gotv-mark.png') }}" class="site-logo-mark" alt="80GOTV">
+      <img src="{{ url_for('static', filename='logos/80gotv-mark.png') }}" class="site-logo-mark" alt="80GOTV" fetchpriority="high">
       <span>80GOTV</span>
     </a>
-    <button class="hamburger" id="hamburger" aria-expanded="false" aria-label="打开菜单">☰</button>
+    <button class="hamburger" id="hamburger" type="button" aria-controls="navLinks" aria-expanded="false" aria-label="打开菜单">☰</button>
     <nav class="nav-links" id="navLinks" aria-label="主导航">
-      <a href="/news">新闻</a>
-      <a href="/matches">比赛</a>
-      <a href="/results">赛果</a>
-      <div class="nav-dropdown">
-        <a href="/events" class="nav-dropdown-toggle">赛事</a>
+      <a href="/news" class="nav-news" data-mobile-label-zh="新闻" data-mobile-label-en="News">新闻</a>
+      <a href="/matches" class="nav-matches" data-mobile-label-zh="比赛" data-mobile-label-en="Matches">比赛</a>
+      <a href="/results" class="nav-results" data-mobile-label-zh="赛果" data-mobile-label-en="Results">赛果</a>
+      <a href="/stats?tab=players" class="mobile-drawer-only nav-ranking" data-mobile-label-zh="排行" data-mobile-label-en="Ranking">排行</a>
+      <div class="nav-dropdown nav-events">
+        <a href="/events" class="nav-dropdown-toggle" data-mobile-label-zh="赛事" data-mobile-label-en="Events">赛事</a>
         <div class="nav-dropdown-menu">
           <a href="/events">全部赛事</a>
           <a href="/events?status=ongoing">进行中</a>
@@ -150,8 +158,8 @@ window.addEventListener('error',function(e){
           <a href="/events?view=calendar">日历</a>
         </div>
       </div>
-      <div class="nav-dropdown">
-        <a href="/players" class="nav-dropdown-toggle">选手</a>
+      <div class="nav-dropdown nav-players">
+        <a href="/players" class="nav-dropdown-toggle" data-mobile-label-zh="选手" data-mobile-label-en="Players">选手</a>
         <div class="nav-dropdown-menu">
           <a href="/players">全部选手</a>
           <a href="/players?filter=mvps">MVP 选手</a>
@@ -159,8 +167,8 @@ window.addEventListener('error',function(e){
           <a href="/players?filter=top10">TOP 10</a>
         </div>
       </div>
-      <div class="nav-dropdown">
-        <a href="/stats" class="nav-dropdown-toggle">数据</a>
+      <div class="nav-dropdown nav-stats">
+        <a href="/stats" class="nav-dropdown-toggle" data-mobile-label-zh="数据" data-mobile-label-en="Stats">数据</a>
         <div class="nav-dropdown-menu">
           <a href="/stats?tab=overview">总览</a>
           <a href="/stats?tab=players">选手排行</a>
@@ -168,22 +176,61 @@ window.addEventListener('error',function(e){
           <a href="/stats?tab=awards">荣誉堂</a>
         </div>
       </div>
-      <a href="/predictions">预测</a>
-      <a href="/dashboard">数据看板</a>
-      <a href="/forum" id="navForum">论坛</a>
+      <a href="/predictions" class="nav-fantasy" data-mobile-label-zh="预测" data-mobile-label-en="Predictions">预测</a>
+      <div class="nav-dropdown nav-games">
+        <a href="/games" class="nav-dropdown-toggle" data-mobile-label-zh="游戏" data-mobile-label-en="Games">游戏</a>
+        <div class="nav-dropdown-menu">
+          <a href="/guess-player">猜选手</a>
+          <a href="/map-quiz">地图点位</a>
+          <a href="/player-bingo">选手 Bingo</a>
+        </div>
+      </div>
+      <a href="/dashboard" class="nav-dashboard" data-mobile-label-zh="数据看板" data-mobile-label-en="Dashboard">数据看板</a>
+      <div class="nav-dropdown nav-more-compact">
+        <a href="/players" class="nav-dropdown-toggle">更多</a>
+        <div class="nav-dropdown-menu">
+          <a href="/players">选手</a>
+          <a href="/stats">数据</a>
+          <a href="/predictions">预测</a>
+          <a href="/games">游戏</a>
+          <a href="/dashboard">数据看板</a>
+        </div>
+      </div>
+      <div class="nav-dropdown mobile-drawer-only nav-forum-mobile">
+        <a href="/forum" class="nav-dropdown-toggle" data-mobile-label-zh="论坛" data-mobile-label-en="Forum">论坛</a>
+        <div class="nav-dropdown-menu">
+          <a href="/forum">All discussions</a>
+          <a href="/forum?tag=比赛">Matches</a>
+        </div>
+      </div>
+      <a href="/forum" id="navForum" class="nav-forum-desktop">论坛</a>
           </nav>
     <form class="search-form" action="/search" method="get" role="search" id="searchForm" autocomplete="off">
-      <input type="search" name="q" placeholder="搜索..." aria-label="站内搜索" value="{{ request.args.get('q', '') }}" id="searchInput">
+      <div class="mobile-search-heading" data-mobile-label-zh="搜索" data-mobile-label-en="Search">搜索</div>
+      <div class="search-field">
+        <svg class="search-field-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+        <input type="search" name="q" placeholder="搜索..." data-mobile-placeholder="Search..." aria-label="站内搜索" value="{{ request.args.get('q', '') }}" id="searchInput">
+        <button class="search-submit" type="submit" aria-label="提交搜索" title="搜索">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+        </button>
+      </div>
       <div class="search-dropdown" id="searchDropdown"></div>
+      <div class="mobile-search-browse" id="mobileSearchBrowse" aria-live="polite"></div>
     </form>
-    <button id="searchToggle" class="search-toggle" aria-label="搜索" title="搜索">🔍</button>
+    <button id="searchToggle" class="search-toggle" type="button" aria-label="打开搜索" aria-controls="searchForm" aria-expanded="false" title="搜索">
+      <svg class="search-toggle-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+      <svg class="search-toggle-back-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"></path><path d="M9 12h10"></path></svg>
+    </button>
     <span class="user-nav" aria-label="用户菜单">
       {% if session.user_id %}
-      <button class="notif-bell" title="通知" id="notifBell" onclick="toggleNotifPopup()">
-        🔔
+      <button class="notif-bell" title="通知" id="notifBell" type="button" aria-label="通知" aria-controls="notifPopup" aria-expanded="false">
+        <svg class="notif-bell-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"></path>
+          <path d="M10 21h4"></path>
+        </svg>
         {% if unread_count %}<span class="notif-badge" id="notifBadge">{{ unread_count }}</span>{% endif %}
       </button>
-      <a href="/profile" class="username">{% if session.admin_id %}<span class="admin-badge-small">ADMIN</span> {% endif %}{{ session.user_username }}</a>
+      <a href="/profile" class="username">{% if session.admin_id %}<span class="admin-badge-small">ADMIN</span> {% endif %}{{ session.user_username }}{% if current_user_group_username %} <span class="username-handle">@{{ current_user_group_username }}</span>{% endif %}{{ cheater_badge(current_user_is_cheater) }}</a>
       {% if session.admin_id %}<a href="/admin">后台管理</a>{% endif %}
       <a href="/logout">退出</a>
       {% elif session.admin_id %}
@@ -191,10 +238,16 @@ window.addEventListener('error',function(e){
       <a href="/admin">后台管理</a>
       <a href="/admin/logout">退出</a>
       {% else %}
-      <a href="/login">登录</a>
+      <span class="guest-mode-label" data-mobile-label-zh="访客" data-mobile-label-en="Guest">访客</span>
+      <a href="/login" data-mobile-label-zh="登录" data-mobile-label-en="Sign in">登录</a>
       {% endif %}
     </span>
-    <button id="themeToggle" class="theme-btn" aria-label="切换主题" title="切换深色/浅色模式">🌙</button>
+    <button id="themeToggle" class="theme-btn" aria-label="切换主题" title="切换深色/浅色模式">
+      <span class="theme-symbol" data-i18n-ignore aria-hidden="true">
+        <svg class="theme-mode-icon theme-mode-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 15.5A8.5 8.5 0 0 1 8.5 4 8.5 8.5 0 1 0 20 15.5Z"/></svg>
+        <svg class="theme-mode-icon theme-mode-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      </span>
+    </button>
     <select id="languageSelect" class="language-select" aria-label="语言">
       <option value="auto">跟随系统</option>
       <option value="zh">中文</option>
@@ -205,13 +258,88 @@ window.addEventListener('error',function(e){
 
 {% with messages = get_flashed_messages(with_categories=true) %}
   {% if messages %}
-  <div class="flash-container">
+  <div class="site-toast-container server-toast-container" aria-live="polite">
     {% for category, message in messages %}
-    <div class="alert alert-{{ category }}">{{ message }}</div>
+    {% set toast_type = 'error' if category == 'error' else ('success' if category == 'success' else 'info') %}
+    <div class="site-toast toast-{{ toast_type }} server-toast" data-toast-type="{{ toast_type }}" role="status">
+      <span class="site-toast-icon" aria-hidden="true">{% if toast_type == 'success' %}✓{% elif toast_type == 'error' %}✕{% else %}ℹ{% endif %}</span>
+      <span class="site-toast-msg">{{ message }}</span>
+    </div>
     {% endfor %}
   </div>
+  <script>
+    document.querySelectorAll('.server-toast').forEach(function (toast) {
+      var delay = toast.dataset.toastType === 'error' ? 5500 : 3500;
+      setTimeout(function () {
+        toast.classList.add('toast-out');
+        setTimeout(function () { toast.remove(); }, 300);
+      }, delay);
+    });
+  </script>
   {% endif %}
 {% endwith %}
+
+{% if session.user_id and profile_completion_required %}
+<div class="profile-completion-backdrop" role="presentation">
+  <section class="profile-completion-dialog" role="dialog" aria-modal="true"
+           aria-labelledby="profileCompletionTitle" aria-describedby="profileCompletionHint">
+    <div class="profile-completion-head">
+      <span class="profile-completion-kicker">账号资料</span>
+      <h2 id="profileCompletionTitle">登录前请补充一项资料</h2>
+      <p id="profileCompletionHint">这会决定选手页面的地区标识。八十中学生还需要填写群内昵称。</p>
+    </div>
+    <form method="post" action="{{ url_for('complete_account_profile') }}" id="profileCompletionForm">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="next" value="{{ request.full_path }}">
+
+      <fieldset class="profile-completion-status">
+        <legend>你是否是或曾经是八十中学生？</legend>
+        <label>
+          <input type="radio" name="is_bashizhong_student" value="1"
+                 {% if current_user_school_status == 1 %}checked{% endif %} required>
+          <span><strong>是</strong><small>需要填写群内昵称</small></span>
+        </label>
+        <label>
+          <input type="radio" name="is_bashizhong_student" value="0"
+                 {% if current_user_school_status == 0 %}checked{% endif %} required>
+          <span><strong>不是</strong><small>选手资料会显示世界标识</small></span>
+        </label>
+      </fieldset>
+
+      <label class="profile-completion-group" id="profileCompletionGroup">
+        <span>群内昵称</span>
+        <input type="text" name="group_username" maxlength="40" autocomplete="nickname"
+               value="{{ current_user_saved_group_username or '' }}" placeholder="填写群聊中使用的名字">
+      </label>
+
+      <button type="submit" class="profile-completion-submit">保存并继续</button>
+    </form>
+  </section>
+</div>
+<script>
+  (function () {
+    var form = document.getElementById('profileCompletionForm');
+    var group = document.getElementById('profileCompletionGroup');
+    if (!form || !group) return;
+    var groupInput = group.querySelector('input');
+    function syncCompletionFields() {
+      var checked = form.querySelector('input[name="is_bashizhong_student"]:checked');
+      var student = checked && checked.value === '1';
+      group.hidden = !student;
+      groupInput.required = !!student;
+      if (student) groupInput.focus();
+    }
+    form.querySelectorAll('input[name="is_bashizhong_student"]').forEach(function (radio) {
+      radio.addEventListener('change', syncCompletionFields);
+    });
+    syncCompletionFields();
+    var firstChoice = form.querySelector('input[name="is_bashizhong_student"]');
+    if (!form.querySelector('input[name="is_bashizhong_student"]:checked') && firstChoice) {
+      firstChoice.focus();
+    }
+  })();
+</script>
+{% endif %}
 
 <main class="layout {% block layout_class %}{% endblock %}">
   <section class="main-col">{% block main %}{% endblock %}</section>
@@ -225,112 +353,147 @@ window.addEventListener('error',function(e){
   window._curIsAdmin = {{ ('admin_id' in session)|tojson }};
   window._curUsername = {{ session.get('user_username')|tojson }};
 </script>
-<script src="{{ url_for('static', filename='js/main.js') }}?v=20260606-real-tabs1"></script>
-<script src="{{ url_for('static', filename='js/front_api.js') }}?v=20260605-mobile-api-pass2"></script>
-<script src="{{ url_for('static', filename='js/i18n.js') }}?v=20260614-fullsite-lang2"></script>
-<script src="{{ url_for('static', filename='js/svg_icons.js') }}?v=20260620-svg1"></script>
-<script src="{{ url_for('static', filename='js/stats_side_switch.js') }}?v=20260605-side-ajax3"></script>
+<script src="{{ versioned_url('static/js/main.js') }}"></script>
+<script src="{{ versioned_url('static/js/i18n.js') }}"></script>
+<script src="{{ versioned_url('static/js/svg_icons.js') }}"></script>
 {% block extra_js %}{% endblock %}
 
 {# 通知浮窗 #}
-<div class="notif-popup" id="notifPopup" style="display:none">
+{% if session.user_id %}
+<section class="notif-popup" id="notifPopup" hidden aria-label="通知面板">
   <div class="notif-popup-head">
-    <span>通知</span>
-    <button class="notif-popup-close" onclick="toggleNotifPopup()">✕</button>
+    <div>
+      <strong>通知</strong>
+      <span class="notif-popup-count" id="notifPopupCount"></span>
+    </div>
+    <button class="notif-popup-close" id="notifPopupClose" type="button" aria-label="关闭通知">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"></path></svg>
+    </button>
   </div>
-  <div class="notif-popup-list" id="notifPopupList">加载中...</div>
+  <div class="notif-popup-list" id="notifPopupList" aria-live="polite">
+    <div class="notif-popup-empty">加载中...</div>
+  </div>
   <div class="notif-popup-foot">
-    <a href="/notifications">查看全部</a>
-    <button onclick="markAllRead()">全部已读</button>
+    <a href="/notifications">查看全部通知</a>
+    <button id="notifMarkAll" type="button">全部标为已读</button>
   </div>
-</div>
+</section>
+<script src="{{ versioned_url('static/js/notifications.js') }}"></script>
+{% endif %}
+
+{% if session.user_id or session.admin_id %}
+<button id="fbBtn" class="feedback-launcher" type="button" aria-label="意见反馈"
+        aria-haspopup="dialog" aria-controls="fbOverlay" aria-expanded="false" title="意见反馈">
+  <span aria-hidden="true">💬</span>
+</button>
+<dialog id="fbOverlay" class="feedback-overlay" aria-labelledby="fbTitle">
+  <section class="feedback-dialog">
+    <header class="feedback-dialog-head">
+      <h2 id="fbTitle">意见反馈</h2>
+      <button id="fbClose" class="feedback-dialog-close" type="button" aria-label="关闭反馈">&#10005;</button>
+    </header>
+    <form id="fbForm">
+      <label class="feedback-field" for="fbType">
+        <span>反馈类型</span>
+        <select id="fbType">
+          <option value="suggestion">建议</option>
+          <option value="bug">Bug 报告</option>
+          <option value="question">问题</option>
+          <option value="other">其他</option>
+        </select>
+      </label>
+      <label class="feedback-field" for="fbContent">
+        <span>反馈内容</span>
+        <textarea id="fbContent" rows="5" placeholder="写下你的反馈..." maxlength="2000" required></textarea>
+      </label>
+      <label class="feedback-field" for="fbContact">
+        <span>联系方式（选填）</span>
+        <input id="fbContact" autocomplete="email" placeholder="邮箱、QQ 或其他联系方式">
+      </label>
+      <div id="fbMsg" class="feedback-message" role="status" aria-live="polite" hidden></div>
+      <button id="fbSubmit" class="feedback-submit" type="submit">提交</button>
+    </form>
+  </section>
+</dialog>
 <script>
-function toggleNotifPopup(){
-  var p=document.getElementById('notifPopup');
-  if(p.style.display==='none'||!p.style.display){
-    var bell=document.getElementById('notifBell');
-    var rect=bell.getBoundingClientRect();
-    p.style.top=(rect.bottom+4)+'px';
-    p.style.right=(window.innerWidth-rect.right)+'px';
-    p.style.display='block';
-    loadNotifs();
-  }
-  else{p.style.display='none';}
-}
-function loadNotifs(){
-  fetch('/api/front/notifications').then(function(r){return r.json();}).then(function(d){
-    var list=document.getElementById('notifPopupList');
-    if(!d.authenticated){list.innerHTML='<div class=notif-popup-empty>请先登录</div>';return;}
-    if(!d.notifications||!d.notifications.length){list.innerHTML='<div class=notif-popup-empty>暂无通知</div>';return;}
-    var h='';
-    d.notifications.forEach(function(n){
-      h+='<a class=notif-popup-item href="'+n.link+'" onclick="markRead('+n.id+')">'+n.message+'<small>'+n.created_at+'</small></a>';
-    });
-    list.innerHTML=h;
-  });
-}
-function markRead(id){
-  fetch('/notifications/read/'+id,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'csrf_token={{ csrf_token }}'});
-}
-function markAllRead(){
-  fetch('/notifications/read-all',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'csrf_token={{ csrf_token }}'}).then(function(){
-    document.getElementById('notifBadge')&&(document.getElementById('notifBadge').style.display='none');
-    loadNotifs();
-  });
-}
-document.addEventListener('click',function(e){var p=document.getElementById('notifPopup');if(p&&p.style.display==='block'&&!p.contains(e.target)&&e.target!==document.getElementById('notifBell')){p.style.display='none';}});
-
-// === 意见反馈 ===
 (function(){
-  var html = '<div id="fbBtn" style="position:fixed;bottom:24px;right:24px;z-index:9999;width:48px;height:48px;border-radius:50%;background:#5881bc;color:#fff;font-size:22px;border:none;cursor:pointer;box-shadow:0 2px 12px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;transition:transform 0.2s" title="意见反馈">💬</div>'
-    + '<div id="fbOverlay" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.5)">'
-    + '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--card-bg,#fff);color:var(--text,#333);border-radius:8px;padding:24px;width:90%;max-width:420px;box-shadow:0 4px 24px rgba(0,0,0,0.3)">'
-    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><b style="font-size:18px">意见反馈</b><span id="fbClose" style="font-size:24px;cursor:pointer;line-height:1">&times;</span></div>'
-    + '<div style="margin-bottom:12px"><select id="fbType" style="width:100%;padding:8px;border:1px solid var(--border,#ddd);border-radius:4px;background:var(--bg,#fafafa);color:var(--text,#333);font-size:14px"><option value="suggestion">建议</option><option value="bug">Bug 报告</option><option value="question">问题</option><option value="other">其他</option></select></div>'
-    + '<div style="margin-bottom:12px"><textarea id="fbContent" rows="5" placeholder="写下你的反馈..." style="width:100%;padding:10px;border:1px solid var(--border,#ddd);border-radius:4px;resize:vertical;font-size:14px;background:var(--bg,#fafafa);color:var(--text,#333)" maxlength="2000"></textarea></div>'
-    + '<div style="margin-bottom:12px"><input id="fbContact" placeholder="联系方式（选填）" style="width:100%;padding:8px;border:1px solid var(--border,#ddd);border-radius:4px;font-size:14px;background:var(--bg,#fafafa);color:var(--text,#333)"></div>'
-    + '<div id="fbMsg" style="color:#5881bc;font-size:13px;margin-bottom:8px;display:none"></div>'
-    + '<button id="fbSubmit" style="width:100%;padding:10px;background:#5881bc;color:#fff;border:none;border-radius:4px;font-size:15px;cursor:pointer;font-weight:600">提交</button>'
-    + '</div></div>';
-  document.body.insertAdjacentHTML('beforeend', html);
-
-  var overlay = document.getElementById('fbOverlay');
-  document.getElementById('fbBtn').onclick = function(){ overlay.style.display='block'; };
-  document.getElementById('fbClose').onclick = function(){ overlay.style.display='none'; };
-  overlay.onclick = function(e){ if(e.target===overlay) overlay.style.display='none'; };
-
+  var dialog = document.getElementById('fbOverlay');
+  var opener = document.getElementById('fbBtn');
+  var closeButton = document.getElementById('fbClose');
+  var form = document.getElementById('fbForm');
+  var message = document.getElementById('fbMsg');
+  var submitButton = document.getElementById('fbSubmit');
   var submitting = false;
-  document.getElementById('fbSubmit').onclick = function(){
+
+  function closeFeedback(){
+    if (dialog.open) dialog.close();
+  }
+
+  opener.addEventListener('click', function(){
+    opener.setAttribute('aria-expanded', 'true');
+    dialog.showModal();
+    document.getElementById('fbType').focus();
+  });
+  closeButton.addEventListener('click', closeFeedback);
+  dialog.addEventListener('click', function(event){
+    if (event.target === dialog) closeFeedback();
+  });
+  dialog.addEventListener('close', function(){
+    opener.setAttribute('aria-expanded', 'false');
+    opener.focus();
+  });
+
+  form.addEventListener('submit', function(event){
+    event.preventDefault();
     if(submitting) return;
     var content = document.getElementById('fbContent').value.trim();
-    if(content.length < 2){ document.getElementById('fbMsg').textContent='请至少写2个字'; document.getElementById('fbMsg').style.display='block'; return; }
+    if(content.length < 2){
+      message.textContent='请至少写2个字';
+      message.hidden=false;
+      return;
+    }
     submitting = true;
-    var btn = document.getElementById('fbSubmit');
-    btn.textContent = '提交中...'; btn.disabled = true;
+    submitButton.textContent = '提交中...';
+    submitButton.disabled = true;
 
     fetch('/api/feedback/submit', {
-      method:'POST', headers:{'Content-Type':'application/json'},
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'X-CSRF-Token': window._csrfToken,
+        'X-Requested-With': 'XMLHttpRequest'
+      },
       body: JSON.stringify({
         type: document.getElementById('fbType').value,
         content: content,
         contact: document.getElementById('fbContact').value.trim(),
         page_url: location.href
       })
-    }).then(function(r){ return r.json(); }).then(function(d){
-      document.getElementById('fbMsg').textContent = d.ok ? '✅ 感谢反馈！' : '❌ '+ (d.error||'提交失败');
-      document.getElementById('fbMsg').style.display = 'block';
-      document.getElementById('fbMsg').style.color = d.ok ? '#4caf50' : '#e74c3c';
-      if(d.ok){ setTimeout(function(){ overlay.style.display='none'; document.getElementById('fbContent').value=''; document.getElementById('fbMsg').style.display='none'; }, 1500); }
-      submitting = false; btn.textContent='提交'; btn.disabled=false;
+    }).then(function(response){ return response.json(); }).then(function(data){
+      message.textContent = data.ok ? '✅ 感谢反馈！' : '❌ '+ (data.error||'提交失败');
+      message.hidden = false;
+      message.dataset.type = data.ok ? 'success' : 'error';
+      if(data.ok){
+        setTimeout(function(){
+          closeFeedback();
+          form.reset();
+          message.hidden=true;
+          delete message.dataset.type;
+        }, 1500);
+      }
     }).catch(function(){
-      document.getElementById('fbMsg').textContent='❌ 网络错误，请稍后再试';
-      document.getElementById('fbMsg').style.display = 'block';
-      document.getElementById('fbMsg').style.color = '#e74c3c';
-      submitting = false; btn.textContent='提交'; btn.disabled=false;
+      message.textContent='❌ 网络错误，请稍后再试';
+      message.hidden = false;
+      message.dataset.type = 'error';
+    }).finally(function(){
+      submitting = false;
+      submitButton.textContent='提交';
+      submitButton.disabled=false;
     });
-  };
+  });
 })();
 </script>
+{% endif %}
 
 <!--
   ===== 骨架屏使用示例 =====

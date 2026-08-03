@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  {% include "_i18n_bootstrap.html" %}
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>账号审核 - 80GOTV</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-comfort.css') }}">
+  <style>
+    .review-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px}
+    .review-filters{display:flex;gap:8px;flex-wrap:wrap}
+    .review-filters a,.review-action{padding:8px 12px;border:1px solid var(--border-color);color:var(--text-primary);background:var(--bg-card);text-decoration:none;cursor:pointer}
+    .review-filters a.active{color:#fff;background:var(--accent);border-color:var(--accent)}
+    .account-create-link{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px;padding:13px 16px;border:1px solid var(--border-color);background:var(--bg-card);color:var(--text-primary);text-decoration:none;box-shadow:0 2px 8px var(--shadow)}
+    .account-create-link strong{color:var(--accent)}
+    .review-table{width:100%;border-collapse:collapse;background:var(--bg-card);box-shadow:0 2px 8px var(--shadow)}
+    .review-table th,.review-table td{padding:12px;border-bottom:1px solid var(--border-color);text-align:left;vertical-align:middle}
+    .review-table th{background:var(--bg-secondary);font-weight:700}
+    .review-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .review-actions form{display:flex;align-items:center;gap:6px;margin:0}
+    .review-actions input{min-width:160px;padding:8px;border:1px solid var(--border-color);background:var(--bg-card);color:var(--text-primary)}
+    .review-action.approve{color:#fff;background:#287a4b;border-color:#287a4b}
+    .review-action.reject{color:#fff;background:#a13c3c;border-color:#a13c3c}
+    .admin-playtime{min-width:120px;line-height:1.25}
+    .admin-playtime strong{display:block;color:var(--text-primary,#26313c)}
+    .admin-playtime small{display:block;margin-top:3px;color:var(--text-muted,#72808e)}
+    .empty-state{padding:36px;text-align:center;color:var(--text-muted);background:var(--bg-card)}
+    @media(max-width:760px){.review-table{display:block;overflow-x:auto}.review-toolbar{align-items:flex-start;flex-direction:column}.account-create form{grid-template-columns:1fr}}
+  </style>
+  <script>
+    (function(){var t=localStorage.getItem('theme')||'light';document.documentElement.setAttribute('data-theme',t)})();
+  </script>
+</head>
+<body>
+  {% from "admin/_playtime_macros.html" import playtime_cell %}
+  {% include "admin/_top_nav.html" %}
+
+  <main class="admin-container">
+    <div class="review-toolbar">
+      <h2 style="margin:0;color:var(--text-primary)">账号审核</h2>
+      <nav class="review-filters" aria-label="审核状态">
+        <a href="?status=pending" class="{% if current_status == 'pending' %}active{% endif %}">待审核</a>
+        <a href="?status=approved" class="{% if current_status == 'approved' %}active{% endif %}">已通过</a>
+        <a href="?status=rejected" class="{% if current_status == 'rejected' %}active{% endif %}">已拒绝</a>
+        <a href="?status=all" class="{% if current_status == 'all' %}active{% endif %}">全部</a>
+      </nav>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}<div class="alert alert-{{ category }}">{{ message }}</div>{% endfor %}
+    {% endwith %}
+
+    <a class="account-create-link" href="{{ url_for('admin.admin_players_add') }}">
+      <span>管理员创建账号已合并到选手管理，避免产生未关联的重复资料。</span>
+      <strong>添加选手/账号</strong>
+    </a>
+
+    {% if users %}
+    <table class="review-table">
+      <thead><tr><th>用户名</th><th>来源</th><th>群内昵称</th><th>邮箱</th><th>Steam ID</th><th>CS2 时长</th><th>提交时间</th><th>状态/备注</th><th>操作</th></tr></thead>
+      <tbody>
+        {% for user in users %}
+        <tr>
+          <td>{{ user.username }}</td>
+          <td>{% if user.is_bashizhong_student == 1 %}八十中{% elif user.is_bashizhong_student == 0 %}外校{% else %}待设置{% endif %}</td>
+          <td>{% if user.is_bashizhong_student != 0 %}{{ user.group_username or '待填写' }}{% else %}-{% endif %}</td>
+          <td>{{ user.email or '-' }}{% if user.email_verified_at %}<br><small>已验证</small>{% endif %}</td>
+          <td>{{ user.steam_id64 or '-' }}</td>
+          <td>{{ playtime_cell(user.cs2_playtime_minutes, user.playtime_status, user.playtime_checked_at) }}</td>
+          <td>{{ user.created_at }}</td>
+          <td>{{ {'pending':'待审核','approved':'已通过','rejected':'已拒绝'}.get(user.approval_status, user.approval_status) }}{% if user.approval_note %}<br><small>{{ user.approval_note }}</small>{% endif %}</td>
+          <td>
+            {% if user.approval_status != 'approved' %}
+            <div class="review-actions">
+              <form method="post" action="/admin/registrations/{{ user.id }}/approve">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button class="review-action approve" type="submit">通过</button>
+              </form>
+              <form method="post" action="/admin/registrations/{{ user.id }}/reject">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="text" name="approval_note" maxlength="300" placeholder="拒绝原因（可选）">
+                <button class="review-action reject" type="submit">拒绝</button>
+              </form>
+            </div>
+            {% else %}
+            <span>已完成</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">这里暂时没有账号申请。</div>
+    {% endif %}
+  </main>
+  <script src="{{ versioned_url('static/js/i18n.js') }}"></script>
+</body>
+</html>

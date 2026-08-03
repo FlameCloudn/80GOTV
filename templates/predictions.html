@@ -1,6 +1,11 @@
 {% extends 'base.html' %}
+{% from "_user_badges.html" import cheater_badge %}
 {% block title %}预测排行 - 80GOTV{% endblock %}
 {% block main %}
+<a class="prediction-game-entry h-panel" href="/guess-player" style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px;padding:12px 14px;text-decoration:none">
+  <span><b>80GO 猜选手</b><small style="display:block;margin-top:3px;color:var(--text-muted)">每天 8 次机会，猜出神秘职业选手</small></span>
+  <span style="color:var(--text-link);font-weight:700">开始挑战 →</span>
+</a>
 {% if predictions %}
 <section class="h-panel" style="margin-bottom:var(--space-xl)">
   <div class="h-panel-title">赛季积分 TOP 10</div>
@@ -25,7 +30,7 @@
             {% else %}{{ loop.index }}{% endif %}
           </td>
           <td>
-            <b data-i18n-ignore>{{ p.username }}</b>
+            <b data-i18n-ignore>{{ private_name_for_user(p.user_id, p.username) }}</b>{{ cheater_badge(p.is_cheater) }}
             {% if p.has_perfect %}<span title="猜中过精确比分" style="font-size:12px">🎯</span>{% endif %}
           </td>
           <td>{{ p.total_votes }}</td>
