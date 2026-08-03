@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
+  {% include "_i18n_bootstrap.html" %}
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>选手管理</title>
@@ -93,6 +94,13 @@
       text-decoration:none;
     }
     .actions a:hover{text-decoration:underline}
+    .account-name{display:block;margin-top:3px;color:var(--text-muted,#72808e);font-size:12px}
+    .unlinked-account{display:inline-block;margin:2px 10px 2px 0;color:var(--text-muted,#72808e);font-size:12px}
+    .header-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    .header-actions form{margin:0}
+    .admin-playtime{min-width:120px;line-height:1.25}
+    .admin-playtime strong{display:block;color:var(--text-primary,#26313c)}
+    .admin-playtime small{display:block;margin-top:3px;color:var(--text-muted,#72808e)}
     .alert{
       padding:12px 20px;
       margin-bottom:20px;
@@ -104,22 +112,10 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-comfort.css') }}">
 </head>
 <body>
+{% from "admin/_playtime_macros.html" import playtime_cell %}
 
 <!-- 顶部导航栏 -->
-<div class="top-nav">
-  <div class="logo">🎮 CS2 后台管理</div>
-  <div class="nav-links">
-    <a href="/admin">📊 首页</a>
-    <a href="/admin/teams">👥 队伍</a >
-    <a href="/admin/players">🎯 选手</a >
-    <a href="/admin/events">🏆 赛事</a >
-    <a href="/admin/matches">⚔️ 比赛</a >
-    <a href="/admin/news">📰 新闻</a >
-    <span style="color:#ccc">|</span>
-    <span style="color:#666">{{ session.admin_username }}</span>
-    <a href="/admin/logout" class="logout-btn">退出</a >
-  </div>
-</div>
+{% include "admin/_top_nav.html" %}
 
 <div class="container">
   {% with messages = get_flashed_messages(with_categories=true) %}
@@ -132,7 +128,13 @@
 
   <div class="header">
     <h2>选手管理</h2>
-    <a href="/admin/players/add" class="btn btn-primary">➕ 添加选手</a >
+    <div class="header-actions">
+      <form method="post" action="/admin/players/refresh-playtime" data-confirm="重新读取全部选手的公开 CS2 游戏时长吗？" onsubmit="return window.confirm(this.dataset.confirm)">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="btn btn-secondary">更新选手时长</button>
+      </form>
+      <a href="/admin/players/add" class="btn btn-primary">添加选手/账号</a>
+    </div>
   </div>
 
  <table>
@@ -141,9 +143,11 @@
       <th>头像</th>
       <th>ID</th>
       <th>昵称</th>
-      <th>真名</th>
+      <th>群内昵称</th>
+      <th>来源</th>
       <th>队伍</th>
       <th>Steam ID</th>
+      <th>CS2 时长</th>
       <th>操作</th>
     </tr>
   </thead>
@@ -161,13 +165,23 @@
         {% endif %}
       </td>
       <td>{{ p.id }}</td>
-      <td>{{ p.nickname }}</td>
-      <td>{{ p.real_name or '-' }}</td>
+      <td>
+        {{ p.nickname }}
+        {% if p.account_username %}<small class="account-name">账号：{{ p.account_username }}</small>{% endif %}
+      </td>
+      <td data-i18n-ignore>{% if p.managed_is_bashizhong_student != 0 %}{{ p.managed_group_username or '待填写' }}{% else %}-{% endif %}</td>
+      <td>{% if p.managed_is_bashizhong_student == 1 %}八十中{% elif p.managed_is_bashizhong_student == 0 %}外校{% else %}待设置{% endif %}</td>
       <td>{{ p.team_name or '无队伍' }}</td>
       <td>{{ p.steam_id or '-' }}</td>
+      <td>{{ playtime_cell(p.cs2_playtime_minutes, p.playtime_status, p.playtime_checked_at) }}</td>
       <td class="actions">
-        <a href="/admin/players/edit/{{ p.id }}">✏️ 编辑</a >
-        <form method="post" action="/admin/players/delete/{{ p.id }}" style="display:inline" onsubmit="return window._confirmThen(event, '确定删除选手【{{ p.nickname }}】吗？')"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" style="background:none;border:none;color:#5881bc;cursor:pointer;font-size:14px;padding:0">🗑️ 删除</button></form>
+        <a href="/admin/players/edit/{{ p.id }}">✏️ 编辑</a>
+        {% if p.user_id %}
+          <a href="/admin/players/password/{{ p.id }}">修改密码</a>
+        {% else %}
+          <span class="unlinked-account">未关联账号</span>
+        {% endif %}
+        <form method="post" action="/admin/players/delete/{{ p.id }}" style="display:inline" data-confirm="确定删除选手【{{ p.nickname }}】吗？" onsubmit="return window.confirm(this.dataset.confirm)"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" style="background:none;border:none;color:#5881bc;cursor:pointer;font-size:14px;padding:0">🗑️ 删除</button></form>
       </td>
     </tr>
     {% endfor %}
@@ -175,7 +189,7 @@
 </table>
 </div>
 
-<script src="{{ url_for('static', filename='js/i18n.js') }}?v=20260614-fullsite-lang2"></script>
+<script src="{{ versioned_url('static/js/i18n.js') }}"></script>
 <script src="{{ url_for('static', filename='js/svg_icons.js') }}?v=20260620-svg1"></script>
 </body>
 </html>

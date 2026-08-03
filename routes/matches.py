@@ -2,15 +2,14 @@
 
 import calendar
 import json
-import os
 from collections import defaultdict
 from datetime import datetime, timedelta
-from pathlib import Path
 
 from flask import jsonify, redirect, render_template, request, session, url_for
 
 from models import get_db
 from services.match_service import add_effective_event_status, supplement_temp_teams
+from services.player_remark_service import private_name_for_player
 from utils.helpers import (
     build_comment_tree,
     normalize_http_url,
@@ -28,12 +27,20 @@ from utils.match_utils import (
 )
 from utils.rate_limiter import rate_limit
 from utils.web_helpers import csrf_required
-from web_app import DEMOS_DIR, app, logger
+from web_app import app
 
 _SQL_MATCH_COMPLETED = get_sql_match_completed()
 _SQL_MATCH_UPCOMING = get_sql_match_upcoming()
 _SQL_MATCH_LIVE = get_sql_match_live()
 _SQL_EFFECTIVE_STATUS = get_sql_effective_status()
+
+
+def _stat_belongs_to_match_side(row, expected_side, expected_team_id):
+    """Prefer the explicit match side; keep old real-team rows compatible."""
+    stored_side = str(row_get(row, "match_team_side", "") or "").strip().lower()
+    if stored_side in {"t1", "t2"}:
+        return stored_side == expected_side
+    return row_get(row, "team_id") == expected_team_id
 
 
 @app.route("/matches")
@@ -64,7 +71,9 @@ def matches_list():
 
     query = f"""
         SELECT m.*, t1.name AS team1_name, t2.name AS team2_name,
-               t1.short_name AS t1s, t2.short_name AS t2s, e.name AS event_name,
+               t1.short_name AS t1s, t2.short_name AS t2s,
+               t1.logo AS team1_logo, t2.logo AS team2_logo,
+               e.name AS event_name,
                {_SQL_EFFECTIVE_STATUS}
         FROM matches m
         LEFT JOIN teams t1 ON m.team1_id=t1.id
@@ -261,18 +270,19 @@ def match_vote(slug):
 @app.route("/matches/<slug>")
 def match_detail(slug):
     """比赛详情（支持 slug 或数字 ID；ID 访问时 301 跳转到 slug 版）"""
+    match_id = resolve_match_slug(slug)
+    if not match_id:
+        return "比赛不存在", 404
     conn = get_db()
     match = conn.execute(
-        "SELECT id, slug FROM matches WHERE id=? OR slug=?",
-        (int(slug) if slug.isdigit() else -1, slug),
+        "SELECT id, slug FROM matches WHERE id=?",
+        (match_id,),
     ).fetchone()
     conn.close()
-    if not match:
-        return "比赛不存在", 404
-    # ID 访问且存在 slug → 301 跳转
-    if slug.isdigit() and match["slug"]:
+    # 数字 ID 或旧网址名称都会跳到当前规范地址。
+    if match["slug"] and slug != match["slug"]:
         return redirect(url_for("match_detail", slug=match["slug"]), code=301)
-    return _render_match_detail(match["id"])
+    return _render_match_detail(match_id)
 
 
 def _render_match_detail(match_id):
@@ -283,7 +293,7 @@ def _render_match_detail(match_id):
         SELECT m.*, t1.name AS team1_name, t2.name AS team2_name,
                t1.short_name AS t1s, t2.short_name AS t2s,
                t1.logo AS t1_logo, t2.logo AS t2_logo,
-               e.name AS event_name, e.id AS event_id,
+               e.name AS event_name, e.id AS event_id, e.slug AS event_slug,
                e.stream_url AS event_stream_url,
                {_SQL_EFFECTIVE_STATUS}
         FROM matches m
@@ -322,14 +332,18 @@ def _render_match_detail(match_id):
     if t1_id and t2_id:
         h2h_matches = conn.execute(
             """
-            SELECT m.id, m.match_time, m.team1_score, m.team2_score,
+            SELECT m.id, m.slug, m.match_time, m.team1_score, m.team2_score,
                    m.bo_format, e.name AS event_name,
                    t1.short_name AS t1s, t2.short_name AS t2s
             FROM matches m
             LEFT JOIN events e ON m.event_id = e.id
             LEFT JOIN teams t1 ON m.team1_id = t1.id
             LEFT JOIN teams t2 ON m.team2_id = t2.id
-            WHERE m.id != ? AND m.team1_score IS NOT NULL
+            WHERE m.id != ?
+              AND COALESCE(m.status, '') = 'completed'
+              AND m.team1_score IS NOT NULL
+              AND m.team2_score IS NOT NULL
+              AND (COALESCE(m.team1_score, 0) > 0 OR COALESCE(m.team2_score, 0) > 0)
               AND ((m.team1_id = ? AND m.team2_id = ?)
                 OR (m.team1_id = ? AND m.team2_id = ?))
             ORDER BY m.match_time DESC LIMIT 10
@@ -395,12 +409,10 @@ def _render_match_detail(match_id):
     for idx, (mn, t1, t2, active, picked_by) in enumerate(raw_maps):
         if idx >= max_maps:
             break
-        # map1/2 必须有名字；map3+ 即使未打也显示（TBA）
-        if idx < 2 and not mn:
-            continue
+        # 未开始的系列赛也要按 BO 数量完整显示地图槽位。
         all_for_map = [s for s in stats if s["map_name"] == mn] if mn else []
-        t1s = [s for s in all_for_map if s["team_id"] == t1_key]
-        t2s = [s for s in all_for_map if s["team_id"] == t2_key]
+        t1s = [s for s in all_for_map if _stat_belongs_to_match_side(s, "t1", t1_key)]
+        t2s = [s for s in all_for_map if _stat_belongs_to_match_side(s, "t2", t2_key)]
         halves = get_map_half_scores(match, idx, map_halves) if mn else None
         played = bool(mn and (t1 or t2))
         has_stats = bool(all_for_map)
@@ -501,10 +513,9 @@ def _render_match_detail(match_id):
     )
 
     for s in stats:
-        stid = s["team_id"]
-        if stid == t1_key:
+        if _stat_belongs_to_match_side(s, "t1", t1_key):
             agg = team1_agg
-        elif stid == t2_key:
+        elif _stat_belongs_to_match_side(s, "t2", t2_key):
             agg = team2_agg
         else:
             continue
@@ -677,13 +688,16 @@ def _render_match_detail(match_id):
     conn = get_db()
     raw_comments = conn.execute(
         """
-        SELECT c.*, u.username, u.avatar,
+        SELECT c.*, u.username,
+               CASE WHEN COALESCE(u.is_bashizhong_student, 1)<>0
+                    THEN u.group_username END AS group_username,
+               u.avatar, u.is_cheater,
                (SELECT COUNT(*) FROM comment_likes WHERE comment_id=c.id) as like_count,
                (SELECT 1 FROM comment_likes WHERE comment_id=c.id AND user_id=?) as user_liked
         FROM comments c
         JOIN users u ON c.user_id = u.id
         WHERE c.target_type='match' AND c.target_id=?
-        ORDER BY c.created_at ASC
+        ORDER BY c.created_at ASC, c.id ASC
     """,
         (session.get("user_id"), match_id),
     ).fetchall()
@@ -783,6 +797,7 @@ def match_live(match_id):
         f"""
         SELECT m.*, t1.name AS team1_name, t2.name AS team2_name,
                t1.short_name AS t1s, t2.short_name AS t2s,
+               t1.logo AS t1_logo, t2.logo AS t2_logo,
                e.name AS event_name, {get_sql_effective_status()}
         FROM matches m LEFT JOIN teams t1 ON m.team1_id=t1.id
         LEFT JOIN teams t2 ON m.team2_id=t2.id LEFT JOIN events e ON m.event_id=e.id
@@ -888,7 +903,7 @@ def _build_match_player_row(data, team_side, team_short, team_name):
         + _safe_int(data.get("multi5k"))
     )
     mk_rating = _safe_float(data.get("impact"))
-    rws = _safe_float(data.get("rws"))
+    rws = _safe_float(data.get("rws", data.get("rws_basic")))
     return {
         "player_id": data.get("player_id"),
         "nickname": data.get("nickname") or "Unknown",
@@ -971,6 +986,11 @@ def _aggregate_match_rows(rows, team_side, team_short, team_name):
             "first_kills": 0,
             "first_deaths": 0,
             "clutches_won": 0,
+            "clutch_1v1": 0,
+            "clutch_1v2": 0,
+            "clutch_1v3": 0,
+            "clutch_1v4": 0,
+            "clutch_1v5": 0,
             "trade_kills": 0,
             "trade_deaths": 0,
             "enemies_flashed": 0,
@@ -993,6 +1013,7 @@ def _aggregate_match_rows(rows, team_side, team_short, team_name):
             "swing_values": [],
             "kpr_values": [],
             "dpr_values": [],
+            "rws_values": [],
             "t_adr_values": [],
             "t_rating_values": [],
             "ct_adr_values": [],
@@ -1014,6 +1035,11 @@ def _aggregate_match_rows(rows, team_side, team_short, team_name):
             "first_kills",
             "first_deaths",
             "clutches_won",
+            "clutch_1v1",
+            "clutch_1v2",
+            "clutch_1v3",
+            "clutch_1v4",
+            "clutch_1v5",
             "trade_kills",
             "trade_deaths",
             "enemies_flashed",
@@ -1037,6 +1063,7 @@ def _aggregate_match_rows(rows, team_side, team_short, team_name):
         item["swing_values"].append(_safe_float(row_get(row, "damage_delta_per_round", 0)))
         item["kpr_values"].append(_safe_float(row_get(row, "kpr", 0)))
         item["dpr_values"].append(_safe_float(row_get(row, "dpr", 0)))
+        item["rws_values"].append(_safe_float(row_get(row, "rws_basic", 0)))
         if _safe_float(row_get(row, "t_rating", 0)) or _safe_int(row_get(row, "t_kills", 0)):
             item["t_adr_values"].append(_safe_float(row_get(row, "t_adr", 0)))
             item["t_rating_values"].append(_safe_float(row_get(row, "t_rating", 0)))
@@ -1058,6 +1085,11 @@ def _aggregate_match_rows(rows, team_side, team_short, team_name):
             "first_kills": item["first_kills"],
             "first_deaths": item["first_deaths"],
             "clutches_won": item["clutches_won"],
+            "clutch_1v1": item["clutch_1v1"],
+            "clutch_1v2": item["clutch_1v2"],
+            "clutch_1v3": item["clutch_1v3"],
+            "clutch_1v4": item["clutch_1v4"],
+            "clutch_1v5": item["clutch_1v5"],
             "trade_kills": item["trade_kills"],
             "trade_deaths": item["trade_deaths"],
             "enemies_flashed": item["enemies_flashed"],
@@ -1077,6 +1109,7 @@ def _aggregate_match_rows(rows, team_side, team_short, team_name):
             "impact": _avg_values(item["impact_values"], 2),
             "kpr": _avg_values(item["kpr_values"], 2),
             "dpr": _avg_values(item["dpr_values"], 2),
+            "rws_basic": _avg_values(item["rws_values"], 2),
             "headshot_percentage": _avg_values(item["hs_values"], 1),
             "damage_delta_per_round": _avg_values(item["swing_values"], 2),
             "t_adr": _avg_values(item["t_adr_values"], 1),
@@ -1130,208 +1163,44 @@ def _identity_key(value):
     return str(value or "").strip().casefold()
 
 
-def _replay_cache_path(match_id, slot):
-    return Path(app.instance_path) / "replay_cache" / f"match_{match_id}_slot_{slot}.json"
-
-
-def _demo_source_key(demo_path):
-    stat = os.stat(demo_path)
-    return {"mtime_ns": stat.st_mtime_ns, "size": stat.st_size}
-
-
-def _replay_data_has_names(data):
-    for kill in (data or {}).get("kills") or []:
-        if (
-            kill.get("killer")
-            or kill.get("attacker_name")
-            or kill.get("victim")
-            or kill.get("user_name")
-        ):
-            return True
-    return False
-
-
-def _replay_data_is_current(data):
-    if not data or not _replay_data_has_names(data):
-        return False
-    return isinstance(data.get("round_results"), list) and isinstance(data.get("damages"), list)
-
-
-def _demo_round_number(item):
-    number = _safe_int((item or {}).get("round_number"))
-    if number:
-        return number
-    raw = _safe_int((item or {}).get("round"))
-    return raw + 1 if raw >= 0 else 0
-
-
-def _normalize_demo_side(side):
-    value = str(side or "").strip().upper().replace("-", "_").replace(" ", "_")
-    if value in ("T", "TERRORIST"):
-        return "T"
-    if value in ("CT", "COUNTERTERRORIST", "COUNTER_TERRORIST"):
-        return "CT"
-    return ""
-
-
-def _load_replay_data(match_id, slot, demo_filename):
-    if not isinstance(demo_filename, str) or os.path.basename(demo_filename) != demo_filename:
-        return None
-    demo_path = os.path.join(DEMOS_DIR, demo_filename)
-    if not os.path.isfile(demo_path):
-        return None
-
-    cache_path = _replay_cache_path(match_id, slot)
-    source_key = _demo_source_key(demo_path)
-    try:
-        cached = json.loads(cache_path.read_text(encoding="utf-8"))
-        data = cached.get("data") or {}
-        if cached.get("source") == source_key and _replay_data_is_current(data):
-            return data
-    except (OSError, ValueError, TypeError):
-        pass
-
-    try:
-        from utils.replay_parser import parse_demo_replay
-
-        data = parse_demo_replay(demo_path, tick_sample=8)
-        if not data:
-            return None
-        cache_path.parent.mkdir(parents=True, exist_ok=True)
-        cache_path.write_text(
-            json.dumps({"source": source_key, "data": data}, ensure_ascii=False),
-            encoding="utf-8",
-        )
-        return data
-    except Exception:
-        logger.exception("详细数据页读取 Demo 击杀事件失败")
-        return None
-
-
-def _load_match_replay_events(match, selected_map_index, map_cards):
-    try:
-        demo_list = json.loads(match.get("demo_file") or "[]")
-    except (json.JSONDecodeError, TypeError, AttributeError):
-        demo_list = []
-    if not demo_list:
-        return {"kills": [], "damages": [], "round_results": [], "ticks": []}
-
-    wanted_maps = {normalize_map_key(item["name"]) for item in map_cards if item.get("name")}
-    selected_map_key = ""
-    if selected_map_index:
-        selected = next((item for item in map_cards if item["index"] == selected_map_index), None)
-        selected_map_key = normalize_map_key(selected["name"]) if selected else ""
-
-    events = {"kills": [], "damages": [], "round_results": [], "ticks": []}
-    for slot, demo_filename in enumerate(demo_list):
-        data = _load_replay_data(match["id"], slot, demo_filename)
-        if not data:
-            continue
-        data_map = normalize_map_key(data.get("map_name") or data.get("map") or "")
-        if selected_map_key:
-            if data_map and data_map != selected_map_key:
-                continue
-            if not data_map and slot != selected_map_index - 1:
-                continue
-        elif data_map and wanted_maps and data_map not in wanted_maps:
-            continue
-        for kill in data.get("kills") or []:
-            killer = kill.get("killer") or kill.get("attacker_name") or ""
-            victim = kill.get("victim") or kill.get("user_name") or ""
-            killer_steamid = kill.get("killer_steamid") or kill.get("attacker_steamid") or ""
-            victim_steamid = kill.get("victim_steamid") or kill.get("user_steamid") or ""
-            if not (killer or killer_steamid) or not (victim or victim_steamid):
-                continue
-            events["kills"].append(
-                {
-                    "map_slot": slot,
-                    "killer": killer,
-                    "killer_steamid": str(killer_steamid or ""),
-                    "killer_side": _normalize_demo_side(
-                        kill.get("killer_side") or kill.get("attacker_team_name")
-                    ),
-                    "assister": kill.get("assister") or kill.get("assister_name") or "",
-                    "assister_steamid": str(kill.get("assister_steamid") or ""),
-                    "assister_side": _normalize_demo_side(
-                        kill.get("assister_side") or kill.get("assister_team_name")
-                    ),
-                    "victim": victim,
-                    "victim_steamid": str(victim_steamid or ""),
-                    "victim_side": _normalize_demo_side(
-                        kill.get("victim_side") or kill.get("user_team_name")
-                    ),
-                    "weapon": kill.get("weapon") or "",
-                    "headshot": bool(kill.get("headshot")),
-                    "round": _safe_int(kill.get("round")),
-                    "round_number": _demo_round_number(kill),
-                    "tick": _safe_int(kill.get("tick")),
-                }
-            )
-        for damage in data.get("damages") or []:
-            attacker = damage.get("attacker") or damage.get("attacker_name") or ""
-            victim = damage.get("victim") or damage.get("user_name") or ""
-            attacker_steamid = damage.get("attacker_steamid") or ""
-            victim_steamid = damage.get("victim_steamid") or damage.get("user_steamid") or ""
-            if not (attacker or attacker_steamid) or not (victim or victim_steamid):
-                continue
-            events["damages"].append(
-                {
-                    "map_slot": slot,
-                    "attacker": attacker,
-                    "attacker_steamid": str(attacker_steamid or ""),
-                    "attacker_side": _normalize_demo_side(
-                        damage.get("attacker_side") or damage.get("attacker_team_name")
-                    ),
-                    "victim": victim,
-                    "victim_steamid": str(victim_steamid or ""),
-                    "victim_side": _normalize_demo_side(
-                        damage.get("victim_side") or damage.get("user_team_name")
-                    ),
-                    "damage": max(
-                        0, min(100, _safe_int(damage.get("damage") or damage.get("dmg_health")))
-                    ),
-                    "round_number": _demo_round_number(damage),
-                    "tick": _safe_int(damage.get("tick")),
-                }
-            )
-        for result in data.get("round_results") or []:
-            events["round_results"].append(
-                {
-                    "map_slot": slot,
-                    "round_number": _safe_int(result.get("round_number")),
-                    "tick": _safe_int(result.get("tick")),
-                    "winner": _normalize_demo_side(result.get("winner")),
-                    "reason": result.get("reason") or "",
-                }
-            )
-        for frame in data.get("ticks") or []:
-            round_number = _demo_round_number(frame)
-            if round_number <= 0:
-                continue
-            players = []
-            for player in frame.get("players") or []:
-                players.append(
-                    {
-                        "name": player.get("name") or "",
-                        "steamid": str(player.get("steamid") or ""),
-                        "side": _normalize_demo_side(player.get("team")),
-                        "alive": bool(player.get("alive", True)),
-                    }
-                )
-            if players:
-                events["ticks"].append(
-                    {
-                        "map_slot": slot,
-                        "round_number": round_number,
-                        "tick": _safe_int(frame.get("tick")),
-                        "players": players,
-                    }
-                )
-    return events
-
-
-def _load_match_kill_events(match, selected_map_index, map_cards):
-    return _load_match_replay_events(match, selected_map_index, map_cards)["kills"]
+def _load_persisted_kill_events(conn, match_id):
+    """Load compact kill rows saved during Demo import."""
+    rows = conn.execute(
+        """
+        SELECT match_id, map_name, round_number, tick,
+               killer_player_id, victim_player_id, assister_player_id,
+               killer_steam_id, victim_steam_id, assister_steam_id,
+               killer_name, victim_name, assister_name,
+               killer_side, victim_side, assister_side,
+               weapon, headshot
+        FROM match_kill_events
+        WHERE match_id=?
+        ORDER BY map_name, round_number, tick, id
+        """,
+        (match_id,),
+    ).fetchall()
+    return [
+        {
+            "map_name": row["map_name"],
+            "round_number": row["round_number"],
+            "tick": row["tick"],
+            "killer_player_id": row["killer_player_id"],
+            "victim_player_id": row["victim_player_id"],
+            "assister_player_id": row["assister_player_id"],
+            "killer_steamid": row["killer_steam_id"],
+            "victim_steamid": row["victim_steam_id"],
+            "assister_steamid": row["assister_steam_id"],
+            "killer": row["killer_name"],
+            "victim": row["victim_name"],
+            "assister": row["assister_name"],
+            "killer_side": row["killer_side"],
+            "victim_side": row["victim_side"],
+            "assister_side": row["assister_side"],
+            "weapon": row["weapon"],
+            "headshot": bool(row["headshot"]),
+        }
+        for row in rows
+    ]
 
 
 def _build_player_alias_map(conn, player_ids):
@@ -1471,8 +1340,12 @@ def _build_kill_matrix(team1_rows, team2_rows, aliases, kill_events):
 
     for event in kill_events:
         total_events += 1
-        killer_id = _event_player_id(lookup, event.get("killer_steamid"), event.get("killer"))
-        victim_id = _event_player_id(lookup, event.get("victim_steamid"), event.get("victim"))
+        killer_id = event.get("killer_player_id") or _event_player_id(
+            lookup, event.get("killer_steamid"), event.get("killer")
+        )
+        victim_id = event.get("victim_player_id") or _event_player_id(
+            lookup, event.get("victim_steamid"), event.get("victim")
+        )
         if not killer_id or not victim_id or killer_id == victim_id:
             continue
         if killer_id in team1_ids and victim_id in team2_ids:
@@ -1548,212 +1421,6 @@ def _build_kill_matrix(team1_rows, team2_rows, aliases, kill_events):
     }
 
 
-def _build_round_sides(ticks, lookup):
-    side_counts = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
-    for frame in sorted(
-        ticks,
-        key=lambda item: (
-            item.get("map_slot", 0),
-            item.get("round_number", 0),
-            item.get("tick", 0),
-        ),
-    ):
-        key = (frame.get("map_slot", 0), _safe_int(frame.get("round_number")))
-        for player in frame.get("players") or []:
-            pid = _event_player_id(lookup, player.get("steamid"), player.get("name"))
-            side = _normalize_demo_side(player.get("side"))
-            if pid and side and player.get("alive", True):
-                side_counts[key][pid][side] += 1
-    round_sides = {}
-    for key, players in side_counts.items():
-        sides = {}
-        for pid, counts in players.items():
-            side = max(counts, key=counts.get) if counts else ""
-            if side:
-                sides[pid] = side
-        if sides:
-            round_sides[key] = sides
-    return round_sides
-
-
-def _apply_demo_player_metrics(team1_rows, team2_rows, aliases, replay_events):
-    if not replay_events or not replay_events.get("round_results"):
-        return
-
-    lookup = _build_player_lookup(team1_rows, team2_rows, aliases)
-    _add_demo_stat_aliases(lookup, team1_rows + team2_rows, replay_events.get("kills") or [])
-    all_rows = team1_rows + team2_rows
-    all_ids = {row["player_id"] for row in all_rows}
-    round_sides = _build_round_sides(replay_events.get("ticks") or [], lookup)
-    metrics = defaultdict(
-        lambda: {
-            "rounds": 0,
-            "rws_points": 0.0,
-            "clutches_won": 0,
-            "clutch_1v1": 0,
-            "clutch_1v2": 0,
-            "clutch_1v3": 0,
-            "clutch_1v4": 0,
-            "clutch_1v5": 0,
-        }
-    )
-    total_demo_rounds = len(
-        {
-            (item.get("map_slot", 0), _safe_int(item.get("round_number")))
-            for item in replay_events.get("round_results") or []
-            if _safe_int(item.get("round_number")) > 0
-        }
-    )
-
-    for sides in round_sides.values():
-        for pid in sides:
-            if pid in all_ids:
-                metrics[pid]["rounds"] += 1
-
-    kills_by_round = defaultdict(list)
-    for event in replay_events.get("kills") or []:
-        killer_id = _event_player_id(lookup, event.get("killer_steamid"), event.get("killer"))
-        victim_id = _event_player_id(lookup, event.get("victim_steamid"), event.get("victim"))
-        assister_id = _event_player_id(lookup, event.get("assister_steamid"), event.get("assister"))
-        round_key = (event.get("map_slot", 0), _safe_int(event.get("round_number")))
-        if not victim_id or round_key[1] <= 0:
-            continue
-        kills_by_round[round_key].append(
-            {
-                "tick": _safe_int(event.get("tick")),
-                "killer_id": killer_id,
-                "victim_id": victim_id,
-                "assister_id": assister_id,
-                "killer_side": _normalize_demo_side(event.get("killer_side")),
-                "victim_side": _normalize_demo_side(event.get("victim_side")),
-                "assister_side": _normalize_demo_side(event.get("assister_side")),
-            }
-        )
-
-    damages_by_round = defaultdict(list)
-    for event in replay_events.get("damages") or []:
-        attacker_id = _event_player_id(lookup, event.get("attacker_steamid"), event.get("attacker"))
-        victim_id = _event_player_id(lookup, event.get("victim_steamid"), event.get("victim"))
-        round_key = (event.get("map_slot", 0), _safe_int(event.get("round_number")))
-        if not attacker_id or not victim_id or round_key[1] <= 0:
-            continue
-        damages_by_round[round_key].append(
-            {
-                "attacker_id": attacker_id,
-                "victim_id": victim_id,
-                "attacker_side": _normalize_demo_side(event.get("attacker_side")),
-                "victim_side": _normalize_demo_side(event.get("victim_side")),
-                "damage": max(0, min(100, _safe_int(event.get("damage")))),
-            }
-        )
-
-    for result in replay_events.get("round_results") or []:
-        round_key = (result.get("map_slot", 0), _safe_int(result.get("round_number")))
-        winner = _normalize_demo_side(result.get("winner"))
-        if not winner:
-            continue
-        sides = round_sides.get(round_key, {})
-        if not sides:
-            continue
-        winner_ids = {pid for pid, side in sides.items() if side == winner and pid in all_ids}
-        if not winner_ids:
-            continue
-
-        alive = {
-            "T": {pid for pid, side in sides.items() if side == "T" and pid in all_ids},
-            "CT": {pid for pid, side in sides.items() if side == "CT" and pid in all_ids},
-        }
-        clutch_candidate = {}
-
-        def mark_clutch_state():
-            for side, other in (("T", "CT"), ("CT", "T")):
-                if len(alive[side]) == 1 and len(alive[other]) >= 1:
-                    pid = next(iter(alive[side]))
-                    count = min(5, max(1, len(alive[other])))
-                    old = clutch_candidate.get(side)
-                    if not old or count > old[1]:
-                        clutch_candidate[side] = (pid, count)
-
-        round_kills = sorted(kills_by_round.get(round_key, []), key=lambda item: item["tick"])
-        mark_clutch_state()
-        for kill in round_kills:
-            victim_id = kill.get("victim_id")
-            victim_side = sides.get(victim_id) or kill.get("victim_side")
-            if victim_side in alive and victim_id in alive[victim_side]:
-                alive[victim_side].discard(victim_id)
-            mark_clutch_state()
-
-        raw_share = defaultdict(float)
-        for damage in damages_by_round.get(round_key, []):
-            attacker_id = damage["attacker_id"]
-            victim_id = damage["victim_id"]
-            attacker_side = sides.get(attacker_id) or damage.get("attacker_side")
-            victim_side = sides.get(victim_id) or damage.get("victim_side")
-            if (
-                attacker_id in winner_ids
-                and attacker_side == winner
-                and victim_side
-                and victim_side != winner
-            ):
-                raw_share[attacker_id] += damage["damage"]
-
-        for kill in round_kills:
-            killer_id = kill.get("killer_id")
-            victim_id = kill.get("victim_id")
-            assister_id = kill.get("assister_id")
-            killer_side = sides.get(killer_id) or kill.get("killer_side")
-            victim_side = sides.get(victim_id) or kill.get("victim_side")
-            assister_side = sides.get(assister_id) or kill.get("assister_side")
-            if (
-                killer_id in winner_ids
-                and killer_side == winner
-                and victim_side
-                and victim_side != winner
-            ):
-                raw_share[killer_id] += 30
-            if (
-                assister_id in winner_ids
-                and assister_side == winner
-                and victim_side
-                and victim_side != winner
-            ):
-                raw_share[assister_id] += 12
-
-        for pid in alive[winner]:
-            if pid in winner_ids:
-                raw_share[pid] += 5
-
-        total_share = sum(raw_share[pid] for pid in winner_ids)
-        if total_share <= 0:
-            equal = 100 / len(winner_ids)
-            for pid in winner_ids:
-                metrics[pid]["rws_points"] += equal
-        else:
-            for pid in winner_ids:
-                metrics[pid]["rws_points"] += raw_share[pid] / total_share * 100
-
-        if winner in clutch_candidate:
-            clutch_pid, enemy_count = clutch_candidate[winner]
-            if clutch_pid in winner_ids and clutch_pid in alive[winner]:
-                metrics[clutch_pid]["clutches_won"] += 1
-                metrics[clutch_pid][f"clutch_1v{enemy_count}"] += 1
-
-    for row in all_rows:
-        pid = row["player_id"]
-        metric = metrics.get(pid)
-        if not metric:
-            row["rws"] = 0
-            row["rws_bar"] = 0
-            row["clutches_won"] = 0
-            continue
-        rounds = total_demo_rounds or _safe_int(row.get("rounds_played")) or metric["rounds"]
-        row["rws"] = round(metric["rws_points"] / rounds, 2) if rounds else 0
-        row["rws_bar"] = _metric_pct(row["rws"], 20)
-        row["clutches_won"] = metric["clutches_won"]
-        for key in ("clutch_1v1", "clutch_1v2", "clutch_1v3", "clutch_1v4", "clutch_1v5"):
-            row[key] = metric[key]
-
-
 def _build_match_detailed_context(match_id):
     conn = get_db()
     match = conn.execute(
@@ -1761,7 +1428,7 @@ def _build_match_detailed_context(match_id):
         SELECT m.*, t1.name AS team1_name, t2.name AS team2_name,
                t1.short_name AS t1s, t2.short_name AS t2s,
                t1.logo AS t1_logo, t2.logo AS t2_logo,
-               e.name AS event_name, e.id AS event_id,
+               e.name AS event_name, e.id AS event_id, e.slug AS event_slug,
                {_SQL_EFFECTIVE_STATUS}
         FROM matches m
         LEFT JOIN teams t1 ON m.team1_id=t1.id
@@ -1788,6 +1455,7 @@ def _build_match_detailed_context(match_id):
     ).fetchall()
     player_ids = sorted({row["player_id"] for row in stats})
     player_aliases = _build_player_alias_map(conn, player_ids)
+    persisted_kill_events = _load_persisted_kill_events(conn, match_id)
     conn.close()
 
     t1_key = match["team1_id"] if match["team1_id"] else -1
@@ -1837,11 +1505,9 @@ def _build_match_detailed_context(match_id):
     for idx, (map_name, t1_score, t2_score, active, picked_by) in enumerate(raw_maps):
         if idx >= max_maps:
             break
-        if idx < 2 and not map_name:
-            continue
         map_rows = [row for row in stats if map_name and row["map_name"] == map_name]
-        team1_raw = [row for row in map_rows if row["team_id"] == t1_key]
-        team2_raw = [row for row in map_rows if row["team_id"] == t2_key]
+        team1_raw = [row for row in map_rows if _stat_belongs_to_match_side(row, "t1", t1_key)]
+        team2_raw = [row for row in map_rows if _stat_belongs_to_match_side(row, "t2", t2_key)]
         team1_rows = _display_rows_from_raw(team1_raw, "t1", match["t1s"], match["team1_name"])
         team2_rows = _display_rows_from_raw(team2_raw, "t2", match["t2s"], match["team2_name"])
         played = bool(map_name and (t1_score or t2_score))
@@ -1866,8 +1532,8 @@ def _build_match_detailed_context(match_id):
             }
         )
 
-    team1_all_raw = [row for row in stats if row["team_id"] == t1_key]
-    team2_all_raw = [row for row in stats if row["team_id"] == t2_key]
+    team1_all_raw = [row for row in stats if _stat_belongs_to_match_side(row, "t1", t1_key)]
+    team2_all_raw = [row for row in stats if _stat_belongs_to_match_side(row, "t2", t2_key)]
     overall_t1 = _aggregate_match_rows(team1_all_raw, "t1", match["t1s"], match["team1_name"])
     overall_t2 = _aggregate_match_rows(team2_all_raw, "t2", match["t2s"], match["team2_name"])
     all_players = sorted(overall_t1 + overall_t2, key=lambda item: item["rating"], reverse=True)
@@ -1899,10 +1565,18 @@ def _build_match_detailed_context(match_id):
         score_t1 = match["team1_score"] if match["team1_score"] is not None else "-"
         score_t2 = match["team2_score"] if match["team2_score"] is not None else "-"
 
-    replay_events = _load_match_replay_events(match, selected_map_index, map_cards)
-    _apply_demo_player_metrics(team1_rows, team2_rows, player_aliases, replay_events)
+    map_slots = {
+        normalize_map_key(card["name"]): card["index"] - 1 for card in map_cards if card.get("name")
+    }
+    kill_events = []
+    for event in persisted_kill_events:
+        event_map_key = normalize_map_key(event.get("map_name") or "")
+        if selected_map and event_map_key != normalize_map_key(selected_map["name"]):
+            continue
+        event["map_slot"] = map_slots.get(event_map_key, 0)
+        kill_events.append(event)
     summary = {"t1": _team_summary(team1_rows), "t2": _team_summary(team2_rows)}
-    kill_matrix = _build_kill_matrix(team1_rows, team2_rows, player_aliases, replay_events["kills"])
+    kill_matrix = _build_kill_matrix(team1_rows, team2_rows, player_aliases, kill_events)
     selected_tab = (request.args.get("tab") or "overview").strip().lower()
     if selected_tab not in ("overview", "performance"):
         selected_tab = "overview"

@@ -21,6 +21,15 @@
   </aside>
 
   <section class="results-list-panel">
+    <form class="mobile-result-event-filter" method="get" action="{{ url_for('results_list') }}">
+      <label for="mobileResultEvent">赛事</label>
+      <select id="mobileResultEvent" name="event" onchange="this.form.submit()">
+        <option value="" {% if not event_filter %}selected{% endif %}>全部赛事</option>
+        {% for e in events %}
+        <option value="{{ e.id }}" {% if event_filter==e.id|string %}selected{% endif %}>{{ e.name }}</option>
+        {% endfor %}
+      </select>
+    </form>
     <div class="hltv-list-head">
       <span>最新赛果</span>
       {% if total_pages > 1 %}<small>第 {{ page }} / {{ total_pages }} 页</small>{% endif %}

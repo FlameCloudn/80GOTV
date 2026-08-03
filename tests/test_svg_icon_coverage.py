@@ -30,7 +30,6 @@ def website_files():
         "templates/**/*.html",
         "static/js/*.js",
         "static/css/*.css",
-        "static/replay_tool/assets/*.js",
     )
     for pattern in patterns:
         yield from ROOT.glob(pattern)
@@ -63,11 +62,6 @@ class SvgIconCoverageTests(unittest.TestCase):
             f"{symbol}: {sorted(files)}" for symbol, files in sorted(missing.items())
         )
         self.assertFalse(missing, f"这些图案缺少 SVG：{details}")
-
-    def test_replay_tool_loads_svg_replacement(self):
-        replay_html = (ROOT / "static" / "replay_tool" / "index.html").read_text(encoding="utf-8")
-        self.assertIn("/static/js/svg_icons.js", replay_html)
-        self.assertIn("window.location.pathname === '/replay-tool/'", replay_html)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+{% block title %}{{ '自由游玩' if mode == 'practice' else '每日挑战' }} - 选手 Bingo - 80GOTV{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ versioned_url('static/css/games.css') }}">
+{% endblock %}
+{% block layout_class %}no-side-layout games-layout{% endblock %}
+{% block main %}
+<div class="game-page player-bingo" data-i18n-ignore>
+  <div class="game-breadcrumb"><a href="{{ url_for('games_page') }}">游戏</a><span>/</span><strong>选手 Bingo</strong></div>
+  <nav class="game-mode-tabs" aria-label="选手 Bingo 模式">
+    <a href="{{ url_for('player_bingo_page') }}" class="{{ 'active' if mode == 'daily' else '' }}">每日挑战</a>
+    <a href="{{ url_for('player_bingo_practice_page') }}" class="{{ 'active' if mode == 'practice' else '' }}">自由游玩</a>
+  </nav>
+
+  <header class="game-heading h-panel">
+    <div>
+      <span class="game-kicker">{{ '无限题板' if mode == 'practice' else '每日题板 #' ~ game.challenge_number }}</span>
+      <h1>选手 Bingo</h1>
+      <p>每格填入一名同时符合横向与纵向条件的选手，同一人不能重复。</p>
+    </div>
+    <div class="bingo-score"><strong>{{ game.lines }}</strong><span>连线</span><b>{{ game.mistakes }}</b><span>失误</span></div>
+  </header>
+
+  <section class="bingo-panel h-panel">
+    <div class="bingo-scroll">
+      <table class="bingo-board" aria-label="3 乘 3 选手 Bingo 题板">
+        <thead>
+          <tr>
+            <th class="bingo-corner">条件</th>
+            {% for criterion in game.columns %}
+            <th title="{{ criterion.description }}">{{ criterion.label }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in range(3) %}
+          <tr>
+            <th title="{{ game.rows[row].description }}">{{ game.rows[row].label }}</th>
+            {% for column in range(3) %}
+            {% set player = game.cells.get((row, column)) %}
+            <td class="{% if (row, column) in game.line_cells %}is-line {% endif %}{% if player %}is-filled{% endif %}">
+              {% if player %}
+              <div class="bingo-player">
+                <span aria-label="{{ player.country_name }}">{{ player.country_flag }}</span>
+                <strong>{{ player.nickname }}</strong>
+                <small>{{ player.full_name }}</small>
+              </div>
+              {% elif not game.finished %}
+              <button type="button" class="bingo-cell-pick"
+                      data-row="{{ row }}" data-column="{{ column }}"
+                      data-row-label="{{ game.rows[row].label }}"
+                      data-column-label="{{ game.columns[column].label }}">
+                <span>+</span><small>选择选手</small>
+              </button>
+              {% endif %}
+            </td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if not game.finished %}
+    <form class="bingo-pick-form" method="post" action="{{ url_for('player_bingo_practice_submit') if mode == 'practice' else url_for('player_bingo_submit') }}" id="bingoPickForm">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="row_index" id="bingoRowIndex">
+      <input type="hidden" name="column_index" id="bingoColumnIndex">
+      <input type="hidden" name="player_id" id="bingoPlayerId">
+      <label for="bingoPlayerQuery">
+        <span id="bingoSelectionLabel">先选择一个空格</span>
+        <input type="text" name="player_query" id="bingoPlayerQuery" list="bingoPlayerOptions" autocomplete="off" maxlength="80" placeholder="输入选手昵称..." disabled>
+      </label>
+      <datalist id="bingoPlayerOptions">
+        {% for player in players %}<option value="{{ player.nickname }}" data-player-id="{{ player.id }}">{{ player.full_name }}</option>{% endfor %}
+      </datalist>
+      <button type="submit" id="bingoSubmit" disabled>填入格子</button>
+      <p id="bingoFormError" role="alert"></p>
+    </form>
+    {% endif %}
+  </section>
+
+  {% if game.finished %}
+  <section class="game-result h-panel is-win">
+    <div><span>完成题板</span><strong>9/9 格 · {{ game.lines }} 条连线</strong></div>
+    <small>{{ game.mistakes }} 次失误</small>
+  </section>
+  {% endif %}
+
+  {% if mode == 'practice' %}
+  <form method="post" action="{{ url_for('player_bingo_practice_new') }}" class="game-new-round">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit">{{ '再来一盘' if game.finished else '换一张题板' }}</button>
+  </form>
+  {% else %}
+  <section class="game-stats h-panel">
+    <div class="h-panel-title">我的记录</div>
+    <div class="game-stat-grid">
+      <div><strong>{{ statistics.games }}</strong><span>参与天数</span></div>
+      <div><strong>{{ statistics.completed }}</strong><span>完成题板</span></div>
+      <div><strong>{{ statistics.best_mistakes }}</strong><span>最少失误</span></div>
+      <div><strong>{{ statistics.current_streak }}</strong><span>当前连续</span></div>
+    </div>
+  </section>
+  {% endif %}
+
+  <p class="game-source-note">选手条件取自本站保存的 HLTV 职业选手资料快照。</p>
+</div>
+{% endblock %}
+{% block side %}{% endblock %}
+{% block extra_js %}
+<script src="{{ versioned_url('static/js/player_bingo.js') }}"></script>
+{% endblock %}

@@ -2,6 +2,8 @@
 
 import json
 
+from services.performance_service import refresh_player_performance
+
 
 def record_player_nickname(conn, player_id, nickname, source="website"):
     """保存一个选手曾经使用过的昵称；重复昵称不会反复写入。"""
@@ -145,6 +147,14 @@ def merge_player_records(conn, source_id, target_id):
         "rounds_played",
         "damage_delta_per_round",
         "rws_basic",
+        "clutch_1v1",
+        "clutch_1v2",
+        "clutch_1v3",
+        "clutch_1v4",
+        "clutch_1v5",
+        "flash_blinded_seconds",
+        "flash_enemy_seconds",
+        "flash_assists",
     ]
     for stat in source_stats:
         existing = conn.execute(
@@ -216,6 +226,12 @@ def merge_player_records(conn, source_id, target_id):
     """,
         (source["real_name"], source["team_id"], source["steam_id"], source["avatar"], target_id),
     )
+    for column in ("killer_player_id", "victim_player_id", "assister_player_id"):
+        conn.execute(
+            f"UPDATE match_kill_events SET {column}=? WHERE {column}=?",
+            (target_id, source_id),
+        )
     conn.execute("DELETE FROM player_nickname_history WHERE player_id=?", (source_id,))
     conn.execute("DELETE FROM players WHERE id=?", (source_id,))
+    refresh_player_performance(conn, [target_id])
     return {"source": source["nickname"], "target": target["nickname"]}

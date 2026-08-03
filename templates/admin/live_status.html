@@ -1,14 +1,14 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
+  {% include "_i18n_bootstrap.html" %}
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>直播状态 - 80GOTV</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-comfort.css') }}">
   <style>
-    body{background:#f4f6f8;font-family:sans-serif}.ops{max-width:1280px;margin:auto;padding:24px}
-    .ops-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}
+    body{background:#f4f6f8;font-family:sans-serif}
     .ops a{color:#416fa9;text-decoration:none}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:22px}
     .card{background:#fff;border:1px solid #dce2e8;border-radius:0;padding:16px}.status{display:inline-block;padding:3px 7px;border-radius:0;font-size:12px;font-weight:700}
     .ok{background:#def6e8;color:#15713c}.error{background:#fde6e6;color:#a32626}.muted{color:#6d7884;font-size:13px}
@@ -16,8 +16,9 @@
   </style>
 </head>
 <body>
+{% include "admin/_top_nav.html" %}
 <div class="ops">
-  <div class="ops-head"><div><h2>直播连接状态</h2><div class="muted">查看观战账号和 GOTV Relay 最近一次推送结果。</div></div><a href="/admin">返回后台</a></div>
+  <div class="ops-head"><div><h2>直播连接状态</h2><div class="muted">查看观战账号和 GOTV Relay 最近一次推送结果。</div></div></div>
   <div class="grid">
     {% for item in receivers %}
     <div class="card">
@@ -43,6 +44,6 @@
     </tbody>
   </table>
 </div>
-<script src="{{ url_for('static', filename='js/i18n.js') }}?v=20260614-fullsite-lang2"></script>
+<script src="{{ versioned_url('static/js/i18n.js') }}"></script>
 </body>
 </html>

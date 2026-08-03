@@ -1,5 +1,6 @@
 """Helpers for turning raw GSI data into website live-match data."""
 
+import json
 import time
 from datetime import datetime, timezone
 
@@ -12,6 +13,8 @@ _MAP_OVERVIEWS = {
     "inferno": {"x": -2087, "y": 3870, "scale": 4.9},
     "nuke": {"x": -3453, "y": 2887, "scale": 7},
     "overpass": {"x": -4831, "y": 1781, "scale": 5.2},
+    "ancient": {"x": -2953, "y": 2164, "scale": 5},
+    "anubis": {"x": -2796, "y": 3328, "scale": 5.22},
     "vertigo": {"x": -3168, "y": 1762, "scale": 4},
     "cache": {"x": -2000, "y": 3250, "scale": 5.5},
     "train": {"x": -2477, "y": 2392, "scale": 4.7},
@@ -36,6 +39,29 @@ _BOMB_SITE_RADAR_POINTS = {
 def _normalize_map_key(value):
     value = str(value or "").strip().lower()
     return value[3:] if value.startswith("de_") else value
+
+
+def remove_stored_gsi_auth(conn):
+    """Remove old GSI credentials from already stored live-state rows."""
+    changed = 0
+    rows = conn.execute("SELECT match_id, live_state FROM live_match_data").fetchall()
+    for row in rows:
+        try:
+            state = json.loads(row["live_state"] or "{}")
+        except (TypeError, ValueError):
+            continue
+        gsi = state.get("gsi") if isinstance(state, dict) else None
+        if not isinstance(gsi, dict) or "auth" not in gsi:
+            continue
+        clean_gsi = dict(gsi)
+        clean_gsi.pop("auth", None)
+        state["gsi"] = clean_gsi
+        conn.execute(
+            "UPDATE live_match_data SET live_state=? WHERE match_id=?",
+            (json.dumps(state, ensure_ascii=False), row["match_id"]),
+        )
+        changed += 1
+    return changed
 
 
 def _parse_gsi_coordinates(value):
@@ -204,9 +230,10 @@ def _record_gsi_bomb_events(merged, data):
     events = merged.get("bomb_events", [])
     if not isinstance(events, list):
         events = []
+    now = time.time()
     events.append(
         {
-            "id": f"plant-{round_num}-{int(time.time() * 1000)}",
+            "id": f"plant-{round_num}-{int(now * 1000)}",
             "round": round_num,
             "player_steamid": str(planter_id or ""),
             "player": _resolve_gsi_player_name(planter_id, current_players, previous_players),
@@ -218,26 +245,39 @@ def _record_gsi_bomb_events(merged, data):
             ),
             "alive_t": alive["t"],
             "alive_ct": alive["ct"],
-            "captured_at_epoch": time.time(),
+            "captured_at": datetime.now(timezone.utc).isoformat(),
+            "captured_at_epoch": now,
         }
     )
     merged["bomb_events"] = events[-24:]
 
 
-def _round_win_reason(data, previous_gsi, winner):
-    """尽量从 GSI 返回值中识别本回合获胜原因。"""
+def _latest_round_win_code(data):
+    round_wins = (data.get("map", {}) or {}).get("round_wins", {}) or {}
+    if not isinstance(round_wins, dict) or not round_wins:
+        return ""
+
+    def round_index(item):
+        try:
+            return int(item[0])
+        except (TypeError, ValueError):
+            return -1
+
+    return str(max(round_wins.items(), key=round_index)[1] or "").lower()
+
+
+def _round_win_reason_code(data, previous_gsi, winner):
+    """返回稳定的回合结束原因代码，供前端选择图标和颜色。"""
     current_map = data.get("map", {}) or {}
-    round_wins = current_map.get("round_wins", {}) or {}
-    codes = list(round_wins.values()) if isinstance(round_wins, dict) else []
-    latest_code = str(codes[-1] if codes else "").lower()
+    latest_code = _latest_round_win_code(data)
     if "bomb" in latest_code and ("explode" in latest_code or latest_code.endswith("_bomb")):
-        return "Target bombed"
+        return "bomb_exploded"
     if "defus" in latest_code:
-        return "Bomb defused"
+        return "bomb_defused"
     if "time" in latest_code:
-        return "Target saved"
+        return "time_expired"
     if "elimination" in latest_code or "elim" in latest_code:
-        return "Enemy eliminated"
+        return "elimination"
 
     bomb_states = {
         str((data.get("bomb", {}) or {}).get("state", "")).lower(),
@@ -245,16 +285,28 @@ def _round_win_reason(data, previous_gsi, winner):
         str((previous_gsi.get("bomb", {}) or {}).get("state", "")).lower(),
     }
     if "exploded" in bomb_states:
-        return "Target bombed"
+        return "bomb_exploded"
     if "defused" in bomb_states:
-        return "Bomb defused"
+        return "bomb_defused"
 
     alive = _count_alive_gsi_players(data.get("allplayers", {}) or {})
     if winner == "CT":
-        return "Enemy eliminated" if alive["t"] == 0 else "Target saved"
+        return "elimination" if alive["t"] == 0 else "time_expired"
     if winner == "T" and alive["ct"] == 0:
-        return "Enemy eliminated"
-    return "Round completed"
+        return "elimination"
+    return "completed"
+
+
+def _round_win_reason(data, previous_gsi, winner):
+    """尽量从 GSI 返回值中识别本回合获胜原因。"""
+    labels = {
+        "bomb_exploded": "Target bombed",
+        "bomb_defused": "Bomb defused",
+        "time_expired": "Target saved",
+        "elimination": "Enemy eliminated",
+        "completed": "Round completed",
+    }
+    return labels[_round_win_reason_code(data, previous_gsi, winner)]
 
 
 def _record_gsi_deaths(merged, data):
@@ -295,7 +347,8 @@ def _record_gsi_deaths(merged, data):
         new_health = (player.get("state", {}) or {}).get("health", 0)
         if old_health <= 0 or new_health > 0:
             continue
-        position = _parse_gsi_position(player.get("position") or old_player.get("position"))
+        # 阵亡包里的当前位置偶尔已经跳变，优先使用上一帧仍存活时的坐标。
+        position = _parse_gsi_position(old_player.get("position") or player.get("position"))
         if not position:
             continue
         victim_side = player.get("team", "")
@@ -349,6 +402,8 @@ def _record_gsi_deaths(merged, data):
                 "victim_side": victim_side,
                 "weapon": _active_gsi_weapon(killer[1]) if killer else "",
                 "headshot": False,
+                "captured_at": datetime.now(timezone.utc).isoformat(),
+                "captured_at_epoch": now,
             }
         )
 

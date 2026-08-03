@@ -21,6 +21,8 @@
   .team-header{display:flex;align-items:center;padding:6px 12px;height:36px;gap:8px}
   .team-header.t1{background:var(--t1-header)}.team-header.t2{background:var(--t2-header)}
   .team-header .logo{width:26px;height:26px;border-radius:0;object-fit:contain;background:rgba(255,255,255,0.1)}
+  .team-header .logo-fallback{width:26px;height:26px;display:flex;align-items:center;justify-content:center;
+    background:rgba(255,255,255,0.12);font-size:10px;font-weight:800;color:#fff;flex:0 0 26px}
   .team-header .name{font-size:15px;font-weight:700;flex:1}
   .team-header .stat-icons{display:flex;gap:0;width:340px;justify-content:space-around}
   .team-header .stat-icons span{width:40px;text-align:center;font-size:11px;color:rgba(255,255,255,0.7)}
@@ -34,6 +36,8 @@
   .player-row .p-icon img{width:20px;height:16px;object-fit:contain}
   .player-row .p-weapon{width:56px;text-align:center}
   .player-row .p-weapon img{width:40px;height:16px;object-fit:contain}
+  .player-row img{display:inline-block;visibility:visible}
+  .player-row img[hidden]{display:none}
   .player-row .p-hp{width:80px}
   .hp-bar{height:10px;border-radius:0;background:#333;overflow:hidden}
   .hp-bar .fill{height:100%;background:#4caf50;transition:width 0.5s}
@@ -44,15 +48,25 @@
   .player-row .p-money{width:60px;text-align:right;font-size:12px;color:#aaa}
   .player-row .p-stat{width:32px;text-align:center;font-weight:600}
   .player-row .p-stat.k{color:#4caf50}.player-row .p-stat.d{color:#f44336}.player-row .p-adr{width:44px;text-align:right}
+  .live-score,.live-timer,.hp-text,.p-money,.p-stat,.p-adr,.live-footer{font-variant-numeric:tabular-nums}
   /* ── 回合历史条 ── */
-  .round-bar{display:flex;align-items:center;height:28px;gap:4px;padding:0 12px;background:rgba(0,0,0,0.3);border-radius:0;margin:4px 0;overflow-x:auto}
-  .round-dot{width:16px;height:16px;border-radius:0;flex-shrink:0}
-  .round-dot.t1{background:var(--t1-accent)}.round-dot.t2{background:var(--t2-accent)}
+  .round-bar{display:grid;grid-template-rows:repeat(2,21px);height:48px;gap:2px;padding:2px 12px;background:rgba(0,0,0,0.3);border-radius:0;margin:4px 0;overflow:hidden}
+  .round-lane{width:100%;min-width:0;height:21px;display:grid;grid-template-columns:28px minmax(0,1fr);align-items:center;gap:4px;overflow:hidden}
+  .round-lane.ct{border-bottom:1px solid rgba(255,255,255,0.1)}
+  .round-side-label{font-size:9px;font-weight:800;line-height:18px;text-align:center;color:#9ca3af;background:#11141b}
+  .round-lane.ct .round-side-label{color:#65b9ef}
+  .round-lane.t .round-side-label{color:#f2bd36}
+  .round-track{height:19px;display:grid;grid-template-columns:repeat(24,minmax(0,1fr));gap:2px;overflow:hidden}
+  .round-dot{width:100%;height:19px;border-radius:0;display:grid;place-items:center;background:#151821;border-bottom:2px solid transparent;min-width:0}
+  .round-dot.empty{background:rgba(255,255,255,0.025);border-bottom-color:transparent}
+  .round-dot.t1{border-bottom-color:var(--t1-accent)}.round-dot.t2{border-bottom-color:var(--t2-accent)}
+  .round-dot img{width:13px;height:13px;object-fit:contain;display:block}
   /* ── 底部信息 ── */
   .live-footer{display:flex;justify-content:space-between;align-items:center;padding:6px 12px;font-size:11px;color:#666;margin-top:4px}
   .live-footer .refresh{color:var(--accent);cursor:pointer}
   .no-gsi-badge{background:rgba(255,152,0,0.2);color:#ff9800;padding:2px 8px;border-radius:0;font-size:11px}
   .gsi-ok-badge{background:rgba(76,175,80,0.2);color:#4caf50;padding:2px 8px;border-radius:0;font-size:11px}
+  .pause-badge{background:rgba(255,193,7,0.18);color:#ffd45a;padding:2px 8px;border-radius:0;font-size:11px}
   /* ── 观赛链接 ── */
   .watch-links{display:flex;gap:8px;justify-content:center;margin-top:8px;flex-wrap:wrap}
   .watch-links a{padding:6px 14px;border-radius:0;text-decoration:none;font-size:13px;font-weight:600;
@@ -79,7 +93,7 @@
 </style>
 {% endblock %}
 {% block main %}
-<div class="live-container" id="liveApp">
+<div class="live-container" id="liveApp" data-i18n-ignore>
   <!-- 顶部信息栏 -->
   <div class="live-topbar">
     <div class="live-info">
@@ -92,7 +106,7 @@
       <span class="s2" id="score2">0</span>
     </div>
     <div class="live-timer">
-      <img loading="lazy" src="/resources/icons/match/stopwatch.svg" alt="">
+      <img src="/resources/icons/match/stopwatch.svg" alt="">
       <span id="timer">-</span>
     </div>
   </div>
@@ -100,8 +114,12 @@
   <!-- Team 1 -->
   <div class="team-section" style="background:var(--t1-bg)">
     <div class="team-header t1">
-      <img loading="lazy" class="logo" id="t1logo" src="" onerror="this.style.display='none'" alt="">
-      <span class="name" id="t1name">{{ match.team1_name or 'TEAM 1' }}</span>
+      {% if match.t1_logo %}
+      <img class="logo" src="{{ url_for('static', filename='uploads/' + match.t1_logo) }}" alt="{{ match.team1_name or 'TBD' }}">
+      {% else %}
+      <span class="logo-fallback" aria-hidden="true">{{ (match.t1s or 'TBD')[:3] }}</span>
+      {% endif %}
+      <span class="name" id="t1name">{{ match.team1_name or 'TBD' }}</span>
       <div class="stat-icons"><span>装备</span><span>武器</span><span>血量</span><span>K</span><span>A</span><span>D</span><span>ADR</span></div>
     </div>
     <div id="team1Players"></div>
@@ -113,8 +131,12 @@
   <!-- Team 2 -->
   <div class="team-section" style="background:var(--t2-bg)">
     <div class="team-header t2">
-      <img loading="lazy" class="logo" id="t2logo" src="" onerror="this.style.display='none'" alt="">
-      <span class="name" id="t2name">{{ match.team2_name or 'TEAM 2' }}</span>
+      {% if match.t2_logo %}
+      <img class="logo" src="{{ url_for('static', filename='uploads/' + match.t2_logo) }}" alt="{{ match.team2_name or 'TBD' }}">
+      {% else %}
+      <span class="logo-fallback" aria-hidden="true">{{ (match.t2s or 'TBD')[:3] }}</span>
+      {% endif %}
+      <span class="name" id="t2name">{{ match.team2_name or 'TBD' }}</span>
       <div class="stat-icons"><span>装备</span><span>武器</span><span>血量</span><span>K</span><span>A</span><span>D</span><span>ADR</span></div>
     </div>
     <div id="team2Players"></div>
@@ -138,48 +160,114 @@
 <script>
 const ICON_BASE = '/resources/icons/match/';
 {% raw %}
-const WEAPON_ICONS = {
-  'AK-47':'ak47','AWP':'awp','M4A4':'m4a1','M4A1-S':'m4a1_silencer','Desert Eagle':'deagle',
-  'USP-S':'usp_silencer','Glock-18':'glock','FAMAS':'famas','Galil AR':'galilar',
-  'P250':'p250','MP9':'mp9','Dual Berettas':'elite','Knife':'knife',
-  'Flashbang':'flashbang','High Explosive Grenade':'hegrenade','Smoke Grenade':'smokegrenade',
-  'Molotov':'molotov','Incendiary Grenade':'incendiary'
+const ROUND_WIN_ICONS = {
+  bomb_exploded: 'bomb_exploded.svg',
+  bomb_defused: 'bomb_defused.svg',
+  time_expired: 'stopwatch.svg'
+};
+const ROUND_WIN_LABELS = {
+  bomb_exploded: '炸弹爆炸',
+  bomb_defused: '炸弹已拆除',
+  time_expired: '时间耗尽',
+  elimination: '全灭对手',
+  completed: '回合胜利'
+};
+const WEAPON_ICON_FILES = {
+  ak47:'ak47.webp', aug:'aug.svg', awp:'awp.webp', bizon:'bizon.svg', cz75a:'cz75a.svg',
+  deagle:'deagle.webp', elite:'elite.webp', famas:'famas.webp', fiveseven:'fiveseven.webp',
+  g3sg1:'g3sg1.svg', galilar:'galilar.webp', glock:'glock.webp', hkp2000:'hkp2000.png',
+  m249:'m249.svg', m4a1:'m4a1.webp', m4a1_silencer:'m4a1_silencer.webp', mag7:'mag7.svg',
+  mac10:'mac10.webp', mp5sd:'mp5sd.svg', mp7:'mp7.webp', mp9:'mp9.webp', negev:'negev.svg',
+  nova:'nova.svg', p90:'p90.svg', p250:'p250.webp', revolver:'revolver.svg', sawedoff:'sawedoff.svg',
+  scar20:'scar20.svg', sg556:'sg556.svg', ssg08:'ssg08.svg', tec9:'tec9.webp', ump45:'ump45.svg',
+  usp_silencer:'usp_silencer.webp', xm1014:'xm1014.svg', knife:'knife.webp', taser:'taser.svg',
+  flashbang:'flashbang.webp', hegrenade:'hegrenade.webp', smokegrenade:'smokegrenade.svg',
+  molotov:'molotov.svg', incgrenade:'incgrenade.svg', decoy:'decoy.svg'
+};
+const WEAPON_ALIASES = {
+  'ak_47':'ak47', 'desert_eagle':'deagle', 'dual_berettas':'elite', 'five_seven':'fiveseven',
+  'galil_ar':'galilar', 'glock_18':'glock', 'm4a4':'m4a1', 'm4a1_s':'m4a1_silencer',
+  'm4a1_silencer_off':'m4a1_silencer', 'usp_s':'usp_silencer', 'usp_silencer_off':'usp_silencer',
+  'cz75_auto':'cz75a', 'pp_bizon':'bizon', 'r8_revolver':'revolver',
+  'high_explosive_grenade':'hegrenade', 'he_grenade':'hegrenade',
+  'smoke_grenade':'smokegrenade', 'incendiary_grenade':'incgrenade', 'incendiary':'incgrenade'
 };
 {% endraw %}
 function mapDisplay(name){return String(name||'').replace(/^(de_|cs_)/i,'').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}
-function weaponIcon(name) {
-  const key = WEAPON_ICONS[name] || name.toLowerCase().replace(/[^a-z0-9]/g,'');
-  return `<img loading="lazy" src="${ICON_BASE}${key}.webp" onerror="this.style.display='none'" alt="${name}" title="${name}">`;
+function weaponKey(name) {
+  let key = String(name || '').trim().toLowerCase().replace(/^weapon_/, '').replace(/[\s-]+/g, '_');
+  key = key.replace(/[^a-z0-9_]/g, '');
+  if (key.startsWith('knife')) return 'knife';
+  return WEAPON_ALIASES[key] || key;
 }
-function armorIcon(armor, helmet) {
-  if (helmet) return `<img loading="lazy" src="${ICON_BASE}kevlar_helmet.webp" alt="甲+盔">`;
-  if (armor > 0) return `<img loading="lazy" src="${ICON_BASE}kevlar.webp" alt="护甲">`;
-  return '';
+function weaponIconPath(name) {
+  const file = WEAPON_ICON_FILES[weaponKey(name)];
+  return file ? ICON_BASE + file : '';
+}
+function setText(element, value) {
+  const next = String(value ?? '');
+  if (element && element.textContent !== next) element.textContent = next;
+}
+function setImage(image, src, alt) {
+  if (!image) return;
+  const next = src || '';
+  setTextAttribute(image, 'alt', alt || '');
+  setTextAttribute(image, 'title', alt || '');
+  if (image.dataset.requestedSrc === next) return;
+  image.dataset.requestedSrc = next;
+  image.hidden = !next;
+  if (!next) {
+    image.removeAttribute('src');
+    return;
+  }
+  image.src = next;
+}
+function setTextAttribute(element, name, value) {
+  const next = String(value ?? '');
+  if (element.getAttribute(name) !== next) element.setAttribute(name, next);
+}
+function bindStableImage(image) {
+  image.addEventListener('load', function () {
+    const requested = image.dataset.requestedSrc || '';
+    image.hidden = !requested || image.getAttribute('src') !== requested;
+  });
+  image.addEventListener('error', function () { image.hidden = true; });
 }
 
 let lastScores = null;
 const MATCH_ID = {{ match.id }};
+let fetchInFlight = false;
+let pollTimer = null;
 
 async function fetchLive() {
+  if (fetchInFlight) return;
+  fetchInFlight = true;
   try {
-    const r = await fetch(`/api/live/${MATCH_ID}`);
+    const r = await fetch(`/api/live/${MATCH_ID}`, {cache:'no-store', credentials:'same-origin'});
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const d = await r.json();
     if (!d.ok) return;
     renderLive(d);
-  } catch(e) { console.error('Live fetch error:', e); }
+  } catch(e) {
+    console.error('Live fetch error:', e);
+  } finally {
+    fetchInFlight = false;
+    clearTimeout(pollTimer);
+    pollTimer = setTimeout(fetchLive, document.hidden ? 3000 : 1000);
+  }
 }
 
 function renderLive(d) {
-  document.getElementById('roundNum').textContent = d.round || '-';
-  document.getElementById('mapName').textContent = mapDisplay(d.map_name) || '-';
-  document.getElementById('timer').textContent = d.timer || '-';
+  setText(document.getElementById('roundNum'), d.round || '-');
+  setText(document.getElementById('mapName'), mapDisplay(d.map_name) || '-');
+  setText(document.getElementById('timer'), d.timer || '-');
   if (d.updated_at) {
     const dt = new Date(d.updated_at);
-    document.getElementById('updatedAt').textContent = Number.isNaN(dt.getTime())
+    setText(document.getElementById('updatedAt'), Number.isNaN(dt.getTime())
       ? String(d.updated_at).replace('T', ' ').slice(0, 16)
-      : dt.toLocaleString('zh-CN', {hour12:false, year:'numeric', month:'long', day:'numeric', hour:'2-digit', minute:'2-digit'});
+      : dt.toLocaleString('zh-CN', {hour12:false, year:'numeric', month:'long', day:'numeric', hour:'2-digit', minute:'2-digit'}));
   } else {
-    document.getElementById('updatedAt').textContent = '-';
+    setText(document.getElementById('updatedAt'), '-');
   }
 
   // 比分 + 闪烁
@@ -191,64 +279,147 @@ function renderLive(d) {
     elS1.classList.remove('score-flash'); elS2.classList.remove('score-flash');
     void elS1.offsetWidth; elS1.classList.add('score-flash'); elS2.classList.add('score-flash');
   }
-  elS1.textContent = s1; elS2.textContent = s2;
+  setText(elS1, s1); setText(elS2, s2);
   lastScores = [s1, s2];
 
   // 队名
-  if (d.team1) document.getElementById('t1name').textContent = d.team1.name || 'TEAM 1';
-  if (d.team2) document.getElementById('t2name').textContent = d.team2.name || 'TEAM 2';
+  if (d.team1) setText(document.getElementById('t1name'), d.team1.name || 'TBD');
+  if (d.team2) setText(document.getElementById('t2name'), d.team2.name || 'TBD');
 
   // 选手行
   renderTeam('team1Players', d.players_t1, 't1');
   renderTeam('team2Players', d.players_t2, 't2');
 
   // 回合历史
-  const rb = document.getElementById('roundBar');
-  if (d.round_history && d.round_history.length) {
-    rb.innerHTML = d.round_history.map(r => `<div class="round-dot ${r.winner||''}"></div>`).join('');
-  } else {
-    rb.innerHTML = '<span style="color:#555;font-size:11px">回合历史将在 GSI 连接后显示</span>';
-  }
+  renderRoundHistory(d.round_history || []);
 
   // GSI 状态
   const badge = document.getElementById('statusBadge');
-  badge.innerHTML = d.has_gsi
-    ? '<span class="gsi-ok-badge">✓ GSI 在线</span>'
-    : '<span class="no-gsi-badge">GSI 未连接（KDA 仅显示 GOTV 数据）</span>';
+  let badgeText = d.has_gsi ? 'GSI 在线' : 'GSI 未连接（KDA 仅显示 GOTV 数据）';
+  let badgeClass = d.has_gsi ? 'gsi-ok-badge' : 'no-gsi-badge';
+  if (d.has_gsi && d.paused) {
+    badgeClass = 'pause-badge';
+    if (d.pause_type === 'tactical') {
+      const timeoutSide = String(d.phase_countdown || '').endsWith('_t') ? 'T' : 'CT';
+      const timeoutTeam = d.team1?.side === timeoutSide ? d.team1?.name : d.team2?.name;
+      badgeText = `战术暂停${timeoutTeam ? ` · ${timeoutTeam}` : ''}`;
+    } else {
+      badgeText = '技术暂停';
+    }
+  }
+  let badgeContent = badge.firstElementChild;
+  if (!badgeContent) {
+    badgeContent = document.createElement('span');
+    badge.appendChild(badgeContent);
+  }
+  if (badgeContent.className !== badgeClass) badgeContent.className = badgeClass;
+  setText(badgeContent, badgeText);
 }
 
+function createPlayerRow(cls) {
+  const row = document.createElement('div');
+  row.className = `player-row ${cls} dead`;
+  row.innerHTML = `<span class="p-name">-</span>
+    <span class="p-icon"><img hidden alt=""></span>
+    <span class="p-weapon"><img hidden alt=""></span>
+    <span class="p-hp"><div class="hp-bar" hidden><div class="fill"></div></div><div class="hp-text">-</div></span>
+    <span class="p-armor"><img hidden alt=""><span class="p-armor-empty">-</span></span>
+    <span class="p-money">-</span><span class="p-stat k">-</span><span class="p-stat">-</span>
+    <span class="p-stat d">-</span><span class="p-adr">-</span>`;
+  row.querySelectorAll('img').forEach(bindStableImage);
+  return row;
+}
+function ensurePlayerRows(container, cls) {
+  if (container.dataset.rowsReady === '1') return;
+  const fragment = document.createDocumentFragment();
+  for (let i = 0; i < 5; i += 1) fragment.appendChild(createPlayerRow(cls));
+  container.replaceChildren(fragment);
+  container.dataset.rowsReady = '1';
+}
 function renderTeam(containerId, players, cls) {
   const el = document.getElementById(containerId);
-  let html = '';
-  for (const p of (players || [])) {
-    const deadClass = (p.alive === false) ? ' dead' : '';
-    const hpVal = p.hp === '-' ? '-' : (p.hp || 0);
+  ensurePlayerRows(el, cls);
+  const list = (players || []).slice(0, 5);
+  Array.from(el.children).forEach((row, index) => {
+    const p = list[index] || null;
+    row.classList.toggle('dead', !p || p.alive === false);
+    const name = row.querySelector('.p-name');
+    setText(name, p ? (p.name || '-') : '-');
+    setTextAttribute(name, 'title', p ? (p.name || '') : '');
+    setImage(row.querySelector('.p-icon img'), p && p.secondary && p.secondary !== '-' ? weaponIconPath(p.secondary) : '', p?.secondary || '');
+    setImage(row.querySelector('.p-weapon img'), p && p.primary && p.primary !== '-' ? weaponIconPath(p.primary) : '', p?.primary || '');
+
+    const hpVal = !p || p.hp === '-' ? '-' : (p.hp ?? 0);
     const hpPct = typeof hpVal === 'number' ? Math.min(100, Math.max(0, hpVal)) : 0;
     const hpColor = hpPct > 60 ? '' : (hpPct > 30 ? 'low' : 'crit');
-    html += `<div class="player-row ${cls}${deadClass}">
-      <span class="p-name" title="${p.name||''}">${p.name||'-'}</span>
-      <span class="p-icon">${p.secondary && p.secondary !== '-' ? weaponIcon(p.secondary) : ''}</span>
-      <span class="p-weapon">${p.primary && p.primary !== '-' ? weaponIcon(p.primary) : ''}</span>
-      <span class="p-hp">
-        ${hpVal === '-' ? '<span style="color:#666">-</span>' : `<div class="hp-bar"><div class="fill ${hpColor}" style="width:${hpPct}%"></div></div><div class="hp-text">${hpVal}</div>`}
-      </span>
-      <span class="p-armor">${p.armor === '-' ? '<span style="color:#666">-</span>' : armorIcon(p.armor, p.helmet)}</span>
-      <span class="p-money">${p.money === '-' ? '<span style="color:#666">-</span>' : '$'+(p.money||0)}</span>
-      <span class="p-stat k">${p.kills||0}</span>
-      <span class="p-stat">${p.assists||0}</span>
-      <span class="p-stat d">${p.deaths||0}</span>
-      <span class="p-adr">${p.adr||0}</span>
-    </div>`;
-  }
-  // 补足到 5 行
-  while ((players||[]).length < 5) {
-    html += `<div class="player-row ${cls} dead"><span class="p-name">-</span><span class="p-icon"></span><span class="p-weapon"></span><span class="p-hp"><span style="color:#666">-</span></span><span class="p-armor"></span><span class="p-money"></span><span class="p-stat">-</span><span class="p-stat">-</span><span class="p-stat">-</span><span class="p-adr">-</span></div>`;
-  }
-  el.innerHTML = html;
+    const hpBar = row.querySelector('.hp-bar');
+    const hpFill = row.querySelector('.hp-bar .fill');
+    hpBar.hidden = hpVal === '-';
+    hpFill.className = `fill ${hpColor}`.trim();
+    if (hpFill.style.width !== `${hpPct}%`) hpFill.style.width = `${hpPct}%`;
+    setText(row.querySelector('.hp-text'), hpVal);
+
+    const armorAvailable = !!p && p.armor !== '-';
+    const armorSrc = armorAvailable && p.helmet ? ICON_BASE + 'kevlar_helmet.webp'
+      : (armorAvailable && Number(p.armor) > 0 ? ICON_BASE + 'kevlar.webp' : '');
+    setImage(row.querySelector('.p-armor img'), armorSrc, p?.helmet ? '甲+盔' : '护甲');
+    row.querySelector('.p-armor-empty').hidden = armorAvailable && !!armorSrc;
+    setText(row.querySelector('.p-money'), !p || p.money === '-' ? '-' : `$${p.money ?? 0}`);
+    setText(row.querySelector('.p-stat.k'), p ? (p.kills ?? 0) : '-');
+    setText(row.querySelectorAll('.p-stat')[1], p ? (p.assists ?? 0) : '-');
+    setText(row.querySelector('.p-stat.d'), p ? (p.deaths ?? 0) : '-');
+    setText(row.querySelector('.p-adr'), p ? (p.adr ?? 0) : '-');
+  });
 }
 
-// 1 秒轮询
+function renderRoundHistory(history) {
+  const rb = document.getElementById('roundBar');
+  const regulationRounds = history.filter(round => {
+    const roundNumber = Number(round.round);
+    return Number.isFinite(roundNumber) && roundNumber >= 0 && roundNumber < 24;
+  });
+  const signature = JSON.stringify(regulationRounds.map(round => [round.round, round.winner, round.side, round.reason_code]));
+  if (rb.dataset.signature === signature) return;
+  rb.dataset.signature = signature;
+  const fragment = document.createDocumentFragment();
+  const roundByNumber = new Map(regulationRounds.map(round => [Number(round.round), round]));
+  ['ct', 't'].forEach(side => {
+    const lane = document.createElement('div');
+    lane.className = `round-lane ${side}`;
+    const label = document.createElement('span');
+    label.className = 'round-side-label';
+    label.textContent = side.toUpperCase();
+    lane.appendChild(label);
+    const track = document.createElement('div');
+    track.className = 'round-track';
+    for (let roundIndex = 0; roundIndex < 24; roundIndex += 1) {
+      const round = roundByNumber.get(roundIndex);
+      const wonOnThisSide = String(round?.side || '').toLowerCase() === side;
+      const dot = document.createElement('div');
+      dot.className = wonOnThisSide ? `round-dot ${round.winner || ''}` : 'round-dot empty';
+      dot.title = wonOnThisSide ? '' : `第 ${roundIndex + 1} 回合`;
+      if (wonOnThisSide) {
+        const reason = round.reason_code || 'completed';
+        const icon = ROUND_WIN_ICONS[reason]
+          || (side === 'ct' ? 'ct_win.svg' : 't_win.svg');
+        const image = document.createElement('img');
+        image.src = ICON_BASE + icon;
+        image.alt = ROUND_WIN_LABELS[reason] || '回合胜利';
+        dot.title = `第 ${roundIndex + 1} 回合 · ${image.alt}`;
+        dot.appendChild(image);
+      }
+      track.appendChild(dot);
+    }
+    lane.appendChild(track);
+    fragment.appendChild(lane);
+  });
+  rb.replaceChildren(fragment);
+}
+
+document.addEventListener('visibilitychange', function () {
+  clearTimeout(pollTimer);
+  pollTimer = setTimeout(fetchLive, document.hidden ? 3000 : 50);
+});
 fetchLive();
-setInterval(fetchLive, 1000);
 </script>
 {% endblock %}

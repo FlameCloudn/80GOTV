@@ -15,16 +15,30 @@
         <span>周一</span><span>周二</span><span>周三</span><span>周四</span><span>周五</span><span>周六</span><span>周日</span>
       </div>
       <div class="match-calendar-days">
+        {% set calendar_focus_date = selected_date or today %}
         {% for week in calendar_weeks %}
+        <div class="match-calendar-week{% if calendar_focus_date in week %} is-current{% endif %}">
         {% for day in week %}
         <a
           href="{{ url_for('matches_list') }}?date={{ day.isoformat() }}&month={{ day.strftime('%Y-%m') }}"
           class="{% if day.month != calendar_month.month %}muted{% endif %}{% if selected_date and day == selected_date %} active{% endif %}{% if day == today %} today{% endif %}"
         >{{ day.day }}</a>
         {% endfor %}
+        </div>
         {% endfor %}
       </div>
       <a class="match-calendar-clear" href="{{ url_for('matches_list') }}?month={{ calendar_month.strftime('%Y-%m') }}">全部日期</a>
+      <form class="mobile-match-event-filter" method="get" action="{{ url_for('matches_list') }}">
+        <input type="hidden" name="month" value="{{ calendar_month.strftime('%Y-%m') }}">
+        {% if date_filter %}<input type="hidden" name="date" value="{{ date_filter }}">{% endif %}
+        <label for="mobileMatchEvent">赛事</label>
+        <select id="mobileMatchEvent" name="event" onchange="this.form.submit()">
+          <option value="" {% if not event_filter %}selected{% endif %}>全部赛事</option>
+          {% for e in events %}
+          <option value="{{ e.id }}" {% if event_filter==e.id|string %}selected{% endif %}>{{ e.name }}</option>
+          {% endfor %}
+        </select>
+      </form>
     </div>
     <section class="h-panel match-side-panel">
       <div class="h-panel-title">比赛筛选</div>
@@ -45,13 +59,15 @@
     </section>
   </aside>
 
-  <section class="matches-list-panel" data-front-matches data-event-filter="{{ event_filter }}" data-date-filter="{{ date_filter }}">
+  <section class="matches-list-panel">
     <div class="hltv-list-head">
       <span>{% if selected_date %}{{ selected_date|date_display }} 的比赛{% else %}近期比赛{% endif %}</span>
       <small>直播中与即将开始</small>
     </div>
-    <div class="match-schedule-list" data-front-matches-target>
+    <div class="match-schedule-list">
       {% for m in matches %}
+      {% set team1_is_assigned = m.team1_id or m.team1_players %}
+      {% set team2_is_assigned = m.team2_id or m.team2_players %}
       <a class="match-schedule-row" href="/matches/{{ m.slug or m.id }}">
         <div class="match-schedule-time">
           {% if m.effective_status == 'live' %}
@@ -66,12 +82,20 @@
 
         <div class="match-schedule-teams">
           <div class="match-schedule-team">
+            {% if team1_is_assigned and m.team1_logo %}
+            <img class="match-team-logo" src="{{ url_for('static', filename='uploads/' ~ m.team1_logo) }}" alt="" loading="lazy">
+            {% else %}
             <span class="match-team-mark">A</span>
-            <span class="team-name" data-i18n-ignore>{{ m.team1_name or 'TBD' }}</span>
+            {% endif %}
+            <span class="team-name" data-i18n-ignore>{{ m.team1_name if team1_is_assigned else 'TBD' }}</span>
           </div>
           <div class="match-schedule-team">
+            {% if team2_is_assigned and m.team2_logo %}
+            <img class="match-team-logo" src="{{ url_for('static', filename='uploads/' ~ m.team2_logo) }}" alt="" loading="lazy">
+            {% else %}
             <span class="match-team-mark">B</span>
-            <span class="team-name" data-i18n-ignore>{{ m.team2_name or 'TBD' }}</span>
+            {% endif %}
+            <span class="team-name" data-i18n-ignore>{{ m.team2_name if team2_is_assigned else 'TBD' }}</span>
           </div>
         </div>
 

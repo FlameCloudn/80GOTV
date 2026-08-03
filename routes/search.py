@@ -4,7 +4,9 @@ from flask import jsonify, render_template, request
 
 from models import get_db
 from services.match_service import supplement_temp_teams
+from services.player_remark_service import private_player_identity
 from utils.filters import date_display_filter
+from utils.helpers import event_path, news_path
 from utils.match_utils import get_sql_effective_status
 from web_app import app
 
@@ -25,17 +27,46 @@ def search():
 
     # 新闻
     news_results = conn.execute(
-        "SELECT id, title, summary, publish_time FROM news WHERE title LIKE ? OR content LIKE ? OR summary LIKE ? OR tags LIKE ? ORDER BY publish_time DESC LIMIT 10",
-        (like, like, like, like),
+        "SELECT id, title, summary, publish_time, redirect_url FROM news WHERE title LIKE ? OR content LIKE ? OR summary LIKE ? ORDER BY publish_time DESC LIMIT 10",
+        (like, like, like),
     ).fetchall()
 
     # 选手
     player_results = conn.execute(
         """
-        SELECT p.id, p.nickname, p.real_name, t.name AS team_name
+        SELECT p.id, p.nickname,
+               CASE WHEN COALESCE((
+                   SELECT u.is_bashizhong_student
+                   FROM users u
+                   WHERE u.steam_id64=p.steam_id
+                   ORDER BY u.id DESC
+                   LIMIT 1
+               ), p.is_bashizhong_student, 1)<>0 THEN COALESCE((
+                   SELECT NULLIF(TRIM(u.group_username), '')
+                   FROM users u
+                   WHERE u.steam_id64=p.steam_id
+                   ORDER BY u.id
+                   LIMIT 1
+               ), NULLIF(TRIM(p.group_username_override), ''), '') ELSE '' END AS group_username,
+               COALESCE((
+                   SELECT u.is_bashizhong_student
+                   FROM users u
+                   WHERE u.steam_id64=p.steam_id
+                   ORDER BY u.id DESC
+                   LIMIT 1
+               ), p.is_bashizhong_student) AS is_bashizhong_student,
+               t.name AS team_name
         FROM players p
         LEFT JOIN teams t ON p.team_id=t.id
-        WHERE p.nickname LIKE ? OR p.real_name LIKE ?
+        WHERE p.nickname LIKE ?
+           OR (COALESCE(p.is_bashizhong_student, 1)<>0
+               AND p.group_username_override LIKE ?)
+           OR EXISTS (
+               SELECT 1 FROM users u
+               WHERE u.steam_id64=p.steam_id
+                 AND COALESCE(u.is_bashizhong_student, 1)<>0
+                 AND u.group_username LIKE ?
+           )
            OR EXISTS (
                SELECT 1 FROM player_nickname_history h
                WHERE h.player_id=p.id AND h.nickname LIKE ?
@@ -43,8 +74,13 @@ def search():
         ORDER BY p.nickname
         LIMIT 10
     """,
-        (like, like, like),
+        (like, like, like, like),
     ).fetchall()
+    player_results = [dict(row) for row in player_results]
+    for player in player_results:
+        player["nickname"], player["group_username"] = private_player_identity(
+            player["id"], player["nickname"], player.get("group_username", "")
+        )
 
     # 队伍
     team_results = conn.execute(
@@ -54,14 +90,14 @@ def search():
 
     # 赛事
     event_results = conn.execute(
-        "SELECT id, name, description, start_date FROM events WHERE name LIKE ? OR description LIKE ? ORDER BY start_date DESC LIMIT 10",
+        "SELECT id, name, slug, description, start_date FROM events WHERE name LIKE ? OR description LIKE ? ORDER BY start_date DESC LIMIT 10",
         (like, like),
     ).fetchall()
 
     # 比赛
     match_results = conn.execute(
         f"""
-        SELECT m.id, m.match_time, m.team1_score, m.team2_score, m.bo_format,
+        SELECT m.id, m.slug, m.match_time, m.team1_score, m.team2_score, m.bo_format,
                t1.name AS team1_name, t2.name AS team2_name, e.name AS event_name,
                {_SQL_EFFECTIVE_STATUS}
         FROM matches m
@@ -106,9 +142,37 @@ def api_search():
         dict(r)
         for r in conn.execute(
             """
-        SELECT p.id, p.nickname, p.real_name, p.avatar
+        SELECT p.id, p.nickname, p.avatar,
+               CASE WHEN COALESCE((
+                   SELECT u.is_bashizhong_student
+                   FROM users u
+                   WHERE u.steam_id64=p.steam_id
+                   ORDER BY u.id DESC
+                   LIMIT 1
+               ), p.is_bashizhong_student, 1)<>0 THEN COALESCE((
+                   SELECT NULLIF(TRIM(u.group_username), '')
+                   FROM users u
+                   WHERE u.steam_id64=p.steam_id
+                   ORDER BY u.id
+                   LIMIT 1
+               ), NULLIF(TRIM(p.group_username_override), ''), '') ELSE '' END AS group_username,
+               COALESCE((
+                   SELECT u.is_bashizhong_student
+                   FROM users u
+                   WHERE u.steam_id64=p.steam_id
+                   ORDER BY u.id DESC
+                   LIMIT 1
+               ), p.is_bashizhong_student) AS is_bashizhong_student
         FROM players p
-        WHERE p.nickname LIKE ? OR p.real_name LIKE ?
+        WHERE p.nickname LIKE ?
+           OR (COALESCE(p.is_bashizhong_student, 1)<>0
+               AND p.group_username_override LIKE ?)
+           OR EXISTS (
+               SELECT 1 FROM users u
+               WHERE u.steam_id64=p.steam_id
+                 AND COALESCE(u.is_bashizhong_student, 1)<>0
+                 AND u.group_username LIKE ?
+           )
            OR EXISTS (
                SELECT 1 FROM player_nickname_history h
                WHERE h.player_id=p.id AND h.nickname LIKE ?
@@ -116,9 +180,13 @@ def api_search():
         ORDER BY p.nickname
         LIMIT 5
     """,
-            (like, like, like),
+            (like, like, like, like),
         ).fetchall()
     ]
+    for player in players:
+        player["nickname"], player["group_username"] = private_player_identity(
+            player["id"], player["nickname"], player.get("group_username", "")
+        )
 
     teams = [
         dict(r)
@@ -131,7 +199,7 @@ def api_search():
     events = [
         dict(r)
         for r in conn.execute(
-            "SELECT id, name, start_date FROM events WHERE name LIKE ? ORDER BY start_date DESC LIMIT 5",
+            "SELECT id, name, slug, start_date FROM events WHERE name LIKE ? ORDER BY start_date DESC LIMIT 5",
             (like,),
         ).fetchall()
     ]
@@ -139,8 +207,8 @@ def api_search():
     news = [
         dict(r)
         for r in conn.execute(
-            "SELECT id, title, publish_time FROM news WHERE title LIKE ? OR tags LIKE ? ORDER BY publish_time DESC LIMIT 5",
-            (like, like),
+            "SELECT id, title, publish_time, redirect_url FROM news WHERE title LIKE ? ORDER BY publish_time DESC LIMIT 5",
+            (like,),
         ).fetchall()
     ]
 
@@ -172,7 +240,8 @@ def api_search():
             {
                 "type": "player",
                 "label": p["nickname"],
-                "sub": p.get("real_name") or "",
+                "sub": p.get("group_username")
+                or ("🌐" if p.get("is_bashizhong_student") == 0 else ""),
                 "url": f"/players/{p['id']}",
             }
         )
@@ -191,7 +260,7 @@ def api_search():
                 "type": "event",
                 "label": e["name"],
                 "sub": date_display_filter(e.get("start_date") or ""),
-                "url": f"/events/{e['id']}",
+                "url": event_path(e),
             }
         )
     for n in news:
@@ -200,7 +269,7 @@ def api_search():
                 "type": "news",
                 "label": n["title"],
                 "sub": date_display_filter(n.get("publish_time") or ""),
-                "url": f"/news/{n['id']}",
+                "url": news_path(n),
             }
         )
     for m in matches:

@@ -11,10 +11,11 @@
 {% endmacro %}
 
 {% macro player_avatar(player) %}
+  {% set display_name = private_name_for_player(player.player_id, player.nickname) %}
   {% if player.avatar %}
-  <img src="{{ url_for('static', filename='avatars/' + player.avatar) }}" alt="{{ player.nickname }}" loading="lazy">
+  <img src="{{ url_for('static', filename='avatars/' + player.avatar) }}" alt="{{ display_name }}" loading="lazy">
   {% else %}
-  <span data-i18n-ignore>{{ player.nickname[:1] }}</span>
+  <span data-i18n-ignore>{{ display_name[:1] }}</span>
   {% endif %}
 {% endmacro %}
 
@@ -29,20 +30,20 @@
       <thead>
         <tr>
           <th>选手</th>
-          <th>首杀-首死</th>
-          <th>地图</th>
-          <th>KAST</th>
-          <th>1vX</th>
-          <th>击杀(爆头)</th>
-          <th>助攻(闪白)</th>
-          <th>死亡(被补)</th>
-          <th class="md-col-overall">ADR</th>
-          <th class="md-col-t">T ADR</th>
-          <th class="md-col-ct">CT ADR</th>
-          <th>RWS</th>
-          <th class="md-col-overall">Rating</th>
-          <th class="md-col-t">T Rating</th>
-          <th class="md-col-ct">CT Rating</th>
+          <th class="sortable" data-sort="opening" aria-sort="none">首杀-首死</th>
+          <th class="sortable" data-sort="maps" aria-sort="none">地图</th>
+          <th class="sortable" data-sort="kast" aria-sort="none">KAST</th>
+          <th class="sortable" data-sort="clutches" aria-sort="none">1vX</th>
+          <th class="sortable" data-sort="kills" aria-sort="none">击杀(爆头)</th>
+          <th class="sortable" data-sort="assists" aria-sort="none">助攻(闪白)</th>
+          <th class="sortable" data-sort="deaths" aria-sort="none">死亡(被补)</th>
+          <th class="sortable md-col-overall" data-sort="adr" aria-sort="none">ADR</th>
+          <th class="sortable md-col-t" data-sort="t-adr" aria-sort="none">T ADR</th>
+          <th class="sortable md-col-ct" data-sort="ct-adr" aria-sort="none">CT ADR</th>
+          <th class="sortable" data-sort="rws" aria-sort="none">RWS</th>
+          <th class="sortable sort-desc md-col-overall" data-sort="rating" aria-sort="descending">Rating</th>
+          <th class="sortable md-col-t" data-sort="t-rating" aria-sort="none">T Rating</th>
+          <th class="sortable md-col-ct" data-sort="ct-rating" aria-sort="none">CT Rating</th>
         </tr>
       </thead>
       <tbody>
@@ -51,23 +52,23 @@
           <td>
             <a class="dense-player" href="/players/{{ p.player_id }}">
               {{ player_avatar(p) }}
-              <b data-i18n-ignore>{{ p.nickname }}</b>
+              <b data-i18n-ignore>{{ private_name_for_player(p.player_id, p.nickname) }}</b>
             </a>
           </td>
-          <td>{{ p.first_kills }} : {{ p.first_deaths }}</td>
-          <td>{{ p.maps }}</td>
-          <td>{{ "%.1f"|format(p.kast) }}%</td>
-          <td>{{ p.clutches_won }}</td>
-          <td>{{ p.kills }} ({{ p.headshot_kills }})</td>
-          <td>{{ p.assists }} ({{ p.enemies_flashed }})</td>
-          <td>{{ p.deaths }} ({{ p.trade_deaths }})</td>
-          <td class="md-col-overall">{{ "%.1f"|format(p.adr) }}</td>
-          <td class="md-col-t">{{ "%.1f"|format(p.t_adr) }}</td>
-          <td class="md-col-ct">{{ "%.1f"|format(p.ct_adr) }}</td>
-          <td>{{ "%.2f"|format(p.rws) }}</td>
-          <td class="rt-cell md-col-overall"><b>{{ "%.2f"|format(p.rating) }}</b></td>
-          <td class="rt-cell md-col-t"><b>{{ "%.2f"|format(p.t_rating) }}</b></td>
-          <td class="rt-cell md-col-ct"><b>{{ "%.2f"|format(p.ct_rating) }}</b></td>
+          <td data-val="{{ p.first_kills - p.first_deaths }}">{{ p.first_kills }} : {{ p.first_deaths }}</td>
+          <td data-val="{{ p.maps }}">{{ p.maps }}</td>
+          <td data-val="{{ p.kast }}">{{ "%.1f"|format(p.kast) }}%</td>
+          <td data-val="{{ p.clutches_won }}">{{ p.clutches_won }}</td>
+          <td data-val="{{ p.kills }}">{{ p.kills }} ({{ p.headshot_kills }})</td>
+          <td data-val="{{ p.assists }}">{{ p.assists }} ({{ p.enemies_flashed }})</td>
+          <td data-val="{{ p.deaths }}">{{ p.deaths }} ({{ p.trade_deaths }})</td>
+          <td class="md-col-overall" data-val="{{ p.adr }}">{{ "%.1f"|format(p.adr) }}</td>
+          <td class="md-col-t" data-val="{{ p.t_adr }}">{{ "%.1f"|format(p.t_adr) }}</td>
+          <td class="md-col-ct" data-val="{{ p.ct_adr }}">{{ "%.1f"|format(p.ct_adr) }}</td>
+          <td data-val="{{ p.rws }}">{{ "%.2f"|format(p.rws) }}</td>
+          <td class="rt-cell md-col-overall" data-val="{{ p.rating }}"><b>{{ "%.2f"|format(p.rating) }}</b></td>
+          <td class="rt-cell md-col-t" data-val="{{ p.t_rating }}"><b>{{ "%.2f"|format(p.t_rating) }}</b></td>
+          <td class="rt-cell md-col-ct" data-val="{{ p.ct_rating }}"><b>{{ "%.2f"|format(p.ct_rating) }}</b></td>
         </tr>
         {% else %}
         <tr><td colspan="15" class="match-detailed-empty-cell">暂无数据</td></tr>
@@ -105,7 +106,7 @@
 <article class="match-detailed-player-card {{ player.team_side }}">
   <h4>
     <span class="match-detailed-player-team" data-i18n-ignore>{{ player.team_short }}</span>
-    <a href="/players/{{ player.player_id }}" data-i18n-ignore>{{ player.nickname }}</a>
+    <a href="/players/{{ player.player_id }}" data-i18n-ignore>{{ private_name_for_player(player.player_id, player.nickname) }}</a>
   </h4>
   <div class="match-detailed-player-card-body">
     <a class="match-detailed-player-portrait" href="/players/{{ player.player_id }}">
@@ -160,7 +161,7 @@
   <div class="match-detailed-content{% if selected_tab == 'overview' %} active{% endif %}" id="detailed-tab-overview" role="tabpanel">
     <div class="match-detailed-overview-grid">
       <article class="match-detailed-summary">
-        <a class="match-detailed-event" href="/events/{{ match.event_id }}" data-i18n-ignore>{{ match.event_name or '80GOTV' }}</a>
+        <a class="match-detailed-event" href="{{ event_path(match) }}" data-i18n-ignore>{{ match.event_name or '80GOTV' }}</a>
         <div class="match-detailed-date">{{ match.match_time|datetime_display if match.match_time else 'TBD' }}</div>
         <div class="match-detailed-score-card">
           <div class="match-detailed-score-team">
@@ -192,7 +193,7 @@
         <a class="match-detailed-highlight" href="/players/{{ h.player.player_id }}">
           <span class="match-detailed-highlight-avatar">{{ player_avatar(h.player) }}</span>
           <span class="match-detailed-highlight-main">
-            <b data-i18n-ignore>{{ h.player.nickname }}</b>
+            <b data-i18n-ignore>{{ private_name_for_player(h.player.player_id, h.player.nickname) }}</b>
             <small>{{ h.label }}</small>
           </span>
           <strong class="{% if h.key == 'rating' %}rt-cell{% endif %}">{{ h.value }}</strong>
@@ -207,7 +208,7 @@
       <div class="match-detailed-rating-area">
         {% for p in performance_rows %}
         <a class="match-detailed-rating-row" href="/players/{{ p.player_id }}">
-          <span data-i18n-ignore>{{ p.nickname }}</span>
+          <span data-i18n-ignore>{{ private_name_for_player(p.player_id, p.nickname) }}</span>
           <i><em class="{{ p.team_side }}" style="width:{{ p.rating_bar }}%"></em></i>
           <b class="rt-cell">{{ "%.2f"|format(p.rating) }}</b>
         </a>
@@ -268,7 +269,7 @@
             <tr>
               <th></th>
               {% for col in kill_matrix.cols %}
-              <th><span data-i18n-ignore>{{ col.nickname }}</span></th>
+              <th><span data-i18n-ignore>{{ private_name_for_player(col.player_id, col.nickname) }}</span></th>
               {% endfor %}
             </tr>
           </thead>
@@ -277,7 +278,7 @@
             {% for row in kill_matrix.rows %}
             {% set row_cells = mode.cells.get(row.player_id, {}) %}
             <tr>
-              <th><span data-i18n-ignore>{{ row.nickname }}</span></th>
+              <th><span data-i18n-ignore>{{ private_name_for_player(row.player_id, row.nickname) }}</span></th>
               {% for col in kill_matrix.cols %}
               {% set cell = row_cells.get(col.player_id, {'t1': 0, 't2': 0}) %}
               <td class="kill-cell"><span class="t1">{{ cell.t1 }}</span><span class="t2">{{ cell.t2 }}</span></td>
@@ -298,7 +299,7 @@
       <div class="match-detailed-rating-area">
         {% for p in performance_rows %}
         <a class="match-detailed-rating-row" href="/players/{{ p.player_id }}">
-          <span data-i18n-ignore>{{ p.nickname }}</span>
+          <span data-i18n-ignore>{{ private_name_for_player(p.player_id, p.nickname) }}</span>
           <i><em class="{{ p.team_side }}" style="width:{{ p.rating_bar }}%"></em></i>
           <b class="rt-cell">{{ "%.2f"|format(p.rating) }}</b>
         </a>
@@ -380,6 +381,34 @@ function switchDetailedSide(side) {
     btn.classList.toggle('active', active);
     btn.setAttribute('aria-selected', active ? 'true' : 'false');
   });
+  var ratingKey = side === 't' ? 't-rating' : (side === 'ct' ? 'ct-rating' : 'rating');
+  document.querySelectorAll('.match-detailed-team-table table').forEach(function(table) {
+    var ratingHeader = table.querySelector('th[data-sort="' + ratingKey + '"]');
+    if (ratingHeader) sortDetailedTable(ratingHeader, true);
+  });
+}
+
+function sortDetailedTable(th, forceDescending) {
+  var table = th.closest('table');
+  var tbody = table ? table.querySelector('tbody') : null;
+  if (!tbody) return;
+  var columnIndex = Array.from(th.parentNode.children).indexOf(th);
+  var descending = forceDescending || !th.classList.contains('sort-desc');
+  table.querySelectorAll('th.sort-asc, th.sort-desc').forEach(function(header) {
+    header.classList.remove('sort-asc', 'sort-desc');
+    header.setAttribute('aria-sort', 'none');
+  });
+  th.classList.add(descending ? 'sort-desc' : 'sort-asc');
+  th.setAttribute('aria-sort', descending ? 'descending' : 'ascending');
+  Array.from(tbody.querySelectorAll('tr')).sort(function(a, b) {
+    var aCell = a.children[columnIndex];
+    var bCell = b.children[columnIndex];
+    var aValue = parseFloat(aCell ? (aCell.getAttribute('data-val') || aCell.textContent) : '') || 0;
+    var bValue = parseFloat(bCell ? (bCell.getAttribute('data-val') || bCell.textContent) : '') || 0;
+    return descending ? (bValue - aValue) : (aValue - bValue);
+  }).forEach(function(row) {
+    tbody.appendChild(row);
+  });
 }
 
 function switchKillMatrixMode(mode) {
@@ -407,5 +436,9 @@ function applyDetailedRatingColors() {
   });
 }
 applyDetailedRatingColors();
+document.addEventListener('click', function(event) {
+  var header = event.target.closest('.match-detailed-table-wrap th.sortable');
+  if (header) sortDetailedTable(header, false);
+});
 </script>
 {% endblock %}

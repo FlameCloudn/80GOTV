@@ -17,12 +17,15 @@ var FORMATS = {
         ]}
       ]},
       { label: '败者组', rounds: [
+        { name: 'LB 第一轮', matches: [
+          { id: 'LB_R1_M1', slots: 2 }
+        ]},
         { name: '败者组决赛', matches: [
           { id: 'LB_R2_M1', slots: 2 }
         ]}
       ]},
       { label: '总决赛', rounds: [
-        { name: 'Grand Final', matches: [
+        { name: '总决赛', matches: [
           { id: 'GF_R1_M1', slots: 2 }
         ]}
       ]}
@@ -60,7 +63,7 @@ var FORMATS = {
         ]}
       ]},
       { label: '总决赛', rounds: [
-        { name: 'Grand Final', matches: [
+        { name: '总决赛', matches: [
           { id: 'GF_R1_M1', slots: 2 }
         ]}
       ]}
@@ -138,7 +141,7 @@ var FORMATS = {
 var _state = {
   format: '4de',
   tournamentName: '',
-  // matchId -> { team1: teamKey|null, team2: teamKey|null, score1: '', score2: '', match_id: '', maps: [] }
+  // matchId -> { team1, team2, score1, score2, match_id, match_time, bo_format, maps }
   matches: {},
   // teamKey -> { key, db_id, name, short_name }
   teams: {},
@@ -167,7 +170,6 @@ function loadTeams() {
     _state.dbTeams = data.all_teams || [];
     _state.eventTeams = data.event_teams || [];
     renderTeamPool();
-    populateMatchSelect();
   })
   .catch(function(err) {
     console.error('Failed to load teams:', err);
@@ -178,11 +180,13 @@ function loadBracketData(data) {
   var tour = data.tournament || data;
   if (!tour) return;
 
-  _state.tournamentName = tour.name || '';
+  _state.tournamentName = tour.name || window._eventName || '';
 
   // 检测格式
   var tt = tour.total_teams || 8;
-  if (tour.type && tour.type.indexOf('single') !== -1) {
+  if (tour.format_key && FORMATS[tour.format_key]) {
+    _state.format = tour.format_key;
+  } else if (tour.type && tour.type.indexOf('single') !== -1) {
     _state.format = tt <= 4 ? '4se' : '8se';
   } else if (tour.type && tour.type.indexOf('swiss') !== -1) {
     _state.format = 'swiss';
@@ -191,7 +195,8 @@ function loadBracketData(data) {
     _state.format = tt <= 4 ? '4de' : '8de';
   }
   document.getElementById('formatSelect').value = _state.format;
-  document.getElementById('tournamentName').value = _state.tournamentName;
+  var boSelect = document.getElementById('bracketBoFormat');
+  if (boSelect && tour.bo_format) boSelect.value = tour.bo_format;
 
   // 加载队伍映射
   if (tour.teams) {
@@ -255,18 +260,29 @@ function loadBracketData(data) {
         } else {
           id = m.id || m.match_id || (round.name + '_' + (m.team1 || '') + '_' + (m.team2 || ''));
         }
+        var eventMatch = findEventMatch(m.match_id);
         var matchData = {
           team1: m.team1 || null,
           team2: m.team2 || null,
           score1: m.score1 != null ? m.score1 : '',
           score2: m.score2 != null ? m.score2 : '',
           match_id: m.match_id || '',
+          match_time: m.match_time || (eventMatch ? eventMatch.match_time : '') || '',
+          bo_format: m.bo_format || (eventMatch ? eventMatch.bo_format : '') || tour.bo_format || 'BO3',
           maps: m.maps || []
         };
         _state.matches[id] = matchData;
       });
     }
   });
+}
+
+function findEventMatch(matchId) {
+  if (!matchId || !Array.isArray(window._eventMatches)) return null;
+  for (var i = 0; i < window._eventMatches.length; i++) {
+    if (String(window._eventMatches[i].id) === String(matchId)) return window._eventMatches[i];
+  }
+  return null;
 }
 
 // ==================== 队伍池渲染 ====================
@@ -396,11 +412,11 @@ function setupDragDelegate() {
 
     // 优先高亮 slot-team，其次 bracket-slot
     var slotTeam = e.target.closest('.slot-team');
-    if (slotTeam) {
+    if (slotTeam && isInitialMatch(slotTeam.dataset.matchId)) {
       slotTeam.classList.add('drop-target');
     } else {
       var bracketSlot = e.target.closest('.bracket-slot');
-      if (bracketSlot) bracketSlot.classList.add('drag-over');
+      if (bracketSlot && isInitialMatch(bracketSlot.dataset.matchId)) bracketSlot.classList.add('drag-over');
     }
   });
 
@@ -420,7 +436,7 @@ function setupDragDelegate() {
 
     // 优先处理 slot-team 上的投放
     var slotTeam = e.target.closest('.slot-team');
-    if (slotTeam) {
+    if (slotTeam && isInitialMatch(slotTeam.dataset.matchId)) {
       assignTeamToSlot(slotTeam.dataset.matchId, parseInt(slotTeam.dataset.slotIndex), teamData);
       return;
     }
@@ -429,6 +445,7 @@ function setupDragDelegate() {
     var bracketSlot = e.target.closest('.bracket-slot');
     if (bracketSlot) {
       var matchId = bracketSlot.dataset.matchId;
+      if (!isInitialMatch(matchId)) return;
       var m = _state.matches[matchId] || { team1: null, team2: null };
       var idx = m.team1 ? (m.team2 ? 0 : 1) : 0;
       assignTeamToSlot(matchId, idx, teamData);
@@ -447,8 +464,9 @@ function setupDragDelegate() {
 }
 
 function assignTeamToSlot(matchId, slotIndex, teamData) {
+  if (!isInitialMatch(matchId)) return;
   if (!_state.matches[matchId]) {
-    _state.matches[matchId] = { team1: null, team2: null, score1: '', score2: '', match_id: '', maps: [] };
+    _state.matches[matchId] = { team1: null, team2: null, score1: '', score2: '', match_id: '', match_time: '', bo_format: '', maps: [] };
   }
   var match = _state.matches[matchId];
 
@@ -519,10 +537,16 @@ function applyFormat() {
   renderAll();
 }
 
+function isInitialMatch(matchId) {
+  if (_state.format === '4se') return matchId.indexOf('SF_') === 0;
+  if (_state.format === '8se') return matchId.indexOf('QF_') === 0;
+  if (_state.format === '4de' || _state.format === '8de') return matchId.indexOf('UB_R1_') === 0;
+  return matchId.indexOf('SW_R1_') === 0;
+}
+
 function renderAll() {
   renderTeamPool();
   renderBracket();
-  populateMatchSelect();
 }
 
 function renderBracket() {
@@ -548,13 +572,15 @@ function renderBracket() {
         html += '<div class="swiss-record-title">' + escHtml(round.name) + '</div>';
         html += '<div class="swiss-record-matches">';
         round.matches.forEach(function(matchDef) {
-          var m = _state.matches[matchDef.id] || { team1: null, team2: null, score1: '', score2: '', match_id: '', maps: [] };
+          var m = _state.matches[matchDef.id] || { team1: null, team2: null, score1: '', score2: '', match_id: '', match_time: '', bo_format: '', maps: [] };
           var filled = (m.team1 || m.team2);
           html += '<div class="bracket-slot' + (filled ? ' filled' : '') + '" data-match-id="' + matchDef.id + '">';
           html += '<div class="slot-header"><span class="slot-label">' + escHtml(matchDef.id) + '</span>';
           html += '<div class="slot-actions">';
-          html += '<button class="btn btn-xs btn-primary" onclick="openMatchModal(\'' + matchDef.id + '\')" title="编辑比分">编辑</button>';
-          html += '</div></div>';
+          html += renderMatchAction(m);
+          html += '</div>';
+          html += renderMatchSettings(matchDef.id, m.match_time, m.bo_format, m.match_id);
+          html += '</div>';
           html += '<div class="slot-teams">';
           html += renderTeamSlot(matchDef.id, 0, m.team1, m.score1, m.team2, m.score2);
           html += '<div class="slot-vs">VS</div>';
@@ -570,13 +596,15 @@ function renderBracket() {
         html += '<div class="round-col" style="flex:1">';
         html += '<div class="round-title">' + escHtml(round.name) + '</div>';
         round.matches.forEach(function(matchDef) {
-          var m = _state.matches[matchDef.id] || { team1: null, team2: null, score1: '', score2: '', match_id: '', maps: [] };
+          var m = _state.matches[matchDef.id] || { team1: null, team2: null, score1: '', score2: '', match_id: '', match_time: '', bo_format: '', maps: [] };
           var filled = (m.team1 || m.team2);
           html += '<div class="bracket-slot' + (filled ? ' filled' : '') + '" data-match-id="' + matchDef.id + '">';
           html += '<div class="slot-header"><span class="slot-label">' + escHtml(matchDef.id) + '</span>';
           html += '<div class="slot-actions">';
-          html += '<button class="btn btn-xs btn-primary" onclick="openMatchModal(\'' + matchDef.id + '\')" title="编辑比分">编辑</button>';
-          html += '</div></div>';
+          html += renderMatchAction(m);
+          html += '</div>';
+          html += renderMatchSettings(matchDef.id, m.match_time, m.bo_format, m.match_id);
+          html += '</div>';
           html += '<div class="slot-teams">';
           html += renderTeamSlot(matchDef.id, 0, m.team1, m.score1, m.team2, m.score2);
           html += '<div class="slot-vs">VS</div>';
@@ -593,150 +621,127 @@ function renderBracket() {
   setupDragDelegate();
 }
 
-function renderTeamSlot(matchId, slotIndex, teamKey, score, oppositeKey, oppositeScore) {
-  var tm = teamKey ? _state.teams[teamKey] : null;
-  var nameHtml = tm ? escHtml(tm.short_name || tm.name) : '<span class="team-name-text placeholder">拖入队伍</span>';
-  var nameClass = tm ? 'team-name-text' : 'team-name-text placeholder';
-  var scoreVal = (score !== '' && score != null) ? score : '';
-
-  var html = '<div class="slot-team drop-target" data-match-id="' + matchId + '" data-slot-index="' + slotIndex + '">';
-  html += '<span class="seed-badge">' + (slotIndex + 1) + '</span>';
-  html += '<span class="' + nameClass + '">' + nameHtml + '</span>';
-  if (tm) {
-    html += '<button class="remove-team-btn" onclick="event.stopPropagation();removeTeamFromSlot(\'' + matchId + '\',' + slotIndex + ')" title="移除队伍">&times;</button>';
+function renderMatchAction(match) {
+  if (match && match.match_id) {
+    return '<a class="btn btn-xs btn-primary" href="/admin/matches/edit/' + encodeURIComponent(match.match_id) + '">比赛设置</a>';
   }
-  html += '<input type="number" class="team-score" min="0" max="3" value="' + scoreVal + '" placeholder="-" data-match-id="' + matchId + '" data-slot-index="' + slotIndex + '" onchange="onScoreChange(this)" onclick="event.stopPropagation()">';
-  html += '</div>';
-  return html;
+  return '<span class="slot-auto-label">保存后生成</span>';
 }
 
-function onScoreChange(input) {
-  var matchId = input.dataset.matchId;
-  var slotIndex = parseInt(input.dataset.slotIndex);
-  var val = input.value;
-  if (!_state.matches[matchId]) {
-    _state.matches[matchId] = { team1: null, team2: null, score1: '', score2: '', match_id: '', maps: [] };
-  }
-  if (slotIndex === 0) _state.matches[matchId].score1 = val;
-  else _state.matches[matchId].score2 = val;
-}
-
-// ==================== 比赛编辑弹窗 ====================
-var _editingMatchId = null;
-
-function openMatchModal(matchId) {
-  _editingMatchId = matchId;
-  var match = _state.matches[matchId] || { team1: null, team2: null, score1: '', score2: '', match_id: '', maps: [] };
-
-  document.getElementById('modalTitle').textContent = '编辑比赛 — ' + matchId;
-
-  document.getElementById('modalScore1').value = match.score1;
-  document.getElementById('modalScore2').value = match.score2;
-  document.getElementById('modalMatchId').value = match.match_id || '';
-
-  renderMapRows(match.maps || []);
-
-  document.getElementById('modalDeleteBtn').style.display = 'inline-block';
-  document.getElementById('matchModal').style.display = 'flex';
-}
-
-function closeModal() {
-  document.getElementById('matchModal').style.display = 'none';
-  _editingMatchId = null;
-}
-
-function saveMatch() {
-  if (!_editingMatchId) return;
-  if (!_state.matches[_editingMatchId]) {
-    _state.matches[_editingMatchId] = { team1: null, team2: null, score1: '', score2: '', match_id: '', maps: [] };
-  }
-
-  var m = _state.matches[_editingMatchId];
-  m.score1 = document.getElementById('modalScore1').value;
-  m.score2 = document.getElementById('modalScore2').value;
-  m.match_id = document.getElementById('modalMatchId').value;
-
-  var mapRows = document.querySelectorAll('#modalMapScores .map-scores-row');
-  m.maps = [];
-  mapRows.forEach(function(row) {
-    var mapName = row.querySelector('.map-select').value;
-    var s1 = row.querySelector('.map-s1').value;
-    var s2 = row.querySelector('.map-s2').value;
-    if (mapName || s1 || s2) {
-      m.maps.push({ name: mapName, t1: parseInt(s1) || 0, t2: parseInt(s2) || 0 });
-    }
+function renderMatchSettings(matchId, value, boFormat, currentMatchId) {
+  var selectedBo = boFormat || ((document.getElementById('bracketBoFormat') || {}).value) || 'BO3';
+  var boOptions = ['BO1', 'BO3', 'BO5'].map(function(bo) {
+    return '<option value="' + bo + '"' + (bo === selectedBo ? ' selected' : '') + '>' + bo + '</option>';
+  }).join('');
+  var matchOptions = '<option value="">自动匹配或保存时创建</option>';
+  (window._eventMatches || []).forEach(function(eventMatch) {
+    var selected = String(eventMatch.id) === String(currentMatchId || '');
+    var usedElsewhere = false;
+    Object.keys(_state.matches).forEach(function(otherId) {
+      if (otherId !== matchId && String(_state.matches[otherId].match_id || '') === String(eventMatch.id)) {
+        usedElsewhere = true;
+      }
+    });
+    if (usedElsewhere && !selected) return;
+    var team1 = eventMatch.t1_name || eventMatch.team1_name || 'TBD';
+    var team2 = eventMatch.t2_name || eventMatch.team2_name || 'TBD';
+    var stage = eventMatch.stage ? ' · ' + eventMatch.stage : '';
+    matchOptions += '<option value="' + escAttr(eventMatch.id) + '"' + (selected ? ' selected' : '') + '>' +
+      escHtml('#' + eventMatch.id + ' ' + team1 + ' vs ' + team2 + stage) + '</option>';
   });
+  return '<div class="slot-match-settings">' +
+    '<label class="slot-binding-row"><span>已有比赛</span><select onchange="setMatchBinding(\'' + escAttr(matchId) + '\',this.value)">' +
+    matchOptions + '</select></label>' +
+    '<label class="slot-time-row"><span>比赛时间</span>' +
+    '<input type="datetime-local" value="' + escAttr(value || '') + '" ' +
+    'oninput="setMatchTime(\'' + escAttr(matchId) + '\',this.value)"></label>' +
+    '<label class="slot-bo-row"><span>赛制</span><select onchange="setMatchBo(\'' + escAttr(matchId) + '\',this.value)">' +
+    boOptions + '</select></label></div>';
+}
 
-  closeModal();
+function ensureBracketTeam(dbId, name, shortName) {
+  if (!dbId) return null;
+  var existing = findTeamKeyByDbId(dbId);
+  if (existing) return existing;
+  var key = 'db_' + dbId;
+  _state.teams[key] = {
+    key: key,
+    db_id: parseInt(dbId),
+    name: name || shortName || 'TBD',
+    short_name: shortName || name || 'TBD'
+  };
+  return key;
+}
+
+function setMatchBinding(matchId, value) {
+  if (!_state.matches[matchId]) {
+    _state.matches[matchId] = { team1: null, team2: null, score1: '', score2: '', match_id: '', match_time: '', bo_format: '', maps: [] };
+  }
+  var selectedId = value ? parseInt(value, 10) : null;
+  if (selectedId) {
+    for (var otherId in _state.matches) {
+      if (otherId !== matchId && parseInt(_state.matches[otherId].match_id, 10) === selectedId) {
+        showToast('这场比赛已经绑定到其他槽位', 'error');
+        renderAll();
+        return;
+      }
+    }
+  }
+  var match = _state.matches[matchId];
+  match.match_id = selectedId || '';
+  var eventMatch = selectedId ? findEventMatch(selectedId) : null;
+  if (eventMatch) {
+    match.match_time = eventMatch.match_time || match.match_time || '';
+    match.bo_format = eventMatch.bo_format || match.bo_format || 'BO3';
+    if (eventMatch.team1_id) {
+      match.team1 = ensureBracketTeam(
+        eventMatch.team1_id,
+        eventMatch.t1_name || eventMatch.team1_name,
+        eventMatch.t1_short_name
+      );
+    }
+    if (eventMatch.team2_id) {
+      match.team2 = ensureBracketTeam(
+        eventMatch.team2_id,
+        eventMatch.t2_name || eventMatch.team2_name,
+        eventMatch.t2_short_name
+      );
+    }
+  }
   renderAll();
 }
 
-function deleteMatch() {
-  if (!_editingMatchId) return;
-  showConfirm('确认删除此比赛及其数据？', '删除确认').then(function(yes) {
-    if (!yes) return;
-    delete _state.matches[_editingMatchId];
-    closeModal();
-    renderAll();
-  });
+function setMatchTime(matchId, value) {
+  if (!_state.matches[matchId]) {
+    _state.matches[matchId] = { team1: null, team2: null, score1: '', score2: '', match_id: '', match_time: '', bo_format: '', maps: [] };
+  }
+  _state.matches[matchId].match_time = value || '';
 }
 
-function renderMapRows(maps) {
-  var container = document.getElementById('modalMapScores');
-  var html = '';
-  var mapOptions = ['de_inferno', 'de_mirage', 'de_nuke', 'de_overpass', 'de_dust2', 'de_vertigo', 'de_ancient', 'de_anubis', 'de_train'];
-  var mapLabels = ['Inferno', 'Mirage', 'Nuke', 'Overpass', 'Dust2', 'Vertigo', 'Ancient', 'Anubis', 'Train'];
-  var mapOptsHtml = mapOptions.map(function(n, i) {
-    return '<option value="' + n + '">' + mapLabels[i] + '</option>';
-  }).join('');
-
-  (maps || []).forEach(function(m) {
-    html += '<div class="map-scores-row">';
-    html += '<select class="map-select" style="width:140px">' + mapOptsHtml.replace('value="' + m.name + '"', 'value="' + m.name + '" selected') + '</select>';
-    html += '<input type="number" class="map-s1" min="0" max="99" value="' + (m.t1 || 0) + '" style="width:50px;text-align:center">';
-    html += '<span>:</span>';
-    html += '<input type="number" class="map-s2" min="0" max="99" value="' + (m.t2 || 0) + '" style="width:50px;text-align:center">';
-    html += '<button class="btn btn-xs" style="color:#e74c3c" onclick="this.closest(\'.map-scores-row\').remove()">&times;</button>';
-    html += '</div>';
-  });
-  container.innerHTML = html || '<div style="color:#999;font-size:12px">暂无地图比分</div>';
+function setMatchBo(matchId, value) {
+  if (!_state.matches[matchId]) {
+    _state.matches[matchId] = { team1: null, team2: null, score1: '', score2: '', match_id: '', match_time: '', bo_format: '', maps: [] };
+  }
+  _state.matches[matchId].bo_format = ['BO1', 'BO3', 'BO5'].indexOf(value) !== -1 ? value : 'BO3';
 }
 
-function addMapRow() {
-  var container = document.getElementById('modalMapScores');
-  var mapOptions = ['de_inferno', 'de_mirage', 'de_nuke', 'de_overpass', 'de_dust2', 'de_vertigo', 'de_ancient', 'de_anubis', 'de_train'];
-  var mapLabels = ['Inferno', 'Mirage', 'Nuke', 'Overpass', 'Dust2', 'Vertigo', 'Ancient', 'Anubis', 'Train'];
-  var mapOptsHtml = mapOptions.map(function(n, i) {
-    return '<option value="' + n + '">' + mapLabels[i] + '</option>';
-  }).join('');
+function renderTeamSlot(matchId, slotIndex, teamKey, score, oppositeKey, oppositeScore) {
+  var tm = teamKey ? _state.teams[teamKey] : null;
+  var initial = isInitialMatch(matchId);
+  var nameHtml = tm ? escHtml(tm.short_name || tm.name) : '<span class="team-name-text placeholder">' + (initial ? '拖入队伍' : 'TBD · 由赛果决定') + '</span>';
+  var nameClass = tm ? 'team-name-text' : 'team-name-text placeholder';
+  var scoreVal = (score !== '' && score != null) ? score : '';
 
-  var row = document.createElement('div');
-  row.className = 'map-scores-row';
-  row.innerHTML = '<select class="map-select" style="width:140px">' + mapOptsHtml + '</select>' +
-    '<input type="number" class="map-s1" min="0" max="99" value="0" style="width:50px;text-align:center">' +
-    '<span>:</span>' +
-    '<input type="number" class="map-s2" min="0" max="99" value="0" style="width:50px;text-align:center">' +
-    '<button class="btn btn-xs" style="color:#e74c3c" onclick="this.closest(\'.map-scores-row\').remove()">&times;</button>';
-  container.appendChild(row);
+  var html = '<div class="slot-team' + (initial ? ' drop-target' : ' auto-slot') + '" data-match-id="' + matchId + '" data-slot-index="' + slotIndex + '">';
+  html += '<span class="seed-badge">' + (slotIndex + 1) + '</span>';
+  html += '<span class="' + nameClass + '">' + nameHtml + '</span>';
+  if (tm && initial) {
+    html += '<button class="remove-team-btn" onclick="event.stopPropagation();removeTeamFromSlot(\'' + matchId + '\',' + slotIndex + ')" title="移除队伍">&times;</button>';
+  }
+  html += '<span class="team-score readonly-score" title="比分由数据直播更新">' + (scoreVal === '' ? '-' : scoreVal) + '</span>';
+  html += '</div>';
+  return html;
 }
-
-function populateMatchSelect() {
-  var select = document.getElementById('modalMatchId');
-  var currentVal = select.value;
-  var matches = window._eventMatches || [];
-
-  var html = '<option value="">-- 不关联 --</option>';
-  matches.forEach(function(m) {
-    var label = (m.match_time || '').substring(0, 16) + ' ' + (m.t1_name || '?') + ' vs ' + (m.t2_name || '?');
-    var sel = currentVal == m.id ? ' selected' : '';
-    html += '<option value="' + m.id + '"' + sel + '>' + escHtml(label) + '</option>';
-  });
-  select.innerHTML = html;
-}
-
-document.addEventListener('click', function(e) {
-  if (e.target.id === 'matchModal') closeModal();
-});
 
 // ==================== 保存 ====================
 function saveBracket() {
@@ -760,7 +765,7 @@ function saveBracket() {
       var roundData = { name: round.name, matches: [] };
       var compatRoundData = { name: round.name, matches: [] };
       round.matches.forEach(function(matchDef) {
-        var m = _state.matches[matchDef.id] || { team1: null, team2: null, score1: '', score2: '', match_id: '', maps: [] };
+        var m = _state.matches[matchDef.id] || { team1: null, team2: null, score1: '', score2: '', match_id: '', match_time: '', bo_format: '', maps: [] };
         var matchObj = {
           id: matchDef.id,
           team1: m.team1 || null,
@@ -768,6 +773,8 @@ function saveBracket() {
           score1: m.score1 !== '' ? parseInt(m.score1) : null,
           score2: m.score2 !== '' ? parseInt(m.score2) : null,
           match_id: m.match_id || null,
+          match_time: m.match_time || null,
+          bo_format: m.bo_format || (document.getElementById('bracketBoFormat') || {}).value || 'BO3',
           maps: m.maps || []
         };
         roundData.matches.push(matchObj);
@@ -781,16 +788,18 @@ function saveBracket() {
 
   var data = {
     tournament: {
-      name: document.getElementById('tournamentName').value || fmt.name,
+      name: window._eventName || fmt.name,
+      format_key: _state.format,
       type: fmt.type,
       total_teams: fmt.total_teams,
+      bo_format: (document.getElementById('bracketBoFormat') || {}).value || 'BO3',
       teams: teamsList,
       sections: sections,
       rounds: rounds
     }
   };
 
-  var btn = document.querySelector('.btn-primary');
+  var btn = document.getElementById('saveBracketBtn');
   var origText = btn.textContent;
   btn.disabled = true;
   btn.textContent = '保存中...';
@@ -810,7 +819,11 @@ function saveBracket() {
     btn.disabled = false;
     btn.textContent = origText;
     if (res.success) {
-      showToast('对阵图保存成功！', 'success');
+      if (res.bracket) {
+        loadBracketData(res.bracket);
+        renderAll();
+      }
+      showToast('对阵图和全部比赛已生成！', 'success');
     } else {
       showToast('保存失败：' + (res.error || '未知错误'), 'error');
     }
@@ -828,8 +841,6 @@ function resetBracket() {
     if (!yes) return;
     _state.matches = {};
     _state.teams = {};
-    _state.tournamentName = '';
-    document.getElementById('tournamentName').value = '';
     renderAll();
   });
 }

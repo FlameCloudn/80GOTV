@@ -2,7 +2,7 @@
 
 import json
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from urllib.parse import urlsplit
 
 from utils.helpers import map_background_url, map_display_name, map_display_name_cn, map_image_url
@@ -46,6 +46,42 @@ def date_display_filter(value):
     if not dt_val:
         return str(value or "")[:10]
     return f"{dt_val.year}年{dt_val.month}月{dt_val.day}日"
+
+
+def compact_date_display_filter(value):
+    """紧凑日期：2026/06/03。"""
+    dt_val = _parse_display_datetime(value)
+    if not dt_val:
+        raw = str(value or "").strip()
+        date_match = re.match(r"^(\d{4})[-/](\d{1,2})[-/](\d{1,2})", raw)
+        if date_match:
+            year, month, day = (int(part) for part in date_match.groups())
+            return f"{year:04d}/{month:02d}/{day:02d}"
+        return raw[:10].replace("-", "/")
+    return f"{dt_val.year:04d}/{dt_val.month:02d}/{dt_val.day:02d}"
+
+
+def relative_date_display_filter(value, today=None):
+    """相对日期：今天、3天前、5天后。"""
+    dt_val = _parse_display_datetime(value)
+    if not dt_val:
+        return ""
+    if today is None:
+        reference_date = date.today()
+    elif isinstance(today, datetime):
+        reference_date = today.date()
+    elif isinstance(today, date):
+        reference_date = today
+    else:
+        reference_date = _parse_display_datetime(today)
+        reference_date = reference_date.date() if reference_date else date.today()
+
+    days = (dt_val.date() - reference_date).days
+    if days == 0:
+        return "今天"
+    if days > 0:
+        return f"{days}天后"
+    return f"{-days}天前"
 
 
 def datetime_display_filter(value):
@@ -96,6 +132,15 @@ def rating_class_filter(value):
     if rating >= 0.95:
         return "rt-3"
     return "rt-1"
+
+
+def registration_team_abbr_filter(value):
+    """报名队伍名 -> 两字符缩写。"""
+    team_name = str(value or "").strip()
+    words = team_name.split()
+    if len(words) >= 2 and words[0].casefold() == "team":
+        return f"T{words[1][0]}".upper()
+    return team_name[:2].upper()
 
 
 def _parse_bilibili_url(url):

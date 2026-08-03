@@ -22,12 +22,11 @@
     <b class="{% if match.team1_score is not none and match.team2_score is not none and match.team1_score > match.team2_score %}score-win{% endif %}">{{ match.team1_score if match.team1_score is not none else '-' }}</b>
   </div>
   <div class="match-stats-hero-center">
-    <a class="match-stats-hero-event" href="/events/{{ match.event_id }}" data-i18n-ignore>{{ match.event_name or '80GOTV' }}</a>
+    <a class="match-stats-hero-event" href="{{ event_path(match) }}" data-i18n-ignore>{{ match.event_name or '80GOTV' }}</a>
     <div class="match-stats-hero-score">{{ match.team1_score if match.team1_score is not none else '-' }} : {{ match.team2_score if match.team2_score is not none else '-' }}</div>
     <div class="match-stats-hero-meta">{{ match.bo_format or 'BO1' }} · {{ match.match_time|datetime_display if match.match_time else 'TBD' }}</div>
     <div class="match-stats-hero-actions">
       <a href="/matches/{{ match.slug or match.id }}">返回比赛</a>
-      <a href="/matches/{{ match.slug or match.id }}/replay">2D Demo 回放</a>
       <a href="/matches/{{ match.slug or match.id }}/poster">下载赛果海报</a>
     </div>
   </div>
@@ -58,7 +57,7 @@
   <div class="mh-mid">
     <div class="mh-time">{{ match.match_time|time_display if match.match_time else 'TBD' }}</div>
     {% if match.match_time %}<div class="mh-date">{{ match.match_time|date_display }}</div>{% endif %}
-    <a class="mh-event" href="/events/{{ match.event_id }}" data-i18n-ignore>{{ match.event_name or '80GOTV' }}</a>
+    <a class="mh-event" href="{{ event_path(match) }}" data-i18n-ignore>{{ match.event_name or '80GOTV' }}</a>
     <div class="mh-status">
       {% if match.effective_status == 'live' %}
       <span class="match-live-label">直播中</span>
@@ -83,7 +82,6 @@
     {% endif %}
   </div>
   <div class="mh-actions">
-    {% if match.demo_file %}<a href="/matches/{{ match.slug or match.id }}/replay">🎯 2D Demo 回放</a>{% endif %}
     {% if match.effective_status == 'live' %}<a href="/matches/{{ match.id }}/live">独立直播页</a>{% endif %}
     {% if match.effective_status == 'completed' %}<a href="/matches/{{ match.id }}/report">比赛战报</a>{% endif %}
     {% if match.effective_status == 'completed' %}<a href="/matches/{{ match.slug or match.id }}/poster">下载赛果海报</a>{% endif %}
@@ -97,7 +95,13 @@
     <div class="mh-note">{{ bo_label }}</div>
     {% if bp %}<div class="mh-veto" data-i18n-ignore>{{ bp }}</div>{% endif %}
     {% if not map_scores %}
-    <div class="mh-note">暂无比赛数据</div>
+    <div class="map-strips map-strips-tbd">
+      <div class="map-strip map-strip-tbd">
+        <div class="ms-top" style="background-image:url('{{ ''|map_image }}')">
+          <span class="ms-map-name" data-i18n-ignore>TBD</span>
+        </div>
+      </div>
+    </div>
     {% else %}
 
     {# -- 地图比分横幅 -- #}
@@ -121,7 +125,11 @@
       <div class="ms-main">
         <div class="ms-row ms-row-top">
           <span class="ms-name ms-name-left" data-i18n-ignore>{{ match.team1_name }}</span>
+          {% if ms.has_stats %}
           <a href="/matches/{{ match.slug or match.id }}/detailed?map={{ ms.index }}" class="ms-stats-btn">数据</a>
+          {% else %}
+          <span class="ms-stats-placeholder" aria-hidden="true"></span>
+          {% endif %}
           <span class="ms-name ms-name-right" data-i18n-ignore>{{ match.team2_name }}</span>
         </div>
         <div class="ms-row ms-row-mid">
@@ -214,7 +222,7 @@ function loadStream() {
 
 {# -- 赛事数据 -- #}
 {% set any_played = map_scores|selectattr('played')|list|length > 0 %}
-{% if any_played %}
+{% if any_played and not show_match_stats %}
 {% set win_name = match.team1_name if t1_win else match.team2_name %}
 {% set win_stats = overall_t1 if t1_win else overall_t2 %}
 {% set win_logo = match.t1_logo if t1_win else match.t2_logo %}
@@ -252,7 +260,7 @@ function loadStream() {
         <tbody>
           {% for s in win_stats %}
           <tr>
-            <td><a href="/players/{{ s.player_id }}" data-i18n-ignore>{{ s.nickname }}</a></td>
+            <td><a href="/players/{{ s.player_id }}" data-i18n-ignore>{{ private_name_for_player(s.player_id, s.nickname) }}</a></td>
             <td class="kd-cell col-overall">{{ s.kills }}-{{ s.deaths }}</td>
             <td class="kd-cell col-t">{{ s.t_kills }}-{{ s.t_deaths }}</td>
             <td class="kd-cell col-ct">{{ s.ct_kills }}-{{ s.ct_deaths }}</td>
@@ -284,7 +292,7 @@ function loadStream() {
         <tbody>
           {% for s in lose_stats %}
           <tr>
-            <td><a href="/players/{{ s.player_id }}" data-i18n-ignore>{{ s.nickname }}</a></td>
+            <td><a href="/players/{{ s.player_id }}" data-i18n-ignore>{{ private_name_for_player(s.player_id, s.nickname) }}</a></td>
             <td class="kd-cell col-overall">{{ s.kills }}-{{ s.deaths }}</td>
             <td class="kd-cell col-t">{{ s.t_kills }}-{{ s.t_deaths }}</td>
             <td class="kd-cell col-ct">{{ s.ct_kills }}-{{ s.ct_deaths }}</td>
@@ -394,7 +402,7 @@ function loadStream() {
         {% if h.player %}
         <a class="match-stat-highlight" href="/players/{{ h.player.player_id }}">
           <span class="match-stat-highlight-team" data-i18n-ignore>{{ h.player.team_short }}</span>
-          <span class="match-stat-highlight-name" data-i18n-ignore>{{ h.player.nickname }}</span>
+          <span class="match-stat-highlight-name" data-i18n-ignore>{{ private_name_for_player(h.player.player_id, h.player.nickname) }}</span>
           <b class="{% if h.key == 'rating' %}rt-cell{% endif %}">{{ "%.2f"|format(h.player.get(h.key, 0)) if h.key in ['rating', 'adr'] else h.player.get(h.key, 0) }}</b>
           <small>{{ h.label }}</small>
         </a>
@@ -417,7 +425,7 @@ function loadStream() {
       <div class="match-rating-bars">
         {% for p in match_performance_rows %}
         <a class="match-rating-row" href="/players/{{ p.player_id }}">
-          <span data-i18n-ignore>{{ p.nickname }}</span>
+          <span data-i18n-ignore>{{ private_name_for_player(p.player_id, p.nickname) }}</span>
           <i><em style="width:{{ p.rating_bar }}%"></em></i>
           <b class="rt-cell">{{ "%.2f"|format(p.rating) }}</b>
         </a>
@@ -434,7 +442,7 @@ function loadStream() {
             <tbody>
               {% for s in overall_t1 %}
               <tr>
-                <td><a href="/players/{{ s.player_id }}" data-i18n-ignore>{{ s.nickname }}</a></td>
+            <td><a href="/players/{{ s.player_id }}" data-i18n-ignore>{{ private_name_for_player(s.player_id, s.nickname) }}</a></td>
                 <td>{{ s.kills }}-{{ s.deaths }}</td>
                 <td>{{ "%.1f"|format(s.kast) }}%</td>
                 <td>{{ "%.1f"|format(s.adr) }}</td>
@@ -454,7 +462,7 @@ function loadStream() {
             <tbody>
               {% for s in overall_t2 %}
               <tr>
-                <td><a href="/players/{{ s.player_id }}" data-i18n-ignore>{{ s.nickname }}</a></td>
+            <td><a href="/players/{{ s.player_id }}" data-i18n-ignore>{{ private_name_for_player(s.player_id, s.nickname) }}</a></td>
                 <td>{{ s.kills }}-{{ s.deaths }}</td>
                 <td>{{ "%.1f"|format(s.kast) }}%</td>
                 <td>{{ "%.1f"|format(s.adr) }}</td>
@@ -475,7 +483,7 @@ function loadStream() {
       <div class="match-rating-bars">
         {% for p in match_performance_rows %}
         <a class="match-rating-row" href="/players/{{ p.player_id }}">
-          <span data-i18n-ignore>{{ p.nickname }}</span>
+          <span data-i18n-ignore>{{ private_name_for_player(p.player_id, p.nickname) }}</span>
           <i><em style="width:{{ p.rating_bar }}%"></em></i>
           <b class="rt-cell">{{ "%.2f"|format(p.rating) }}</b>
         </a>
@@ -521,7 +529,7 @@ function loadStream() {
         <tbody>
           {% for s in win_stats %}
           <tr>
-            <td><a href="/players/{{ s.player_id }}" data-i18n-ignore>{{ s.nickname }}</a></td>
+            <td><a href="/players/{{ s.player_id }}" data-i18n-ignore>{{ private_name_for_player(s.player_id, s.nickname) }}</a></td>
             <td class="kd-cell col-overall">{{ s.kills }}-{{ s.deaths }}</td>
             <td class="kd-cell col-t">{{ s.t_kills }}-{{ s.t_deaths }}</td>
             <td class="kd-cell col-ct">{{ s.ct_kills }}-{{ s.ct_deaths }}</td>
@@ -553,7 +561,7 @@ function loadStream() {
         <tbody>
           {% for s in lose_stats %}
           <tr>
-            <td><a href="/players/{{ s.player_id }}" data-i18n-ignore>{{ s.nickname }}</a></td>
+            <td><a href="/players/{{ s.player_id }}" data-i18n-ignore>{{ private_name_for_player(s.player_id, s.nickname) }}</a></td>
             <td class="kd-cell col-overall">{{ s.kills }}-{{ s.deaths }}</td>
             <td class="kd-cell col-t">{{ s.t_kills }}-{{ s.t_deaths }}</td>
             <td class="kd-cell col-ct">{{ s.ct_kills }}-{{ s.ct_deaths }}</td>
@@ -640,7 +648,7 @@ function loadStream() {
 </section>
 {% endif %}
 
-<a href="/events/{{ match.event_id }}" class="btn-back">← 返回赛事</a>
+<a href="{{ event_path(match) }}" class="btn-back">← 返回赛事</a>
 
 {% from '_comment_macros.html' import render_comment with context %}
 
@@ -755,10 +763,14 @@ function switchSideView(mode) {
     // 清除排序指示器
     table.querySelectorAll('th.sort-asc, th.sort-desc').forEach(function(th) {
       th.classList.remove('sort-asc', 'sort-desc');
+      th.setAttribute('aria-sort', 'none');
     });
     // 标记 RATING 列为当前排序列
     var rtTh = table.querySelector('th[data-sort="rating"]');
-    if (rtTh) rtTh.classList.add('sort-desc');
+    if (rtTh) {
+      rtTh.classList.add('sort-desc');
+      rtTh.setAttribute('aria-sort', 'descending');
+    }
   });
 }
 
@@ -768,15 +780,17 @@ function sortStatsTable(th) {
   var tbody = table.querySelector('tbody');
   if (!tbody) return;
   var colIdx = Array.from(th.parentNode.children).indexOf(th);
-  var isAsc = th.classList.contains('sort-asc');
+  var descending = !th.classList.contains('sort-desc');
 
   // 清除当前表格所有排序指示
   table.querySelectorAll('th.sort-asc, th.sort-desc').forEach(function(h) {
     h.classList.remove('sort-asc', 'sort-desc');
+    h.setAttribute('aria-sort', 'none');
   });
 
   // 设置新的排序方向
-  th.classList.add(isAsc ? 'sort-desc' : 'sort-asc');
+  th.classList.add(descending ? 'sort-desc' : 'sort-asc');
+  th.setAttribute('aria-sort', descending ? 'descending' : 'ascending');
 
   var rows = Array.from(tbody.querySelectorAll('tr'));
   rows.sort(function(a, b) {
@@ -784,7 +798,7 @@ function sortStatsTable(th) {
     var bTd = b.children[colIdx];
     var aVal = parseFloat(aTd ? (aTd.getAttribute('data-val') || aTd.textContent) : '') || 0;
     var bVal = parseFloat(bTd ? (bTd.getAttribute('data-val') || bTd.textContent) : '') || 0;
-    return isAsc ? (aVal - bVal) : (bVal - aVal);
+    return descending ? (bVal - aVal) : (aVal - bVal);
   });
   rows.forEach(function(row) { tbody.appendChild(row); });
   applyRatingColors();
@@ -837,7 +851,7 @@ document.addEventListener('click', function(e) {
 <div class="card small">
   {% if sidebar_events %}
     {% for ev in sidebar_events %}
-    <a href="/events/{{ ev.id }}" class="sidebar-event-item">
+    <a href="{{ event_path(ev) }}" class="sidebar-event-item">
       <span class="sidebar-event-status {{ ev.effective_event_status }}">{{
         '进行中' if ev.effective_event_status == 'ongoing' else
         '即将' if ev.effective_event_status == 'upcoming' else
@@ -872,7 +886,7 @@ document.addEventListener('click', function(e) {
 <div class="card small">
   {% if sidebar_news %}
     {% for n in sidebar_news %}
-    <a href="/news/{{ n.id }}" class="sidebar-event-item">
+    <a href="{{ news_path(n) }}" class="sidebar-event-item">
       <span class="sidebar-event-name">{{ n.title }}</span>
     </a>
     {% endfor %}

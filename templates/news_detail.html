@@ -10,7 +10,9 @@
     <span>·</span>
     <span>评论 {{ news.comment_count }}</span>
   </div>
-  {% if news.tags %}<div class="news-tags" style="margin-bottom:16px">{% for t in news.tags.split(',') %}{% set ts = t.strip() %}{% if ts %}<a href="/news?tag={{ ts|urlencode }}" class="tag-chip">{{ ts }}</a>{% endif %}{% endfor %}</div>{% endif %}
+  {% if news.redirect_url %}
+  <a class="news-related-page-cta" href="{{ news.redirect_url }}">进入赛事并报名</a>
+  {% endif %}
 
   {% if related_match %}
   <a href="/matches/{{ related_match.slug or related_match.id }}" class="related-match-card" style="display:block;background:var(--bg-card);border:1px solid var(--border-color);border-radius:0;padding:16px;margin-bottom:20px;text-decoration:none;transition:border-color 0.2s">
@@ -67,21 +69,4 @@
 </section>
 
 <a href="/news" class="btn-back">← 返回新闻列表</a >
-{% endblock %}
-
-{% block side %}
-<section class="h-panel">
-<div class="h-panel-title">热门标签</div>
-<div class="card small h-side-card">
-  {% if hot_tags %}
-  <div class="tag-cloud">
-    {% for tag, count in hot_tags %}
-    <a href="/news?tag={{ tag|urlencode }}" class="tag-chip">{{ tag }}<span class="tag-count">{{ count }}</span></a>
-    {% endfor %}
-  </div>
-  {% else %}
-  <p style="color:var(--text-muted);font-size:12px;">暂无标签</p>
-  {% endif %}
-</div>
-</section>
 {% endblock %}

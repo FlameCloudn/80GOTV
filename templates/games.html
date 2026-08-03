@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block title %}游戏 - 80GOTV{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ versioned_url('static/css/games.css') }}">
+{% endblock %}
+{% block layout_class %}no-side-layout games-layout{% endblock %}
+{% block main %}
+<div class="games-hub">
+  <header class="games-hub-heading">
+    <div><span>80GO GAMES</span><h1>游戏</h1></div>
+    <p>3 个可玩项目</p>
+  </header>
+
+  <section class="games-list" aria-label="游戏列表">
+    <article class="game-card game-card-player">
+      <div class="game-card-visual">
+        <img src="{{ url_for('static', filename='logos/80gotv-mark.png') }}" alt="" width="80" height="80">
+        <div><b>?</b><b>↑</b><b>?</b></div>
+      </div>
+      <div class="game-card-body">
+        <span>PLAYER</span>
+        <h2>猜选手</h2>
+        <p>根据队伍、国籍、年龄、位置和 Major 次数找出答案。</p>
+        <nav aria-label="猜选手模式">
+          <a href="{{ url_for('guess_player_page') }}">每日</a>
+          <a href="{{ url_for('guess_player_practice_page') }}">自由</a>
+          <a href="{{ url_for('guess_player_multiplayer_page') }}">对战</a>
+        </nav>
+      </div>
+    </article>
+
+    <article class="game-card game-card-map">
+      <div class="game-card-visual">
+        <img src="{{ url_for('static', filename='images/map-quiz/anubis.webp') }}" alt="Anubis 地图截图" width="1920" height="1080" loading="lazy">
+        <strong>WHERE?</strong>
+      </div>
+      <div class="game-card-body">
+        <span>MAP</span>
+        <h2>地图点位</h2>
+        <p>从 CS2 场景截图判断地图与具体位置。</p>
+        <nav aria-label="地图点位模式">
+          <a href="{{ url_for('map_quiz_page') }}">每日</a>
+          <a href="{{ url_for('map_quiz_practice_page') }}">自由</a>
+        </nav>
+      </div>
+    </article>
+
+    <article class="game-card game-card-bingo">
+      <div class="game-card-visual bingo-preview" aria-hidden="true">
+        <i>X</i><i>?</i><i>X</i><i>?</i><i>X</i><i>?</i><i>X</i><i>?</i><i>X</i>
+      </div>
+      <div class="game-card-body">
+        <span>BINGO</span>
+        <h2>选手 Bingo</h2>
+        <p>用九名不同选手完成横纵条件交叉题板。</p>
+        <nav aria-label="选手 Bingo 模式">
+          <a href="{{ url_for('player_bingo_page') }}">每日</a>
+          <a href="{{ url_for('player_bingo_practice_page') }}">自由</a>
+        </nav>
+      </div>
+    </article>
+  </section>
+</div>
+{% endblock %}
+{% block side %}{% endblock %}

@@ -1327,6 +1327,15 @@ a.card:hover{
   flex-shrink:0;
 }
 
+.team-player-avatar-fallback{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  color:#fff;
+  background:var(--accent);
+  font-weight:700;
+}
+
 /* ==================== 筛选器 ==================== */
 .filters{margin-bottom:var(--space-lg)}
 .filter-form{

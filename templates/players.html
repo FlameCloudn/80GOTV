@@ -1,61 +1,245 @@
 {% extends 'base.html' %}
 {% block title %}{% if filter_type=='mvps' %}MVP 选手{% elif filter_type=='evps' %}EVP 选手{% elif filter_type=='top10' %}TOP 10 选手{% else %}选手列表{% endif %} - 80GOTV{% endblock %}
+{% block head %}
+{% if filter_type in ('mvps', 'evps', 'top10') %}
+<link rel="stylesheet" href="{{ versioned_url('static/css/player_awards.css') }}">
+{% endif %}
+{% endblock %}
 {% block main %}
-<div class="front-filter-bar">
-  <form method="get" class="filter-form">
-    {% if filter_type %}<input type="hidden" name="filter" value="{{ filter_type }}">{% endif %}
-    <div class="form-group" style="margin-bottom:0">
-      <label for="team-filter">队伍筛选</label>
-      <select name="team" id="team-filter" onchange="this.form.submit()">
-        <option value="">全部队伍</option>
-      {% for t in teams %}
-      <option value="{{ t.id }}" {% if team_filter==t.id|string %}selected{% endif %}>
-        {{ t.name }}
-      </option>
-      {% endfor %}
-      </select>
+{% if award_page %}
+<div class="player-awards-page">
+  <div class="player-directory-heading">
+    <h1>80GOTV {{ award_page.kind }} 选手</h1>
+  </div>
+
+  <section class="award-summary-grid" aria-label="{{ award_page.kind }} 摘要">
+    <article class="award-summary-panel">
+      <h2>Major {{ award_page.kind }} 数量</h2>
+      {% if award_page.major_leaders %}
+      <div class="award-summary-list">
+        {% for p in award_page.major_leaders %}
+        <a class="award-summary-row" href="{{ url_for('player_detail', player_id=p.id) }}">
+          <span data-i18n-ignore>{{ private_name_for_player(p.id, p.nickname) }}</span><b>{{ p.major }}</b>
+        </a>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="award-empty-small">暂无数据</p>
+      {% endif %}
+    </article>
+
+    <article class="award-summary-panel">
+      <h2>{{ award_page.kind }} 总数</h2>
+      {% if award_page.total_leaders %}
+      <div class="award-summary-list">
+        {% for p in award_page.total_leaders %}
+        <a class="award-summary-row" href="{{ url_for('player_detail', player_id=p.id) }}">
+          <span data-i18n-ignore>{{ private_name_for_player(p.id, p.nickname) }}</span><b>{{ p.total }}</b>
+        </a>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="award-empty-small">暂无数据</p>
+      {% endif %}
+    </article>
+
+    <article class="award-summary-panel">
+      <h2>最近的 {{ award_page.kind }}</h2>
+      {% if award_page.latest %}
+      <div class="award-summary-list">
+        {% for medal in award_page.latest %}
+        <a class="award-summary-row award-summary-row-latest" href="{{ url_for('event_detail', event_id=medal.event_id) }}">
+          <span data-i18n-ignore>{{ medal.event_short_name or medal.event_name }}</span>
+          <b data-i18n-ignore>{{ private_name_for_player(medal.player_id, medal.nickname) }}</b>
+        </a>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="award-empty-small">暂无数据</p>
+      {% endif %}
+    </article>
+  </section>
+
+  <section class="award-ranking-panel">
+    <header class="award-ranking-heading">
+      <h2>所有 80GOTV {{ award_page.kind }}</h2>
+      <span>按年度统计，始于 2026 年</span>
+    </header>
+    {% if award_page.ranking %}
+    <div class="award-table-scroll">
+      <table class="award-year-table">
+        <thead>
+          <tr>
+            <th scope="col">选手</th>
+            {% for year in award_page.years %}<th scope="col">{{ year }}</th>{% endfor %}
+            <th scope="col">总计</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in award_page.ranking %}
+          <tr>
+            <td>
+              <a class="award-player-link" href="{{ url_for('player_detail', player_id=p.id) }}">
+                {% if p.avatar %}
+                <img class="award-player-avatar" src="{{ avatar_thumbnail_url(p.avatar) }}" alt="" loading="lazy">
+                {% else %}
+                <span class="award-player-avatar award-player-avatar-fallback" aria-hidden="true">{{ private_name_for_player(p.id, p.nickname)[:1] }}</span>
+                {% endif %}
+                <span data-i18n-ignore>{{ private_name_for_player(p.id, p.nickname) }}</span>
+              </a>
+            </td>
+            {% for count in p.year_counts %}
+            <td class="{% if not count %}award-zero{% endif %}">{{ count if count else '—' }}</td>
+            {% endfor %}
+            <td>{{ p.total }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
+    {% else %}
+    <div class="empty-state">暂无数据</div>
+    {% endif %}
+  </section>
+</div>
+
+{% elif top10_page %}
+<div class="player-awards-page">
+  <div class="player-directory-heading">
+    <h1>所有 80GOTV TOP 10 选手</h1>
+  </div>
+  <p class="top10-basis">由管理员在每个自然年结束后确认并公布</p>
+
+  <div class="top10-page-grid">
+    <section class="top10-ranking-panel">
+      {% if top10_page.ranking %}
+      <div class="award-table-scroll">
+        <table class="top10-table">
+          <thead>
+            <tr>
+              <th scope="col">选手</th>
+              <th class="top10-first-column" scope="col">第 1</th>
+              <th scope="col">第 2</th>
+              <th class="top10-third-column" scope="col">第 3</th>
+              <th scope="col">第 4-5</th>
+              <th scope="col">第 6-10</th>
+              <th scope="col">总计</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in top10_page.ranking %}
+            <tr>
+              <td>
+                <a class="award-player-link" href="{{ url_for('player_detail', player_id=p.id) }}">
+                  {% if p.avatar %}
+                  <img class="award-player-avatar" src="{{ avatar_thumbnail_url(p.avatar) }}" alt="" loading="lazy">
+                  {% else %}
+                  <span class="award-player-avatar award-player-avatar-fallback" aria-hidden="true">{{ private_name_for_player(p.id, p.nickname)[:1] }}</span>
+                  {% endif %}
+                  <span data-i18n-ignore>{{ private_name_for_player(p.id, p.nickname) }}</span>
+                </a>
+              </td>
+              <td class="top10-first-column">{{ p.first }}</td>
+              <td>{{ p.second }}</td>
+              <td class="top10-third-column">{{ p.third }}</td>
+              <td>{{ p.fourth_fifth }}</td>
+              <td>{{ p.sixth_tenth }}</td>
+              <td>{{ p.total }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state">管理员尚未公布年度 TOP 10</div>
+      {% endif %}
+    </section>
+
+    <aside class="top10-side-stack" aria-label="TOP 10 摘要">
+      <section class="top10-side-panel">
+        <h2>MOST TOP1</h2>
+        {% if top10_page.most_top1 %}
+        <div class="award-summary-list">
+          {% for p in top10_page.most_top1 %}
+          <a class="award-summary-row" href="{{ url_for('player_detail', player_id=p.id) }}">
+            <span data-i18n-ignore>{{ private_name_for_player(p.id, p.nickname) }}</span><b>{{ p.first }}</b>
+          </a>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="award-empty-small">暂无数据</p>
+        {% endif %}
+      </section>
+
+      <section class="top10-side-panel">
+        <h2>MOST TOP5</h2>
+        {% if top10_page.most_top5 %}
+        <div class="award-summary-list">
+          {% for p in top10_page.most_top5 %}
+          <a class="award-summary-row" href="{{ url_for('player_detail', player_id=p.id) }}">
+            <span data-i18n-ignore>{{ private_name_for_player(p.id, p.nickname) }}</span><b>{{ p.top5 }}</b>
+          </a>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="award-empty-small">暂无数据</p>
+        {% endif %}
+      </section>
+    </aside>
+  </div>
+</div>
+
+{% else %}
+{% set alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' %}
+<nav class="player-initial-filter" aria-label="按昵称首字符筛选">
+  <a href="{{ url_for('players_list', initial='all', team=team_filter, filter=filter_type) }}" class="{% if initial_filter == 'all' %}active{% endif %}">All</a>
+  {% for letter in alphabet %}
+  <a href="{{ url_for('players_list', initial=letter|lower, team=team_filter, filter=filter_type) }}" class="{% if initial_filter == letter|lower %}active{% endif %}">{{ letter }}</a>
+  {% endfor %}
+  <a href="{{ url_for('players_list', initial='123', team=team_filter, filter=filter_type) }}" class="{% if initial_filter == '123' %}active{% endif %}">123</a>
+  <a href="{{ url_for('players_list', initial='other', team=team_filter, filter=filter_type) }}" class="{% if initial_filter == 'other' %}active{% endif %}">!@#</a>
+</nav>
+
+<div class="player-directory-heading">
+  <h1>{% if filter_type=='mvps' %}MVP 选手{% elif filter_type=='evps' %}EVP 选手{% elif filter_type=='top10' %}TOP 10 选手{% else %}Counter-Strike 2 选手{% endif %}</h1>
+  <form method="get" class="player-team-filter">
+    {% if filter_type %}<input type="hidden" name="filter" value="{{ filter_type }}">{% endif %}
+    <input type="hidden" name="initial" value="{{ initial_filter }}">
+    <label for="team-filter">队伍</label>
+    <select name="team" id="team-filter" onchange="this.form.submit()">
+      <option value="">全部队伍</option>
+      {% for t in teams %}
+      <option value="{{ t.id }}" {% if team_filter==t.id|string %}selected{% endif %}>{{ t.name }}</option>
+      {% endfor %}
+    </select>
   </form>
 </div>
 
-<div class="stats-table h-table-panel">
-  <table>
-    <thead>
-      <tr>
-        <th>选手</th>
-        <th>队伍</th>
-        <th>场次</th>
-        <th>K/D</th>
-        <th>RATING</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for p in players %}
-      <tr>
-        <td>
-          <a href="/players/{{ p.id }}" class="player-link">
-            {% if p.avatar %}
-              <img src="{{ url_for('static', filename='avatars/' + p.avatar) }}" class="avatar-sm" alt="{{ p.nickname }}" loading="lazy">
-            {% else %}
-              <div class="avatar-sm">{{ p.nickname[0] }}</div>
-            {% endif %}
-            {{ p.nickname }}
-        </a >
-        </td>
-        <td>{{ p.team_short or '-' }}</td>
-        <td>{{ p.match_count or 0 }}</td>
-        <td>
-          {% if p.avg_deaths and p.avg_deaths > 0 %}
-            {{ "%.2f"|format(p.avg_kills / p.avg_deaths) }}
-          {% else %}-{% endif %}
-        </td>
-        <td class="{{ p.avg_rating|rating_class }}"><b>{{ "%.2f"|format(p.avg_rating) if p.avg_rating else '-' }}</b></td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<div class="player-directory-grid">
+  {% for p in players %}
+  {% set player_private_remark = private_remark_for_player(p.id) %}
+  {% set player_display_name = player_private_remark or p.nickname %}
+  <a href="{{ url_for('player_detail', player_id=p.id) }}" class="player-directory-card">
+    <div class="player-directory-copy">
+      <strong data-i18n-ignore>{{ player_display_name }}{% if not player_private_remark and p.is_bashizhong_student != 0 and p.group_username %}<span class="player-group-username"> @{{ p.group_username }}</span>{% endif %}</strong>
+      <span class="player-registered-date">{% if p.created_at %}{{ p.created_at|date_display }}{% endif %}</span>
+      <span class="player-country-slot" {% if p.is_bashizhong_student == 0 %}aria-label="外校选手"{% else %}aria-hidden="true"{% endif %}>{% if p.is_bashizhong_student == 0 %}🌐{% endif %}</span>
+    </div>
+    {% if p.avatar and p.nickname|lower == 'zirc0n' %}
+    <span class="player-directory-avatar player-directory-avatar-zirc" style="background-image:url('{{ avatar_thumbnail_url(p.avatar) }}')" role="img" aria-label="{{ player_display_name }}"></span>
+    {% elif p.avatar %}
+    <img src="{{ avatar_thumbnail_url(p.avatar) }}" class="player-directory-avatar" alt="{{ player_display_name }}" loading="lazy">
+    {% else %}
+    <span class="player-directory-avatar player-directory-avatar-fallback" aria-hidden="true">{{ player_display_name[0] }}</span>
+    {% endif %}
+    {% if p.is_cheater %}
+    <img src="{{ url_for('static', filename='images/pac_cheating_overlay.png') }}" class="pac-avatar-overlay player-directory-pac-overlay" alt="作弊封禁" loading="lazy">
+    {% endif %}
+  </a>
+  {% endfor %}
 </div>
 {% if not players %}<div class="card empty-state">暂无选手</div>{% endif %}
+{% endif %}
 {% endblock %}
 
 {% block layout_class %}no-side-layout{% endblock %}

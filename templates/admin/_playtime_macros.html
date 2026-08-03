@@ -1,0 +1,21 @@
+{% macro playtime_cell(minutes, status, checked_at) -%}
+<div class="admin-playtime" data-i18n-ignore>
+  {% if minutes is not none %}
+    <strong>{{ "%.1f"|format(minutes / 60) }} 小时</strong>
+    <small>公开数据</small>
+  {% elif status == 'private' %}
+    <strong>不可见</strong>
+    <small>Steam 资料私密</small>
+  {% elif status == 'unavailable' %}
+    <strong>读取失败</strong>
+    <small>可稍后重新获取</small>
+  {% elif status == 'invalid' %}
+    <strong>无法读取</strong>
+    <small>Steam ID 无效</small>
+  {% else %}
+    <strong>待获取</strong>
+    <small>尚无缓存</small>
+  {% endif %}
+  {% if checked_at %}<small>更新于 {{ checked_at|datetime_display }}</small>{% endif %}
+</div>
+{%- endmacro %}

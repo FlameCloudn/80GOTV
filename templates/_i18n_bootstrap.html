@@ -1,0 +1,16 @@
+<script>
+  // 英文模式下，只有翻译脚本完成后才显示页面。
+  (function () {
+    var savedLanguage = localStorage.getItem('siteLang') || 'auto';
+    var resolvedLanguage = savedLanguage === 'auto'
+      ? ((navigator.language || '').toLowerCase().indexOf('zh') === 0 ? 'zh' : 'en')
+      : savedLanguage;
+    if (resolvedLanguage === 'en') {
+      document.documentElement.lang = 'en';
+      document.documentElement.classList.add('i18n-pending');
+    }
+  })();
+</script>
+<style>
+  html.i18n-pending body { visibility: hidden; }
+</style>

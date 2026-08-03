@@ -14,7 +14,7 @@ import json
 import random
 import time
 
-ALL_MAPS = ["Dust2", "Mirage", "Inferno", "Nuke", "Overpass", "Ancient", "Anubis"]
+ALL_MAPS = ["Dust2", "Mirage", "Inferno", "Nuke", "Cache", "Ancient", "Anubis"]
 STATE_VERSION = 3
 TURN_TIME_LIMIT_SECONDS = 3 * 60
 

@@ -11,9 +11,11 @@ from flask import flash, redirect, render_template, request, url_for
 from blueprints.admin import admin_bp
 from config import BASE_DIR
 from models import get_db
+from services.bracket_service import refresh_bracket_for_match
 from services.demo_service import analyze_demo, import_demo_data
 from services.live_log_service import persist_live_match_events
 from services.match_service import score_predictions, supplement_temp_teams
+from services.performance_service import refresh_player_performance
 from utils.demo_naming import build_demo_filename
 from utils.helpers import ensure_unique_match_slug, make_match_slug, normalize_http_url, row_get
 from utils.match_utils import get_demo_upload_slot_count, get_sql_effective_status
@@ -22,6 +24,36 @@ from utils.web_helpers import admin_required as login_required
 from utils.web_helpers import csrf_required, hash_bp_password
 
 DEMOS_DIR = os.path.join(BASE_DIR, "static", "demos")
+
+LIVE_SCORE_FIELDS = (
+    "team1_score",
+    "team2_score",
+    "map1_t1",
+    "map1_t2",
+    "map2_t1",
+    "map2_t2",
+    "map3_t1",
+    "map3_t2",
+    "map4_t1",
+    "map4_t2",
+    "map5_t1",
+    "map5_t2",
+    "has_map3",
+    "has_map4",
+    "has_map5",
+)
+
+LOCKED_AFTER_START_FIELDS = (
+    "event_id",
+    "match_time",
+    "bo_format",
+    "stage",
+    "map1",
+    "map2",
+    "map3",
+    "map4",
+    "map5",
+)
 
 
 def _render_import_demo(match, **context):
@@ -64,6 +96,7 @@ def _parse_match_form(request, include_results=False):
     f["match_time"] = request.form.get("match_time")
     f["bo_format"] = request.form.get("bo_format", "BO3")
     f["stage"] = request.form.get("stage", "").strip() or None
+    f["is_test_mode"] = 1 if request.form.get("is_test_mode") == "1" else 0
     f["team1_score"] = _int_form("team1_score") if include_results else 0
     f["team2_score"] = _int_form("team2_score") if include_results else 0
     f["has_map3"] = 0 if include_results and request.form.get("no_map3") == "1" else 1
@@ -72,6 +105,14 @@ def _parse_match_form(request, include_results=False):
     bp_password = request.form.get("bp_password", "").strip()
     f["bp_password"] = hash_bp_password(bp_password)
     f["bp_process"] = request.form.get("bp_process", "") if include_results else ""
+    f["decider_knife_winner"] = (
+        request.form.get("decider_knife_winner", "").strip() or None if include_results else None
+    )
+    f["decider_start_side"] = (
+        request.form.get("decider_start_side", "").strip().upper() or None
+        if include_results
+        else None
+    )
     f["stream_url"] = request.form.get("stream_url", "").strip() or None
     f["map_halves"] = request.form.get("map_halves", "").strip() or None
     watch_urls = []
@@ -105,6 +146,35 @@ def _parse_match_form(request, include_results=False):
     return f
 
 
+def _preserve_managed_match_fields(values, existing):
+    """Keep live scores and locked setup data out of ordinary admin edits."""
+    for field in LIVE_SCORE_FIELDS:
+        values[field] = existing[field]
+
+    current_status = existing["status"] or "upcoming"
+    if current_status == "ongoing":
+        current_status = "live"
+    if current_status != "upcoming":
+        for field in LOCKED_AFTER_START_FIELDS:
+            values[field] = existing[field]
+        for slot in range(1, 6):
+            values[f"map{slot}_pb"] = existing[f"map{slot}_picked_by"]
+
+    if current_status != "completed":
+        values["bp_process"] = existing["bp_process"]
+
+    if current_status != "upcoming":
+        values["bp_password"] = existing["bp_password"]
+    elif request.form.get("clear_bp_password") == "1":
+        values["bp_password"] = None
+    elif not values["bp_password"]:
+        values["bp_password"] = existing["bp_password"]
+
+    if values["server_address"] and not values["server_password"]:
+        values["server_password"] = existing["server_password"]
+    return values
+
+
 def _get_form_dropdowns(conn):
     return (
         conn.execute("SELECT * FROM events ORDER BY start_date DESC").fetchall(),
@@ -133,7 +203,7 @@ def _match_player_ids(match, key):
         return []
 
 
-def _match_form_response(conn, match=None):
+def _match_form_response(conn, match=None, status=200):
     events, teams, all_players = _get_form_dropdowns(conn)
     team1_player_ids = _match_player_ids(match, "team1_players")
     team2_player_ids = _match_player_ids(match, "team2_players")
@@ -146,7 +216,101 @@ def _match_form_response(conn, match=None):
         all_players=all_players,
         team1_player_ids=team1_player_ids,
         team2_player_ids=team2_player_ids,
+    ), status
+
+
+def _parse_side(conn, prefix, *, allow_partial=False, allow_empty=False):
+    side_type = request.form.get(f"{prefix}_type", "team")
+    if side_type == "players":
+        player_ids = [request.form.get(f"{prefix}_p{i}", "").strip() for i in range(5)]
+        player_ids = [player_id for player_id in player_ids if player_id]
+        if not player_ids and allow_empty:
+            return None, None, None
+        if not allow_partial and len(player_ids) != 5:
+            return None, None, f"{prefix} 请选择 5 名选手"
+        if len(set(player_ids)) != len(player_ids):
+            return None, None, f"{prefix} 不能重复选择同一名选手"
+        placeholders = ",".join("?" * len(player_ids))
+        count = conn.execute(
+            f"SELECT COUNT(*) FROM players WHERE id IN ({placeholders})", player_ids
+        ).fetchone()[0]
+        if count != len(player_ids):
+            return None, None, f"{prefix} 包含不存在的选手"
+        return None, json.dumps(player_ids), None
+    if side_type != "team":
+        return None, None, f"{prefix} 的参赛方类型无效"
+    team_id = request.form.get(f"{prefix}_id", "").strip()
+    if not team_id and allow_empty:
+        return None, None, None
+    if not team_id:
+        return None, None, f"{prefix} 请选择队伍"
+    if (
+        not team_id.isdigit()
+        or not conn.execute("SELECT id FROM teams WHERE id=?", (team_id,)).fetchone()
+    ):
+        return None, None, f"{prefix} 所选队伍不存在"
+    return team_id, None, None
+
+
+def _match_validation_error(conn, values):
+    if not values["event_id"]:
+        return "请选择赛事"
+    if (
+        not str(values["event_id"]).isdigit()
+        or not conn.execute("SELECT id FROM events WHERE id=?", (values["event_id"],)).fetchone()
+    ):
+        return "所选赛事不存在"
+    if not values["match_time"]:
+        return "比赛时间不能为空"
+    if values["bo_format"] not in ("BO1", "BO3", "BO5"):
+        return "BO 格式无效"
+    if values["decider_knife_winner"] not in (None, "t1", "t2"):
+        return "决胜图拼刀胜者无效"
+    if values["decider_start_side"] not in (None, "CT", "T"):
+        return "决胜图起始阵营无效"
+    if bool(values["decider_knife_winner"]) != bool(values["decider_start_side"]):
+        return "决胜图拼刀胜者和起始阵营必须一起填写"
+    return None
+
+
+def _duplicate_match(
+    conn,
+    values,
+    team1_id,
+    team2_id,
+    team1_players,
+    team2_players,
+    exclude_id=None,
+):
+    sql = (
+        "SELECT id, team1_id, team2_id, team1_players, team2_players, is_test_mode "
+        "FROM matches WHERE event_id=? AND match_time=?"
     )
+    params = [values["event_id"], values["match_time"]]
+    if exclude_id is not None:
+        sql += " AND id<>?"
+        params.append(exclude_id)
+    for row in conn.execute(sql, params).fetchall():
+        if values["is_test_mode"] and row["is_test_mode"]:
+            return True
+        if team1_id and team2_id:
+            if {str(row["team1_id"]), str(row["team2_id"])} == {
+                str(team1_id),
+                str(team2_id),
+            }:
+                return True
+        elif team1_players and team2_players:
+            current_sides = {
+                frozenset(str(value) for value in _match_player_ids(row, "team1_players")),
+                frozenset(str(value) for value in _match_player_ids(row, "team2_players")),
+            }
+            submitted_sides = {
+                frozenset(json.loads(team1_players)),
+                frozenset(json.loads(team2_players)),
+            }
+            if current_sides == submitted_sides:
+                return True
+    return False
 
 
 def _generate_match_slug(conn, match_id):
@@ -156,7 +320,7 @@ def _generate_match_slug(conn, match_id):
         SELECT m.match_time, m.slug AS old_slug,
                COALESCE(t1.short_name, t1.name, 'team-1') AS t1n,
                COALESCE(t2.short_name, t2.name, 'team-2') AS t2n,
-               e.short_name AS esn
+               COALESCE(e.slug, e.short_name, e.name) AS esn
         FROM matches m
         LEFT JOIN teams t1 ON m.team1_id=t1.id
         LEFT JOIN teams t2 ON m.team2_id=t2.id
@@ -170,6 +334,11 @@ def _generate_match_slug(conn, match_id):
     # 根据队伍、时间、赛事信息自动生成 slug（每次编辑都会更新）
     slug = make_match_slug(match["t1n"], match["t2n"], match["match_time"], match["esn"])
     slug = ensure_unique_match_slug(conn, match_id, slug)
+    if match["old_slug"] and match["old_slug"] != slug:
+        conn.execute(
+            "INSERT OR IGNORE INTO match_slug_aliases(slug,match_id) VALUES(?,?)",
+            (match["old_slug"], match_id),
+        )
     conn.execute("UPDATE matches SET slug=? WHERE id=?", (slug, match_id))
 
 
@@ -179,9 +348,9 @@ MATCH_COLS = (
     " map4, map4_t1, map4_t2, map5, map5_t1, map5_t2, has_map4, has_map5,"
     " map1_picked_by, map2_picked_by, map3_picked_by, map4_picked_by, map5_picked_by,"
     " bp_process, bp_password, stream_url, map_halves, team1_players, team2_players,"
-    " watch_urls, server_address, server_password"
+    " watch_urls, server_address, server_password, is_test_mode"
 )
-MATCH_PLACEHOLDERS = "(" + ",".join("?" * 41) + ")"
+MATCH_PLACEHOLDERS = "(" + ",".join("?" * 42) + ")"
 
 
 def _match_values(f, team1_id, team2_id, team1_players, team2_players):
@@ -227,6 +396,7 @@ def _match_values(f, team1_id, team2_id, team1_players, team2_players):
         f["watch_urls"],
         f["server_address"],
         f["server_password"],
+        f["is_test_mode"],
     )
 
 
@@ -251,35 +421,44 @@ def admin_matches_add():
     conn = get_db()
     if request.method == "POST":
         f = _parse_match_form(request)
-        if not f["event_id"]:
-            flash("请选择赛事", "error")
-            return _match_form_response(conn)
+        error = _match_validation_error(conn, f)
+        if error:
+            flash(error, "error")
+            return _match_form_response(conn, status=400)
 
-        def _parse_side(prefix):
-            stype = request.form.get(f"{prefix}_type", "team")
-            if stype == "players":
-                pids = [request.form.get(f"{prefix}_p{i}") for i in range(5)]
-                pids = [p for p in pids if p]
-                if len(pids) < 5:
-                    return None, None, f"{prefix} 请选择 5 名选手"
-                return None, json.dumps(pids), None
-            return request.form.get(f"{prefix}_id") or None, None, None
-
-        team1_id, team1_players, err = _parse_side("side1")
+        team1_id, team1_players, err = _parse_side(
+            conn,
+            "side1",
+            allow_partial=bool(f["is_test_mode"]),
+            allow_empty=bool(f["is_test_mode"]),
+        )
         if not err:
-            team2_id, team2_players, err = _parse_side("side2")
+            team2_id, team2_players, err = _parse_side(
+                conn,
+                "side2",
+                allow_partial=bool(f["is_test_mode"]),
+                allow_empty=bool(f["is_test_mode"]),
+            )
         if err:
             flash(err, "error")
-            return _match_form_response(conn)
+            return _match_form_response(conn, status=400)
         if team1_id and team2_id and team1_id == team2_id:
             flash("两支队伍不能相同", "error")
-            return _match_form_response(conn)
+            return _match_form_response(conn, status=400)
+        if team1_players and team2_players:
+            if set(json.loads(team1_players)) & set(json.loads(team2_players)):
+                flash("两边不能选择同一名选手", "error")
+                return _match_form_response(conn, status=400)
+        if _duplicate_match(conn, f, team1_id, team2_id, team1_players, team2_players):
+            flash("相同赛事、时间和参赛方的比赛已存在", "error")
+            return _match_form_response(conn, status=400)
         conn.execute(
             f"INSERT INTO matches({MATCH_COLS}) VALUES{MATCH_PLACEHOLDERS}",
             _match_values(f, team1_id, team2_id, team1_players, team2_players),
         )
         match_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
         _generate_match_slug(conn, match_id)
+        refresh_bracket_for_match(conn, match_id)
         conn.commit()
         conn.close()
         flash("比赛添加成功", "success")
@@ -292,26 +471,29 @@ def admin_matches_add():
 @login_required
 def admin_matches_edit(match_id):
     conn = get_db()
+    current_match = _get_match_form_row(conn, match_id)
+    if not current_match:
+        conn.close()
+        return "比赛不存在", 404
     if request.method == "POST":
         f = _parse_match_form(request, include_results=True)
-        if not f["event_id"]:
-            flash("请选择赛事", "error")
-            return _match_form_response(conn, _get_match_form_row(conn, match_id))
-        existing = conn.execute(
-            "SELECT team1_id, team2_id, team1_players, team2_players, bp_password FROM matches WHERE id=?",
-            (match_id,),
-        ).fetchone()
+        f = _preserve_managed_match_fields(f, current_match)
+        error = _match_validation_error(conn, f)
+        if error:
+            flash(error, "error")
+            return _match_form_response(conn, current_match, 400)
+        existing = current_match
         team1_id = existing["team1_id"] if existing else None
         team2_id = existing["team2_id"] if existing else None
         team1_players = existing["team1_players"] if existing else None
         team2_players = existing["team2_players"] if existing else None
-        if request.form.get("clear_bp_password") == "1":
-            f["bp_password"] = None
-        elif existing and not f["bp_password"]:
-            f["bp_password"] = existing["bp_password"]
+        f["is_test_mode"] = int(existing["is_test_mode"] or 0) if existing else 0
         if team1_id and team2_id and team1_id > 0 and team1_id == team2_id:
             flash("两支队伍不能相同", "error")
-            return _match_form_response(conn, _get_match_form_row(conn, match_id))
+            return _match_form_response(conn, current_match, 400)
+        if _duplicate_match(conn, f, team1_id, team2_id, team1_players, team2_players, match_id):
+            flash("相同赛事、时间和参赛方的比赛已存在", "error")
+            return _match_form_response(conn, current_match, 400)
         if "map_halves" not in request.form:
             existing_halves = conn.execute(
                 "SELECT map_halves FROM matches WHERE id=?", (match_id,)
@@ -323,33 +505,65 @@ def admin_matches_edit(match_id):
             map4=?, map4_t1=?, map4_t2=?, map5=?, map5_t1=?, map5_t2=?, has_map4=?, has_map5=?,
             map1_picked_by=?, map2_picked_by=?, map3_picked_by=?, map4_picked_by=?, map5_picked_by=?,
             bp_process=?, bp_password=?, stream_url=?, map_halves=?, team1_players=?, team2_players=?, watch_urls=?,
-            server_address=?, server_password=? WHERE id=?""",
-            _match_values(f, team1_id, team2_id, team1_players, team2_players) + (match_id,),
+            server_address=?, server_password=?, is_test_mode=?, decider_knife_winner=?, decider_start_side=?
+            WHERE id=?""",
+            _match_values(f, team1_id, team2_id, team1_players, team2_players)
+            + (f["decider_knife_winner"], f["decider_start_side"], match_id),
         )
         _generate_match_slug(conn, match_id)
+        refresh_bracket_for_match(conn, match_id)
         conn.commit()
         conn.close()
         flash("比赛更新成功", "success")
         return redirect(url_for("admin.admin_matches"))
-    match = _get_match_form_row(conn, match_id)
-    if not match:
-        conn.close()
-        return "比赛不存在", 404
-    return _match_form_response(conn, match)
+    return _match_form_response(conn, current_match)
 
 
 @admin_bp.route("/matches/delete/<int:match_id>", methods=["POST"])
 @csrf_required
 @login_required
 def admin_matches_delete(match_id):
+    conn = get_db()
     try:
-        conn = get_db()
+        match = conn.execute("SELECT id FROM matches WHERE id=?", (match_id,)).fetchone()
+        if not match:
+            flash("比赛不存在", "error")
+            return redirect(url_for("admin.admin_matches"))
+        affected_player_ids = {
+            row["player_id"]
+            for row in conn.execute(
+                "SELECT DISTINCT player_id FROM match_stats WHERE match_id=?",
+                (match_id,),
+            ).fetchall()
+            if row["player_id"]
+        }
+        conn.execute(
+            "DELETE FROM comment_likes WHERE comment_id IN "
+            "(SELECT id FROM comments WHERE target_type='match' AND target_id=?)",
+            (match_id,),
+        )
+        conn.execute("DELETE FROM comments WHERE target_type='match' AND target_id=?", (match_id,))
+        for table in (
+            "match_stats",
+            "player_medals",
+            "match_votes",
+            "live_match_data",
+            "live_match_events",
+            "match_kill_events",
+        ):
+            conn.execute(f"DELETE FROM {table} WHERE match_id=?", (match_id,))
+        conn.execute("UPDATE news SET related_match_id=NULL WHERE related_match_id=?", (match_id,))
+        conn.execute("UPDATE live_ingest_status SET match_id=NULL WHERE match_id=?", (match_id,))
+        conn.execute("DELETE FROM match_slug_aliases WHERE match_id=?", (match_id,))
         conn.execute("DELETE FROM matches WHERE id=?", (match_id,))
+        refresh_player_performance(conn, affected_player_ids)
         conn.commit()
-        conn.close()
         flash("比赛删除成功", "success")
     except Exception as e:
+        conn.rollback()
         flash(f"删除失败：{str(e)}", "error")
+    finally:
+        conn.close()
     return redirect(url_for("admin.admin_matches"))
 
 
@@ -375,6 +589,7 @@ def admin_match_complete(match_id):
             except (TypeError, ValueError):
                 pass
     conn.execute("UPDATE matches SET status='completed' WHERE id=?", (match_id,))
+    refresh_bracket_for_match(conn, match_id)
     score_predictions(conn)
     conn.commit()
     conn.close()
@@ -391,6 +606,8 @@ def admin_match_reopen(match_id):
     changed = conn.execute(
         "UPDATE matches SET status='live' WHERE id=? AND status='completed'", (match_id,)
     ).rowcount
+    if changed:
+        refresh_bracket_for_match(conn, match_id)
     conn.commit()
     conn.close()
     flash("比赛已重新开启" if changed else "比赛未发生变化", "success")
@@ -478,8 +695,22 @@ def admin_match_stats(match_id):
         map_name = request.form.get("map_name", "")
         conn.execute("BEGIN TRANSACTION")
         try:
+            affected_player_ids = {
+                row["player_id"]
+                for row in conn.execute(
+                    """SELECT DISTINCT player_id
+                       FROM match_stats
+                       WHERE match_id=? AND map_name=?""",
+                    (match_id, map_name),
+                ).fetchall()
+                if row["player_id"]
+            }
             conn.execute(
                 "DELETE FROM match_stats WHERE match_id=? AND map_name=?", (match_id, map_name)
+            )
+            conn.execute(
+                "DELETE FROM match_kill_events WHERE match_id=? AND map_name=?",
+                (match_id, map_name),
             )
             rounds = 30
             for mn, t1, t2 in [
@@ -494,6 +725,7 @@ def admin_match_stats(match_id):
                     break
             if rounds == 0:
                 rounds = 30
+            team1_player_ids = {p["id"] for p in team1_players}
             for p in list(team1_players) + list(team2_players):
                 pid = p["id"]
                 kills = int(request.form.get(f"kills_{pid}", 0) or 0)
@@ -504,6 +736,8 @@ def admin_match_stats(match_id):
                 hs = float(request.form.get(f"hs_{pid}", 0) or 0)
                 impact = float(request.form.get(f"impact_{pid}", 0) or 0)
                 team_id = int(request.form.get(f"team_id_{pid}", 0) or 0)
+                stored_team_id = team_id if team_id > 0 else None
+                match_team_side = "t1" if pid in team1_player_ids else "t2"
                 rating, kpr, dpr = calculate_rating(
                     kills=kills,
                     deaths=deaths,
@@ -513,12 +747,17 @@ def admin_match_stats(match_id):
                     impact=impact if impact else 0,
                 )
                 conn.execute(
-                    """INSERT INTO match_stats(match_id, player_id, team_id, kills, deaths, assists, adr, kpr, dpr, rating, impact, kast, headshot_percentage, map_name)
-                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    """INSERT INTO match_stats(
+                           match_id, player_id, team_id, match_team_side,
+                           kills, deaths, assists,
+                           adr, kpr, dpr, rating, impact, kast,
+                           headshot_percentage, rounds_played, map_name
+                       ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                     (
                         match_id,
                         pid,
-                        team_id,
+                        stored_team_id,
+                        match_team_side,
                         kills,
                         deaths,
                         assists,
@@ -529,9 +768,12 @@ def admin_match_stats(match_id):
                         impact,
                         kast,
                         hs,
+                        rounds,
                         map_name,
                     ),
                 )
+                affected_player_ids.add(pid)
+            refresh_player_performance(conn, affected_player_ids)
             conn.commit()
             flash(f"{map_name} 数据已保存", "success")
         except Exception as e:

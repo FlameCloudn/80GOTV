@@ -1,22 +1,17 @@
 """Public home page and signed-in dashboard."""
 
-from datetime import datetime
-
 from flask import render_template
 
 from models import get_db
+from services.home_service import load_home_feed
 from services.match_service import supplement_temp_teams
 from utils.match_utils import (
     get_sql_effective_status,
     get_sql_match_completed,
-    get_sql_match_live,
-    get_sql_match_upcoming,
 )
 from web_app import app
 
 _SQL_MATCH_COMPLETED = get_sql_match_completed()
-_SQL_MATCH_UPCOMING = get_sql_match_upcoming()
-_SQL_MATCH_LIVE = get_sql_match_live()
 _SQL_EFFECTIVE_STATUS = get_sql_effective_status()
 
 
@@ -25,49 +20,12 @@ def index():
     """首页"""
     conn = get_db()
     try:
-        today_str = datetime.now().strftime("%Y-%m-%d")
-        news = conn.execute("SELECT * FROM news ORDER BY publish_time DESC LIMIT 12").fetchall()
-
-        matches = conn.execute(
-            f"""
-            SELECT m.*, t1.name AS team1_name, t2.name AS team2_name,
-                   t1.short_name AS t1s, t2.short_name AS t2s, e.name AS event_name,
-                   {_SQL_EFFECTIVE_STATUS}
-            FROM matches m
-            LEFT JOIN teams t1 ON m.team1_id=t1.id
-            LEFT JOIN teams t2 ON m.team2_id=t2.id
-            LEFT JOIN events e ON m.event_id=e.id
-            WHERE ({_SQL_MATCH_LIVE} OR {_SQL_MATCH_UPCOMING})
-              AND substr(COALESCE(m.match_time, ''), 1, 10)=?
-            ORDER BY CASE WHEN effective_status='live' THEN 0 ELSE 1 END,
-                     CASE WHEN m.match_time IS NULL OR m.match_time='' THEN 1 ELSE 0 END,
-                     m.match_time
-            LIMIT 10
-        """,
-            (today_str,),
-        ).fetchall()
-        matches = [supplement_temp_teams(m, conn) for m in matches]
-
-        recent = conn.execute(f"""
-            SELECT m.*, t1.name AS team1_name, t2.name AS team2_name,
-                   t1.short_name AS t1s, t2.short_name AS t2s,
-                   {_SQL_EFFECTIVE_STATUS}
-            FROM matches m
-            LEFT JOIN teams t1 ON m.team1_id=t1.id
-            LEFT JOIN teams t2 ON m.team2_id=t2.id
-            WHERE {_SQL_MATCH_COMPLETED}
-            ORDER BY m.match_time DESC LIMIT 8
-        """).fetchall()
-        recent = [supplement_temp_teams(m, conn) for m in recent]
-
-        top_players = conn.execute("""
-            SELECT p.nickname, p.id, t.short_name AS team, AVG(ms.rating) AS avg_rating
-            FROM match_stats ms
-            JOIN players p ON ms.player_id=p.id
-            LEFT JOIN teams t ON p.team_id=t.id
-            GROUP BY p.id
-            ORDER BY avg_rating DESC LIMIT 5
-        """).fetchall()
+        feed = load_home_feed(conn)
+        news = feed["news"]
+        forum_activity = feed["forum_activity"]
+        matches = feed["matches"]
+        recent = feed["recent"]
+        top_players = feed["top_players"]
         top_player = top_players[0] if top_players else None
 
         team_ranking = conn.execute(f"""
@@ -109,6 +67,7 @@ def index():
     return render_template(
         "index.html",
         news=news,
+        forum_activity=forum_activity,
         matches=matches,
         recent=recent,
         top_player=top_player,
@@ -138,11 +97,8 @@ def dashboard():
                      ELSE '1.5+'
                 END AS bucket,
                 COUNT(*) AS cnt
-            FROM (
-                SELECT player_id, AVG(rating) AS avg_rating
-                FROM match_stats
-                GROUP BY player_id
-            )
+            FROM player_performance_summary
+            WHERE maps > 0
             GROUP BY bucket
             ORDER BY MIN(avg_rating)
         """).fetchall()
@@ -185,14 +141,23 @@ def dashboard():
         event_matches = [
             dict(r)
             for r in conn.execute("""
-            SELECT e.name AS event, COUNT(m.id) AS cnt
+            SELECT e.name AS event, e.slug AS slug, COUNT(m.id) AS cnt
             FROM events e
             LEFT JOIN matches m ON e.id=m.event_id
             GROUP BY e.id
             ORDER BY cnt DESC
-            LIMIT 10
         """).fetchall()
         ]
+
+        for event_row in event_matches:
+            if event_row["slug"] == "2026-spring-80-major":
+                # This event has three known historical matches that were not recorded.
+                event_row["cnt"] = max(event_row["cnt"], 3)
+
+        event_matches = sorted(
+            event_matches,
+            key=lambda event_row: (-event_row["cnt"], event_row["event"]),
+        )[:10]
     finally:
         conn.close()
 

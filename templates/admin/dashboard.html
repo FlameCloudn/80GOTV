@@ -1,11 +1,34 @@
 <!doctype html>
 <html lang="zh-CN" data-theme="light">
 <head>
+  {% include "_i18n_bootstrap.html" %}
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>后台管理 — 80GOTV</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-comfort.css') }}">
+  <style>
+    .admin-stat-box{
+      display:flex;
+      min-height:146px;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      color:var(--text-primary);
+      text-decoration:none;
+      cursor:pointer;
+      transition:border-color .18s,box-shadow .18s,transform .18s,background .18s;
+    }
+    .admin-stat-box:hover,.admin-stat-box:focus-visible{
+      border-color:var(--accent);
+      background:var(--bg-hover);
+      box-shadow:0 4px 12px var(--shadow);
+      color:var(--text-primary);
+      text-decoration:none;
+      transform:translateY(-2px);
+    }
+    .admin-stat-box:active{transform:translateY(0)}
+  </style>
   <script>
     (function(){
       var t = localStorage.getItem('theme');
@@ -16,44 +39,35 @@
 </head>
 <body>
 
-<div class="admin-top-nav">
-  <div class="logo">🎮 CS2 后台管理</div>
-  <div class="links">
-    <a href="/admin">📊 首页</a>
-    <a href="/admin/teams">👥 队伍</a>
-    <a href="/admin/players">🎯 选手</a>
-    <a href="/admin/events">🏆 赛事</a>
-    <a href="/admin/matches">⚔️ 比赛</a>
-    <a href="/admin/news">📰 新闻</a>
-    <span style="color:var(--text-muted);margin:0 4px">|</span>
-    <span style="color:var(--text-muted)">{{ session.admin_username }}</span>
-    <a href="/admin/logout" class="admin-logout-btn">退出</a>
-  </div>
-</div>
+{% include "admin/_top_nav.html" %}
 
 <div class="admin-container">
   <h2 style="margin-bottom:var(--space-xl);color:var(--text-primary)">数据统计</h2>
   <div class="admin-dash-stats">
-    <div class="admin-stat-box">
+    <a href="{{ url_for('admin.admin_teams') }}" class="admin-stat-box" aria-label="查看队伍管理，共 {{ stats.teams }} 支队伍">
       <div class="admin-stat-value">{{ stats.teams }}</div>
       <div class="admin-stat-label">队伍</div>
-    </div>
-    <div class="admin-stat-box">
+    </a>
+    <a href="{{ url_for('admin.admin_players') }}" class="admin-stat-box" aria-label="查看选手管理，共 {{ stats.players }} 名选手">
       <div class="admin-stat-value">{{ stats.players }}</div>
       <div class="admin-stat-label">选手</div>
-    </div>
-    <div class="admin-stat-box">
+    </a>
+    <a href="{{ url_for('admin.admin_events') }}" class="admin-stat-box" aria-label="查看赛事管理，共 {{ stats.events }} 个赛事">
       <div class="admin-stat-value">{{ stats.events }}</div>
       <div class="admin-stat-label">赛事</div>
-    </div>
-    <div class="admin-stat-box">
+    </a>
+    <a href="{{ url_for('admin.admin_matches') }}" class="admin-stat-box" aria-label="查看比赛管理，共 {{ stats.matches }} 场比赛">
       <div class="admin-stat-value">{{ stats.matches }}</div>
       <div class="admin-stat-label">比赛</div>
-    </div>
-    <div class="admin-stat-box">
+    </a>
+    <a href="{{ url_for('admin.admin_news') }}" class="admin-stat-box" aria-label="查看新闻管理，共 {{ stats.news }} 条新闻">
       <div class="admin-stat-value">{{ stats.news }}</div>
       <div class="admin-stat-label">新闻</div>
-    </div>
+    </a>
+    <a href="{{ url_for('admin.registration_reviews') }}" class="admin-stat-box" aria-label="查看账号审核，共 {{ stats.pending_users }} 个待审核账号">
+      <div class="admin-stat-value">{{ stats.pending_users }}</div>
+      <div class="admin-stat-label">待审核账号</div>
+    </a>
   </div>
 
   <h2 style="margin-bottom:var(--space-xl);color:var(--text-primary)">管理功能</h2>
@@ -78,6 +92,10 @@
       <div class="icon">📰</div>
       <div class="title">新闻管理</div>
     </a>
+    <a href="/admin/registrations" class="admin-nav-card">
+      <div class="icon">ID</div>
+      <div class="title">账号审核{% if stats.pending_users %} ({{ stats.pending_users }}){% endif %}</div>
+    </a>
     <a href="/admin/live" class="admin-nav-card">
       <div class="icon">📡</div>
       <div class="title">直播状态</div>
@@ -85,6 +103,10 @@
     <a href="/admin/awards/poster" class="admin-nav-card">
       <div class="icon">🏅</div>
       <div class="title">MVP / EVP 数据图</div>
+    </a>
+    <a href="/admin/top10" class="admin-nav-card">
+      <div class="icon">10</div>
+      <div class="title">年度 TOP 10</div>
     </a>
     <a href="/admin/nicknames" class="admin-nav-card">
       <div class="icon">🔖</div>
@@ -101,7 +123,7 @@
   </div>
 </div>
 
-<script src="{{ url_for('static', filename='js/i18n.js') }}?v=20260614-fullsite-lang2"></script>
+<script src="{{ versioned_url('static/js/i18n.js') }}"></script>
 <script src="{{ url_for('static', filename='js/svg_icons.js') }}?v=20260620-svg1"></script>
 </body>
 </html>

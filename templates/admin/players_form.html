@@ -1,9 +1,10 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
+  {% include "_i18n_bootstrap.html" %}
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>{% if player %}编辑选手{% else %}添加选手{% endif %}</title>
+  <title>{% if player and player.id %}编辑选手{% else %}添加选手与账号{% endif %}</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     body{font-family:sans-serif;background:#f5f5f5}
@@ -59,6 +60,16 @@
     }
     h2{margin-bottom:30px;color:#333}
     .form-group{margin-bottom:20px}
+    .form-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+    .choice-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+    .choice{position:relative;cursor:pointer}
+    .choice input{position:absolute;opacity:0;pointer-events:none}
+    .choice span{display:block;padding:12px;border:1px solid #ddd;background:#f7f8fa;font-weight:600}
+    .choice input:checked+span{border-color:#5881bc;box-shadow:inset 3px 0 0 #5881bc;background:#edf3fa}
+    .check-row{display:flex;align-items:center;gap:9px;padding:12px;border:1px solid #ddd;background:#f7f8fa;cursor:pointer}
+    .check-row input{width:auto}
+    .field-note{display:block;margin-top:6px;color:#69788a;font-size:12px;line-height:1.5}
+    [hidden]{display:none!important}
     label{
       display:block;
       margin-bottom:8px;
@@ -108,20 +119,7 @@
 <body>
 
 <!-- 顶部导航栏 -->
-<div class="top-nav">
-  <div class="logo">🎮 CS2 后台管理</div>
-  <div class="nav-links">
-    <a href="/admin">📊 首页</a>
-    <a href="/admin/teams">👥 队伍</a >
-    <a href="/admin/players">🎯 选手</a >
-    <a href="/admin/events">🏆 赛事</a >
-    <a href="/admin/matches">⚔️ 比赛</a >
-    <a href="/admin/news">📰 新闻</a >
-    <span style="color:#ccc">|</span>
-    <span style="color:#666">{{ session.admin_username }}</span>
-    <a href="/admin/logout" class="logout-btn">退出</a >
-  </div>
-</div>
+{% include "admin/_top_nav.html" %}
 
 <div class="container">
   {% with messages = get_flashed_messages(with_categories=true) %}
@@ -133,7 +131,7 @@
   {% endwith %}
 
   <div class="form-container">
-    <h2>{% if player %}✏️ 编辑选手{% else %}➕ 添加选手{% endif %}</h2>
+    <h2>{% if player and player.id %}编辑选手{% else %}添加选手与账号{% endif %}</h2>
 
     <form method="post" enctype="multipart/form-data">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -143,11 +141,27 @@
         <input type="text" name="nickname" value="{{ player.nickname if player else '' }}" required placeholder="游戏昵称">
       </div>
 
-
-
       <div class="form-group">
-        <label>真名</label>
-        <input type="text" name="real_name" value="{{ player.real_name if player else '' }}" placeholder="真实姓名（可选）">
+        <label>是否是或曾经是八十中学生 *</label>
+        <div class="choice-row">
+          <label class="choice">
+            <input type="radio" name="is_bashizhong_student" value="1"
+                   {% if player and player.is_bashizhong_student == 1 %}checked{% endif %} required>
+            <span>是</span>
+          </label>
+          <label class="choice">
+            <input type="radio" name="is_bashizhong_student" value="0"
+                   {% if player and player.is_bashizhong_student == 0 %}checked{% endif %} required>
+            <span>不是</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="form-group" id="groupUsernameField">
+        <label>群内昵称 *</label>
+        <input type="text" name="group_username" maxlength="40"
+               value="{{ player.group_username if player else '' }}"
+               placeholder="群聊中使用的名字">
       </div>
 
       <div class="form-group">
@@ -155,7 +169,7 @@
         <select name="team_id">
           <option value="">无队伍</option>
           {% for t in teams %}
-          <option value="{{ t.id }}" {% if player and player.team_id==t.id %}selected{% endif %}>
+          <option value="{{ t.id }}" {% if player and player.team_id|string==t.id|string %}selected{% endif %}>
             {{ t.name }}
           </option>
           {% endfor %}
@@ -164,8 +178,40 @@
 
       <div class="form-group">
         <label>Steam ID</label>
-        <input type="text" name="steam_id" value="{{ player.steam_id if player else '' }}" placeholder="Steam ID（可选）">
+        <input type="text" name="steam_id" inputmode="numeric" maxlength="17"
+               value="{{ player.steam_id if player else '' }}" placeholder="17 位 Steam64 ID">
       </div>
+
+      {% if not (player and player.id) %}
+      {% set create_account_checked = (not player) or player.create_account %}
+      <div class="form-group">
+        <label class="check-row">
+          <input id="createAccount" type="checkbox" name="create_account" value="1"
+                 {% if create_account_checked %}checked{% endif %}>
+          <span>同时创建并启用网站登录账号</span>
+        </label>
+        <small class="field-note">账号用户名与选手昵称相同；勾选后必须填写 Steam ID 和初始密码。</small>
+      </div>
+
+      <div id="accountFields">
+        <div class="form-row">
+          <div class="form-group">
+            <label>账号邮箱</label>
+            <input type="email" name="account_email" maxlength="254"
+                   value="{{ player.account_email if player else '' }}" placeholder="可选">
+          </div>
+          <div></div>
+          <div class="form-group">
+            <label>初始密码 *</label>
+            <input type="password" name="password" minlength="8" maxlength="128" autocomplete="new-password">
+          </div>
+          <div class="form-group">
+            <label>确认初始密码 *</label>
+            <input type="password" name="password2" minlength="8" maxlength="128" autocomplete="new-password">
+          </div>
+        </div>
+      </div>
+      {% endif %}
 
       <div class="form-group">
         <label>头像</label>
@@ -181,15 +227,46 @@
 
       <div class="form-actions">
         <button type="submit" class="btn btn-primary">
-          {% if player %}💾 保存修改{% else %}✅ 添加选手{% endif %}
+          {% if player and player.id %}保存修改{% else %}创建{% endif %}
         </button>
-        <a href="/admin/players" class="btn btn-secondary">❌ 取消</a >
+        <a href="/admin/players" class="btn btn-secondary">❌ 取消</a>
       </div>
     </form>
   </div>
 </div>
 
-<script src="{{ url_for('static', filename='js/i18n.js') }}?v=20260614-fullsite-lang2"></script>
+<script>
+  (function () {
+    var form = document.querySelector('.form-container form');
+    var groupField = document.getElementById('groupUsernameField');
+    var groupInput = groupField && groupField.querySelector('input');
+    function syncSchoolFields() {
+      var checked = form.querySelector('input[name="is_bashizhong_student"]:checked');
+      var student = checked && checked.value === '1';
+      if (groupField) groupField.hidden = !student;
+      if (groupInput) groupInput.required = !!student;
+    }
+    form.querySelectorAll('input[name="is_bashizhong_student"]').forEach(function (radio) {
+      radio.addEventListener('change', syncSchoolFields);
+    });
+    syncSchoolFields();
+
+    var createAccount = document.getElementById('createAccount');
+    var accountFields = document.getElementById('accountFields');
+    function syncAccountFields() {
+      if (!createAccount || !accountFields) return;
+      accountFields.hidden = !createAccount.checked;
+      accountFields.querySelectorAll('input[type="password"]').forEach(function (input) {
+        input.required = createAccount.checked;
+      });
+    }
+    if (createAccount) {
+      createAccount.addEventListener('change', syncAccountFields);
+      syncAccountFields();
+    }
+  })();
+</script>
+<script src="{{ versioned_url('static/js/i18n.js') }}"></script>
 <script src="{{ url_for('static', filename='js/svg_icons.js') }}?v=20260620-svg1"></script>
 </body>
 </html>

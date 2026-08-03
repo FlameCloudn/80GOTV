@@ -1,0 +1,10 @@
+[Unit]
+Description=Run the 80GOTV weekly full backup
+
+[Timer]
+OnCalendar=Sun *-*-* 04:15:00
+Persistent=true
+RandomizedDelaySec=20m
+
+[Install]
+WantedBy=timers.target

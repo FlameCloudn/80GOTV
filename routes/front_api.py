@@ -9,12 +9,19 @@ from datetime import datetime
 from flask import jsonify, request, session, url_for
 
 from models import get_db
+from services.home_service import load_home_feed
 from services.match_service import (
     add_effective_event_status,
     score_predictions,
     supplement_temp_teams,
 )
+from services.player_remark_service import (
+    private_player_identity,
+    private_user_identity,
+)
+from utils.db_helpers import avatar_static_filename
 from utils.filters import date_display_filter, datetime_display_filter, time_display_filter
+from utils.helpers import event_path, news_path
 from utils.match_utils import (
     get_sql_effective_status,
     get_sql_match_completed,
@@ -45,11 +52,6 @@ PUBLIC_FEATURES = [
             {"name": "赛果列表", "page": "/results", "api": "/api/front/results"},
             {"name": "比赛详情", "page": "/matches/<id>", "api": "/api/front/matches/<id>"},
             {"name": "数据直播", "page": "/matches/<id>/live", "api": "/api/live/<id>"},
-            {
-                "name": "回放解析",
-                "page": "/matches/<id>/replay",
-                "api": "/api/replay/parse/<id>/<slot>",
-            },
             {"name": "赛前投票", "page": "/matches/<id>", "api": "/matches/<id>/vote"},
             {"name": "BP 房间", "page": "/bp/<id>", "api": "/api/bp/<id>/state"},
         ],
@@ -130,6 +132,19 @@ def _text(value):
     return "" if value is None else str(value)
 
 
+def _user_display_name(username, group_username, user_id=None):
+    nickname, group_name = private_user_identity(user_id, username, group_username)
+    nickname = _text(nickname).strip()
+    group_name = _text(group_name).strip()
+    if nickname and group_name:
+        return f"{nickname} @{group_name}"
+    return nickname or group_name
+
+
+def _player_display_name(player_id, nickname):
+    return _text(private_player_identity(player_id, nickname)[0])
+
+
 def _keys(row):
     return row.keys() if hasattr(row, "keys") else []
 
@@ -155,7 +170,8 @@ def _page_params(default=20, maximum=100):
 
 
 def _avatar_url(filename):
-    return url_for("static", filename="avatars/" + filename) if filename else ""
+    static_filename = avatar_static_filename(app.root_path, filename, thumbnail=True)
+    return url_for("static", filename=static_filename) if static_filename else ""
 
 
 def _logo_url(filename):
@@ -172,10 +188,12 @@ def _match_payload(match):
         "url": _match_url(match),
         "event_id": _get(match, "event_id"),
         "event": _text(_get(match, "event_name", "")),
-        "team1": _text(match["t1s"] or match["team1_name"] or "TBD"),
-        "team2": _text(match["t2s"] or match["team2_name"] or "TBD"),
+        "team1": _text(_get(match, "team1_name", "TBD") or "TBD"),
+        "team2": _text(_get(match, "team2_name", "TBD") or "TBD"),
         "team1_full": _text(_get(match, "team1_name", "TBD")),
         "team2_full": _text(_get(match, "team2_name", "TBD")),
+        "team1_logo": _logo_url(_get(match, "team1_logo", "")),
+        "team2_logo": _logo_url(_get(match, "team2_logo", "")),
         "score1": match["team1_score"],
         "score2": match["team2_score"],
         "bo": _text(match["bo_format"] or "BO1"),
@@ -201,15 +219,12 @@ def _match_payload(match):
 def _news_payload(row):
     return {
         "id": row["id"],
-        "url": url_for("news_detail", news_id=row["id"]),
+        "url": news_path(row),
         "title": _text(row["title"]),
         "summary": _text(_get(row, "summary", "")),
         "time": datetime_display_filter(row["publish_time"]) if row["publish_time"] else "",
         "raw_time": _text(_get(row, "publish_time", "")),
         "comments": row["comment_count"] if "comment_count" in row.keys() else 0,
-        "tags": [
-            _text(t).strip() for t in _text(_get(row, "tags", "")).split(",") if _text(t).strip()
-        ],
     }
 
 
@@ -217,7 +232,7 @@ def _event_payload(row):
     status = _get(row, "effective_event_status") or _get(row, "status", "")
     return {
         "id": row["id"],
-        "url": url_for("event_detail", event_id=row["id"]),
+        "url": event_path(row),
         "name": _text(row["name"]),
         "short_name": _text(_get(row, "short_name", "")),
         "description": _text(_get(row, "description", "")),
@@ -235,11 +250,21 @@ def _event_payload(row):
 
 def _player_payload(row):
     rating = _get(row, "rating", _get(row, "avg_rating", None))
+    school_status = _get(
+        row,
+        "managed_is_bashizhong_student",
+        _get(row, "is_bashizhong_student", None),
+    )
+    nickname, group_username = private_player_identity(
+        row["id"], row["nickname"], _get(row, "group_username", "")
+    )
     return {
         "id": row["id"],
         "url": url_for("player_detail", player_id=row["id"]),
-        "nickname": _text(row["nickname"]),
-        "real_name": _text(_get(row, "real_name", "")),
+        "nickname": _text(nickname),
+        "group_username": (_text(group_username) if school_status != 0 else ""),
+        "is_bashizhong_student": school_status,
+        "origin_symbol": "🌐" if school_status == 0 else "",
         "team_id": _get(row, "team_id"),
         "team": _text(_get(row, "team", _get(row, "team_name", ""))),
         "avatar": _avatar_url(_get(row, "avatar", "")),
@@ -270,11 +295,21 @@ def _team_payload(row):
 
 
 def _comment_payload(row):
+    username, group_username = private_user_identity(
+        _get(row, "user_id"),
+        _get(row, "username", ""),
+        _get(row, "group_username", ""),
+    )
+    username = _text(username)
+    group_username = _text(group_username)
     return {
         "id": row["id"],
         "user_id": row["user_id"],
-        "username": _text(_get(row, "username", "")),
+        "username": username,
+        "group_username": group_username,
+        "display_name": _user_display_name(username, group_username),
         "avatar": _avatar_url(_get(row, "avatar", "")),
+        "is_cheater": bool(_get(row, "is_cheater", 0)),
         "content": _text(row["content"]),
         "created_at": datetime_display_filter(row["created_at"]) if row["created_at"] else "",
         "parent_id": _get(row, "parent_id"),
@@ -286,63 +321,37 @@ def _comment_payload(row):
 def api_front_home():
     """Home page data for progressive frontend rendering."""
     conn = get_db()
-    today_str = datetime.now().strftime("%Y-%m-%d")
-
-    news_rows = conn.execute("SELECT * FROM news ORDER BY publish_time DESC LIMIT 12").fetchall()
-
-    match_rows = conn.execute(
-        f"""
-        SELECT m.*, t1.name AS team1_name, t2.name AS team2_name,
-               t1.short_name AS t1s, t2.short_name AS t2s, e.name AS event_name,
-               {_SQL_EFFECTIVE_STATUS}
-        FROM matches m
-        LEFT JOIN teams t1 ON m.team1_id=t1.id
-        LEFT JOIN teams t2 ON m.team2_id=t2.id
-        LEFT JOIN events e ON m.event_id=e.id
-        WHERE ({_SQL_MATCH_LIVE} OR {_SQL_MATCH_UPCOMING})
-          AND substr(COALESCE(m.match_time, ''), 1, 10)=?
-        ORDER BY CASE WHEN effective_status='live' THEN 0 ELSE 1 END,
-                 CASE WHEN m.match_time IS NULL OR m.match_time='' THEN 1 ELSE 0 END,
-                 m.match_time
-        LIMIT 10
-    """,
-        (today_str,),
-    ).fetchall()
-    match_rows = [supplement_temp_teams(m, conn) for m in match_rows]
-
-    recent_rows = conn.execute(f"""
-        SELECT m.*, t1.name AS team1_name, t2.name AS team2_name,
-               t1.short_name AS t1s, t2.short_name AS t2s,
-               {_SQL_EFFECTIVE_STATUS}
-        FROM matches m
-        LEFT JOIN teams t1 ON m.team1_id=t1.id
-        LEFT JOIN teams t2 ON m.team2_id=t2.id
-        WHERE {_SQL_MATCH_COMPLETED}
-        ORDER BY m.match_time DESC LIMIT 8
-    """).fetchall()
-    recent_rows = [supplement_temp_teams(m, conn) for m in recent_rows]
-
-    top_players = conn.execute("""
-        SELECT p.nickname, p.id, AVG(ms.rating) AS avg_rating
-        FROM match_stats ms
-        JOIN players p ON ms.player_id=p.id
-        GROUP BY p.id
-        ORDER BY avg_rating DESC LIMIT 5
-    """).fetchall()
-    conn.close()
+    try:
+        feed = load_home_feed(conn)
+    finally:
+        conn.close()
+    news_rows = feed["news"]
+    forum_rows = feed["forum_activity"]
+    match_rows = feed["matches"]
+    recent_rows = feed["recent"]
+    top_players = feed["top_players"]
 
     return jsonify(
         {
             "ok": True,
             "generated_at": datetime.now().isoformat(timespec="seconds"),
             "news": [_news_payload(row) for row in news_rows],
+            "forum_activity": [
+                {
+                    "id": row["id"],
+                    "url": url_for("forum_thread", thread_id=row["id"]),
+                    "title": _text(row["title"]),
+                    "replies": int(row["reply_count"] or 0),
+                }
+                for row in forum_rows
+            ],
             "matches": [_match_payload(row) for row in match_rows],
             "recent_results": [_match_payload(row) for row in recent_rows],
             "top_players": [
                 {
                     "id": row["id"],
                     "url": url_for("player_detail", player_id=row["id"]),
-                    "nickname": _text(row["nickname"]),
+                    "nickname": _player_display_name(row["id"], row["nickname"]),
                     "rating": round(float(row["avg_rating"] or 0), 2),
                 }
                 for row in top_players
@@ -373,7 +382,9 @@ def api_front_matches():
         """
     query = f"""
         SELECT m.*, t1.name AS team1_name, t2.name AS team2_name,
-               t1.short_name AS t1s, t2.short_name AS t2s, e.name AS event_name,
+               t1.short_name AS t1s, t2.short_name AS t2s,
+               t1.logo AS team1_logo, t2.logo AS team2_logo,
+               e.name AS event_name,
                {_SQL_EFFECTIVE_STATUS}
         FROM matches m
         LEFT JOIN teams t1 ON m.team1_id=t1.id
@@ -403,31 +414,14 @@ def api_front_features():
 @app.route("/api/front/news")
 def api_front_news():
     """News list data."""
-    tag_filter = request.args.get("tag", "").strip()
     page, per_page, offset = _page_params(default=20, maximum=80)
     conn = get_db()
-    params = []
-    where_sql = ""
-    if tag_filter:
-        where_sql = "WHERE tags LIKE ?"
-        params.append(f"%{tag_filter}%")
     rows = conn.execute(
-        f"SELECT * FROM news {where_sql} ORDER BY publish_time DESC LIMIT ? OFFSET ?",
-        (*params, per_page, offset),
+        "SELECT * FROM news ORDER BY publish_time DESC LIMIT ? OFFSET ?",
+        (per_page, offset),
     ).fetchall()
-    total = conn.execute(f"SELECT COUNT(*) AS cnt FROM news {where_sql}", tuple(params)).fetchone()[
-        "cnt"
-    ]
-    tag_rows = conn.execute(
-        "SELECT tags FROM news WHERE tags IS NOT NULL AND tags != ''"
-    ).fetchall()
+    total = conn.execute("SELECT COUNT(*) AS cnt FROM news").fetchone()["cnt"]
     conn.close()
-    tag_counts = {}
-    for row in tag_rows:
-        for tag in _text(row["tags"]).split(","):
-            tag = tag.strip()
-            if tag:
-                tag_counts[tag] = tag_counts.get(tag, 0) + 1
     return jsonify(
         {
             "ok": True,
@@ -435,10 +429,6 @@ def api_front_news():
             "per_page": per_page,
             "total": total,
             "news": [_news_payload(row) for row in rows],
-            "tags": [
-                {"name": name, "count": count}
-                for name, count in sorted(tag_counts.items(), key=lambda item: -item[1])
-            ],
         }
     )
 
@@ -470,7 +460,10 @@ def api_front_news_detail(news_id):
             related_match = supplement_temp_teams(related_match, conn)
     comments = conn.execute(
         """
-        SELECT c.*, u.username, u.avatar,
+        SELECT c.*, u.username,
+               CASE WHEN COALESCE(u.is_bashizhong_student, 1)<>0
+                    THEN u.group_username END AS group_username,
+               u.avatar, u.is_cheater,
                (SELECT COUNT(*) FROM comment_likes WHERE comment_id=c.id) AS like_count
         FROM comments c
         JOIN users u ON c.user_id=u.id
@@ -564,7 +557,10 @@ def api_front_match_detail(match_id):
     ).fetchall()
     comments = conn.execute(
         """
-        SELECT c.*, u.username, u.avatar,
+        SELECT c.*, u.username,
+               CASE WHEN COALESCE(u.is_bashizhong_student, 1)<>0
+                    THEN u.group_username END AS group_username,
+               u.avatar, u.is_cheater,
                (SELECT COUNT(*) FROM comment_likes WHERE comment_id=c.id) AS like_count
         FROM comments c
         JOIN users u ON c.user_id=u.id
@@ -581,7 +577,7 @@ def api_front_match_detail(match_id):
             "stats": [
                 {
                     "player_id": row["player_id"],
-                    "nickname": _text(row["nickname"]),
+                    "nickname": _player_display_name(row["player_id"], row["nickname"]),
                     "avatar": _avatar_url(_get(row, "avatar", "")),
                     "team_id": row["team_id"],
                     "team": _text(_get(row, "team_short", _get(row, "team_name", ""))),
@@ -691,7 +687,7 @@ def api_front_event_detail(event_id):
                 {
                     "type": row["type"],
                     "player_id": row["player_id"],
-                    "nickname": _text(row["nickname"]),
+                    "nickname": _player_display_name(row["player_id"], row["nickname"]),
                     "avatar": _avatar_url(_get(row, "avatar", "")),
                     "rank": _get(row, "evp_rank"),
                     "reason": _text(_get(row, "reason", "")),
@@ -723,15 +719,29 @@ def api_front_players():
     rows = conn.execute(
         f"""
         SELECT p.*, t.name AS team_name, t.short_name AS team,
-               COUNT(ms.id) AS maps, AVG(ms.rating) AS rating,
-               SUM(ms.kills) AS kills, SUM(ms.deaths) AS deaths,
-               SUM(ms.assists) AS assists, AVG(ms.adr) AS adr,
-               AVG(ms.headshot_percentage) AS hs
+               COALESCE((
+                   SELECT NULLIF(TRIM(u.group_username), '')
+                   FROM users u
+                   WHERE u.steam_id64=p.steam_id
+                   ORDER BY u.id
+                   LIMIT 1
+                ), NULLIF(TRIM(p.group_username_override), ''), '') AS group_username,
+               COALESCE((
+                   SELECT u.is_bashizhong_student
+                   FROM users u
+                   WHERE u.steam_id64=p.steam_id
+                   ORDER BY u.id DESC
+                   LIMIT 1
+               ), p.is_bashizhong_student) AS managed_is_bashizhong_student,
+               COALESCE(s.maps, 0) AS maps, s.avg_rating AS rating,
+               COALESCE(s.total_kills, 0) AS kills,
+               COALESCE(s.total_deaths, 0) AS deaths,
+               COALESCE(s.total_assists, 0) AS assists,
+               s.avg_adr AS adr, s.avg_hs AS hs
         FROM players p
         LEFT JOIN teams t ON p.team_id=t.id
-        LEFT JOIN match_stats ms ON ms.player_id=p.id
+        LEFT JOIN player_performance_summary s ON s.player_id=p.id
         {where_sql}
-        GROUP BY p.id
         ORDER BY {order_sql}
         LIMIT ? OFFSET ?
     """,
@@ -758,7 +768,21 @@ def api_front_player_detail(player_id):
     conn = get_db()
     player = conn.execute(
         """
-        SELECT p.*, t.name AS team_name, t.short_name AS team
+        SELECT p.*, t.name AS team_name, t.short_name AS team,
+               COALESCE((
+                   SELECT NULLIF(TRIM(u.group_username), '')
+                   FROM users u
+                   WHERE u.steam_id64=p.steam_id
+                   ORDER BY u.id
+                   LIMIT 1
+                ), NULLIF(TRIM(p.group_username_override), ''), '') AS group_username,
+               COALESCE((
+                   SELECT u.is_bashizhong_student
+                   FROM users u
+                   WHERE u.steam_id64=p.steam_id
+                   ORDER BY u.id DESC
+                   LIMIT 1
+               ), p.is_bashizhong_student) AS managed_is_bashizhong_student
         FROM players p
         LEFT JOIN teams t ON p.team_id=t.id
         WHERE p.id=?
@@ -770,15 +794,31 @@ def api_front_player_detail(player_id):
         return jsonify({"ok": False, "error": "选手不存在"}), 404
     summary = conn.execute(
         """
-        SELECT COUNT(*) AS maps, SUM(kills) AS kills, SUM(deaths) AS deaths,
-               SUM(assists) AS assists, AVG(rating) AS rating, AVG(adr) AS adr,
-               AVG(kast) AS kast, AVG(headshot_percentage) AS hs,
-               AVG(kpr) AS kpr, AVG(dpr) AS dpr, AVG(impact) AS impact,
-               SUM(rounds_played) AS rounds
-        FROM match_stats WHERE player_id=?
+        SELECT maps, total_kills AS kills, total_deaths AS deaths,
+               total_assists AS assists, avg_rating AS rating, avg_adr AS adr,
+               avg_kast AS kast, avg_hs AS hs, avg_kpr AS kpr,
+               avg_dpr AS dpr, avg_impact AS impact,
+               rounds_played AS rounds
+        FROM player_performance_summary
+        WHERE player_id=?
     """,
         (player_id,),
     ).fetchone()
+    if summary is None:
+        summary = {
+            "maps": 0,
+            "kills": 0,
+            "deaths": 0,
+            "assists": 0,
+            "rating": 0,
+            "adr": 0,
+            "kast": 0,
+            "hs": 0,
+            "kpr": 0,
+            "dpr": 0,
+            "impact": 0,
+            "rounds": 0,
+        }
     recent = conn.execute(
         f"""
         SELECT m.*, ms.team_id AS stat_team_id, ms.kills, ms.deaths, ms.assists,
@@ -864,15 +904,29 @@ def api_front_stats_overview():
     conn = get_db()
     top_players = conn.execute("""
         SELECT p.id, p.nickname, p.avatar, t.short_name AS team,
-               COUNT(ms.id) AS maps, AVG(ms.rating) AS rating,
-               SUM(ms.kills) AS kills, SUM(ms.deaths) AS deaths,
-               SUM(ms.assists) AS assists, AVG(ms.adr) AS adr,
-               AVG(ms.headshot_percentage) AS hs
-        FROM match_stats ms
-        JOIN players p ON ms.player_id=p.id
+               COALESCE((
+                   SELECT NULLIF(TRIM(u.group_username), '')
+                   FROM users u
+                   WHERE u.steam_id64=p.steam_id
+                   ORDER BY u.id
+                   LIMIT 1
+                ), NULLIF(TRIM(p.group_username_override), ''), '') AS group_username,
+               COALESCE((
+                   SELECT u.is_bashizhong_student
+                   FROM users u
+                   WHERE u.steam_id64=p.steam_id
+                   ORDER BY u.id DESC
+                   LIMIT 1
+               ), p.is_bashizhong_student) AS managed_is_bashizhong_student,
+               s.maps, s.avg_rating AS rating,
+               s.total_kills AS kills, s.total_deaths AS deaths,
+               s.total_assists AS assists, s.avg_adr AS adr,
+               s.avg_hs AS hs
+        FROM player_performance_summary s
+        JOIN players p ON s.player_id=p.id
         LEFT JOIN teams t ON p.team_id=t.id
-        GROUP BY p.id
-        ORDER BY rating DESC, maps DESC
+        WHERE s.maps > 0
+        ORDER BY s.avg_rating DESC, s.maps DESC
         LIMIT 10
     """).fetchall()
     top_teams = conn.execute("""
@@ -932,53 +986,11 @@ def api_front_stats_overview():
 def api_front_dashboard():
     """首页数据合并端点 —— 一次请求获取 news、matches、events、top_players、MVP/EVP 等首页全部数据。"""
     conn = get_db()
-    today_str = datetime.now().strftime("%Y-%m-%d")
-
-    # —— 新闻（最新 12 条）——
-    news_rows = conn.execute("SELECT * FROM news ORDER BY publish_time DESC LIMIT 12").fetchall()
-
-    # —— 今日比赛（进行中 / 即将开始）——
-    match_rows = conn.execute(
-        f"""
-        SELECT m.*, t1.name AS team1_name, t2.name AS team2_name,
-               t1.short_name AS t1s, t2.short_name AS t2s, e.name AS event_name,
-               {_SQL_EFFECTIVE_STATUS}
-        FROM matches m
-        LEFT JOIN teams t1 ON m.team1_id=t1.id
-        LEFT JOIN teams t2 ON m.team2_id=t2.id
-        LEFT JOIN events e ON m.event_id=e.id
-        WHERE ({_SQL_MATCH_LIVE} OR {_SQL_MATCH_UPCOMING})
-          AND substr(COALESCE(m.match_time, ''), 1, 10)=?
-        ORDER BY CASE WHEN effective_status='live' THEN 0 ELSE 1 END,
-                 CASE WHEN m.match_time IS NULL OR m.match_time='' THEN 1 ELSE 0 END,
-                 m.match_time
-        LIMIT 10
-    """,
-        (today_str,),
-    ).fetchall()
-    match_rows = [supplement_temp_teams(m, conn) for m in match_rows]
-
-    # —— 最近赛果（已完成比赛，最近 8 场）——
-    recent_rows = conn.execute(f"""
-        SELECT m.*, t1.name AS team1_name, t2.name AS team2_name,
-               t1.short_name AS t1s, t2.short_name AS t2s,
-               {_SQL_EFFECTIVE_STATUS}
-        FROM matches m
-        LEFT JOIN teams t1 ON m.team1_id=t1.id
-        LEFT JOIN teams t2 ON m.team2_id=t2.id
-        WHERE {_SQL_MATCH_COMPLETED}
-        ORDER BY m.match_time DESC LIMIT 8
-    """).fetchall()
-    recent_rows = [supplement_temp_teams(m, conn) for m in recent_rows]
-
-    # —— 高分选手 TOP 5 ——
-    top_players = conn.execute("""
-        SELECT p.nickname, p.id, AVG(ms.rating) AS avg_rating
-        FROM match_stats ms
-        JOIN players p ON ms.player_id=p.id
-        GROUP BY p.id
-        ORDER BY avg_rating DESC LIMIT 5
-    """).fetchall()
+    feed = load_home_feed(conn)
+    news_rows = feed["news"]
+    match_rows = feed["matches"]
+    recent_rows = feed["recent"]
+    top_players = feed["top_players"]
 
     # —— 赛事列表（含比赛/队伍数统计）——
     event_rows = conn.execute("""
@@ -994,7 +1006,22 @@ def api_front_dashboard():
 
     # —— MVP 排行 TOP 5 ——
     mvp = conn.execute("""
-        SELECT p.id, p.nickname, p.avatar, COUNT(pm.id) AS count
+        SELECT p.id, p.nickname, p.avatar,
+               COALESCE((
+                   SELECT NULLIF(TRIM(u.group_username), '')
+                   FROM users u
+                   WHERE u.steam_id64=p.steam_id
+                   ORDER BY u.id
+                   LIMIT 1
+                ), NULLIF(TRIM(p.group_username_override), ''), '') AS group_username,
+               COALESCE((
+                   SELECT u.is_bashizhong_student
+                   FROM users u
+                   WHERE u.steam_id64=p.steam_id
+                   ORDER BY u.id DESC
+                   LIMIT 1
+               ), p.is_bashizhong_student) AS managed_is_bashizhong_student,
+               COUNT(pm.id) AS count
         FROM player_medals pm
         JOIN players p ON pm.player_id=p.id
         WHERE pm.type='MVP'
@@ -1005,7 +1032,22 @@ def api_front_dashboard():
 
     # —— EVP 排行 TOP 5 ——
     evp = conn.execute("""
-        SELECT p.id, p.nickname, p.avatar, COUNT(pm.id) AS count
+        SELECT p.id, p.nickname, p.avatar,
+               COALESCE((
+                   SELECT NULLIF(TRIM(u.group_username), '')
+                   FROM users u
+                   WHERE u.steam_id64=p.steam_id
+                   ORDER BY u.id
+                   LIMIT 1
+                ), NULLIF(TRIM(p.group_username_override), ''), '') AS group_username,
+               COALESCE((
+                   SELECT u.is_bashizhong_student
+                   FROM users u
+                   WHERE u.steam_id64=p.steam_id
+                   ORDER BY u.id DESC
+                   LIMIT 1
+               ), p.is_bashizhong_student) AS managed_is_bashizhong_student,
+               COUNT(pm.id) AS count
         FROM player_medals pm
         JOIN players p ON pm.player_id=p.id
         WHERE pm.type='EVP'
@@ -1039,7 +1081,7 @@ def api_front_dashboard():
                 {
                     "id": row["id"],
                     "url": url_for("player_detail", player_id=row["id"]),
-                    "nickname": _text(row["nickname"]),
+                    "nickname": _player_display_name(row["id"], row["nickname"]),
                     "rating": round(float(row["avg_rating"] or 0), 2),
                 }
                 for row in top_players
@@ -1062,7 +1104,7 @@ def api_front_predictions():
     score_predictions(conn)
     conn.commit()
     leaderboard = conn.execute("""
-        SELECT u.username, u.id AS user_id, u.avatar,
+        SELECT u.username, u.id AS user_id, u.avatar, u.is_cheater,
                COUNT(v.id) AS total_votes,
                SUM(CASE WHEN v.points_earned > 0 THEN 1 ELSE 0 END) AS correct_votes,
                SUM(v.points_earned) AS total_points
@@ -1099,8 +1141,9 @@ def api_front_predictions():
             "leaderboard": [
                 {
                     "user_id": row["user_id"],
-                    "username": _text(row["username"]),
+                    "username": _user_display_name(row["username"], "", row["user_id"]),
                     "avatar": _avatar_url(_get(row, "avatar", "")),
+                    "is_cheater": bool(_get(row, "is_cheater", 0)),
                     "votes": row["total_votes"],
                     "correct": row["correct_votes"] or 0,
                     "points": row["total_points"] or 0,
@@ -1130,32 +1173,57 @@ def api_front_predictions():
 def api_front_forum():
     """Forum thread list."""
     page, per_page, offset = _page_params(default=25, maximum=80)
-    tag_filter = request.args.get("tag", "").strip()
     search_query = request.args.get("q", "").strip()
+    category_slug = request.args.get("category", "").strip()
+    sort_by = request.args.get("sort", "latest").strip()
+    order_sql = {
+        "latest": "t.is_pinned DESC, COALESCE(t.last_reply_at, t.created_at) DESC, t.id DESC",
+        "newest": "t.is_pinned DESC, t.created_at DESC, t.id DESC",
+        "popular": "t.is_pinned DESC, (t.reply_count * 8 + t.view_count) DESC, COALESCE(t.last_reply_at, t.created_at) DESC",
+    }.get(sort_by, "t.is_pinned DESC, COALESCE(t.last_reply_at, t.created_at) DESC, t.id DESC")
     clauses = []
     params = []
     if search_query:
         clauses.append("(t.title LIKE ? OR t.content LIKE ?)")
         params.extend([f"%{search_query}%", f"%{search_query}%"])
-    if tag_filter:
-        clauses.append("t.tags LIKE ?")
-        params.append(f"%{tag_filter}%")
+    if category_slug:
+        clauses.append("c.slug=?")
+        params.append(category_slug)
     where_sql = " AND ".join(clauses) if clauses else "1=1"
     conn = get_db()
+    categories = conn.execute(
+        """SELECT c.name, c.slug, COUNT(t.id) AS thread_count
+           FROM forum_categories c
+           LEFT JOIN forum_threads t ON t.category_id=c.id
+           GROUP BY c.id ORDER BY c.sort_order, c.id"""
+    ).fetchall()
     rows = conn.execute(
         f"""
-        SELECT t.*, u.username, u.avatar,
-               (SELECT username FROM users WHERE id=t.last_reply_user_id) AS last_reply_username
+        SELECT t.*, c.name AS category_name, c.slug AS category_slug,
+               u.username,
+               CASE WHEN COALESCE(u.is_bashizhong_student, 1)<>0
+                    THEN u.group_username END AS group_username,
+               u.avatar, u.is_cheater,
+               lr.username AS last_reply_username,
+               CASE WHEN COALESCE(lr.is_bashizhong_student, 1)<>0
+                    THEN lr.group_username END
+                   AS last_reply_group_username,
+               lr.is_cheater AS last_reply_is_cheater
         FROM forum_threads t
+        JOIN forum_categories c ON t.category_id=c.id
         JOIN users u ON t.user_id=u.id
+        LEFT JOIN users lr ON lr.id=t.last_reply_user_id
         WHERE {where_sql}
-        ORDER BY t.is_pinned DESC, t.last_reply_at DESC, t.created_at DESC
+        ORDER BY {order_sql}
         LIMIT ? OFFSET ?
     """,
         (*params, per_page, offset),
     ).fetchall()
     total = conn.execute(
-        f"SELECT COUNT(*) AS cnt FROM forum_threads t WHERE {where_sql}", tuple(params)
+        f"""SELECT COUNT(*) AS cnt FROM forum_threads t
+            JOIN forum_categories c ON t.category_id=c.id
+            WHERE {where_sql}""",
+        tuple(params),
     ).fetchone()["cnt"]
     conn.close()
     return jsonify(
@@ -1164,18 +1232,27 @@ def api_front_forum():
             "page": page,
             "per_page": per_page,
             "total": total,
+            "categories": [
+                {
+                    "name": _text(row["name"]),
+                    "slug": _text(row["slug"]),
+                    "thread_count": row["thread_count"],
+                }
+                for row in categories
+            ],
             "threads": [
                 {
                     "id": row["id"],
                     "url": url_for("forum_thread", thread_id=row["id"]),
                     "title": _text(row["title"]),
-                    "author": _text(row["username"]),
+                    "author": _user_display_name(
+                        row["username"], _get(row, "group_username"), row["user_id"]
+                    ),
+                    "author_username": _text(row["username"]),
+                    "author_is_cheater": bool(_get(row, "is_cheater", 0)),
                     "avatar": _avatar_url(_get(row, "avatar", "")),
-                    "tags": [
-                        _text(tag).strip()
-                        for tag in _text(row["tags"]).split(",")
-                        if _text(tag).strip()
-                    ],
+                    "category": _text(row["category_name"]),
+                    "category_slug": _text(row["category_slug"]),
                     "pinned": bool(row["is_pinned"]),
                     "locked": bool(row["is_locked"]),
                     "views": row["view_count"],
@@ -1186,7 +1263,12 @@ def api_front_forum():
                     "last_reply_at": datetime_display_filter(row["last_reply_at"])
                     if row["last_reply_at"]
                     else "",
-                    "last_reply_user": _text(_get(row, "last_reply_username", "")),
+                    "last_reply_user": _user_display_name(
+                        _get(row, "last_reply_username", ""),
+                        _get(row, "last_reply_group_username"),
+                        _get(row, "last_reply_user_id"),
+                    ),
+                    "last_reply_is_cheater": bool(_get(row, "last_reply_is_cheater", 0)),
                 }
                 for row in rows
             ],

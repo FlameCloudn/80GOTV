@@ -1,0 +1,27 @@
+{
+  "name": "80gotv",
+  "version": "1.0.0",
+  "private": true,
+  "description": "一个 CS2 赛事信息管理网站，包含前台展示、后台管理、数据直播和 Demo 导入。",
+  "main": "index.js",
+  "scripts": {
+    "test": "npm run test:python",
+    "test:python": "python -m unittest discover -s tests -t . -p \"test_*.py\"",
+    "test:browser": "playwright test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FlameCloudn/80GOTV.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/FlameCloudn/80GOTV/issues"
+  },
+  "homepage": "https://github.com/FlameCloudn/80GOTV#readme",
+  "dependencies": {
+    "playwright": "^1.61.0"
+  }
+}

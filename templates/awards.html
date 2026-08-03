@@ -3,10 +3,10 @@
 {% block main %}
 {% if event_groups %}
 <div class="awards-grid">
-  {% for (event_id, event_name, event_date), group in event_groups %}
+  {% for (event_id, event_slug, event_name, event_date), group in event_groups %}
   <div class="award-event-card">
     <div class="award-event-header">
-      <a href="/events/{{ event_id }}" class="award-event-name">{{ event_name }}</a>
+      <a href="/events/{{ event_slug or event_id }}" class="award-event-name">{{ event_name }}</a>
       <span class="award-event-date">{{ event_date|date_display if event_date else '' }}</span>
     </div>
 
@@ -27,12 +27,12 @@
       {% for m in group.medals %}
       <div class="award-medal-row">
         {% if m.avatar %}
-        <img src="{{ url_for('static', filename='avatars/' + m.avatar) }}" class="award-avatar" loading="lazy">
+        <img src="{{ avatar_thumbnail_url(m.avatar) }}" class="award-avatar" alt="{{ private_name_for_player(m.player_id, m.nickname) }}" loading="lazy">
         {% else %}
-        <span class="award-avatar-fb">{{ m.nickname[0] }}</span>
+        <span class="award-avatar-fb">{{ private_name_for_player(m.player_id, m.nickname)[0] }}</span>
         {% endif %}
         <div class="award-medal-info">
-          <a href="/players/{{ m.player_id }}" class="award-medal-player">{{ m.nickname }}</a>
+          <a href="/players/{{ m.player_id }}" class="award-medal-player">{{ private_name_for_player(m.player_id, m.nickname) }}</a>
           {% if m.team_short %}<span class="award-medal-team">{{ m.team_short }}</span>{% endif %}
         </div>
         <span class="award-badge {% if m.type == 'MVP' %}mvp-badge{% else %}evp-badge{% endif %}">{{ m.type }}</span>

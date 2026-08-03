@@ -1,0 +1,163 @@
+{% extends 'base.html' %}
+{% block title %}{{ '自由游玩' if mode == 'practice' else '每日猜选手' }} - 80GOTV{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ versioned_url('static/css/guess_player.css') }}">
+{% endblock %}
+{% block layout_class %}no-side-layout guess-player-layout{% endblock %}
+{% block main %}
+<div class="guess-game" data-i18n-ignore>
+  <nav class="guess-mode-tabs" aria-label="游戏模式">
+    <a href="{{ url_for('guess_player_page') }}" class="{{ 'active' if mode == 'daily' else '' }}">每日挑战</a>
+    <a href="{{ url_for('guess_player_practice_page') }}" class="{{ 'active' if mode == 'practice' else '' }}">自由游玩</a>
+    <a href="{{ url_for('guess_player_multiplayer_page') }}">在线对战</a>
+  </nav>
+  <header class="guess-heading h-panel">
+    <div>
+      <span class="guess-kicker">{{ '无限重玩' if mode == 'practice' else '每日挑战 #' ~ game.challenge_number }}</span>
+      <h1>80GO 猜选手</h1>
+      <p>在 8 次机会内猜出{{ '本局' if mode == 'practice' else '今天' }}的职业选手</p>
+    </div>
+    <div class="guess-source">
+      {% if mode == 'practice' and pool_mode == 'noob' %}Noob：年度 Top 20 + 世界前 5 战队阵容
+      {% elif mode == 'practice' %}Pro：完整选手数据库
+      {% else %}每日完整题库{% endif %}
+    </div>
+  </header>
+
+  {% if mode == 'practice' %}
+  <nav class="guess-difficulty" aria-label="自由游玩难度">
+    <a href="{{ url_for('guess_player_practice_page', difficulty='noob') }}" class="{{ 'active' if pool_mode == 'noob' else '' }}">
+      <strong>Noob</strong><span>{{ pool_counts.noob }} 名常见选手</span>
+    </a>
+    <a href="{{ url_for('guess_player_practice_page', difficulty='pro') }}" class="{{ 'active' if pool_mode == 'pro' else '' }}">
+      <strong>Pro</strong><span>{{ pool_counts.pro }} 名全部选手</span>
+    </a>
+  </nav>
+  {% endif %}
+
+  <section class="guess-play-panel h-panel">
+    {% if not game.finished %}
+    <form class="guess-search-form" method="post" action="{{ url_for('guess_player_practice_submit') if mode == 'practice' else url_for('guess_player_submit') }}" id="guessPlayerForm">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      {% if mode == 'practice' %}<input type="hidden" name="pool_mode" value="{{ pool_mode }}">{% endif %}
+      <input type="hidden" name="player_id" id="guessPlayerId">
+      <div class="guess-search-field">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+        <input type="text" name="player_query" id="guessPlayerQuery" list="guessPlayerOptions"
+               autocomplete="off" required placeholder="输入职业选手昵称..." aria-label="职业选手昵称">
+        <datalist id="guessPlayerOptions">
+          {% for player in players %}
+          <option value="{{ player.nickname }}" data-player-id="{{ player.id }}">{{ player.full_name }}</option>
+          {% endfor %}
+        </datalist>
+      </div>
+      <button type="submit" class="guess-submit">提交猜测</button>
+    </form>
+    <p class="guess-form-error" id="guessFormError" role="alert"></p>
+    {% endif %}
+
+    {% if game.results %}
+    <div class="guess-results-scroll">
+      <table class="guess-results-table">
+        <thead>
+          <tr>
+            <th>选手</th>
+            <th>队伍</th>
+            <th>国籍</th>
+            <th>年龄</th>
+            <th>位置</th>
+            <th>Major 次数</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for result in game.results %}
+          <tr>
+            <td class="clue-{{ result.name_state }}" title="是否为正确选手"><b>{{ result.player.nickname }}</b></td>
+            <td class="clue-{{ result.team_state }}" title="是否效力于同一队伍">{{ result.affiliation or '未知' }}</td>
+            <td class="clue-{{ result.country_state }}" title="{{ result.player.country_name }}；橙色表示属于同一区域">
+              {% if result.country_flag %}<span class="guess-country-flag" aria-label="{{ result.player.country_name }}">{{ result.country_flag }}</span>{% else %}未知{% endif %}
+            </td>
+            <td class="clue-{{ result.age_feedback.state }}" title="箭头指向正确答案的年龄">
+              {{ result.age if result.age is not none else '未知' }}{% if result.age_feedback.direction %}<span class="guess-arrow is-{{ result.age_feedback.direction }}" aria-label="答案更{{ '高' if result.age_feedback.direction == 'up' else '低' }}"></span>{% endif %}
+            </td>
+            <td class="clue-{{ result.role_state }}" title="HLTV 选手位置">{{ 'AWPer' if result.player.role == 'awper' else ('Hybrid' if result.player.role == 'hybrid' else ('Rifler' if result.player.role == 'rifler' else '未知')) }}</td>
+            <td class="clue-{{ result.major_feedback.state }}" title="箭头指向正确答案的 Major 参赛次数">
+              {{ result.player.major_appearances if result.player.major_appearances >= 0 else '未知' }}{% if result.major_feedback.direction %}<span class="guess-arrow is-{{ result.major_feedback.direction }}" aria-label="答案更{{ '高' if result.major_feedback.direction == 'up' else '低' }}"></span>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="guess-empty">输入一名选手，第一条线索就会出现在这里。</div>
+    {% endif %}
+
+    <div class="guess-progress" aria-label="猜测进度">
+      <div class="guess-progress-track">
+        {% for index in range(max_guesses) %}
+        <span class="guess-progress-dot{% if index < game.results|length %} used{% endif %}{% if game.won and index == game.results|length - 1 %} won{% endif %}" title="第 {{ index + 1 }} 次"></span>
+        {% endfor %}
+      </div>
+      <strong>{{ game.remaining }} 次机会</strong>
+    </div>
+
+    <div class="guess-legend">
+      <span><i class="legend-correct"></i>完全正确</span>
+      <span><i class="legend-close"></i>接近</span>
+      <span><i class="legend-wrong"></i>不正确</span>
+      <span><i class="legend-neutral"></i>资料未知</span>
+      <span><i class="guess-arrow is-up"></i>答案更高</span>
+      <span><i class="guess-arrow is-down"></i>答案更低</span>
+    </div>
+  </section>
+
+  {% if game.finished and game.answer %}
+  <section class="guess-answer h-panel {{ 'is-win' if game.won else 'is-loss' }}"
+           id="guessResult" data-challenge="{{ game.challenge_number if mode == 'daily' else '' }}"
+           data-attempts="{{ game.results|length }}" data-won="{{ '1' if game.won else '0' }}">
+    <div class="guess-result-player">
+      <span>{{ '猜对了' if game.won else ('本局未猜中' if mode == 'practice' else '今天未猜中') }}</span>
+      <strong>{{ game.answer.nickname }}</strong>
+      <small>{{ game.answer.full_name }}{% if game.answer_affiliation %} · {{ game.answer_affiliation }}{% endif %}</small>
+    </div>
+    {% if mode == 'daily' %}
+    <div class="guess-result-actions">
+      <span>下次挑战</span>
+      <strong id="guessCountdown">--:--:--</strong>
+      <button type="button" id="guessShareScore">分享结果</button>
+    </div>
+    {% endif %}
+    {% if mode == 'practice' %}
+    <form method="post" action="{{ url_for('guess_player_practice_new') }}" class="guess-replay-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="pool_mode" value="{{ pool_mode }}">
+      <button type="submit" class="guess-replay">再来一局</button>
+    </form>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  {% if mode == 'daily' %}
+  <section class="guess-stats h-panel">
+    <div class="h-panel-title">我的记录</div>
+    <div class="guess-stat-grid">
+      <div><strong>{{ statistics.games }}</strong><span>参与天数</span></div>
+      <div><strong>{{ statistics.win_rate }}%</strong><span>胜率</span></div>
+      <div><strong>{{ statistics.current_streak }}</strong><span>当前连续</span></div>
+      <div><strong>{{ statistics.longest_streak }}</strong><span>最长连续</span></div>
+    </div>
+  </section>
+  {% elif not game.finished %}
+  <form method="post" action="{{ url_for('guess_player_practice_new') }}" class="guess-new-round-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="pool_mode" value="{{ pool_mode }}">
+    <button type="submit">换一题</button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}
+{% block side %}{% endblock %}
+{% block extra_js %}
+<script src="{{ versioned_url('static/js/guess_player.js') }}"></script>
+{% endblock %}

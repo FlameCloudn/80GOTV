@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+{% block title %}{{ '自由游玩' if mode == 'practice' else '每日挑战' }} - 地图点位 - 80GOTV{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ versioned_url('static/css/games.css') }}">
+{% endblock %}
+{% block layout_class %}no-side-layout games-layout{% endblock %}
+{% block main %}
+<div class="game-page map-quiz" data-i18n-ignore>
+  <div class="game-breadcrumb"><a href="{{ url_for('games_page') }}">游戏</a><span>/</span><strong>地图点位</strong></div>
+  <nav class="game-mode-tabs" aria-label="地图点位模式">
+    <a href="{{ url_for('map_quiz_page') }}" class="{{ 'active' if mode == 'daily' else '' }}">每日挑战</a>
+    <a href="{{ url_for('map_quiz_practice_page') }}" class="{{ 'active' if mode == 'practice' else '' }}">自由游玩</a>
+  </nav>
+
+  <header class="game-heading h-panel">
+    <div>
+      <span class="game-kicker">{{ '无限重玩' if mode == 'practice' else '每日挑战 #' ~ game.challenge_number }}</span>
+      <h1>地图点位</h1>
+      <p>看截图，猜出地图和具体位置。每局有 3 次机会。</p>
+    </div>
+    <strong class="game-counter">{{ game.remaining }} 次机会</strong>
+  </header>
+
+  <section class="map-quiz-panel h-panel">
+    <figure class="map-quiz-figure reveal-{{ game.attempts|length }}{% if game.finished %} is-finished{% endif %}">
+      <picture>
+        <source media="(max-width:760px)" type="image/webp"
+                srcset="{{ url_for('map_quiz_image', question_key=game.question_key, variant='mobile') }}">
+        <img src="{{ url_for('map_quiz_image', question_key=game.question_key) }}"
+             alt="{{ game.answer.map_name ~ ' ' ~ game.answer.spot if game.finished else 'CS2 地图点位题目截图' }}"
+             width="1920" height="1080" fetchpriority="high">
+      </picture>
+      <figcaption>
+        <span>截图 {{ game.attempts|length + 1 if not game.finished else game.attempts|length }}/{{ max_attempts }}</span>
+        {% if not game.finished %}<span>答错后会逐步放大视野</span>{% endif %}
+      </figcaption>
+    </figure>
+
+    {% if not game.finished %}
+    <form class="map-quiz-form" method="post" action="{{ url_for('map_quiz_practice_submit') if mode == 'practice' else url_for('map_quiz_submit') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label>
+        <span>地图</span>
+        <select name="map_name" required>
+          <option value="">选择地图</option>
+          {% for map_key, map_name in maps %}<option value="{{ map_key }}">{{ map_name }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>
+        <span>点位</span>
+        <input type="text" name="spot_name" list="mapSpotOptions" maxlength="80" autocomplete="off" required placeholder="例如：A 包点 / Window">
+        <datalist id="mapSpotOptions">
+          {% for spot in spot_options %}<option value="{{ spot }}">{% endfor %}
+        </datalist>
+      </label>
+      <button type="submit">提交答案</button>
+    </form>
+    {% endif %}
+
+    {% if game.attempts %}
+    <div class="map-attempts" aria-label="本局猜测记录">
+      {% for attempt in game.attempts %}
+      <article>
+        <strong>#{{ attempt.attempt_number }}</strong>
+        <span class="{{ 'is-correct' if attempt.map_correct else 'is-wrong' }}">
+          {{ map_names.get(attempt.guessed_map, attempt.guessed_map) }}
+          <small>{{ '地图正确' if attempt.map_correct else '地图不对' }}</small>
+        </span>
+        <span class="{{ 'is-correct' if attempt.spot_correct else 'is-wrong' }}">
+          {{ attempt.guessed_spot }}
+          <small>{{ '点位正确' if attempt.spot_correct else '点位不对' }}</small>
+        </span>
+      </article>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </section>
+
+  {% if game.finished and game.answer %}
+  <section class="game-result h-panel {{ 'is-win' if game.won else 'is-loss' }}">
+    <div>
+      <span>{{ '猜对了' if game.won else '本局未猜中' }}</span>
+      <strong>{{ game.answer.map_name }} · {{ game.answer.spot }}</strong>
+    </div>
+    <a href="{{ game.answer.source_url }}" target="_blank" rel="noopener noreferrer">查看截图来源</a>
+  </section>
+  {% endif %}
+
+  {% if mode == 'practice' %}
+  <form method="post" action="{{ url_for('map_quiz_practice_new') }}" class="game-new-round">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit">{{ '再来一局' if game.finished else '换一题' }}</button>
+  </form>
+  {% else %}
+  <section class="game-stats h-panel">
+    <div class="h-panel-title">我的记录</div>
+    <div class="game-stat-grid">
+      <div><strong>{{ statistics.games }}</strong><span>参与天数</span></div>
+      <div><strong>{{ statistics.win_rate }}%</strong><span>胜率</span></div>
+      <div><strong>{{ statistics.current_streak }}</strong><span>当前连续</span></div>
+      <div><strong>{{ statistics.longest_streak }}</strong><span>最长连续</span></div>
+    </div>
+  </section>
+  {% endif %}
+
+  <p class="game-source-note">题图来自 <a href="{{ source_collection }}" target="_blank" rel="noopener noreferrer">ProSettings 地图截图</a>，网站运行时只读取本地副本。</p>
+</div>
+{% endblock %}
+{% block side %}{% endblock %}

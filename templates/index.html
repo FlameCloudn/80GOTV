@@ -9,7 +9,6 @@
         {% for t in team_ranking %}
         <a class="h-rank-row" href="/teams">
           <span class="h-rank-num">{{ loop.index }}.</span>
-          <span class="h-team-dot">{{ (t.short_name or t.name or 'T')[:1] }}</span>
           <span class="h-rank-name" data-i18n-ignore>{{ t.short_name or t.name }}</span>
           <span class="h-rank-score">{{ t.wins or 0 }}胜</span>
         </a>
@@ -22,10 +21,9 @@
       <div class="h-panel-title">赛事</div>
       <div class="h-side-list">
         {% for e in active_events %}
-        <a class="h-side-row" href="/events/{{ e.id }}">
-          <span class="h-event-icon">80</span>
+        <a class="h-side-row h-event-row" href="{{ event_path(e) }}">
           <span class="h-side-main" data-i18n-ignore>{{ e.name }}</span>
-          <small>{{ e.start_date|date_display if e.start_date else '' }}</small>
+          <small>{{ e.start_date|relative_date_display if e.start_date else '' }}</small>
         </a>
         {% endfor %}
         {% if not active_events %}<div class="h-empty">暂无赛事</div>{% endif %}
@@ -36,9 +34,8 @@
       <div class="h-panel-title">选手</div>
       <div class="h-side-list">
         {% for p in top_players %}
-        <a class="h-side-row" href="/players/{{ p.id }}">
-          <span class="h-avatar">{{ p.nickname[:1] }}</span>
-          <span class="h-side-main" data-i18n-ignore>{{ p.nickname }}</span>
+        <a class="h-side-row h-player-row" href="/players/{{ p.id }}">
+          <span class="h-side-main" data-i18n-ignore>{{ private_name_for_player(p.id, p.nickname) }}</span>
           <small class="{{ p.avg_rating|rating_class }}">{{ "%.2f"|format(p.avg_rating) }}</small>
         </a>
         {% endfor %}
@@ -49,17 +46,20 @@
 
   <section class="home-main-col">
     <div class="home-brand-strip">
-      <img loading="lazy" src="{{ url_for('static', filename='logos/80gotv-mark.png') }}" alt="80GOTV">
+      <img src="{{ url_for('static', filename='logos/80gotv-mark.png') }}" alt="80GOTV">
       <strong>80GOTV</strong>
     </div>
 
     {% set featured = news[0] if news else None %}
     {% if featured %}
     <article class="h-panel home-feature">
-      <a href="/news/{{ featured.id }}" class="home-feature-link" aria-label="{{ featured.title }}"></a>
+      <a href="{{ news_path(featured) }}" class="home-feature-link" aria-label="{{ featured.title }}"></a>
       <div class="home-feature-tag">焦点新闻</div>
       <h1 data-i18n-ignore>{{ featured.title }}</h1>
       {% if featured.summary %}<p data-i18n-ignore>{{ featured.summary }}</p>{% endif %}
+      {% if featured.redirect_url %}
+      <span class="home-feature-cta">进入赛事并报名</span>
+      {% endif %}
       <div class="home-feature-meta">{{ featured.publish_time|datetime_display }} · 评论 {{ featured.comment_count }}</div>
     </article>
     {% else %}
@@ -70,10 +70,12 @@
       <div class="h-panel-title">今日新闻</div>
       <div class="h-news-list">
         {% for n in news[1:] %}
-        <a class="h-news-row" href="/news/{{ n.id }}">
-          <span class="h-news-mark"></span>
+        <a class="h-news-row" href="{{ news_path(n) }}">
           <span class="h-news-title" data-i18n-ignore>{{ n.title }}</span>
-          <span class="h-news-meta">{{ n.publish_time|datetime_display }} · {{ n.comment_count }} 评论</span>
+          <span class="h-news-meta">
+            <span class="h-news-time">{{ n.publish_time|datetime_display }}</span>
+            <span class="h-news-comments">{{ n.comment_count }} 评论</span>
+          </span>
         </a>
         {% endfor %}
         {% if news|length <= 1 %}<div class="h-empty">暂无更多新闻</div>{% endif %}
@@ -81,7 +83,7 @@
     </section>
   </section>
 
-  <aside class="home-right-col">
+  <aside class="home-right-col{% if not matches %} is-empty-mobile{% endif %}">
     <section class="h-panel">
       <div class="h-panel-title h-panel-title-blue">今日比赛</div>
       <div class="h-match-mini-list" data-front-home-target="matches">
@@ -104,13 +106,13 @@
     <section class="h-panel">
       <div class="h-panel-title">近期动态</div>
       <div class="h-activity-list" data-front-home-target="activity">
-        {% for n in news[:8] %}
-        <a class="h-activity-row" href="/news/{{ n.id }}">
-          <span data-i18n-ignore>{{ n.title }}</span>
-          <small>{{ n.comment_count }}</small>
+        {% for thread in forum_activity %}
+        <a class="h-activity-row" href="{{ url_for('forum_thread', thread_id=thread.id) }}">
+          <span data-i18n-ignore>{{ thread.title }}</span>
+          <small>{{ thread.reply_count or 0 }}</small>
         </a>
         {% endfor %}
-        {% if not news %}<div class="h-empty">暂无动态</div>{% endif %}
+        {% if not forum_activity %}<a class="h-empty" href="{{ url_for('forum_index') }}">暂无论坛动态</a>{% endif %}
       </div>
     </section>
 
@@ -132,3 +134,7 @@
 {% endblock %}
 
 {% block side %}{% endblock %}
+
+{% block extra_js %}
+<script src="{{ versioned_url('static/js/front_api.js') }}"></script>
+{% endblock %}

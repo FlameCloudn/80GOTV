@@ -1,0 +1,65 @@
+/* Statistics overview: enlarge only the weapon chart without changing global layout. */
+.stats-weapons-panel .overview-weapon-card {
+  grid-template-columns: minmax(330px, 1fr) minmax(230px, 320px);
+  gap: 32px;
+  min-height: 330px;
+  padding: 26px 32px;
+}
+
+.stats-weapons-panel .weapon-donut-wrap {
+  min-height: 276px;
+}
+
+.stats-weapons-panel .weapon-donut {
+  width: 266px;
+  height: 266px;
+  flex: 0 0 266px;
+}
+
+.stats-weapons-panel .weapon-donut > span {
+  inset: 76px;
+}
+
+.stats-weapons-panel .weapon-legend {
+  gap: 9px;
+}
+
+.stats-weapons-panel .weapon-legend-row {
+  grid-template-columns: 12px minmax(0, 1fr) 58px;
+  font-size: 13px;
+}
+
+@media (max-width: 720px) {
+  .stats-weapons-panel .overview-weapon-card {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+    min-height: 0;
+    padding: 18px 14px;
+  }
+
+  .stats-weapons-panel .weapon-donut-wrap {
+    min-height: 218px;
+  }
+
+  .stats-weapons-panel .weapon-donut {
+    width: 210px;
+    height: 210px;
+    flex-basis: 210px;
+  }
+
+  .stats-weapons-panel .weapon-donut > span {
+    inset: 60px;
+  }
+}
+
+@media (max-width: 360px) {
+  .stats-weapons-panel .weapon-donut {
+    width: 190px;
+    height: 190px;
+    flex-basis: 190px;
+  }
+
+  .stats-weapons-panel .weapon-donut > span {
+    inset: 54px;
+  }
+}

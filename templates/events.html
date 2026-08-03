@@ -1,6 +1,10 @@
 {% extends 'base.html' %}
 {% block title %}{% if status_filter=='ongoing' %}进行中赛事{% elif status_filter=='completed' %}历史赛事{% elif status_filter=='upcoming' %}即将开始{% else %}赛事列表{% endif %} - 80GOTV{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/events-layout.css') }}?v=20260711-1">
+{% endblock %}
 {% block main %}
+<div class="events-list-layout">
 {% if view_mode == 'calendar' %}
 {# ── 日历视图：按月分组 ── #}
 {% set months = {} %}
@@ -13,15 +17,15 @@
 <h3 class="section-title">{{ ym }}</h3>
 <div class="card-list h-compact-list">
   {% for e in month_events %}
-  <a class="card event-card event-list-row" href="/events/{{ e.id }}">
+  <a class="card event-card event-list-row" href="{{ event_path(e) }}">
     <h3 data-i18n-ignore>{{ e.name }}</h3>
     <div class="event-info">
-      <span class="status-badge status-{{ e.effective_event_status }}">
+      <span class="event-list-status status-badge status-{{ e.effective_event_status }}">
         {% if e.effective_event_status == 'upcoming' %}即将开始
         {% elif e.effective_event_status == 'ongoing' %}进行中
         {% else %}已结束{% endif %}
       </span>
-      <span>{{ e.start_date|date_display }} ~ {{ e.end_date|date_display }}</span>
+      <span class="event-list-date">{{ e.start_date|date_display }} ~ {{ e.end_date|date_display }}</span>
     </div>
     <div class="meta">{{ e.format }} · {{ e.team_count // 2 }} 支队伍 · {{ e.match_count }} 场比赛</div>
   </a>
@@ -31,15 +35,15 @@
 {% else %}
 <div class="card-list h-compact-list">
   {% for e in events %}
-  <a class="card event-card event-list-row" href="/events/{{ e.id }}">
+  <a class="card event-card event-list-row" href="{{ event_path(e) }}">
     <h3 data-i18n-ignore>{{ e.name }}</h3>
     <div class="event-info">
-      <span class="status-badge status-{{ e.effective_event_status }}">
+      <span class="event-list-status status-badge status-{{ e.effective_event_status }}">
         {% if e.effective_event_status == 'upcoming' %}即将开始
         {% elif e.effective_event_status == 'ongoing' %}进行中
         {% else %}已结束{% endif %}
       </span>
-      <span>{{ e.start_date|date_display }} ~ {{ e.end_date|date_display }}</span>
+      <span class="event-list-date">{{ e.start_date|date_display }} ~ {{ e.end_date|date_display }}</span>
     </div>
     <div class="meta">{{ e.format }} · {{ e.team_count // 2 }} 支队伍 · {{ e.match_count }} 场比赛</div>
   </a>
@@ -47,6 +51,7 @@
 </div>
 {% if not events %}<div class="card empty-state">暂无赛事</div>{% endif %}
 {% endif %}
+</div>
 {% endblock %}
 
 {% block side %}
