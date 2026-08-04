@@ -3,6 +3,7 @@
 """
 
 import json
+import sqlite3
 from datetime import datetime
 
 
@@ -38,9 +39,41 @@ def _single_temp_player_name(value, conn):
     return str(row["nickname"] or "").strip() if row else None
 
 
+def _event_registration_logo(conn, event_id, team_name):
+    """Return a registration logo in the same relative format as team logos."""
+    if conn is None or not event_id or not team_name or team_name == "TBD":
+        return ""
+    try:
+        row = conn.execute(
+            """
+            SELECT team_logo
+            FROM event_registrations
+            WHERE event_id=?
+              AND lower(trim(team_name))=lower(trim(?))
+              AND trim(COALESCE(team_logo, '')) != ''
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (event_id, team_name),
+        ).fetchone()
+    except (sqlite3.Error, TypeError):
+        return ""
+    if not row:
+        return ""
+    value = str(row["team_logo"] or "").strip().replace("\\", "/").lstrip("/")
+    if value.startswith("static/uploads/"):
+        value = value[len("static/uploads/") :]
+    elif value.startswith("uploads/"):
+        value = value[len("uploads/") :]
+    if value.startswith(("http://", "https://")):
+        return ""
+    if "/" not in value:
+        value = f"team_logos/{value}"
+    return value
+
+
 def supplement_temp_teams(match_row, conn=None):
-    """为临时选手队伍填充 team_name 和 short_name，确保前端渲染不崩溃。
-    conn 参数已废弃，保留仅为兼容旧调用。"""
+    """补齐比赛两侧的临时名称、简称和报名队标。"""
     m = dict(match_row)
     if (not m.get("team1_id") or m.get("team1_id") == -1) and _has_temp_players(
         m.get("team1_players")
@@ -64,6 +97,15 @@ def supplement_temp_teams(match_row, conn=None):
         m["t1s"] = "TBD" if m["team1_name"] == "TBD" else m["team1_name"][:2]
     if not m.get("t2s"):
         m["t2s"] = "TBD" if m["team2_name"] == "TBD" else m["team2_name"][:2]
+    # A registered event team may not have a permanent teams row yet. Reuse its
+    # uploaded registration logo everywhere without overwriting a real team logo.
+    for side in (1, 2):
+        logo = _event_registration_logo(conn, m.get("event_id"), m.get(f"team{side}_name"))
+        if not logo:
+            continue
+        for key in (f"team{side}_logo", f"t{side}_logo"):
+            if not m.get(key):
+                m[key] = logo
     # 补充 effective_status（若 SQL 未计算）
     if "effective_status" not in m:
         mt = m.get("match_time", "")
