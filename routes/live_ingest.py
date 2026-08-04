@@ -96,6 +96,61 @@ def _match_team_for_gsi_side(data, side):
     return "t1" if mapped == "team1" or side == "CT" else "t2"
 
 
+def _merge_app_live_events(merged, data):
+    """Merge canonical events prepared by the desktop app and deduplicate by round/id."""
+    identity = data.get("_80gotv", {}) if isinstance(data, dict) else {}
+    round_events = identity.get("round_events") if "round_events" in identity else None
+    death_markers = identity.get("death_markers") if "death_markers" in identity else None
+
+    if isinstance(round_events, list):
+        by_key = {}
+        for event in (merged.get("round_history", []) or []) + round_events:
+            if not isinstance(event, dict):
+                continue
+            try:
+                round_number = int(event.get("round_number", event.get("round", 0)) or 0)
+            except (TypeError, ValueError):
+                continue
+            if not 1 <= round_number <= 24:
+                continue
+            normalized = dict(event)
+            normalized["round"] = round_number
+            normalized["round_number"] = round_number
+            normalized.setdefault("id", f"round-{round_number}-{normalized.get('side', '')}")
+            by_key[str(normalized["id"])] = normalized
+        ordered = sorted(
+            by_key.values(), key=lambda item: (int(item.get("round", 0)), str(item.get("id", "")))
+        )
+        # A round has one winner; an app resend must replace the earlier partial event.
+        by_round = {int(item["round"]): item for item in ordered}
+        merged["round_history"] = [by_round[number] for number in sorted(by_round)][-24:]
+
+    if isinstance(death_markers, list):
+        by_id = {}
+        for marker in (
+            merged.get("death_markers", merged.get("kill_markers", [])) or []
+        ) + death_markers:
+            if not isinstance(marker, dict):
+                continue
+            marker = dict(marker)
+            try:
+                round_number = int(marker.get("round_number", marker.get("round", 0)) or 0)
+            except (TypeError, ValueError):
+                continue
+            if not 1 <= round_number <= 24:
+                continue
+            marker["round"] = round_number
+            marker["round_number"] = round_number
+            marker.setdefault(
+                "id",
+                f"death-{round_number}-{marker.get('steamid', '')}-{marker.get('captured_at_epoch', '')}",
+            )
+            by_id[str(marker["id"])] = marker
+        merged["death_markers"] = list(by_id.values())[-10:]
+        merged["kill_markers"] = merged["death_markers"]
+    return isinstance(round_events, list), isinstance(death_markers, list)
+
+
 def _receiver_error(source, message, status_code, match_id=None, map_name=""):
     """Reject bad input without letting public errors write to SQLite."""
     return jsonify({"ok": False, "msg": message}), status_code
@@ -546,11 +601,15 @@ def _save_gsi_payload(conn, data, map_name, forced_match_id=None):
     previous_map_name = normalize_map_name((previous_gsi.get("map", {}) or {}).get("name", ""))
     current_map_name = normalize_map_name(map_name)
     if previous_map_name and current_map_name and previous_map_name != current_map_name:
-        for key in ("round_history", "kill_markers", "kill_events", "bomb_events"):
+        for key in ("round_history", "death_markers", "kill_markers", "kill_events", "bomb_events"):
             merged[key] = []
-    # 只在阵亡瞬间记录位置，网页不会显示所有选手的实时坐标。
-    _record_gsi_deaths(merged, data)
+    # APP 已经在本地按正式比赛缓存阵亡点；兼容旧 GSI 客户端时才使用
+    # 服务端的帧差兜底，避免两套判断互相覆盖。
+    identity = data.get("_80gotv", {}) if isinstance(data, dict) else {}
+    if "death_markers" not in identity:
+        _record_gsi_deaths(merged, data)
     _record_gsi_bomb_events(merged, data)
+    app_round_events, app_death_markers = _merge_app_live_events(merged, data)
 
     # 计算回合历史（每回合结束时记录胜负方）
     round_num = data.get("map", {}).get("round", 0)
@@ -561,7 +620,12 @@ def _save_gsi_payload(conn, data, map_name, forced_match_id=None):
     prev_round = data.get("previously", {}).get("round", {}) or {}
     prev_winner = prev_round.get("win_team", "")
     # MR12 常规时间只有 24 回合；加时不进入网页上的回合历史栏。
-    if 0 < round_num <= 24 and prev_winner and (not rh or rh[-1].get("round") != round_num - 1):
+    if (
+        (not app_round_events)
+        and 0 < round_num <= 24
+        and prev_winner
+        and (not rh or rh[-1].get("round") != round_num - 1)
+    ):
         current_map = data.get("map", {}) or {}
         captured_at = datetime.now(timezone.utc)
         reason_code = _round_win_reason_code(data, previous_gsi, prev_winner)
@@ -582,6 +646,14 @@ def _save_gsi_payload(conn, data, map_name, forced_match_id=None):
         if len(rh) > 24:
             rh = rh[-24:]
         merged["round_history"] = rh
+
+    # The app is authoritative for formal-match events. It may send an empty
+    # event list while a frame is being skipped, so do not manufacture kills
+    # or round results from that transient frame.
+    if app_death_markers:
+        merged["death_markers"] = merged.get("death_markers", [])[-10:]
+        merged["kill_markers"] = merged["death_markers"]
+    merged["kill_events"] = []
 
     merged["gsi"] = data
     merged["gsi_received_at"] = datetime.now(timezone.utc).isoformat()

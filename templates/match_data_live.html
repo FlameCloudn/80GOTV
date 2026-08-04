@@ -196,14 +196,14 @@
 const MATCH_ID = {{ match.id }};
 const ICON_BASE = '/resources/icons/match/';
 const SUPPORTED_MAPS = new Set(['dust2','mirage','inferno','nuke','overpass','ancient','anubis','vertigo','train','cache']);
-const MAP_OVERVIEWS = {
-  dust2:{x:-2476,y:3239,scale:4.4},mirage:{x:-3230,y:1713,scale:5},
-  inferno:{x:-2087,y:3870,scale:4.9},nuke:{x:-3453,y:2887,scale:7},
-  overpass:{x:-4831,y:1781,scale:5.2},ancient:{x:-2953,y:2164,scale:5},
-  anubis:{x:-2796,y:3328,scale:5.22},vertigo:{x:-3168,y:1762,scale:4},
-  cache:{x:-2000,y:3250,scale:5.5},train:{x:-2477,y:2392,scale:4.7}
+const MAP_METADATA = {
+  ancient:{resolution:4.26,x:2590,y:2520},anubis:{resolution:5.25,x:2830,y:2030},
+  cache:{resolution:5.54,x:2020,y:2390},dust2:{resolution:4.4,x:2470,y:1255},
+  inferno:{resolution:4.91,x:2090,y:1150},mirage:{resolution:5.02,x:3240,y:3410},
+  nuke:{resolution:6.98,x:3290,y:5990,floors:[['upper',-480,5000],['lower',-2500,-481]]},
+  overpass:{resolution:5.18,x:4830,y:3540},train:{resolution:4.74,x:2730,y:2360},
+  vertigo:{resolution:4.96,x:3890,y:3800,floors:[['upper',11680,14000],['lower',0,11679]]}
 };
-const MAP_BOUNDS = {};
 const SVG_WEAPONS = new Set(['aug','bizon','cz75a','decoy','g3sg1','incgrenade','m249','mag7','molotov','mp5sd','negev','nova','p90','revolver','sawedoff','scar20','sg556','smokegrenade','ssg08','taser','ump45','xm1014']);
 const WEAPON_ALIASES = {m4a1silencer:'m4a1_silencer',uspsilencer:'usp_silencer',hkp2000:'hkp2000'};
 const feedNodes = new Map();
@@ -306,12 +306,11 @@ function renderTeam(target,players){
   for(let index=0;index<5;index+=1)updatePlayerRow(rows[index],(players||[])[index]||null);
 }
 function radarPoint(x,y,mapName){
-  const key=mapKey(mapName),overview=MAP_OVERVIEWS[key];
-  if(overview){
-    return {left:Math.max(2,Math.min(98,(Number(x)-overview.x)/(overview.scale*1024)*100)),top:Math.max(2,Math.min(98,(overview.y-Number(y))/(overview.scale*1024)*100))};
+  const key=mapKey(mapName),meta=MAP_METADATA[key];
+  if(meta){
+    return {left:Math.max(2,Math.min(98,(Number(x)+meta.x)/(meta.resolution*1024)*100)),top:Math.max(2,Math.min(98,100-(Number(y)+meta.y)/(meta.resolution*1024)*100))};
   }
-  const bounds=MAP_BOUNDS[key]||{x0:-3200,y0:-3200,x1:3200,y1:3200};
-  return {left:Math.max(2,Math.min(98,(Number(x)-bounds.x0)/(bounds.x1-bounds.x0)*100)),top:Math.max(2,Math.min(98,100-(Number(y)-bounds.y0)/(bounds.y1-bounds.y0)*100))};
+  return {left:50,top:50};
 }
 function renderRadarMap(mapName){
   const requested=mapKey(mapName),key=SUPPORTED_MAPS.has(requested)?requested:'mirage';
@@ -322,18 +321,21 @@ function renderRadarMap(mapName){
 }
 function renderMarkers(data){
   const round=Number(data.round||0);
-  const markers=(data.kill_markers||[]).filter(function(item){return Number(item.round)===round}).slice(-10);
-  const signature=JSON.stringify(markers.map(function(item){return [item.id,item.x,item.y,item.side]}));
+  const markers=(data.death_markers||data.kill_markers||[]).filter(function(item){return Number(item.round_number??item.round)===round}).slice(-10);
+  const signature=JSON.stringify(markers.map(function(item){return [item.id,item.x,item.y,item.z,item.side]}));
   if(signature===markerSignature)return;
   markerSignature=signature;
   const fragment=document.createDocumentFragment();
   markers.forEach(function(marker){
-    const point=radarPoint(marker.x,marker.y,data.map_name);
+    const point=Number.isFinite(Number(marker.radar_x))&&Number.isFinite(Number(marker.radar_y))
+      ? {left:Number(marker.radar_x),top:Number(marker.radar_y)}
+      : radarPoint(marker.x,marker.y,data.map_name);
     const node=document.createElement('span');
     node.className='kill-marker '+sideClass(marker.side);
     node.style.left=point.left+'%';
     node.style.top=point.top+'%';
-    node.title=marker.name||'未知选手';
+    const floor=marker.z==null?null:MAP_METADATA[mapKey(data.map_name)]?.floors?.find(function(item){return Number(marker.z)>=item[1]&&Number(marker.z)<=item[2]});
+    node.title=(marker.name||'未知选手')+(floor?' · '+floor[0]:'');
     fragment.appendChild(node);
   });
   document.getElementById('killMarkers').replaceChildren(fragment);
@@ -358,16 +360,19 @@ function reasonIcon(code,side){
 }
 function renderRounds(rounds){
   const safe=(Array.isArray(rounds)?rounds:[]).filter(function(round){
-    const roundNumber=Number(round.round);
-    return Number.isFinite(roundNumber)&&roundNumber>=0&&roundNumber<24;
+    const roundNumber=Number(round.round_number??round.round);
+    return Number.isFinite(roundNumber)&&roundNumber>=0&&(roundNumber<24||roundNumber===24);
   });
   const signature=JSON.stringify(safe.map(function(round){return [round.id,round.round,round.side,round.winner,round.reason_code,round.reason]}));
   if(signature===roundSignature)return;
   roundSignature=signature;
   const team1Rounds=document.createDocumentFragment(),team2Rounds=document.createDocumentFragment();
-  const roundByNumber=new Map(safe.map(function(round){return [Number(round.round),round]}));
+  const roundByNumber=new Map(safe.map(function(round){
+    const number=Number(round.round_number??round.round);
+    return [number<1?number+1:number,round];
+  }));
   for(let roundIndex=0;roundIndex<24;roundIndex+=1){
-    const round=roundByNumber.get(roundIndex);
+    const round=roundByNumber.get(roundIndex+1);
     const winnerTeam=round&&['t1','t2'].includes(String(round.winner||'').toLowerCase())?String(round.winner).toLowerCase():'';
     const rawSide=String(round&&round.side||'').toLowerCase();
     const winnerSide=rawSide==='ct'||rawSide==='t'?rawSide:(winnerTeam==='t1'?'ct':'t');
@@ -395,13 +400,10 @@ function eventOrder(event,type,index){
   const parsed=Date.parse(event.captured_at||'');
   if(Number.isFinite(parsed))return parsed/1000;
   const typeOffset=type==='round'?0.8:(type==='plant'?0.4:0);
-  return Number(event.round||0)*1000+index+typeOffset;
+  return Number((event.round_number??event.round) || 0)*1000+index+typeOffset;
 }
 function collectFeedEvents(data){
   const items=[];
-  (data.kill_events||[]).forEach(function(event,index){
-    items.push({id:'kill:'+(event.id||event.round+':'+index+':'+event.victim),type:'kill',data:event,order:eventOrder(event,'kill',index)});
-  });
   (data.bomb_events||[]).forEach(function(event,index){
     items.push({id:'plant:'+(event.id||event.round+':'+index+':'+event.player),type:'plant',data:event,order:eventOrder(event,'plant',index)});
   });
@@ -423,33 +425,6 @@ function updateFeedNode(node,item){
   if(node.dataset.signature===signature)return;
   node.dataset.signature=signature;
   node.replaceChildren();
-  if(item.type==='kill'){
-    node.className='kill-line';
-    const killerSide=sideClass(event.killer_side),victimSide=sideClass(event.victim_side);
-    addText(node,'kill-name '+killerSide,event.killer||'-');
-    if(event.assister){
-      addText(node,'kill-plus','+');
-      addText(node,'kill-assist '+sideClass(event.assister_side||event.killer_side),event.assister);
-    }
-    const weapon=document.createElement('span');
-    weapon.className='kill-weapon';
-    const weaponSrc=weaponAsset(event.weapon);
-    if(weaponSrc){
-      const img=document.createElement('img');
-      img.loading='lazy';img.className='weapon-img';img.alt='';img.src=weaponSrc;
-      img.onerror=function(){img.hidden=true};
-      weapon.appendChild(img);
-    }
-    node.appendChild(weapon);
-    if(event.headshot){
-      const headshot=document.createElement('img');
-      headshot.loading='lazy';headshot.className='kill-headshot';headshot.src=ICON_BASE+'headshot.webp';headshot.alt='';
-      node.appendChild(headshot);
-    }
-    addText(node,'kill-name '+victimSide,event.victim||'未知选手');
-    addText(node,'kill-round','R'+(Number(event.round||0)+1));
-    return;
-  }
   if(item.type==='plant'){
     node.className='kill-line bomb-planted';
     addText(node,'kill-name t',event.player||'T Player');
@@ -457,7 +432,7 @@ function updateFeedNode(node,item){
     icon.loading='lazy';icon.className='plant-icon';icon.src=ICON_BASE+'bombplant.webp';icon.alt='';
     node.appendChild(icon);
     addText(node,'event-text','在 '+(event.site||'?')+' 点安放 C4 · '+Number(event.alive_t||0)+'v'+Number(event.alive_ct||0));
-    addText(node,'kill-round','R'+(Number(event.round||0)+1));
+    addText(node,'kill-round','R'+Number((event.round_number??event.round) || 0));
     return;
   }
   const side=sideClass(event.side||event.winner),code=reasonCode(event);

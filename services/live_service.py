@@ -3,10 +3,18 @@
 import json
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 
 # 与网页雷达图使用同一套坐标换算。包点中心来自 resources/radars/*.svg
 # 中的红色斜线区域，只用于游戏没有直接返回 A / B 时的兜底判断。
 _RADAR_SIZE = 708
+_RADAR_META_PATH = (
+    Path(__file__).resolve().parents[1] / "resources" / "radars" / "map-metadata.json"
+)
+try:
+    _RADAR_METADATA = json.loads(_RADAR_META_PATH.read_text(encoding="utf-8"))
+except (OSError, ValueError, TypeError):
+    _RADAR_METADATA = {"radar_size": 1024, "maps": {}}
 _MAP_OVERVIEWS = {
     "dust2": {"x": -2476, "y": 3239, "scale": 4.4},
     "mirage": {"x": -3230, "y": 1713, "scale": 5},
@@ -147,6 +155,16 @@ def _normalize_bombsite(value):
 def _position_to_radar(map_name, position):
     """将游戏坐标换算为雷达 SVG 坐标。"""
     key = _normalize_map_key(map_name)
+    metadata = (_RADAR_METADATA.get("maps", {}) or {}).get(key)
+    if metadata and len(position) >= 2:
+        resolution = float(metadata.get("resolution") or 0)
+        offset = metadata.get("offset", {}) or {}
+        if resolution > 0:
+            x = (float(position[0]) + float(offset.get("x", 0))) / resolution
+            y = float(_RADAR_METADATA.get("radar_size", 1024)) - (
+                (float(position[1]) + float(offset.get("y", 0))) / resolution
+            )
+            return (x / 1024 * _RADAR_SIZE, y / 1024 * _RADAR_SIZE)
     overview = _MAP_OVERVIEWS.get(key)
     if overview:
         return (
@@ -226,7 +244,8 @@ def _record_gsi_bomb_events(merged, data):
     previous_players = previous_gsi.get("allplayers", {}) or {}
     planter_id = current_bomb.get("player") or previous_bomb.get("player")
     alive = _count_alive_gsi_players(current_players)
-    round_num = (data.get("map", {}) or {}).get("round", 0)
+    raw_round = int((data.get("map", {}) or {}).get("round", 0) or 0)
+    round_num = max(1, raw_round + 1)
     events = merged.get("bomb_events", [])
     if not isinstance(events, list):
         events = []
@@ -235,6 +254,7 @@ def _record_gsi_bomb_events(merged, data):
         {
             "id": f"plant-{round_num}-{int(now * 1000)}",
             "round": round_num,
+            "round_number": round_num,
             "player_steamid": str(planter_id or ""),
             "player": _resolve_gsi_player_name(planter_id, current_players, previous_players),
             "player_side": "T",
@@ -310,7 +330,7 @@ def _round_win_reason(data, previous_gsi, winner):
 
 
 def _record_gsi_deaths(merged, data):
-    """记录本回合阵亡位置，并尽量拼出可展示的击杀信息。"""
+    """记录本回合阵亡位置；击杀者由 GSI 帧推断不可靠，因此不再生成即时击杀列表。"""
     previous_gsi = merged.get("gsi", {}) or {}
     previous_players = previous_gsi.get("allplayers", {}) or {}
     current_players = data.get("allplayers", {}) or {}
@@ -320,27 +340,17 @@ def _record_gsi_deaths(merged, data):
     round_num = (data.get("map", {}) or {}).get("round", 0)
     previous_round = (previous_gsi.get("map", {}) or {}).get("round")
     round_changed = previous_round is not None and previous_round != round_num
-    markers = [] if map_changed or round_changed else merged.get("kill_markers", [])
-    events = [] if map_changed else merged.get("kill_events", [])
+    markers = (
+        []
+        if map_changed or round_changed
+        else merged.get("death_markers", merged.get("kill_markers", []))
+    )
     if not isinstance(markers, list):
         markers = []
-    if not isinstance(events, list):
-        events = []
     if map_changed:
         merged["round_history"] = []
 
     now = time.time()
-    killer_candidates = []
-    assist_candidates = []
-    for steamid, player in current_players.items():
-        old_player = previous_players.get(steamid, {}) or {}
-        stats = player.get("match_stats", {}) or {}
-        old_stats = old_player.get("match_stats", {}) or {}
-        kill_delta = int(stats.get("kills", 0) or 0) - int(old_stats.get("kills", 0) or 0)
-        assist_delta = int(stats.get("assists", 0) or 0) - int(old_stats.get("assists", 0) or 0)
-        killer_candidates.extend([(steamid, player)] * max(kill_delta, 0))
-        assist_candidates.extend([(steamid, player)] * max(assist_delta, 0))
-
     for steamid, player in current_players.items():
         old_player = previous_players.get(steamid, {}) or {}
         old_health = (old_player.get("state", {}) or {}).get("health", 0)
@@ -352,61 +362,24 @@ def _record_gsi_deaths(merged, data):
         if not position:
             continue
         victim_side = player.get("team", "")
-        killer = next(
-            (
-                candidate
-                for candidate in killer_candidates
-                if candidate[0] != steamid and candidate[1].get("team", "") != victim_side
-            ),
-            None,
-        )
-        if killer:
-            killer_candidates.remove(killer)
-        assister = next(
-            (
-                candidate
-                for candidate in assist_candidates
-                if candidate[0] != steamid
-                and (not killer or candidate[0] != killer[0])
-                and candidate[1].get("team", "") != victim_side
-            ),
-            None,
-        )
-        if assister:
-            assist_candidates.remove(assister)
+        marker_id = f"{round_num + 1}-{steamid}-{int(now * 1000)}"
         markers.append(
             {
-                "id": f"{round_num}-{steamid}-{int(now * 1000)}",
+                "id": marker_id,
                 "steamid": str(steamid),
                 "name": player.get("name", ""),
                 "side": player.get("team", ""),
-                "round": round_num,
+                "round": round_num + 1,
+                "round_number": round_num + 1,
                 "x": position[0],
                 "y": position[1],
-                "captured_at": datetime.now(timezone.utc).isoformat(),
-                "captured_at_epoch": now,
-            }
-        )
-        events.append(
-            {
-                "id": f"{round_num}-{steamid}-{int(now * 1000)}",
-                "round": round_num,
-                "killer": killer[1].get("name", "") if killer else "",
-                "killer_steamid": str(killer[0]) if killer else "",
-                "killer_side": killer[1].get("team", "") if killer else "",
-                "assister": assister[1].get("name", "") if assister else "",
-                "assister_steamid": str(assister[0]) if assister else "",
-                "assister_side": assister[1].get("team", "") if assister else "",
-                "victim": player.get("name", ""),
-                "victim_steamid": str(steamid),
-                "victim_side": victim_side,
-                "weapon": _active_gsi_weapon(killer[1]) if killer else "",
-                "headshot": False,
+                "z": position[2] if len(position) > 2 else None,
                 "captured_at": datetime.now(timezone.utc).isoformat(),
                 "captured_at_epoch": now,
             }
         )
 
-    # 雷达只保留当前回合；击杀列表保留当前地图最近的记录。
-    merged["kill_markers"] = markers[-10:]
-    merged["kill_events"] = events[-24:]
+    # 雷达只保留当前回合；旧字段保留但不再生成/展示即时击杀列表。
+    merged["death_markers"] = markers[-10:]
+    merged["kill_markers"] = merged["death_markers"]
+    merged["kill_events"] = []
