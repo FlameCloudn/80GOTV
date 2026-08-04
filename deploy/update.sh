@@ -123,7 +123,8 @@ echo "第 5 步：使用临时数据库运行全部测试。"
 TEST_DB="$(run_as_app_user mktemp /tmp/80gotv-test-XXXXXX.db)"
 TEST_MODULES=()
 while IFS= read -r -d '' TEST_FILE; do
-    if [[ "$TEST_FILE" == "$APP_DIR/tests/test_match_replay_cache.py" ]] \
+    TEST_BASENAME="$(basename "$TEST_FILE")"
+    if [[ "$TEST_BASENAME" == "test_match_replay_cache.py" ]] \
         && ! grep -q "def _load_replay_data" "$APP_DIR/routes/matches.py" 2>/dev/null; then
         echo "检测到旧回放模块未部署，跳过服务器残留测试：tests/test_match_replay_cache.py"
         continue
@@ -139,7 +140,7 @@ if [[ "${#TEST_MODULES[@]}" -eq 0 ]]; then
 fi
 run_as_app_user env "${APP_ENV[@]}" DATABASE_PATH="$TEST_DB" FLASK_ENV=testing \
     TURSO_URL= TURSO_TOKEN= SECRET_KEY=deployment-test-secret SESSION_COOKIE_SECURE=false \
-    TRUSTED_HOSTS=* SESSION_COOKIE_DOMAIN= SESSION_COOKIE_NAME=80gotv_test_session \
+    "TRUSTED_HOSTS=*" SESSION_COOKIE_DOMAIN= SESSION_COOKIE_NAME=80gotv_test_session \
     "$VENV_DIR/bin/python" -m unittest "${TEST_MODULES[@]}"
 cleanup_test_db
 
