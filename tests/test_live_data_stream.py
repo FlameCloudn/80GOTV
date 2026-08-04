@@ -162,6 +162,34 @@ class LiveDataStreamTests(unittest.TestCase):
         self.assertEqual(history[-1]["side"], "t")
         self.assertEqual(history[-1]["reason_code"], "bomb_exploded")
 
+    def test_first_round_is_recorded_as_round_one(self):
+        first_round = self._payload(win_team="CT")
+        first_round["map"]["round"] = 0
+        first_round["map"]["round_wins"] = {"1": "ct_win_elimination"}
+        first_round["previously"]["round"] = {"phase": "live", "win_team": "CT"}
+        self.assertEqual(self._post(first_round).status_code, 200)
+
+        conn = get_db()
+        row = conn.execute(
+            "SELECT live_state FROM live_match_data WHERE match_id=?",
+            (self.match_id,),
+        ).fetchone()
+        conn.close()
+        history = json.loads(row["live_state"])["round_history"]
+        self.assertEqual(history[-1]["round"], 1)
+        self.assertEqual(history[-1]["round_number"], 1)
+
+    def test_app_round_event_infers_winner_from_side_mapping(self):
+        payload = self._payload()
+        payload["_80gotv"]["round_events"] = [
+            {"id": "round-1-t", "round_number": 1, "winner": "", "winner_side": "T"}
+        ]
+        self.assertEqual(self._post(payload).status_code, 200)
+
+        live = self.client.get(f"/api/live/{self.match_id}").get_json()
+        self.assertEqual(live["latest_round_result"]["winner"], "t1")
+        self.assertEqual(live["latest_round_result"]["round_number"], 1)
+
         html = self.client.get(f"/matches/{self.match_id}/live").get_data(as_text=True)
         self.assertIn("bomb_exploded.svg", html)
         self.assertIn("bomb_defused.svg", html)
@@ -182,7 +210,7 @@ class LiveDataStreamTests(unittest.TestCase):
         self.assertEqual(self._post(regulation).status_code, 200)
 
         overtime = self._payload(win_team="CT")
-        overtime["map"]["round"] = 25
+        overtime["map"]["round"] = 24
         overtime["map"]["round_wins"] = {"25": "ct_win_elimination"}
         overtime["previously"]["round"] = {"phase": "live", "win_team": "CT"}
         self.assertEqual(self._post(overtime).status_code, 200)
@@ -195,7 +223,7 @@ class LiveDataStreamTests(unittest.TestCase):
         conn.close()
         history = json.loads(row["live_state"])["round_history"]
         self.assertEqual(len(history), 1)
-        self.assertEqual(history[0]["round"], 11)
+        self.assertEqual(history[0]["round"], 13)
 
     def test_new_map_clears_previous_map_live_events(self):
         self.assertEqual(self._post(self._payload()).status_code, 200)

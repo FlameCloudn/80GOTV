@@ -116,6 +116,9 @@ def _merge_app_live_events(merged, data):
             normalized = dict(event)
             normalized["round"] = round_number
             normalized["round_number"] = round_number
+            winner_side = str(normalized.get("winner_side") or normalized.get("side") or "").upper()
+            if normalized.get("winner") not in ("t1", "t2") and winner_side in ("CT", "T"):
+                normalized["winner"] = _match_team_for_gsi_side(data, winner_side)
             normalized.setdefault("id", f"round-{round_number}-{normalized.get('side', '')}")
             by_key[str(normalized["id"])] = normalized
         ordered = sorted(
@@ -613,6 +616,7 @@ def _save_gsi_payload(conn, data, map_name, forced_match_id=None):
 
     # 计算回合历史（每回合结束时记录胜负方）
     round_num = data.get("map", {}).get("round", 0)
+    completed_round = round_num + 1
     if "round_history" not in merged:
         merged["round_history"] = []
     rh = merged["round_history"]
@@ -622,17 +626,18 @@ def _save_gsi_payload(conn, data, map_name, forced_match_id=None):
     # MR12 常规时间只有 24 回合；加时不进入网页上的回合历史栏。
     if (
         (not app_round_events)
-        and 0 < round_num <= 24
+        and 1 <= completed_round <= 24
         and prev_winner
-        and (not rh or rh[-1].get("round") != round_num - 1)
+        and (not rh or rh[-1].get("round") != completed_round)
     ):
         current_map = data.get("map", {}) or {}
         captured_at = datetime.now(timezone.utc)
         reason_code = _round_win_reason_code(data, previous_gsi, prev_winner)
         rh.append(
             {
-                "id": f"round-{round_num - 1}-{prev_winner.lower()}",
-                "round": round_num - 1,
+                "id": f"round-{completed_round}-{prev_winner.lower()}",
+                "round": completed_round,
+                "round_number": completed_round,
                 "winner": _match_team_for_gsi_side(data, prev_winner),
                 "side": prev_winner.lower(),
                 "score_ct": (current_map.get("team_ct", {}) or {}).get("score", 0),

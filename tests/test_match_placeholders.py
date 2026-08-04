@@ -68,6 +68,35 @@ class MatchPlaceholderTests(unittest.TestCase):
         self.assertEqual(match["t1s"], "T1")
         self.assertEqual(match["t2s"], "T2")
 
+    def test_event_registration_logo_fills_missing_team_logo(self):
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        conn.execute(
+            "CREATE TABLE event_registrations(id INTEGER PRIMARY KEY, event_id INTEGER, "
+            "team_name TEXT, team_logo TEXT)"
+        )
+        conn.execute(
+            "INSERT INTO event_registrations(event_id, team_name, team_logo) "
+            "VALUES(5, 'Team Falcocks', '/static/uploads/team_logos/falcocks.png')"
+        )
+        match = supplement_temp_teams(
+            {
+                "event_id": 5,
+                "team1_id": 1,
+                "team2_id": 2,
+                "team1_name": "G8 Esports",
+                "team2_name": "Team Falcocks",
+                "team1_logo": "team_logos/g8.png",
+                "team2_logo": "",
+            },
+            conn,
+        )
+        conn.close()
+
+        self.assertEqual(match["team1_logo"], "team_logos/g8.png")
+        self.assertEqual(match["team2_logo"], "team_logos/falcocks.png")
+        self.assertEqual(match["t2_logo"], "team_logos/falcocks.png")
+
 
 if __name__ == "__main__":
     unittest.main()
