@@ -210,7 +210,7 @@ class LiveDataStreamTests(unittest.TestCase):
         self.assertEqual(self._post(regulation).status_code, 200)
 
         overtime = self._payload(win_team="CT")
-        overtime["map"]["round"] = 24
+        overtime["map"]["round"] = 25
         overtime["map"]["round_wins"] = {"25": "ct_win_elimination"}
         overtime["previously"]["round"] = {"phase": "live", "win_team": "CT"}
         self.assertEqual(self._post(overtime).status_code, 200)
@@ -223,7 +223,7 @@ class LiveDataStreamTests(unittest.TestCase):
         conn.close()
         history = json.loads(row["live_state"])["round_history"]
         self.assertEqual(len(history), 1)
-        self.assertEqual(history[0]["round"], 13)
+        self.assertEqual(history[0]["round"], 12)
 
     def test_new_map_clears_previous_map_live_events(self):
         self.assertEqual(self._post(self._payload()).status_code, 200)
