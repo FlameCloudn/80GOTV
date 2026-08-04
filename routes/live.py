@@ -6,7 +6,11 @@ import math
 from flask import jsonify
 
 from models import get_db
-from services.live_service import _is_recent_iso_timestamp, _load_live_player_profiles
+from services.live_service import (
+    _is_recent_iso_timestamp,
+    _load_live_player_profiles,
+    _position_to_radar,
+)
 from web_app import app
 
 
@@ -76,6 +80,8 @@ def api_live_match(match_id):
         "players_t1": [],
         "players_t2": [],
         "round_history": [],
+        "latest_round_result": None,
+        "death_markers": [],
         "kill_markers": [],
         "kill_events": [],
         "bomb_events": [],
@@ -104,42 +110,35 @@ def api_live_match(match_id):
     gotv = state.get("gotv", {}) or {}
     a2s = state.get("a2s", {}) or {}
     result["server"] = a2s.get("server", {}) or {}
-    markers = state.get("kill_markers", [])
-    result["kill_markers"] = markers[-10:] if isinstance(markers, list) else []
-    events = state.get("kill_events", [])
-    result["kill_events"] = events[-24:] if isinstance(events, list) else []
+    markers = state.get("death_markers", state.get("kill_markers", []))
+    result["death_markers"] = markers[-10:] if isinstance(markers, list) else []
+    # Keep the legacy field for older clients, but do not expose inferred kill events.
+    result["kill_markers"] = result["death_markers"]
+    result["kill_events"] = []
     bomb_events = state.get("bomb_events", [])
     result["bomb_events"] = bomb_events[-24:] if isinstance(bomb_events, list) else []
     profile_ids = set()
     for steamid in gsi.get("allplayers", {}) or {}:
         profile_ids.add(str(steamid))
-    for marker in result["kill_markers"]:
+    for marker in result["death_markers"]:
         profile_ids.add(str(marker.get("steamid", "")))
-    for event in result["kill_events"]:
-        profile_ids.update(
-            {
-                str(event.get("killer_steamid", "")),
-                str(event.get("assister_steamid", "")),
-                str(event.get("victim_steamid", "")),
-            }
-        )
     for event in result["bomb_events"]:
         profile_ids.add(str(event.get("player_steamid", "")))
     profiles = _load_live_player_profiles(conn, profile_ids)
-    for marker in result["kill_markers"]:
+    for marker in result["death_markers"]:
         marker["name"] = profiles.get(str(marker.get("steamid", "")), {}).get("name") or marker.get(
             "name", ""
         )
-    for event in result["kill_events"]:
-        event["killer"] = profiles.get(str(event.get("killer_steamid", "")), {}).get(
-            "name"
-        ) or event.get("killer", "")
-        event["assister"] = profiles.get(str(event.get("assister_steamid", "")), {}).get(
-            "name"
-        ) or event.get("assister", "")
-        event["victim"] = profiles.get(str(event.get("victim_steamid", "")), {}).get(
-            "name"
-        ) or event.get("victim", "")
+        try:
+            point = _position_to_radar(
+                gsi.get("map", {}).get("name", ""),
+                (float(marker.get("x")), float(marker.get("y")), float(marker.get("z") or 0)),
+            )
+            if point:
+                marker["radar_x"] = round(point[0] / 708 * 100, 2)
+                marker["radar_y"] = round(point[1] / 708 * 100, 2)
+        except (TypeError, ValueError):
+            pass
     for event in result["bomb_events"]:
         event["player"] = profiles.get(str(event.get("player_steamid", "")), {}).get(
             "name"
@@ -164,10 +163,19 @@ def api_live_match(match_id):
         result["mode"] = gmap.get("mode", "")
         raw_round = int(gmap.get("round", 0) or 0)
         round_phase = str((gsi.get("round", {}) or {}).get("phase", "") or "")
+        stored_history = state.get("round_history", [])
+        last_completed_round = 0
+        if isinstance(stored_history, list) and stored_history:
+            try:
+                last_completed_round = int(
+                    stored_history[-1].get("round_number", stored_history[-1].get("round", 0)) or 0
+                )
+            except (TypeError, ValueError, AttributeError):
+                last_completed_round = 0
         result["round"] = max(
             1,
-            raw_round
-            if gmap.get("phase") == "gameover" or round_phase == "over"
+            last_completed_round
+            if (gmap.get("phase") == "gameover" or round_phase == "over") and last_completed_round
             else raw_round + 1,
         )
         result["timer"] = _format_live_timer(
@@ -219,7 +227,10 @@ def api_live_match(match_id):
                 "kills": pmatch.get("kills", 0),
                 "assists": pmatch.get("assists", 0),
                 "deaths": pmatch.get("deaths", 0),
-                "adr": round(pmatch.get("damage", 0) / max(gmap.get("round", 1), 1), 1),
+                "adr": round(
+                    pmatch.get("damage", 0) / max(int(gmap.get("round", 0) or 0) + 1, 1), 1
+                ),
+                "observer_slot": pdata.get("observer_slot", 99),
                 "primary": primary,
                 "secondary": secondary,
                 "alive": pstate.get("health", 0) > 0,
@@ -231,8 +242,12 @@ def api_live_match(match_id):
             else:
                 t2_players.append(entry)
 
-        result["players_t1"] = sorted(t1_players, key=lambda x: x["kills"], reverse=True)[:5]
-        result["players_t2"] = sorted(t2_players, key=lambda x: x["kills"], reverse=True)[:5]
+        player_order = lambda item: (
+            int(item.get("observer_slot", 99) or 99),
+            str(item.get("steamid", "")),
+        )
+        result["players_t1"] = sorted(t1_players, key=player_order)[:5]
+        result["players_t2"] = sorted(t2_players, key=player_order)[:5]
 
         # GSI 的地图数据中直接包含 CT 和 T 当前比分。
         ct = gmap.get("team_ct", {}) or {}
@@ -255,6 +270,8 @@ def api_live_match(match_id):
         }
         result["phase"] = gr.get("phase", "") or countdown_phase
         result["round_history"] = state.get("round_history", [])
+        if result["round_history"]:
+            result["latest_round_result"] = result["round_history"][-1]
 
     # --- GOTV 数据（回退/补充） ---
     if not use_gsi and gotv:

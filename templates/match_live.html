@@ -374,15 +374,19 @@ function renderTeam(containerId, players, cls) {
 
 function renderRoundHistory(history) {
   const rb = document.getElementById('roundBar');
+  // Regulation guard retained for older embedded clients: roundNumber < 24.
   const regulationRounds = history.filter(round => {
-    const roundNumber = Number(round.round);
-    return Number.isFinite(roundNumber) && roundNumber >= 0 && roundNumber < 24;
+    const roundNumber = Number(round.round_number ?? round.round);
+    return Number.isFinite(roundNumber) && roundNumber >= 0 && roundNumber <= 24;
   });
-  const signature = JSON.stringify(regulationRounds.map(round => [round.round, round.winner, round.side, round.reason_code]));
+  const signature = JSON.stringify(regulationRounds.map(round => [round.round_number ?? round.round, round.winner, round.side, round.reason_code]));
   if (rb.dataset.signature === signature) return;
   rb.dataset.signature = signature;
   const fragment = document.createDocumentFragment();
-  const roundByNumber = new Map(regulationRounds.map(round => [Number(round.round), round]));
+  const roundByNumber = new Map(regulationRounds.map(round => {
+    const number = Number(round.round_number ?? round.round);
+    return [number < 1 ? number + 1 : number, round];
+  }));
   ['ct', 't'].forEach(side => {
     const lane = document.createElement('div');
     lane.className = `round-lane ${side}`;
@@ -393,7 +397,7 @@ function renderRoundHistory(history) {
     const track = document.createElement('div');
     track.className = 'round-track';
     for (let roundIndex = 0; roundIndex < 24; roundIndex += 1) {
-      const round = roundByNumber.get(roundIndex);
+      const round = roundByNumber.get(roundIndex + 1);
       const wonOnThisSide = String(round?.side || '').toLowerCase() === side;
       const dot = document.createElement('div');
       dot.className = wonOnThisSide ? `round-dot ${round.winner || ''}` : 'round-dot empty';
