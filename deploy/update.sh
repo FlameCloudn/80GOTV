@@ -140,7 +140,8 @@ if [[ "${#TEST_MODULES[@]}" -eq 0 ]]; then
 fi
 run_as_app_user env "${APP_ENV[@]}" DATABASE_PATH="$TEST_DB" FLASK_ENV=testing \
     TURSO_URL= TURSO_TOKEN= SECRET_KEY=deployment-test-secret SESSION_COOKIE_SECURE=false \
-    "TRUSTED_HOSTS=*" SESSION_COOKIE_DOMAIN= SESSION_COOKIE_NAME=80gotv_test_session \
+    TRUSTED_HOSTS="localhost,127.0.0.1,80gotv.cn,www.80gotv.cn,8.222.223.38,192.168.1.20,gaming-pc,example.trycloudflare.com,demo.trycloudflare.com" \
+    SESSION_COOKIE_DOMAIN= SESSION_COOKIE_NAME=80gotv_test_session \
     "$VENV_DIR/bin/python" -m unittest "${TEST_MODULES[@]}"
 cleanup_test_db
 
