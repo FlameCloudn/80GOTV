@@ -616,7 +616,10 @@ def _save_gsi_payload(conn, data, map_name, forced_match_id=None):
 
     # 计算回合历史（每回合结束时记录胜负方）
     round_num = data.get("map", {}).get("round", 0)
-    completed_round = round_num + 1
+    # In transition frames CS2 reports the newly-entered zero-based round while
+    # `previously.round` describes the round that just finished. Some servers
+    # briefly keep round 0 on the first result, so clamp that one to round 1.
+    completed_round = max(1, round_num)
     if "round_history" not in merged:
         merged["round_history"] = []
     rh = merged["round_history"]
