@@ -123,7 +123,7 @@ echo "第 5 步：使用临时数据库运行全部测试。"
 TEST_DB="$(run_as_app_user mktemp /tmp/80gotv-test-XXXXXX.db)"
 run_as_app_user env "${APP_ENV[@]}" DATABASE_PATH="$TEST_DB" FLASK_ENV=testing \
     TURSO_URL= TURSO_TOKEN= SECRET_KEY=deployment-test-secret SESSION_COOKIE_SECURE=false \
-    TRUSTED_HOSTS= SESSION_COOKIE_DOMAIN= SESSION_COOKIE_NAME=80gotv_test_session \
+    TRUSTED_HOSTS=localhost,127.0.0.1 SESSION_COOKIE_DOMAIN= SESSION_COOKIE_NAME=80gotv_test_session \
     "$VENV_DIR/bin/python" -m unittest discover -s "$APP_DIR/tests" -t "$APP_DIR" -p "test_*.py"
 cleanup_test_db
 
