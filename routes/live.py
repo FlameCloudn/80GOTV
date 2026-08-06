@@ -88,8 +88,8 @@ def _roster_gsi_mapping(gsi, roster_side_by_steamid):
             votes[team_slot][side] += 1
     if not all(sum(votes[slot].values()) for slot in ("team1", "team2")):
         return None
-    team1_side = max(votes["team1"], key=votes["team1"].get)
-    team2_side = max(votes["team2"], key=votes["team2"].get)
+    team1_side = "CT" if votes["team1"]["CT"] >= votes["team1"]["T"] else "T"
+    team2_side = "CT" if votes["team2"]["CT"] >= votes["team2"]["T"] else "T"
     if team1_side == team2_side:
         return None
     return {
@@ -331,10 +331,12 @@ def api_live_match(match_id):
             else:
                 t2_players.append(entry)
 
-        player_order = lambda item: (
-            int(item.get("observer_slot", 99) or 99),
-            str(item.get("steamid", "")),
-        )
+        def player_order(item):
+            return (
+                int(item.get("observer_slot", 99) or 99),
+                str(item.get("steamid", "")),
+            )
+
         result["players_t1"] = sorted(t1_players, key=player_order)[:5]
         result["players_t2"] = sorted(t2_players, key=player_order)[:5]
 
