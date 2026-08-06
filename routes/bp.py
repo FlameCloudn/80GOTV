@@ -13,13 +13,7 @@ from utils.bp_manager import (
     normalize_bp_state,
 )
 from utils.helpers import is_admin as _helper_is_admin
-from utils.rate_limiter import rate_limit
-from utils.web_helpers import (
-    check_bp_password,
-    csrf_required,
-    hash_bp_password,
-    is_hashed_bp_password,
-)
+from utils.web_helpers import csrf_required
 from web_app import app
 
 
@@ -146,7 +140,7 @@ def _load_bp_state(raw_state):
 
 @app.route("/bp/<int:match_id>")
 def bp_room(match_id):
-    """BP 房间 - 需要登录和密码验证"""
+    """BP 房间 - 需要登录；只有参赛队长可以操作。"""
     is_admin = _helper_is_admin()
     if "user_id" not in session and not is_admin:
         flash("请先登录", "error")
@@ -240,7 +234,9 @@ def bp_room(match_id):
         flash("请先在个人主页绑定 Steam ID", "error")
         return redirect(url_for("user_profile"))
 
-    bp_verified = session.get(f"bp_verified_{match_id}") or is_admin
+    # Password protection was removed. Keep this template flag true for
+    # compatibility with older bookmarked pages and cached client scripts.
+    bp_verified = True
     bp_window_open = _bp_window_is_open(match)
     bp_state = None
     if bp_window_open:
@@ -248,8 +244,7 @@ def bp_room(match_id):
         if state_changed:
             conn.commit()
 
-    # 未验证密码时不把 BP 过程发到浏览器。
-    if (bp_verified or not match["bp_password"]) and bp_state is None and match["bp_state"]:
+    if bp_state is None and match["bp_state"]:
         bp_state, state_changed = _load_bp_state(match["bp_state"])
         if state_changed:
             conn.execute(
@@ -257,9 +252,6 @@ def bp_room(match_id):
                 (json.dumps(bp_state, ensure_ascii=False), match_id),
             )
             conn.commit()
-    if match["bp_password"] and not bp_verified:
-        bp_state = None
-
     captain_team = None
     if my_team and _current_user_is_captain(conn, match, my_team):
         captain_team = my_team
@@ -293,20 +285,16 @@ def bp_room(match_id):
 @app.route("/bp/<int:match_id>/verify", methods=["POST"])
 @csrf_required
 def bp_verify(match_id):
-    """验证 BP 密码"""
+    """兼容旧客户端的入口；在线 BP 已不再需要密码。"""
     is_admin = _helper_is_admin()
     if "user_id" not in session and not is_admin:
         return jsonify({"ok": False, "msg": "请先登录"})
-    if not rate_limit(f"bp_verify:{match_id}", 5, 300, by_ip=True):
-        return jsonify({"ok": False, "msg": "尝试次数过多，请 5 分钟后再试"}), 429
-
-    password = request.form.get("password", "")
     conn = get_db()
     match = conn.execute("SELECT * FROM matches WHERE id=?", (match_id,)).fetchone()
 
-    if not match or not match["bp_password"]:
+    if not match:
         conn.close()
-        return jsonify({"ok": False, "msg": "该比赛未设置 BP 密码"})
+        return jsonify({"ok": False, "msg": "比赛不存在"}), 404
     if not is_admin and not _bp_window_is_open(match):
         conn.close()
         return jsonify({"ok": False, "msg": "BP 将在开赛前 20 分钟开放"}), 403
@@ -315,28 +303,9 @@ def bp_verify(match_id):
         conn.close()
         return jsonify({"ok": False, "msg": "你未参加该比赛"}), 403
 
-    if check_bp_password(match["bp_password"], password):
-        if not is_hashed_bp_password(match["bp_password"]):
-            conn.execute(
-                "UPDATE matches SET bp_password=? WHERE id=?",
-                (hash_bp_password(password), match_id),
-            )
-            conn.commit()
-        conn.close()
-        session[f"bp_verified_{match_id}"] = True
-        bp_state, state_changed = _load_bp_state(match["bp_state"])
-        if state_changed:
-            conn = get_db()
-            conn.execute(
-                "UPDATE matches SET bp_state=? WHERE id=?",
-                (json.dumps(bp_state, ensure_ascii=False), match_id),
-            )
-            conn.commit()
-            conn.close()
-        return jsonify({"ok": True, "bp_state": bp_state})
-    else:
-        conn.close()
-        return jsonify({"ok": False, "msg": "密码错误"})
+    conn.close()
+    session[f"bp_verified_{match_id}"] = True
+    return jsonify({"ok": True, "bp_state": _load_bp_state(match["bp_state"])[0]})
 
 
 @app.route("/api/bp/<int:match_id>/state")
@@ -356,9 +325,6 @@ def bp_api_state(match_id):
         if not _get_current_player_team(conn, match):
             conn.close()
             return jsonify({"ok": False, "msg": "你未参加该比赛"}), 403
-        if match["bp_password"] and not session.get(f"bp_verified_{match_id}"):
-            conn.close()
-            return jsonify({"ok": False, "msg": "请先验证 BP 密码"}), 403
     state, state_changed = ensure_bp_started(conn, match)
     if state_changed:
         conn.commit()
@@ -424,10 +390,6 @@ def bp_api_action(match_id):
     if not bp_window_is_open(match["match_time"], match["status"]):
         conn.close()
         return jsonify({"ok": False, "msg": "BP 将在开赛前 20 分钟自动开始"}), 403
-    if match["bp_password"] and not session.get(f"bp_verified_{match_id}") and not is_admin:
-        conn.close()
-        return jsonify({"ok": False, "msg": "请先验证 BP 密码"}), 403
-
     # 校验队伍归属（管理员除外）
     if not is_admin:
         player_team = _get_current_player_team(conn, match)

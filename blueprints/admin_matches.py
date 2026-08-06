@@ -22,7 +22,7 @@ from utils.helpers import ensure_unique_match_slug, make_match_slug, normalize_h
 from utils.match_utils import get_demo_upload_slot_count, get_sql_effective_status
 from utils.stats_calc import calculate_rating
 from utils.web_helpers import admin_required as login_required
-from utils.web_helpers import csrf_required, hash_bp_password
+from utils.web_helpers import csrf_required
 
 DEMOS_DIR = os.path.join(BASE_DIR, "static", "demos")
 logger = logging.getLogger("80gotv.admin.matches")
@@ -104,8 +104,9 @@ def _parse_match_form(request, include_results=False):
     f["has_map3"] = 0 if include_results and request.form.get("no_map3") == "1" else 1
     f["has_map4"] = 0 if include_results and request.form.get("no_map4") == "1" else 1
     f["has_map5"] = 0 if include_results and request.form.get("no_map5") == "1" else 1
-    bp_password = request.form.get("bp_password", "").strip()
-    f["bp_password"] = hash_bp_password(bp_password)
+    # Online BP no longer uses a separate password. Keep the legacy database
+    # column for old rows and migrations, but never create a new password.
+    f["bp_password"] = None
     f["bp_process"] = request.form.get("bp_process", "") if include_results else ""
     f["decider_knife_winner"] = (
         request.form.get("decider_knife_winner", "").strip() or None if include_results else None
@@ -165,12 +166,9 @@ def _preserve_managed_match_fields(values, existing):
     if current_status != "completed":
         values["bp_process"] = existing["bp_process"]
 
-    if current_status != "upcoming":
-        values["bp_password"] = existing["bp_password"]
-    elif request.form.get("clear_bp_password") == "1":
-        values["bp_password"] = None
-    elif not values["bp_password"]:
-        values["bp_password"] = existing["bp_password"]
+    # Password protection was removed from online BP. Clear legacy values when
+    # a match is saved so an old hash cannot unexpectedly block a captain.
+    values["bp_password"] = None
 
     if values["server_address"] and not values["server_password"]:
         values["server_password"] = existing["server_password"]

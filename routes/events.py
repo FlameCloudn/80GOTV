@@ -462,6 +462,42 @@ def event_detail(event_id):
         ).fetchall()
         player_info = {r["id"]: r for r in rows}
 
+    # Bracket hover cards use the current event statistics. The old query only
+    # loaded names and avatars, so every rating rendered as a dash even when
+    # the match had already produced stats.
+    event_ratings = conn.execute(
+        """
+        SELECT ms.player_id,
+               SUM(ms.rating * COALESCE(NULLIF(ms.rounds_played, 0), 1)) /
+                 NULLIF(SUM(COALESCE(NULLIF(ms.rounds_played, 0), 1)), 0) AS rating
+        FROM match_stats ms
+        JOIN matches m ON m.id=ms.match_id
+        WHERE m.event_id=? AND ms.player_id IS NOT NULL
+        GROUP BY ms.player_id
+        """,
+        (event_id,),
+    ).fetchall()
+    rating_by_player = {
+        int(row["player_id"]): round(float(row["rating"]), 2)
+        for row in event_ratings
+        if row["player_id"] and row["rating"] is not None
+    }
+    for player_id, player in list(player_info.items()):
+        if player_id in rating_by_player:
+            player_info[player_id] = {**dict(player), "rating": rating_by_player[player_id]}
+    for team_key, roster in list(registration_rosters.items()):
+        registration_rosters[team_key] = [
+            {
+                **player,
+                **(
+                    {"rating": rating_by_player[int(player["id"])]}
+                    if str(player.get("id", "")).isdigit() and int(player["id"]) in rating_by_player
+                    else {}
+                ),
+            }
+            for player in roster
+        ]
+
     # 为注册队伍查选手
     reg_team_ids = [v["id"] for k, v in team_map.items() if k[0] == "team"]
     if reg_team_ids:
@@ -475,6 +511,9 @@ def event_detail(event_id):
             if key in team_map:
                 team_map[key].setdefault("player_ids", []).append(r["id"])
                 player_info[r["id"]] = r
+    for player_id, player in list(player_info.items()):
+        if player_id in rating_by_player:
+            player_info[player_id] = {**dict(player), "rating": rating_by_player[player_id]}
 
     # 组装最终 teams 列表
     teams = []

@@ -3894,18 +3894,20 @@ body{background:var(--h-page)}
   text-align:right;
 }
 .h-result-mini{
-  justify-content:space-between;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 42px minmax(0,1fr);
   gap:4px;
   font-size:12px;
 }
 .h-result-mini span{
   min-width:0;
-  max-width:64px;
+  max-width:none;
   overflow:hidden;
   text-overflow:ellipsis;
   white-space:nowrap;
 }
-.h-result-mini b{color:var(--accent);white-space:nowrap}
+.h-result-mini span:last-child{text-align:right}
+.h-result-mini b{color:var(--accent);white-space:nowrap;text-align:center}
 .home-right-col .h-match-mini,
 .home-right-col .h-activity-row,
 .home-right-col .h-result-mini{

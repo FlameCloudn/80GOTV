@@ -123,19 +123,6 @@
 .bp-action-area{text-align:center;margin-top:12px;min-height:48px}
 .bp-waiting{color:var(--text-muted);font-size:14px;padding:12px}
 
-/* 密码弹窗 */
-.pw-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);
-  display:flex;align-items:center;justify-content:center;z-index:1000}
-.pw-box{background:var(--bg-primary);padding:32px;border-radius:0;width:380px;max-width:90vw;
-  text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.4)}
-.pw-box h2{margin-bottom:6px;font-size:20px}
-.pw-box p{color:var(--text-muted);margin-bottom:18px;font-size:13px}
-.pw-box input{width:100%;padding:12px;border:2px solid var(--border-color);border-radius:0;
-  font-size:15px;background:var(--bg-card);color:var(--text-primary);text-align:center;margin-bottom:14px;box-sizing:border-box}
-.pw-box input:focus{border-color:var(--accent);outline:none}
-.pw-box .btn{padding:12px 32px;border:none;border-radius:0;font-size:15px;font-weight:700;cursor:pointer}
-.pw-error{color:#ef4444;font-size:13px;margin-top:10px}
-
 /* 响应式 */
 @media(max-width:768px){
   .bp-map-card{height:72px;font-size:14px}
@@ -192,17 +179,6 @@
   {% endif %}
 </div>
 
-{% if not bp_verified and match.bp_password and bp_window_open %}
-<div class="pw-overlay" id="pw-overlay">
-  <div class="pw-box">
-    <h2>BP 房间</h2>
-    <p>请输入管理员提供的 BP 密码</p>
-    <input type="password" id="bp-pw-input" placeholder="输入密码..." autofocus>
-    <button type="button" class="btn" style="background:var(--accent);color:#fff;" onclick="verifyPassword()">进入房间</button>
-    <div class="pw-error" id="pw-error"></div>
-  </div>
-</div>
-{% endif %}
 {% endblock %}
 {% block extra_js %}
 <script>
@@ -311,38 +287,6 @@ function doChooseSide(team, mapName, side) {
     else showToast(d.msg, 'error');
   });
 }
-
-function verifyPassword() {
-  var pw = document.getElementById('bp-pw-input').value;
-  var btn = document.querySelector('#pw-overlay .btn');
-  var errEl = document.getElementById('pw-error');
-  if (!pw) { errEl.textContent = '请输入密码'; return; }
-  btn.disabled = true; btn.textContent = '验证中...';
-  fetch('/bp/' + matchId + '/verify', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'},
-    body: 'csrf_token={{ csrf_token }}&password=' + encodeURIComponent(pw)
-  }).then(function(r) {
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    return r.json();
-  }).then(function(data) {
-    if (data.ok) {
-      document.getElementById('pw-overlay').style.display = 'none';
-      bpState = data.bp_state;
-      renderAll();
-      setInterval(pollState, 3000);
-    } else {
-      errEl.textContent = data.msg;
-      btn.disabled = false; btn.textContent = '进入房间';
-    }
-  }).catch(function() {
-    errEl.textContent = '网络错误，请重试';
-    btn.disabled = false; btn.textContent = '进入房间';
-  });
-}
-document.getElementById('bp-pw-input') && document.getElementById('bp-pw-input').addEventListener('keydown', function(e) {
-  if (e.key === 'Enter') verifyPassword();
-});
 
 // ======================== 渲染 ========================
 
@@ -694,10 +638,8 @@ function resetBP() {
   });
 }
 
-{% if bp_verified or not match.bp_password or not bp_window_open %}
 renderAll();
 setInterval(pollState, 3000);
-{% endif %}
 setInterval(renderTimer, 1000);
 </script>
 {% endblock %}
