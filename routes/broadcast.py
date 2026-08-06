@@ -281,6 +281,20 @@ def _match_payload(row, conn):
             }
         )
 
+    decider = {
+        "knife_winner": match.get("decider_knife_winner") or "",
+        "start_side": match.get("decider_start_side") or "",
+        "side_team": "",
+    }
+    if bp_state:
+        remaining_pick = next(
+            (pick for pick in bp_state.get("picks", []) if pick.get("picked_by") == "remaining"),
+            None,
+        )
+        if remaining_pick and remaining_pick.get("side") in {"CT", "T"}:
+            decider["start_side"] = remaining_pick["side"]
+            decider["side_team"] = remaining_pick.get("side_team") or ""
+
     return {
         "id": match["id"],
         "status": match.get("effective_status") or match.get("status") or "upcoming",
@@ -314,10 +328,7 @@ def _match_payload(row, conn):
         "bp": bp_state if bp_state is not None else _bp_payload(match.get("bp_state")),
         "bp_window_open": bp_window_is_open(match.get("match_time"), match.get("status")),
         "bp_start_timestamp": bp_open_at_timestamp(match.get("match_time")),
-        "decider": {
-            "knife_winner": match.get("decider_knife_winner") or "",
-            "start_side": match.get("decider_start_side") or "",
-        },
+        "decider": decider,
         "live_api": f"/api/live/{match['id']}",
         "live_ingest_api": f"/api/broadcast/matches/{match['id']}/live",
     }

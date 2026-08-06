@@ -79,9 +79,12 @@ def complete_bp(bo_format):
 
     if state["status"] == "side_select":
         for pick in state["picks"]:
-            if pick["picked_by"] == "remaining":
+            if pick["picked_by"] == "remaining" and state["bo"] != "BO1":
                 continue
-            team = "t2" if pick["picked_by"] == "t1" else "t1"
+            if pick.get("side_team"):
+                team = pick["side_team"]
+            else:
+                team = "t2" if pick["picked_by"] == "t1" else "t1"
             ok, message = choose_side(state, team, pick["map"], "CT")
             assert ok, message
 
@@ -114,7 +117,7 @@ class BPFlowTests(unittest.TestCase):
         state = ready_state("BO1")
         first_team = get_team_for_step(state, 0)
 
-        for expected_progress in (1, 2):
+        for expected_progress in (1,):
             ok, _ = ban_map(state, first_team, state["pool"][0])
             self.assertTrue(ok)
             self.assertEqual(state["current_step"], 0)
@@ -124,6 +127,39 @@ class BPFlowTests(unittest.TestCase):
         self.assertTrue(ok)
         self.assertEqual(state["current_step"], 1)
         self.assertEqual(state["current_step_progress"], 0)
+
+        second_team = get_team_for_step(state, 1)
+        for expected_progress in (1, 2, 3):
+            ok, _ = ban_map(state, second_team, state["pool"][0])
+            self.assertTrue(ok)
+            if expected_progress < 3:
+                self.assertEqual(state["current_step"], 1)
+                self.assertEqual(state["current_step_progress"], expected_progress)
+
+        self.assertEqual(state["current_step"], 2)
+        self.assertEqual(state["current_step_progress"], 0)
+
+    def test_bo1_requires_final_map_side_selection(self):
+        state = ready_state("BO1")
+        while state["status"] == "bp":
+            step = state["steps"][state["current_step"]]
+            team = get_team_for_step(state, state["current_step"])
+            ok, message = ban_map(state, team, state["pool"][0])
+            self.assertTrue(ok, message)
+
+        self.assertEqual(state["status"], "side_select")
+        remaining = state["picks"][0]
+        self.assertEqual(remaining["picked_by"], "remaining")
+        self.assertEqual(remaining["side_team"], "t2")
+
+        ok, message = choose_side(state, "t1", remaining["map"], "CT")
+        self.assertFalse(ok)
+        self.assertEqual(message, "该图由对方选边")
+
+        ok, message = choose_side(state, "t2", remaining["map"], "CT")
+        self.assertTrue(ok, message)
+        self.assertEqual(state["status"], "completed")
+        self.assertEqual(state["sides"][remaining["map"]], "CT")
 
     def test_tied_roll_can_restart_and_roll_cannot_be_overwritten(self):
         state = init_bp_state("BO3")
@@ -164,7 +200,7 @@ class BPFlowTests(unittest.TestCase):
         self.assertTrue(normalize_bp_state(state))
         self.assertEqual(state["status"], "bp")
         self.assertEqual(state["current_step"], 1)
-        self.assertEqual(state["current_step_progress"], 0)
+        self.assertEqual(state["current_step_progress"], 1)
         self.assertEqual(state["picks"], [])
         self.assertEqual(len(state["pool"]), 4)
 
