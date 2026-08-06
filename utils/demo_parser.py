@@ -666,35 +666,45 @@ def parse_player_stats(match_data):
         sdm = side_damage.get(steam_id, {"T": 0, "CT": 0})
         sr = side_rounds.get(steam_id, {"T": 0, "CT": 0})
 
+        side_rounds_complete = sr["T"] + sr["CT"] == rounds_count
+        kills_total = int(player.get("killCount", 0) or 0)
+        deaths_total = int(player.get("deathCount", 0) or 0)
+        side_kills_complete = sk["T"] + sk["CT"] == kills_total
+        side_deaths_complete = sd["T"] + sd["CT"] == deaths_total
+        side_stats_complete = side_rounds_complete and side_kills_complete and side_deaths_complete
+
         t_rounds = max(sr["T"], 1)
         ct_rounds = max(sr["CT"], 1)
-        t_k = sk["T"]
-        ct_k = sk["CT"]
-        t_d = sd["T"]
-        ct_d = sd["CT"]
+        t_k = sk["T"] if side_stats_complete else None
+        ct_k = sk["CT"] if side_stats_complete else None
+        t_d = sd["T"] if side_stats_complete else None
+        ct_d = sd["CT"] if side_stats_complete else None
 
-        t_adr_val = round(sdm["T"] / t_rounds, 1)
-        ct_adr_val = round(sdm["CT"] / ct_rounds, 1)
+        t_adr_val = round(sdm["T"] / t_rounds, 1) if side_stats_complete else None
+        ct_adr_val = round(sdm["CT"] / ct_rounds, 1) if side_stats_complete else None
 
         # Approximate T/CT rating from side-specific stats
         from utils.stats_calc import calculate_rating as _calc_rtg
 
-        t_rating, _, _ = _calc_rtg(
-            kills=t_k,
-            deaths=t_d,
-            rounds_played=t_rounds,
-            adr=t_adr_val,
-            kast=player.get("kast", 70),
-            impact=0,
-        )
-        ct_rating, _, _ = _calc_rtg(
-            kills=ct_k,
-            deaths=ct_d,
-            rounds_played=ct_rounds,
-            adr=ct_adr_val,
-            kast=player.get("kast", 70),
-            impact=0,
-        )
+        if side_stats_complete:
+            t_rating, _, _ = _calc_rtg(
+                kills=t_k,
+                deaths=t_d,
+                rounds_played=t_rounds,
+                adr=t_adr_val,
+                kast=player.get("kast", 70),
+                impact=None,
+            )
+            ct_rating, _, _ = _calc_rtg(
+                kills=ct_k,
+                deaths=ct_d,
+                rounds_played=ct_rounds,
+                adr=ct_adr_val,
+                kast=player.get("kast", 70),
+                impact=None,
+            )
+        else:
+            t_rating = ct_rating = None
 
         results.append(
             {
@@ -757,6 +767,7 @@ def parse_player_stats(match_data):
                 "ct_deaths": ct_d,
                 "t_adr": t_adr_val,
                 "ct_adr": ct_adr_val,
+                "side_stats_complete": side_stats_complete,
             }
         )
 

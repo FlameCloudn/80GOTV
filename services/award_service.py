@@ -72,6 +72,7 @@ def build_event_award_poster(conn, base_dir, event_id, player_id, award_type="MV
                    END AS stat_rounds
             FROM match_stats ms JOIN matches m ON m.id=ms.match_id
             WHERE ms.player_id=? AND m.event_id=?
+              AND COALESCE(ms.data_status, 'final') <> 'superseded'
         ) ms
     """,
         (player_id, event_id),
@@ -113,6 +114,7 @@ def build_event_award_poster(conn, base_dir, event_id, player_id, award_type="MV
         LEFT JOIN teams t1 ON t1.id=m.team1_id
         LEFT JOIN teams t2 ON t2.id=m.team2_id
         WHERE ms.player_id=? AND m.event_id=?
+          AND COALESCE(ms.data_status, 'final') <> 'superseded'
         ORDER BY ms.rating DESC, m.match_time DESC LIMIT 3
     """,
         (player_id, event_id),

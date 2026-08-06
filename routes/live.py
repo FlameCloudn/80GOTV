@@ -6,6 +6,7 @@ import math
 from flask import jsonify
 
 from models import get_db
+from services.live_log_service import load_match_timeline
 from services.live_service import (
     _is_recent_iso_timestamp,
     _load_live_player_profiles,
@@ -152,8 +153,17 @@ def _roster_gsi_mapping(gsi, roster_side_by_steamid):
             votes[team_slot][side] += 1
     if not all(sum(votes[slot].values()) for slot in ("team1", "team2")):
         return None
-    team1_side = "CT" if votes["team1"]["CT"] >= votes["team1"]["T"] else "T"
-    team2_side = "CT" if votes["team2"]["CT"] >= votes["team2"]["T"] else "T"
+    inferred = {}
+    for slot, slot_votes in votes.items():
+        strongest_side, strongest_count = max(slot_votes.items(), key=lambda item: item[1])
+        other_count = min(slot_votes.values())
+        # During knife/half-time transitions the roster can briefly contain
+        # both sides.  Do not turn that transient mix into a scoreboard swap.
+        if strongest_count < 3 or strongest_count <= other_count:
+            return None
+        inferred[slot] = strongest_side
+    team1_side = inferred["team1"]
+    team2_side = inferred["team2"]
     if team1_side == team2_side:
         return None
     return {
@@ -185,11 +195,13 @@ def _gsi_team_mapping(gsi, row, roster_side_by_steamid=None):
     }
     team1_labels.discard("")
     team2_labels.discard("")
-    if ct_name in team1_labels or t_name in team2_labels:
+    if ct_name in team1_labels and t_name in team2_labels:
         return {"CT": "team1", "T": "team2"}
-    if ct_name in team2_labels or t_name in team1_labels:
+    if ct_name in team2_labels and t_name in team1_labels:
         return {"CT": "team2", "T": "team1"}
-    return {"CT": "team1", "T": "team2"}
+    # Guessing CT=team1 is worse than showing an unknown side: after a knife
+    # round or halftime it silently swaps every score and player.
+    return None
 
 
 def _format_live_timer(value):
@@ -228,6 +240,7 @@ def api_live_match(match_id):
         "players_t1": [],
         "players_t2": [],
         "round_history": [],
+        "overtime_history": [],
         "latest_round_result": None,
         "death_markers": [],
         "kill_markers": [],
@@ -242,6 +255,8 @@ def api_live_match(match_id):
         "bomb": {},
         "server": {},
         "updated_at": None,
+        "side_uncertain": True,
+        "side_mapping": None,
     }
     if not row or not row["live_state"]:
         conn.close()
@@ -257,14 +272,27 @@ def api_live_match(match_id):
     gsi = state.get("gsi", {}) or {}
     gotv = state.get("gotv", {}) or {}
     a2s = state.get("a2s", {}) or {}
+    result["round_history"] = (
+        state.get("round_history", []) if isinstance(state.get("round_history", []), list) else []
+    )
+    result["overtime_history"] = (
+        state.get("overtime_history", [])
+        if isinstance(state.get("overtime_history", []), list)
+        else []
+    )
     result["server"] = a2s.get("server", {}) or {}
     markers = state.get("death_markers", state.get("kill_markers", []))
     result["death_markers"] = markers[-10:] if isinstance(markers, list) else []
-    # Keep the legacy field for older clients, but do not expose inferred kill events.
+    # Keep the legacy field for older clients, but prefer the durable event
+    # timeline when the in-memory frame no longer contains old kills.
     result["kill_markers"] = result["death_markers"]
-    result["kill_events"] = []
+    timeline = load_match_timeline(conn, match_id)
+    result["kill_events"] = [event for event in timeline if event.get("type") == "kill"][-40:]
+    if not result["bomb_events"]:
+        result["bomb_events"] = [event for event in timeline if event.get("type") == "plant"][-24:]
     bomb_events = state.get("bomb_events", [])
-    result["bomb_events"] = bomb_events[-24:] if isinstance(bomb_events, list) else []
+    if isinstance(bomb_events, list) and bomb_events:
+        result["bomb_events"] = bomb_events[-24:]
     profile_ids = set()
     for steamid in gsi.get("allplayers", {}) or {}:
         profile_ids.add(str(steamid))
@@ -295,10 +323,17 @@ def api_live_match(match_id):
     # --- GSI 数据（逐帧实时） ---
     has_gsi = bool(gsi)
     gsi_is_fresh = has_gsi and _is_recent_iso_timestamp(state.get("gsi_received_at"))
+    gotv_is_fresh = bool(gotv) and _is_recent_iso_timestamp(gotv.get("last_push"))
     use_gsi = has_gsi and (gsi_is_fresh or not gotv)
     result["has_gsi"] = gsi_is_fresh
     result["source"] = (
-        "gsi" if gsi_is_fresh else ("gotv" if gotv else ("stale_gsi" if has_gsi else ""))
+        "gsi"
+        if gsi_is_fresh
+        else (
+            "gotv"
+            if gotv_is_fresh
+            else ("stale_gotv" if gotv else ("stale_gsi" if has_gsi else ""))
+        )
     )
 
     if use_gsi:
@@ -307,7 +342,9 @@ def api_live_match(match_id):
         gphase = gsi.get("phase_countdowns", {}) or {}
         roster_side_by_steamid = _roster_side_by_steamid(conn, row)
         side_mapping = _gsi_team_mapping(gsi, row, roster_side_by_steamid)
-        identity_side = {identity: side for side, identity in side_mapping.items()}
+        identity_side = {identity: side for side, identity in (side_mapping or {}).items()}
+        result["side_uncertain"] = not bool(side_mapping)
+        result["side_mapping"] = side_mapping
         result["map_name"] = gmap.get("name", "")
         result["mode"] = gmap.get("mode", "")
         raw_round = int(gmap.get("round", 0) or 0)
@@ -402,12 +439,12 @@ def api_live_match(match_id):
             player_side = str(pdata.get("team") or "")
             # The registration roster is authoritative for the fixed team slot.
             # GSI's CT/T value only describes the current side and changes at half.
-            player_identity = roster_side_by_steamid.get(steamid) or side_mapping.get(
-                player_side, player_side
-            )
+            player_identity = roster_side_by_steamid.get(steamid)
+            if not player_identity and side_mapping:
+                player_identity = side_mapping.get(player_side)
             if player_identity == "team1":
                 t1_players.append(entry)
-            else:
+            elif player_identity == "team2":
                 t2_players.append(entry)
 
         # GSI occasionally omits a registered substitute or a player who has
@@ -442,7 +479,7 @@ def api_live_match(match_id):
             }
             if player_identity == "team1":
                 t1_players.append(missing_entry)
-            else:
+            elif player_identity == "team2":
                 t2_players.append(missing_entry)
 
         def player_order(item):
@@ -465,22 +502,29 @@ def api_live_match(match_id):
         terrorists = gmap.get("team_t", {}) or {}
         gr = gsi.get("round", {}) or {}
         side_data = {"CT": ct, "T": terrorists}
-        team1_side = identity_side.get("team1", "CT")
-        team2_side = identity_side.get("team2", "T")
+        team1_side = identity_side.get("team1")
+        team2_side = identity_side.get("team2")
         result["team1"] = {
-            "name": row["scheduled_team1_name"] or side_data[team1_side].get("name") or "Team 1",
-            "score": side_data[team1_side].get("score", 0),
+            "name": row["scheduled_team1_name"]
+            or (side_data[team1_side].get("name") if team1_side else "Team 1"),
+            "score": side_data[team1_side].get("score") if team1_side else None,
             "side": team1_side,
-            "timeouts_remaining": side_data[team1_side].get("timeouts_remaining", 0),
+            "timeouts_remaining": side_data[team1_side].get("timeouts_remaining", 0)
+            if team1_side
+            else None,
         }
         result["team2"] = {
-            "name": row["scheduled_team2_name"] or side_data[team2_side].get("name") or "Team 2",
-            "score": side_data[team2_side].get("score", 0),
+            "name": row["scheduled_team2_name"]
+            or (side_data[team2_side].get("name") if team2_side else "Team 2"),
+            "score": side_data[team2_side].get("score") if team2_side else None,
             "side": team2_side,
-            "timeouts_remaining": side_data[team2_side].get("timeouts_remaining", 0),
+            "timeouts_remaining": side_data[team2_side].get("timeouts_remaining", 0)
+            if team2_side
+            else None,
         }
         result["phase"] = gr.get("phase", "") or countdown_phase
         result["round_history"] = state.get("round_history", [])
+        result["overtime_history"] = state.get("overtime_history", [])
         if result["round_history"]:
             result["latest_round_result"] = result["round_history"][-1]
 

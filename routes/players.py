@@ -32,8 +32,6 @@ PLAYER_SIDE_VALUES = {item["value"] for item in PLAYER_SIDE_OPTIONS}
 
 
 def _with_effective_school_status(row):
-    if row is None:
-        return None
     player = dict(row)
     if "managed_is_bashizhong_student" in player:
         player["is_bashizhong_student"] = player["managed_is_bashizhong_student"]
@@ -78,6 +76,7 @@ def _player_available_maps(conn):
         SELECT DISTINCT map_name
         FROM match_stats
         WHERE map_name IS NOT NULL AND map_name != ''
+          AND COALESCE(data_status, 'final') <> 'superseded'
         ORDER BY map_name
     """).fetchall()
     seen = set()
@@ -92,7 +91,7 @@ def _player_available_maps(conn):
 
 
 def _player_stat_where(player_id, filters):
-    clauses = ["ms.player_id=?"]
+    clauses = ["ms.player_id=?", "COALESCE(ms.data_status, 'final') <> 'superseded'"]
     params = [player_id]
     months = PLAYER_TIME_MAP[filters["time"]]["months"]
     if months:
@@ -690,7 +689,7 @@ def player_detail(player_id):
         time_filter = " AND m.match_time >= datetime('now', '-3 months')"
     elif period == "6m":
         time_filter = " AND m.match_time >= datetime('now', '-6 months')"
-    stat_filter = time_filter
+    stat_filter = " AND COALESCE(ms.data_status, 'final') <> 'superseded'" + time_filter
     stat_params = []
     if event_filter:
         stat_filter += " AND m.event_id=?"
@@ -759,6 +758,9 @@ def player_detail(player_id):
         """,
             (player_id,),
         ).fetchone()
+        if player is None:
+            conn.close()
+            return "选手不存在", 404
 
     player = _with_effective_school_status(player)
 

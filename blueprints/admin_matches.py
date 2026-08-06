@@ -22,7 +22,7 @@ from utils.helpers import ensure_unique_match_slug, make_match_slug, normalize_h
 from utils.match_utils import get_demo_upload_slot_count, get_sql_effective_status
 from utils.stats_calc import calculate_rating
 from utils.web_helpers import admin_required as login_required
-from utils.web_helpers import csrf_required
+from utils.web_helpers import csrf_required, hash_bp_password
 
 DEMOS_DIR = os.path.join(BASE_DIR, "static", "demos")
 logger = logging.getLogger("80gotv.admin.matches")
@@ -104,9 +104,7 @@ def _parse_match_form(request, include_results=False):
     f["has_map3"] = 0 if include_results and request.form.get("no_map3") == "1" else 1
     f["has_map4"] = 0 if include_results and request.form.get("no_map4") == "1" else 1
     f["has_map5"] = 0 if include_results and request.form.get("no_map5") == "1" else 1
-    # Online BP no longer uses a separate password. Keep the legacy database
-    # column for old rows and migrations, but never create a new password.
-    f["bp_password"] = None
+    f["bp_password"] = hash_bp_password(request.form.get("bp_password", "").strip())
     f["bp_process"] = request.form.get("bp_process", "") if include_results else ""
     f["decider_knife_winner"] = (
         request.form.get("decider_knife_winner", "").strip() or None if include_results else None
@@ -166,9 +164,10 @@ def _preserve_managed_match_fields(values, existing):
     if current_status != "completed":
         values["bp_process"] = existing["bp_process"]
 
-    # Password protection was removed from online BP. Clear legacy values when
-    # a match is saved so an old hash cannot unexpectedly block a captain.
-    values["bp_password"] = None
+    if request.form.get("clear_bp_password") == "1":
+        values["bp_password"] = None
+    elif not values["bp_password"]:
+        values["bp_password"] = existing["bp_password"]
 
     if values["server_address"] and not values["server_password"]:
         values["server_password"] = existing["server_password"]
@@ -244,7 +243,7 @@ def _match_roster_options(conn, match, side):
     placeholders = ",".join("?" for _ in candidate_ids)
     rows = conn.execute(
         f"""
-        SELECT p.id, p.nickname, p.team_id, t.name AS team_name
+        SELECT p.id, p.nickname, p.team_id, p.steam_id, t.name AS team_name
         FROM players p
         LEFT JOIN teams t ON t.id=p.team_id
         WHERE p.id IN ({placeholders})
@@ -260,6 +259,7 @@ def _match_roster_options(conn, match, side):
             "id": row["id"],
             "nickname": row["nickname"] or "",
             "team_name": row["team_name"] or "",
+            "has_steam_id": bool(str(row["steam_id"] or "").strip()),
             "is_substitute": row["id"] in reserve_set
             or bool(team_id and row["team_id"] != team_id),
         }
@@ -298,6 +298,11 @@ def _parse_match_roster(conn, match, side):
     allowed = {str(option["id"]) for option in _match_roster_options(conn, match, side)}
     if any(value not in allowed for value in values):
         return None, f"队伍{side} 只能选择本队选手或已报名替补"
+    selected_options = {
+        str(option["id"]): option for option in _match_roster_options(conn, match, side)
+    }
+    if any(not selected_options.get(value, {}).get("has_steam_id") for value in values):
+        return None, f"队伍{side} 有选手未绑定 Steam ID，不能锁定本场名单"
     return json.dumps([int(value) for value in values]), None
 
 
@@ -868,7 +873,9 @@ def admin_match_stats(match_id):
     team2_players = _get_players(match["team2_players"], match["team2_id"])
 
     existing_stats = conn.execute(
-        "SELECT * FROM match_stats WHERE match_id=?", (match_id,)
+        """SELECT * FROM match_stats
+           WHERE match_id=? AND COALESCE(data_status, 'final') <> 'superseded'""",
+        (match_id,),
     ).fetchall()
     total_played = (match["team1_score"] or 0) + (match["team2_score"] or 0)
     bo = match["bo_format"] or "BO3"
@@ -930,14 +937,20 @@ def admin_match_stats(match_id):
                 ).fetchall()
                 if row["player_id"]
             }
+            if not map_name or map_name not in [name for name in map_names if name]:
+                raise ValueError("请选择本场已有地图")
+            previous_version = conn.execute(
+                """SELECT COALESCE(MAX(data_version), 0) AS version
+                   FROM match_stats WHERE match_id=? AND map_name=?""",
+                (match_id, map_name),
+            ).fetchone()["version"]
             conn.execute(
-                "DELETE FROM match_stats WHERE match_id=? AND map_name=?", (match_id, map_name)
-            )
-            conn.execute(
-                "DELETE FROM match_kill_events WHERE match_id=? AND map_name=?",
+                """UPDATE match_stats SET data_status='superseded'
+                   WHERE match_id=? AND map_name=?
+                     AND COALESCE(data_status, 'final') <> 'superseded'""",
                 (match_id, map_name),
             )
-            rounds = 30
+            rounds = 0
             for mn, t1, t2 in [
                 (match["map1"], match["map1_t1"], match["map1_t2"]),
                 (match["map2"], match["map2_t1"], match["map2_t2"]),
@@ -948,8 +961,8 @@ def admin_match_stats(match_id):
                 if map_name == mn:
                     rounds = (t1 or 0) + (t2 or 0)
                     break
-            if rounds == 0:
-                rounds = 30
+            if rounds <= 0:
+                raise ValueError("该地图比分尚未确认，不能按旧的 30 回合默认值保存")
             team1_player_ids = {p["id"] for p in team1_players}
             for p in list(team1_players) + list(team2_players):
                 pid = p["id"]
@@ -976,8 +989,9 @@ def admin_match_stats(match_id):
                            match_id, player_id, team_id, match_team_side,
                            kills, deaths, assists,
                            adr, kpr, dpr, rating, impact, kast,
-                           headshot_percentage, rounds_played, map_name
-                       ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                           headshot_percentage, rounds_played, map_name,
+                           data_source, data_status, data_version
+                       ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                     (
                         match_id,
                         pid,
@@ -995,6 +1009,9 @@ def admin_match_stats(match_id):
                         hs,
                         rounds,
                         map_name,
+                        "manual_review",
+                        "final",
+                        int(previous_version or 0) + 1,
                     ),
                 )
                 affected_player_ids.add(pid)

@@ -197,6 +197,41 @@ def _ensure_match_stats_team_side_column(cursor):
         cursor.execute("ALTER TABLE match_stats ADD COLUMN match_team_side TEXT")
 
 
+def _ensure_match_stats_unique_result_index(cursor):
+    """Prevent duplicate player/map rows while retaining older rows as history."""
+    columns = {row[1] for row in cursor.execute("PRAGMA table_info(match_stats)").fetchall()}
+    if not {"data_status", "match_id", "map_name", "player_id"}.issubset(columns):
+        return
+    cursor.execute(
+        """
+        UPDATE match_stats
+        SET data_status='superseded'
+        WHERE id IN (
+            SELECT id
+            FROM (
+                SELECT id,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY match_id, map_name, player_id
+                           ORDER BY id DESC
+                       ) AS row_number
+                FROM match_stats
+                WHERE player_id IS NOT NULL AND map_name IS NOT NULL
+            )
+            WHERE row_number > 1
+        )
+        AND COALESCE(data_status, 'final') <> 'superseded'
+        """
+    )
+    cursor.execute(
+        """
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_match_stats_match_map_player_current
+        ON match_stats(match_id, map_name, player_id)
+        WHERE player_id IS NOT NULL AND map_name IS NOT NULL
+          AND COALESCE(data_status, 'final') <> 'superseded'
+        """
+    )
+
+
 def _ensure_school_profile_columns(cursor):
     additions = {
         "users": {"is_bashizhong_student": "INTEGER"},
@@ -456,6 +491,9 @@ def _init_tables(conn):
         headshot_percentage REAL DEFAULT 0,
         clutches_won INTEGER DEFAULT 0,
         map_name TEXT,
+        data_source TEXT NOT NULL DEFAULT 'legacy',
+        data_status TEXT NOT NULL DEFAULT 'final',
+        data_version INTEGER NOT NULL DEFAULT 1,
         side TEXT,
         t_rating REAL DEFAULT 0,
         ct_rating REAL DEFAULT 0,
@@ -1049,6 +1087,9 @@ def _init_tables(conn):
 
     # --- 迁移：新 match_stats 列（EVP + 投掷物） ---
     migrations = [
+        "ALTER TABLE match_stats ADD COLUMN data_source TEXT NOT NULL DEFAULT 'legacy'",
+        "ALTER TABLE match_stats ADD COLUMN data_status TEXT NOT NULL DEFAULT 'final'",
+        "ALTER TABLE match_stats ADD COLUMN data_version INTEGER NOT NULL DEFAULT 1",
         "ALTER TABLE match_stats ADD COLUMN multi1k INTEGER DEFAULT 0",
         "ALTER TABLE match_stats ADD COLUMN multi2k INTEGER DEFAULT 0",
         "ALTER TABLE match_stats ADD COLUMN multi3k INTEGER DEFAULT 0",
@@ -1211,6 +1252,7 @@ def _init_tables(conn):
         raise RuntimeError("数据库升级失败：报名表字段") from exc
 
     _ensure_placeholder_accounts_pending(c)
+    _ensure_match_stats_unique_result_index(c)
 
     # --- 数据库性能索引 ---
     _execute_sql_script(

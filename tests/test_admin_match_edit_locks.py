@@ -7,6 +7,7 @@ from unittest.mock import patch
 from app import app
 from config import Config
 from models import get_db, init_tables
+from utils.web_helpers import check_bp_password
 
 
 class AdminMatchEditLocksTests(unittest.TestCase):
@@ -71,22 +72,32 @@ class AdminMatchEditLocksTests(unittest.TestCase):
         payload.update(overrides)
         return self.client.post(f"/admin/matches/edit/{self.match_id}", data=payload)
 
-    def test_online_bp_password_is_removed_and_live_scores_ignore_form(self):
+    def test_online_bp_password_is_hidden_and_live_scores_ignore_form(self):
         page = self.client.get(f"/admin/matches/edit/{self.match_id}")
         self.assertEqual(page.status_code, 200)
         html = page.get_data(as_text=True)
-        self.assertIn("已取消 BP 密码", html)
-        self.assertNotIn("当前状态：已设置", html)
+        self.assertIn("留空则保持原口令", html)
         self.assertNotIn("stored-bp-hash", html)
 
         response = self._post(team1_score="99", team2_score="98", map1_t1="99")
         self.assertEqual(response.status_code, 302)
         conn = get_db()
         match = conn.execute("SELECT * FROM matches WHERE id=?", (self.match_id,)).fetchone()
-        self.assertIsNone(match["bp_password"])
+        self.assertEqual(match["bp_password"], "stored-bp-hash")
         self.assertEqual((match["team1_score"], match["team2_score"]), (1, 0))
         self.assertEqual(match["map1_t1"], 13)
         conn.close()
+
+    def test_new_bp_password_is_hashed(self):
+        response = self._post(bp_password="new-shared-passcode")
+        self.assertEqual(response.status_code, 302)
+        conn = get_db()
+        value = conn.execute(
+            "SELECT bp_password FROM matches WHERE id=?", (self.match_id,)
+        ).fetchone()[0]
+        conn.close()
+        self.assertNotEqual(value, "new-shared-passcode")
+        self.assertTrue(check_bp_password(value, "new-shared-passcode"))
 
     def test_clear_bp_password_is_explicit(self):
         response = self._post(clear_bp_password="1")
@@ -118,7 +129,7 @@ class AdminMatchEditLocksTests(unittest.TestCase):
         self.assertEqual(match["event_id"], self.event_id)
         self.assertEqual(match["match_time"], "2026-08-01T20:00")
         self.assertEqual(match["map1"], "mirage")
-        self.assertIsNone(match["bp_password"])
+        self.assertEqual(match["bp_password"], "stored-bp-hash")
         self.assertEqual(match["status"], "completed")
         conn.close()
 

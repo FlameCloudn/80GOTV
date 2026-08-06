@@ -1,6 +1,7 @@
 """赛事列表、详情、报名和赛事统计页面。"""
 
-from datetime import datetime, timedelta
+import json
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from flask import (
@@ -50,22 +51,8 @@ def _individual_registration_open_label():
 
 
 def _bp_window_is_open(match):
-    """BP only opens during the 20 minutes before the scheduled start."""
-    if not match or match.get("effective_status") != "upcoming":
-        return False
-    raw_time = str(match.get("match_time") or "").strip()
-    if not raw_time:
-        return False
-    try:
-        start_at = datetime.fromisoformat(raw_time)
-    except ValueError:
-        return False
-    if start_at.tzinfo is None:
-        start_at = start_at.replace(tzinfo=ZoneInfo("Asia/Shanghai"))
-    else:
-        start_at = start_at.astimezone(ZoneInfo("Asia/Shanghai"))
-    now = datetime.now(ZoneInfo("Asia/Shanghai"))
-    return start_at - timedelta(minutes=20) <= now < start_at
+    """BP is manually started and remains available until the match is closed."""
+    return bool(match and match.get("effective_status") not in {"completed", "cancelled"})
 
 
 def _load_event_registrations(conn, event_id):
@@ -473,6 +460,7 @@ def event_detail(event_id):
         FROM match_stats ms
         JOIN matches m ON m.id=ms.match_id
         WHERE m.event_id=? AND ms.player_id IS NOT NULL
+          AND COALESCE(ms.data_status, 'final') <> 'superseded'
         GROUP BY ms.player_id
         """,
         (event_id,),
@@ -546,8 +534,26 @@ def event_detail(event_id):
             team_players_map[t["name"]] = t["players"]
             team_players_map[t["name"].lower()] = t["players"]
 
-    # 赛事图池：使用当前标准 7 图。
-    event_map_pool = ["Mirage", "Inferno", "Dust2", "Ancient", "Anubis", "Nuke", "Cache"]
+    # 赛事图池从比赛配置汇总；不再让详情页写死一套地图。
+    event_map_pool = []
+    seen_map_names = set()
+    for match in matches:
+        try:
+            configured_pool = json.loads(match["map_pool"] or "[]")
+        except (TypeError, ValueError, json.JSONDecodeError):
+            configured_pool = []
+        if not isinstance(configured_pool, list):
+            continue
+        for map_name in configured_pool:
+            display_name = str(map_name or "").strip()
+            key = display_name.casefold()
+            if display_name and key not in seen_map_names:
+                seen_map_names.add(key)
+                event_map_pool.append(display_name)
+    if not event_map_pool:
+        from utils.bp_manager import ALL_MAPS
+
+        event_map_pool = list(ALL_MAPS)
 
     # 报名关闭后也保留名单和分队结果，方便参赛者查看。
     award_players = list_event_award_players(conn, event_id)
@@ -1769,6 +1775,7 @@ def event_stats(event_id):
         LEFT JOIN teams t ON p.team_id=t.id
         JOIN matches m ON ms.match_id=m.id
         WHERE m.event_id=?
+          AND COALESCE(ms.data_status, 'final') <> 'superseded'
         GROUP BY p.id
         ORDER BY rating DESC LIMIT 30
     """,
@@ -1785,6 +1792,7 @@ def event_stats(event_id):
         FROM match_stats ms
         JOIN matches m ON ms.match_id=m.id
         WHERE m.event_id=? AND ms.map_name != '' AND ms.map_name IS NOT NULL
+          AND COALESCE(ms.data_status, 'final') <> 'superseded'
         GROUP BY ms.map_name
         ORDER BY times_played DESC
     """,

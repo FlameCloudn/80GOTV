@@ -80,7 +80,8 @@ def _is_unfiltered(filters):
 
 
 def _stats_where(filters, extra=None):
-    clauses = list(extra or [])
+    clauses = ["COALESCE(ms.data_status, 'final') <> 'superseded'"]
+    clauses.extend(extra or [])
     params = []
     months = TIME_FILTER_MAP[filters["time"]]["months"]
     if months:
@@ -475,7 +476,7 @@ def _pistol_rounds(filters, limit=100):
         team_a = data.get("teamA", {}) or {}
 
         mt = match_teams.get(match_id)
-        if not mt:
+        if mt is None:
             continue
 
         # 建立 teamA/teamB 到 match teams 的映射
@@ -505,6 +506,10 @@ def _pistol_rounds(filters, limit=100):
 
         t1_id = mt.get("team1_id", -1)
         t2_id = mt.get("team2_id", -2)
+        t1_name = mt.get("t1_name", "Team 1")
+        t1_logo = mt.get("t1_logo", "")
+        t2_name = mt.get("t2_name", "Team 2")
+        t2_logo = mt.get("t2_logo", "")
 
         def _team_key(is_t1):
             if is_t1:
@@ -519,14 +524,14 @@ def _pistol_rounds(filters, limit=100):
         def _team_display(is_t1):
             if is_t1:
                 return (
-                    mt.get("t1_name", "Team 1"),
-                    mt.get("t1_logo", ""),
+                    t1_name,
+                    t1_logo,
                     t1_id if t1_id and t1_id > 0 else None,
                 )
             else:
                 return (
-                    mt.get("t2_name", "Team 2"),
-                    mt.get("t2_logo", ""),
+                    t2_name,
+                    t2_logo,
                     t2_id if t2_id and t2_id > 0 else None,
                 )
 
@@ -641,6 +646,7 @@ def _available_maps(conn):
         SELECT DISTINCT map_name
         FROM match_stats
         WHERE map_name IS NOT NULL AND map_name != ''
+          AND COALESCE(data_status, 'final') <> 'superseded'
         ORDER BY map_name
     """).fetchall()
     seen = set()
@@ -662,6 +668,7 @@ def _available_events(conn):
         FROM events e
         JOIN matches m ON m.event_id=e.id
         JOIN match_stats ms ON ms.match_id=m.id
+        WHERE COALESCE(ms.data_status, 'final') <> 'superseded'
         ORDER BY COALESCE(e.start_date, '') DESC, e.name ASC
         """
     ).fetchall()
@@ -957,9 +964,15 @@ def _overview_context(conn, filters):
         "total_matches": conn.execute(
             "SELECT COUNT(*) AS cnt FROM matches WHERE team1_score IS NOT NULL"
         ).fetchone()["cnt"],
-        "total_stats": conn.execute("SELECT COUNT(*) AS cnt FROM match_stats").fetchone()["cnt"],
-        "avg_rating": conn.execute("SELECT AVG(rating) AS v FROM match_stats").fetchone()["v"],
-        "avg_adr": conn.execute("SELECT AVG(adr) AS v FROM match_stats").fetchone()["v"],
+        "total_stats": conn.execute(
+            "SELECT COUNT(*) AS cnt FROM match_stats WHERE COALESCE(data_status, 'final') <> 'superseded'"
+        ).fetchone()["cnt"],
+        "avg_rating": conn.execute(
+            "SELECT AVG(rating) AS v FROM match_stats WHERE COALESCE(data_status, 'final') <> 'superseded'"
+        ).fetchone()["v"],
+        "avg_adr": conn.execute(
+            "SELECT AVG(adr) AS v FROM match_stats WHERE COALESCE(data_status, 'final') <> 'superseded'"
+        ).fetchone()["v"],
     }
     overview["top_player"] = conn.execute("""
         SELECT p.nickname, p.id, s.avg_rating AS r, s.maps AS m

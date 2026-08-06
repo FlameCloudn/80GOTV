@@ -17,10 +17,6 @@
 
 /* 状态栏 */
 .bp-status-bar{text-align:center;margin-bottom:20px;font-size:15px;color:var(--text-primary);font-weight:600;min-height:28px}
-.bp-timer{display:none;width:max-content;min-width:150px;margin:-10px auto 18px;padding:7px 16px;border:2px solid var(--accent);background:var(--bg-card);color:var(--text-primary);font-size:20px;font-weight:800;text-align:center;font-variant-numeric:tabular-nums}
-.bp-timer .timer-label{font-size:11px;font-weight:500;color:var(--text-muted);margin-right:8px;vertical-align:2px}
-.bp-timer.warning{border-color:#f59e0b;color:#f59e0b}
-.bp-timer.expired{border-color:#ef4444;color:#ef4444;min-width:260px}
 
 /* 步骤指示器 */
 .bp-steps-indicator{display:flex;justify-content:center;gap:4px;margin-bottom:20px;flex-wrap:wrap}
@@ -156,14 +152,19 @@
         {% if my_team == 't2' %}<div class="role">你的队伍</div>{% endif %}
       </div>
     </div>
-    {% if my_team %}
-      <div class="role">{% if is_captain %}你是队长，可以参与 BP{% else %}你是队员，只能查看 BP{% endif %}</div>
-    {% endif %}
+    {% if my_team %}<div class="role">你可以申请本队 BP 操作席</div>{% endif %}
     {% if is_admin %}<div style="margin-top:10px"><span style="background:#ef4444;color:#fff;padding:2px 10px;border-radius:0;font-size:11px;font-weight:700">管理员模式</span></div>{% endif %}
   </div>
 
+  {% if match.bp_password and not bp_verified and not is_admin %}
+  <div id="bp-password-gate" style="display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;margin:12px 0 18px">
+    <input id="bp-password" type="password" autocomplete="current-password" placeholder="输入 BP 共享口令" aria-label="BP 共享口令" style="min-width:220px">
+    <button type="button" class="bp-btn" onclick="verifyBpPassword()">验证口令</button>
+    <span id="bp-password-error" style="color:#ef4444;font-size:12px"></span>
+  </div>
+  {% endif %}
+
   <div id="bp-status-bar" class="bp-status-bar">加载中...</div>
-  <div id="bp-timer" class="bp-timer" aria-live="polite"></div>
   <div id="bp-steps-indicator" class="bp-steps-indicator"></div>
   <div id="bp-section-label" class="bp-section-label"></div>
   <div id="map-pool" class="bp-map-pool"></div>
@@ -187,9 +188,9 @@ var myTeam = {{ ('"' + my_team + '"')|safe if my_team else 'null' }};
 var teamNames = { 't1': {{ team1_name|tojson }}, 't2': {{ team2_name|tojson }} };
 var isAdmin = {{ is_admin|tojson }};
 var isCaptain = {{ is_captain|tojson }};
-var bpWindowOpen = {{ bp_window_open|tojson }};
-var bpStartTimestamp = {{ bp_start_timestamp|tojson }};
-var ALL_MAPS = ['Dust2', 'Mirage', 'Inferno', 'Nuke', 'Cache', 'Ancient', 'Anubis'];
+var bpVerified = {{ bp_verified|tojson }};
+var bpCanStart = {{ bp_can_start|tojson }};
+var ALL_MAPS = {{ configured_map_pool|tojson }};
 var MAP_DISPLAY = {'Dust2':'Dust2','Mirage':'Mirage','Inferno':'Inferno','Nuke':'Nuke','Cache':'Cache','Ancient':'Ancient','Anubis':'Anubis'};
 var MAP_FILE = {'Dust2':'dust2','Mirage':'mirage','Inferno':'inferno','Nuke':'nuke','Cache':'cache','Ancient':'ancient','Anubis':'anubis'};
 var bpState = null;
@@ -201,6 +202,9 @@ function apiAction(data) {
     return Promise.resolve({ok: false, msg: '操作正在提交，请稍候'});
   }
   actionPending = true;
+  if (bpState && bpState.revision != null && data.bp_revision == null) {
+    data.bp_revision = bpState.revision;
+  }
   return fetch('/api/bp/' + matchId + '/action', {
     method: 'POST',
     headers: {'Content-Type': 'application/json', 'X-CSRF-Token': '{{ csrf_token }}'},
@@ -228,6 +232,33 @@ function getActingTeam(stepIdx) {
 }
 
 function getTeamName(t) { return t === 't1' ? teamNames.t1 : teamNames.t2; }
+
+function verifyBpPassword() {
+  var input = document.getElementById('bp-password');
+  var error = document.getElementById('bp-password-error');
+  if (!input) return;
+  error.textContent = '';
+  fetch('/bp/' + matchId + '/verify', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRF-Token': '{{ csrf_token }}'},
+    body: JSON.stringify({password: input.value})
+  }).then(function(response) {
+    return response.json().then(function(data) { return {status: response.status, data: data}; });
+  }).then(function(result) {
+    if (result.data && result.data.ok) {
+      bpVerified = true;
+      var gate = document.getElementById('bp-password-gate');
+      if (gate) gate.remove();
+      if (result.data.bp_state) bpState = result.data.bp_state;
+      renderAll();
+      sendHeartbeat();
+    } else {
+      error.textContent = (result.data && result.data.msg) || '口令验证失败';
+    }
+  }).catch(function() {
+    error.textContent = '网络错误，请稍后重试';
+  });
+}
 
 function startBP() {
   apiAction({action: 'start'}).then(function(d) {
@@ -296,45 +327,6 @@ function renderAll() {
   renderPicks();
   renderStatus();
   renderActions();
-  renderTimer();
-}
-
-function renderTimer() {
-  var el = document.getElementById('bp-timer');
-  if (!el) return;
-
-  var deadline = bpState ? Number(bpState.turn_deadline) : 0;
-  if (!deadline && bpStartTimestamp && Date.now() / 1000 < Number(bpStartTimestamp)) {
-    var untilOpen = Math.max(0, Math.ceil(Number(bpStartTimestamp) - Date.now() / 1000));
-    var openMinutes = Math.floor(untilOpen / 60);
-    var openSeconds = untilOpen % 60;
-    el.style.display = 'block';
-    el.className = 'bp-timer';
-    el.innerHTML = '<span class="timer-label">BP 自动开始倒计时</span>'
-      + String(openMinutes).padStart(2, '0') + ':' + String(openSeconds).padStart(2, '0');
-    return;
-  }
-  if (!deadline || bpState.status === 'completed') {
-    el.style.display = 'none';
-    el.className = 'bp-timer';
-    el.innerHTML = '';
-    return;
-  }
-
-  var remaining = Math.max(0, Math.ceil(deadline - Date.now() / 1000));
-  var minutes = Math.floor(remaining / 60);
-  var seconds = remaining % 60;
-  var timeText = String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
-
-  el.style.display = 'block';
-  el.className = 'bp-timer';
-  if (remaining === 0) {
-    el.className += ' expired';
-    el.innerHTML = '<span class="timer-label">本次操作</span>00:00 · 已超时，可继续操作';
-  } else {
-    if (remaining <= 30) el.className += ' warning';
-    el.innerHTML = '<span class="timer-label">本次操作剩余</span>' + timeText;
-  }
 }
 
 function renderStepIndicator() {
@@ -367,7 +359,7 @@ function renderPool() {
     var idx = bpState.current_step;
     if (idx < (bpState.steps||[]).length) {
       actingTeam = getActingTeam(idx);
-      if (isAdmin || (isCaptain && actingTeam === myTeam)) {
+      if (bpVerified && (isAdmin || (myTeam && actingTeam === myTeam))) {
         myTurn = true;
         currentAction = bpState.steps[idx].action;
       }
@@ -438,9 +430,7 @@ function renderPicks() {
 function renderStatus() {
   var el = document.getElementById('bp-status-bar');
   if (!bpState) {
-    el.innerHTML = bpWindowOpen
-      ? 'BP 正在自动开始，请稍候...'
-      : 'BP 将在开赛前 20 分钟自动开始';
+    el.innerHTML = bpCanStart ? 'BP 尚未开始' : '比赛已结束或取消，BP 已锁定';
     return;
   }
 
@@ -490,7 +480,13 @@ function renderStatus() {
 function renderActions() {
   var area = document.getElementById('action-area');
   if (!bpState) {
-    area.innerHTML = '<div class="bp-waiting">BP 不需要手动启动，将在开赛前 20 分钟自动开始</div>';
+    if (bpCanStart && bpVerified && (myTeam || isAdmin)) {
+      area.innerHTML = '<button type="button" class="bp-btn" onclick="startBP()">开始 BP</button>';
+    } else if (!bpCanStart) {
+      area.innerHTML = '<div class="bp-waiting">当前比赛不能开始 BP</div>';
+    } else {
+      area.innerHTML = '<div class="bp-waiting">验证共享口令后即可开始 BP</div>';
+    }
     return;
   }
 
@@ -526,9 +522,9 @@ function renderActions() {
           html += '<div style="color:var(--text-muted);font-size:13px;margin-top:8px">等待 ' + getTeamName('t1') + ' Roll...</div>';
         }
       } else {
-        if (t1r == null && isCaptain && myTeam === 't1') {
+        if (bpVerified && t1r == null && myTeam === 't1') {
           html += '<button class="bp-btn" onclick="doRoll(\x27t1\x27)">' + getTeamName('t1') + ' Roll</button>';
-        } else if (t2r == null && isCaptain && myTeam === 't2') {
+        } else if (bpVerified && t2r == null && myTeam === 't2') {
           html += '<button class="bp-btn" onclick="doRoll(\x27t2\x27)">' + getTeamName('t2') + ' Roll</button>';
         } else if (t1r == null || t2r == null) {
           html += '<div class="bp-waiting">等待对方 Roll...</div>';
@@ -537,7 +533,7 @@ function renderActions() {
     }
   } else if (status === 'bp' && bpState.first_choice === null && bpState.first_picker) {
     // Roll winner chooses first/second
-    if (isAdmin || (isCaptain && myTeam === bpState.first_picker)) {
+    if (bpVerified && (isAdmin || (myTeam && myTeam === bpState.first_picker))) {
       html = '<div style="margin-bottom:10px;font-size:14px">';
       if (isAdmin) html += '[管理员] 替 ' + getTeamName(bpState.first_picker) + ' 选择：';
       else html += '作为 Roll 胜方，你选择：';
@@ -556,7 +552,7 @@ function renderActions() {
         html = '<div style="background:rgba(88,129,188,0.08);border:1px solid var(--accent);border-radius:0;padding:8px 16px;display:inline-block">';
         html += '<span style="color:var(--accent);font-weight:700">[管理员] </span>';
         html += '当前轮到 <b>' + getTeamName(acting) + '</b> — 点击上方地图替其操作</div>';
-      } else if (!isCaptain || acting !== myTeam) {
+      } else if (!bpVerified || !myTeam || acting !== myTeam) {
         html = '<div class="bp-waiting">等待 ' + getTeamName(acting) + ' 操作...</div>';
       } else {
         html = '<div style="color:var(--text-muted);font-size:13px">点击上方地图卡片执行操作</div>';
@@ -571,7 +567,7 @@ function renderActions() {
       var sideTeam = p.side_team || (p.picked_by === 't1' ? 't2' : 't1');
       var sideLabel = p.picked_by === 'remaining' ? '最后地图' : '被选地图';
       html += '<div style="margin-bottom:14px"><b>' + p.map + '</b> — ' + sideLabel + '，由 ' + getTeamName(sideTeam) + ' 选边';
-      if (isAdmin || (isCaptain && myTeam === sideTeam)) {
+      if (bpVerified && (isAdmin || (myTeam && myTeam === sideTeam))) {
         html += '<div class="side-btns">';
         html += '<button class="side-btn ct" data-bp-action="choose_side" data-bp-team="' + sideTeam + '" data-bp-map="' + p.map + '" data-bp-side="CT">CT 方</button>';
         html += '<button class="side-btn t" data-bp-action="choose_side" data-bp-team="' + sideTeam + '" data-bp-map="' + p.map + '" data-bp-side="T">T 方</button>';
@@ -610,15 +606,20 @@ function renderActions() {
 function pollState() {
   if (bpState && bpState.status === 'completed') return;
   fetch('/api/bp/' + matchId + '/state').then(function(r) { return r.json(); }).then(function(data) {
-    if (data.ok) {
-      bpWindowOpen = !!data.bp_window_open;
-      bpStartTimestamp = data.bp_start_timestamp;
-    }
+    if (data.ok && data.bp_can_start != null) bpCanStart = !!data.bp_can_start;
     if (data.ok && JSON.stringify(data.state) !== JSON.stringify(bpState)) {
       bpState = data.state || null;
       renderAll();
     }
   });
+}
+
+function sendHeartbeat() {
+  if (!bpState || !bpVerified || (!myTeam && !isAdmin)) return;
+  fetch('/api/bp/' + matchId + '/heartbeat', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRF-Token': '{{ csrf_token }}'}
+  }).catch(function() {});
 }
 
 function resetBP() {
@@ -640,6 +641,6 @@ function resetBP() {
 
 renderAll();
 setInterval(pollState, 3000);
-setInterval(renderTimer, 1000);
+setInterval(sendHeartbeat, 10000);
 </script>
 {% endblock %}

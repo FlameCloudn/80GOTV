@@ -87,6 +87,7 @@ def match_poster(slug):
         FROM match_stats ms
         JOIN players p ON p.id=ms.player_id
         WHERE ms.match_id=?
+          AND COALESCE(ms.data_status, 'final') <> 'superseded'
         GROUP BY ms.team_id, p.id
         ORDER BY ms.team_id, rating DESC
     """,
@@ -160,6 +161,7 @@ def match_report(match_id):
         FROM match_stats ms
         JOIN players p ON p.id=ms.player_id
         WHERE ms.match_id=?
+          AND COALESCE(ms.data_status, 'final') <> 'superseded'
         GROUP BY ms.team_id, ms.player_id
         ORDER BY rating DESC
     """,
@@ -175,6 +177,7 @@ def match_report(match_id):
         FROM match_stats ms
         JOIN players p ON p.id=ms.player_id
         WHERE ms.match_id=?
+          AND COALESCE(ms.data_status, 'final') <> 'superseded'
         ORDER BY ms.map_name, ms.rating DESC
     """,
             (match_id,),

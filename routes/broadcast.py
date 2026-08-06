@@ -1,5 +1,6 @@
 """Public match metadata for the local broadcast HUD and desktop manager."""
 
+import hashlib
 import json
 import re
 from datetime import datetime
@@ -8,7 +9,7 @@ from flask import jsonify
 
 from models import get_db
 from services.match_service import supplement_temp_teams
-from utils.bp_manager import bp_open_at_timestamp, bp_window_is_open, ensure_bp_started
+from utils.bp_manager import ensure_bp_started
 from utils.match_utils import (
     get_bo_max_maps,
     get_sql_effective_status,
@@ -293,18 +294,55 @@ def _match_payload(row, conn):
     if bp_changed:
         conn.commit()
     substitutes = _event_substitutes(conn, match.get("event_id"))
+    roster_issues = []
+    roster_steam_ids = []
+    selected_players = {}
+    for side in (1, 2):
+        selected_players[side] = _team_players(conn, match, side)
+        if len(selected_players[side]) != 5:
+            roster_issues.append(f"team{side}_needs_five_players")
+        for player in selected_players[side]:
+            steam_id = str(player.get("steam_id") or "").strip()
+            if not steam_id:
+                roster_issues.append(f"team{side}_missing_steam_id")
+            roster_steam_ids.append(steam_id)
+    if len(roster_steam_ids) == 10 and len(set(roster_steam_ids)) != 10:
+        roster_issues.append("duplicate_steam_id")
+    roster_revision = hashlib.sha256(
+        json.dumps(roster_steam_ids, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()[:16]
     map_count = get_bo_max_maps(match.get("bo_format"))
     maps = []
     for slot in range(1, map_count + 1):
         if slot >= 3 and not match.get(f"has_map{slot}", 1):
             continue
+        map_name = match.get(f"map{slot}") or ""
+        bp_pick = next(
+            (
+                pick
+                for pick in (bp_state or {}).get("picks", [])
+                if pick.get("map") == map_name
+                or str(pick.get("map", "")).lower() == str(map_name).replace("de_", "").lower()
+            ),
+            None,
+        )
+        picked_by = match.get(f"map{slot}_picked_by") or (bp_pick or {}).get("picked_by") or ""
+        side = (bp_pick or {}).get("side")
+        chooser = (bp_pick or {}).get("side_team")
+        if not chooser and picked_by in {"t1", "t2"}:
+            chooser = "t2" if picked_by == "t1" else "t1"
+        opening_ct_team = ""
+        if side in {"CT", "T"} and chooser in {"t1", "t2"}:
+            opening_ct_team = chooser if side == "CT" else ("t2" if chooser == "t1" else "t1")
         maps.append(
             {
                 "slot": slot,
-                "name": match.get(f"map{slot}") or "",
+                "name": map_name,
                 "team1_score": match.get(f"map{slot}_t1") or 0,
                 "team2_score": match.get(f"map{slot}_t2") or 0,
-                "picked_by": match.get(f"map{slot}_picked_by") or "",
+                "picked_by": picked_by,
+                "opening_ct_team": opening_ct_team,
+                "opening_side_source": "website_bp" if opening_ct_team else "pending",
             }
         )
 
@@ -339,7 +377,7 @@ def _match_payload(row, conn):
             "short_name": match.get("t1s") or "TBD",
             "logo": _asset_path("uploads", match.get("team1_logo")),
             "series_score": match.get("team1_score") or 0,
-            "players": _team_players(conn, match, 1),
+            "players": selected_players[1],
         },
         "team2": {
             "id": match.get("team2_id"),
@@ -347,14 +385,19 @@ def _match_payload(row, conn):
             "short_name": match.get("t2s") or "TBD",
             "logo": _asset_path("uploads", match.get("team2_logo")),
             "series_score": match.get("team2_score") or 0,
-            "players": _team_players(conn, match, 2),
+            "players": selected_players[2],
         },
         "substitutes": substitutes,
         "substitute_count": len(substitutes),
         "maps": maps,
         "bp": bp_state if bp_state is not None else _bp_payload(match.get("bp_state")),
-        "bp_window_open": bp_window_is_open(match.get("match_time"), match.get("status")),
-        "bp_start_timestamp": bp_open_at_timestamp(match.get("match_time")),
+        "bp_revision": int((bp_state or {}).get("revision", 0) or 0),
+        "roster_revision": roster_revision,
+        "roster_locked": not roster_issues,
+        "roster_issues": roster_issues,
+        "ready_for_start": not roster_issues
+        and bool(bp_state and bp_state.get("status") == "completed"),
+        "bp_can_start": str(match.get("status") or "").lower() not in {"completed", "cancelled"},
         "decider": decider,
         "live_api": f"/api/live/{match['id']}",
         "live_ingest_api": f"/api/broadcast/matches/{match['id']}/live",
