@@ -8,6 +8,7 @@ from flask import jsonify, request
 
 from config import Config
 from models import get_db
+from routes.live import _gsi_team_mapping, _roster_side_by_steamid
 from services.demo_service import (
     auto_create_user_from_demo,
     insert_match_stat,
@@ -88,15 +89,17 @@ def _sanitize_live_state(state):
     return clean
 
 
-def _match_team_for_gsi_side(data, side):
+def _match_team_for_gsi_side(data, side, side_mapping=None):
     identity = data.get("_80gotv", {}) if isinstance(data, dict) else {}
-    mapped = identity.get("team_ct" if side == "CT" else "team_t")
+    mapped = (side_mapping or {}).get(side)
+    if mapped not in {"team1", "team2"}:
+        mapped = identity.get("team_ct" if side == "CT" else "team_t")
     if mapped == "team2":
         return "t2"
     return "t1" if mapped == "team1" or side == "CT" else "t2"
 
 
-def _merge_app_live_events(merged, data):
+def _merge_app_live_events(merged, data, side_mapping=None):
     """Merge canonical events prepared by the desktop app and deduplicate by round/id."""
     identity = data.get("_80gotv", {}) if isinstance(data, dict) else {}
     round_events = identity.get("round_events") if "round_events" in identity else None
@@ -118,7 +121,7 @@ def _merge_app_live_events(merged, data):
             normalized["round_number"] = round_number
             winner_side = str(normalized.get("winner_side") or normalized.get("side") or "").upper()
             if normalized.get("winner") not in ("t1", "t2") and winner_side in ("CT", "T"):
-                normalized["winner"] = _match_team_for_gsi_side(data, winner_side)
+                normalized["winner"] = _match_team_for_gsi_side(data, winner_side, side_mapping)
             normalized.setdefault("id", f"round-{round_number}-{normalized.get('side', '')}")
             by_key[str(normalized["id"])] = normalized
         ordered = sorted(
@@ -586,6 +589,19 @@ def _save_gsi_payload(conn, data, map_name, forced_match_id=None):
             "gsi", "存在多场同地图直播比赛，请管理员检查赛程", 409, map_name=map_name
         )
     match_id = matches[0]["id"]
+    match = conn.execute(
+        """
+        SELECT m.*, t1.name AS scheduled_team1_name, t2.name AS scheduled_team2_name,
+               t1.short_name AS scheduled_team1_short, t2.short_name AS scheduled_team2_short
+        FROM matches m
+        LEFT JOIN teams t1 ON m.team1_id=t1.id
+        LEFT JOIN teams t2 ON m.team2_id=t2.id
+        WHERE m.id=?
+        """,
+        (match_id,),
+    ).fetchone()
+    roster_side_by_steamid = _roster_side_by_steamid(conn, match) if match else {}
+    side_mapping = _gsi_team_mapping(data, match, roster_side_by_steamid) if match else None
     for steamid, player in (data.get("allplayers", {}) or {}).items():
         record_observed_player_nickname(conn, steamid, player.get("name", ""), "gsi")
 
@@ -612,7 +628,7 @@ def _save_gsi_payload(conn, data, map_name, forced_match_id=None):
     if "death_markers" not in identity:
         _record_gsi_deaths(merged, data)
     _record_gsi_bomb_events(merged, data)
-    app_round_events, app_death_markers = _merge_app_live_events(merged, data)
+    app_round_events, app_death_markers = _merge_app_live_events(merged, data, side_mapping)
 
     # 计算回合历史（每回合结束时记录胜负方）
     round_num = data.get("map", {}).get("round", 0)
@@ -641,7 +657,7 @@ def _save_gsi_payload(conn, data, map_name, forced_match_id=None):
                 "id": f"round-{completed_round}-{prev_winner.lower()}",
                 "round": completed_round,
                 "round_number": completed_round,
-                "winner": _match_team_for_gsi_side(data, prev_winner),
+                "winner": _match_team_for_gsi_side(data, prev_winner, side_mapping),
                 "side": prev_winner.lower(),
                 "score_ct": (current_map.get("team_ct", {}) or {}).get("score", 0),
                 "score_t": (current_map.get("team_t", {}) or {}).get("score", 0),

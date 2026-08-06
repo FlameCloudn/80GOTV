@@ -18,7 +18,90 @@ def _normalize_team_label(value):
     return "".join(character for character in str(value or "").casefold() if character.isalnum())
 
 
-def _gsi_team_mapping(gsi, row):
+def _player_ids(value):
+    """Return numeric player ids stored on a match roster."""
+    if isinstance(value, list):
+        values = value
+    else:
+        try:
+            values = json.loads(value or "[]")
+        except (TypeError, ValueError):
+            values = []
+    result = []
+    for value in values if isinstance(values, list) else []:
+        try:
+            result.append(int(value))
+        except (TypeError, ValueError):
+            continue
+    return result
+
+
+def _roster_side_by_steamid(conn, row):
+    """Map known Steam IDs to the fixed team slot used by the match."""
+    team1_ids = _player_ids(
+        row.get("team1_players") if hasattr(row, "get") else row["team1_players"]
+    )
+    team2_ids = _player_ids(
+        row.get("team2_players") if hasattr(row, "get") else row["team2_players"]
+    )
+    if not team1_ids and row["team1_id"]:
+        team1_ids = [
+            item["id"]
+            for item in conn.execute(
+                "SELECT id FROM players WHERE team_id=?", (row["team1_id"],)
+            ).fetchall()
+        ]
+    if not team2_ids and row["team2_id"]:
+        team2_ids = [
+            item["id"]
+            for item in conn.execute(
+                "SELECT id FROM players WHERE team_id=?", (row["team2_id"],)
+            ).fetchall()
+        ]
+    player_ids = list(dict.fromkeys(team1_ids + team2_ids))
+    if not player_ids:
+        return {}
+    placeholders = ",".join("?" for _ in player_ids)
+    rows = conn.execute(
+        f"SELECT id, steam_id FROM players WHERE id IN ({placeholders})", player_ids
+    ).fetchall()
+    team1_set, team2_set = set(team1_ids), set(team2_ids)
+    result = {}
+    for item in rows:
+        steam_id = str(item["steam_id"] or "").strip()
+        if not steam_id:
+            continue
+        if item["id"] in team1_set:
+            result[steam_id] = "team1"
+        elif item["id"] in team2_set:
+            result[steam_id] = "team2"
+    return result
+
+
+def _roster_gsi_mapping(gsi, roster_side_by_steamid):
+    """Infer the current CT/T side from the registered player roster."""
+    votes = {"team1": {"CT": 0, "T": 0}, "team2": {"CT": 0, "T": 0}}
+    for steam_id, player in (gsi.get("allplayers", {}) or {}).items():
+        team_slot = roster_side_by_steamid.get(str(steam_id))
+        side = str((player or {}).get("team") or "").upper()
+        if team_slot in votes and side in votes[team_slot]:
+            votes[team_slot][side] += 1
+    if not all(sum(votes[slot].values()) for slot in ("team1", "team2")):
+        return None
+    team1_side = max(votes["team1"], key=votes["team1"].get)
+    team2_side = max(votes["team2"], key=votes["team2"].get)
+    if team1_side == team2_side:
+        return None
+    return {
+        "CT": "team1" if team1_side == "CT" else "team2",
+        "T": "team1" if team1_side == "T" else "team2",
+    }
+
+
+def _gsi_team_mapping(gsi, row, roster_side_by_steamid=None):
+    roster_mapping = _roster_gsi_mapping(gsi, roster_side_by_steamid or {})
+    if roster_mapping:
+        return roster_mapping
     identity = gsi.get("_80gotv", {}) if isinstance(gsi, dict) else {}
     ct_identity = identity.get("team_ct")
     t_identity = identity.get("team_t")
@@ -62,7 +145,8 @@ def api_live_match(match_id):
         SELECT l.live_state, l.updated_at,
                t1.name AS scheduled_team1_name, t2.name AS scheduled_team2_name,
                t1.short_name AS scheduled_team1_short,
-               t2.short_name AS scheduled_team2_short
+               t2.short_name AS scheduled_team2_short,
+               m.team1_id, m.team2_id, m.team1_players, m.team2_players
         FROM live_match_data l
         LEFT JOIN matches m ON l.match_id=m.id
         LEFT JOIN teams t1 ON m.team1_id=t1.id
@@ -157,7 +241,8 @@ def api_live_match(match_id):
         result["updated_at"] = state.get("gsi_received_at") or row["updated_at"]
         gmap = gsi.get("map", {}) or {}
         gphase = gsi.get("phase_countdowns", {}) or {}
-        side_mapping = _gsi_team_mapping(gsi, row)
+        roster_side_by_steamid = _roster_side_by_steamid(conn, row)
+        side_mapping = _gsi_team_mapping(gsi, row, roster_side_by_steamid)
         identity_side = {identity: side for side, identity in side_mapping.items()}
         result["map_name"] = gmap.get("name", "")
         result["mode"] = gmap.get("mode", "")
@@ -236,7 +321,11 @@ def api_live_match(match_id):
                 "alive": pstate.get("health", 0) > 0,
             }
             player_side = str(pdata.get("team") or "")
-            player_identity = side_mapping.get(player_side, player_side)
+            # The registration roster is authoritative for the fixed team slot.
+            # GSI's CT/T value only describes the current side and changes at half.
+            player_identity = roster_side_by_steamid.get(steamid) or side_mapping.get(
+                player_side, player_side
+            )
             if player_identity == "team1":
                 t1_players.append(entry)
             else:
