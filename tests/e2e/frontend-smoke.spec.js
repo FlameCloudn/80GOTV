@@ -142,6 +142,14 @@ test('live player rows and weapon images stay stable between polls', async ({ pa
   expect(await firstRow.evaluate(row => window.__firstLiveRow === row)).toBeTruthy();
   expect(matchImageRequests).toBe(requestsAfterInitialPolls);
   expect(errors).toEqual([]);
+
+  await page.goto(`/matches/${fixture.match_id}`);
+  await expect(page.locator('#data-live')).toBeVisible();
+  await expect(page.locator('#roundTeam1 .round-cell')).toHaveCount(24);
+  await expect(page.locator('#roundTeam2 .round-cell')).toHaveCount(24);
+  await expect(
+    page.locator('#roundTeam1 .round-cell:nth-child(n+25), #roundTeam2 .round-cell:nth-child(n+25)'),
+  ).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('live-stable.png'), fullPage: true });
 });
 
