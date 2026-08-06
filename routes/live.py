@@ -289,6 +289,11 @@ def api_live_match(match_id):
         t1_players = []
         t2_players = []
         for steamid, pdata in allplayers.items():
+            # A GSI frame can briefly retain a player from a previous server
+            # session. When this match has an explicit roster, never expose
+            # observers or stale players outside that roster.
+            if roster_side_by_steamid and steamid not in roster_side_by_steamid:
+                continue
             pstate = pdata.get("state", {}) or {}
             pweapons = pdata.get("weapons", {}) or {}
             pmatch = pdata.get("match_stats", {}) or {}
