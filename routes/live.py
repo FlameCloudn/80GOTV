@@ -332,7 +332,12 @@ def api_live_match(match_id):
                 t2_players.append(entry)
 
         def player_order(item):
+            kills = int(item.get("kills", 0) or 0)
+            deaths = int(item.get("deaths", 0) or 0)
             return (
+                -(kills - deaths),
+                -kills,
+                deaths,
                 int(item.get("observer_slot", 99) or 99),
                 str(item.get("steamid", "")),
             )
