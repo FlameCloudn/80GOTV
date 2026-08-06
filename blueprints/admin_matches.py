@@ -1,6 +1,7 @@
 """Admin match editor, stats editor and demo import pages."""
 
 import json
+import logging
 import os
 import re
 import shutil
@@ -24,6 +25,7 @@ from utils.web_helpers import admin_required as login_required
 from utils.web_helpers import csrf_required, hash_bp_password
 
 DEMOS_DIR = os.path.join(BASE_DIR, "static", "demos")
+logger = logging.getLogger("80gotv.admin.matches")
 
 LIVE_SCORE_FIELDS = (
     "team1_score",
@@ -208,15 +210,50 @@ def _match_form_response(conn, match=None, status=200):
     team1_player_ids = _match_player_ids(match, "team1_players")
     team2_player_ids = _match_player_ids(match, "team2_players")
     conn.close()
+    # sqlite3.Row does not expose dict.get(); accept both a database row and
+    # the submitted-form dict used when re-rendering validation errors.
+    is_new_match = not match or ("_is_new_form" in match.keys() and bool(match["_is_new_form"]))
     return render_template(
         "admin/matches_form.html",
         match=match,
+        is_new_match=is_new_match,
         events=events,
         teams=teams,
         all_players=all_players,
         team1_player_ids=team1_player_ids,
         team2_player_ids=team2_player_ids,
     ), status
+
+
+def _match_form_state(
+    current_match, values=None, team1_id=None, team2_id=None, team1_players=None, team2_players=None
+):
+    """Keep the submitted values when a match form needs to be shown again.
+
+    Previously validation failures rendered the database row again, so a user
+    could click save, lose all their edits, and see no useful explanation.
+    """
+    state = dict(current_match) if current_match else {}
+    for key, value in (values or {}).items():
+        if key.endswith("_pb"):
+            state[key[:-3] + "_picked_by"] = value
+        else:
+            state[key] = value
+    if team1_id is not None:
+        state["team1_id"] = team1_id
+    if team2_id is not None:
+        state["team2_id"] = team2_id
+    if team1_players is not None:
+        state["team1_players"] = team1_players
+    if team2_players is not None:
+        state["team2_players"] = team2_players
+    # The add form has no database row yet, but the renderer still reads these
+    # fields to decide whether to show the player selectors.
+    state.setdefault("team1_players", None)
+    state.setdefault("team2_players", None)
+    if not current_match:
+        state["_is_new_form"] = True
+    return state
 
 
 def _parse_side(conn, prefix, *, allow_partial=False, allow_empty=False):
@@ -424,8 +461,10 @@ def admin_matches_add():
         error = _match_validation_error(conn, f)
         if error:
             flash(error, "error")
-            return _match_form_response(conn, status=400)
+            return _match_form_response(conn, _match_form_state(None, f), 400)
 
+        team1_id = team2_id = None
+        team1_players = team2_players = None
         team1_id, team1_players, err = _parse_side(
             conn,
             "side1",
@@ -441,25 +480,51 @@ def admin_matches_add():
             )
         if err:
             flash(err, "error")
-            return _match_form_response(conn, status=400)
+            return _match_form_response(
+                conn,
+                _match_form_state(None, f, team1_id, team2_id, team1_players, team2_players),
+                400,
+            )
         if team1_id and team2_id and team1_id == team2_id:
             flash("两支队伍不能相同", "error")
-            return _match_form_response(conn, status=400)
+            return _match_form_response(
+                conn,
+                _match_form_state(None, f, team1_id, team2_id, team1_players, team2_players),
+                400,
+            )
         if team1_players and team2_players:
             if set(json.loads(team1_players)) & set(json.loads(team2_players)):
                 flash("两边不能选择同一名选手", "error")
-                return _match_form_response(conn, status=400)
+                return _match_form_response(
+                    conn,
+                    _match_form_state(None, f, team1_id, team2_id, team1_players, team2_players),
+                    400,
+                )
         if _duplicate_match(conn, f, team1_id, team2_id, team1_players, team2_players):
             flash("相同赛事、时间和参赛方的比赛已存在", "error")
-            return _match_form_response(conn, status=400)
-        conn.execute(
-            f"INSERT INTO matches({MATCH_COLS}) VALUES{MATCH_PLACEHOLDERS}",
-            _match_values(f, team1_id, team2_id, team1_players, team2_players),
-        )
-        match_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
-        _generate_match_slug(conn, match_id)
-        refresh_bracket_for_match(conn, match_id)
-        conn.commit()
+            return _match_form_response(
+                conn,
+                _match_form_state(None, f, team1_id, team2_id, team1_players, team2_players),
+                400,
+            )
+        try:
+            conn.execute(
+                f"INSERT INTO matches({MATCH_COLS}) VALUES{MATCH_PLACEHOLDERS}",
+                _match_values(f, team1_id, team2_id, team1_players, team2_players),
+            )
+            match_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+            _generate_match_slug(conn, match_id)
+            refresh_bracket_for_match(conn, match_id)
+            conn.commit()
+        except Exception as exc:
+            conn.rollback()
+            logger.exception("创建比赛失败 match_id=%s", locals().get("match_id"))
+            flash(f"比赛保存失败：{exc}", "error")
+            return _match_form_response(
+                conn,
+                _match_form_state(None, f, team1_id, team2_id, team1_players, team2_players),
+                400,
+            )
         conn.close()
         flash("比赛添加成功", "success")
         return redirect(url_for("admin.admin_matches"))
@@ -481,7 +546,7 @@ def admin_matches_edit(match_id):
         error = _match_validation_error(conn, f)
         if error:
             flash(error, "error")
-            return _match_form_response(conn, current_match, 400)
+            return _match_form_response(conn, _match_form_state(current_match, f), 400)
         existing = current_match
         team1_id = existing["team1_id"] if existing else None
         team2_id = existing["team2_id"] if existing else None
@@ -490,29 +555,53 @@ def admin_matches_edit(match_id):
         f["is_test_mode"] = int(existing["is_test_mode"] or 0) if existing else 0
         if team1_id and team2_id and team1_id > 0 and team1_id == team2_id:
             flash("两支队伍不能相同", "error")
-            return _match_form_response(conn, current_match, 400)
+            return _match_form_response(
+                conn,
+                _match_form_state(
+                    current_match, f, team1_id, team2_id, team1_players, team2_players
+                ),
+                400,
+            )
         if _duplicate_match(conn, f, team1_id, team2_id, team1_players, team2_players, match_id):
             flash("相同赛事、时间和参赛方的比赛已存在", "error")
-            return _match_form_response(conn, current_match, 400)
+            return _match_form_response(
+                conn,
+                _match_form_state(
+                    current_match, f, team1_id, team2_id, team1_players, team2_players
+                ),
+                400,
+            )
         if "map_halves" not in request.form:
             existing_halves = conn.execute(
                 "SELECT map_halves FROM matches WHERE id=?", (match_id,)
             ).fetchone()
             f["map_halves"] = existing_halves["map_halves"] if existing_halves else None
-        conn.execute(
-            """UPDATE matches SET event_id=?, team1_id=?, team2_id=?, team1_score=?, team2_score=?, match_time=?, bo_format=?, stage=?, status=?,
-            map1=?, map1_t1=?, map1_t2=?, map2=?, map2_t1=?, map2_t2=?, map3=?, map3_t1=?, map3_t2=?, has_map3=?,
-            map4=?, map4_t1=?, map4_t2=?, map5=?, map5_t1=?, map5_t2=?, has_map4=?, has_map5=?,
-            map1_picked_by=?, map2_picked_by=?, map3_picked_by=?, map4_picked_by=?, map5_picked_by=?,
-            bp_process=?, bp_password=?, stream_url=?, map_halves=?, team1_players=?, team2_players=?, watch_urls=?,
-            server_address=?, server_password=?, is_test_mode=?, decider_knife_winner=?, decider_start_side=?
-            WHERE id=?""",
-            _match_values(f, team1_id, team2_id, team1_players, team2_players)
-            + (f["decider_knife_winner"], f["decider_start_side"], match_id),
-        )
-        _generate_match_slug(conn, match_id)
-        refresh_bracket_for_match(conn, match_id)
-        conn.commit()
+        try:
+            conn.execute(
+                """UPDATE matches SET event_id=?, team1_id=?, team2_id=?, team1_score=?, team2_score=?, match_time=?, bo_format=?, stage=?, status=?,
+                map1=?, map1_t1=?, map1_t2=?, map2=?, map2_t1=?, map2_t2=?, map3=?, map3_t1=?, map3_t2=?, has_map3=?,
+                map4=?, map4_t1=?, map4_t2=?, map5=?, map5_t1=?, map5_t2=?, has_map4=?, has_map5=?,
+                map1_picked_by=?, map2_picked_by=?, map3_picked_by=?, map4_picked_by=?, map5_picked_by=?,
+                bp_process=?, bp_password=?, stream_url=?, map_halves=?, team1_players=?, team2_players=?, watch_urls=?,
+                server_address=?, server_password=?, is_test_mode=?, decider_knife_winner=?, decider_start_side=?
+                WHERE id=?""",
+                _match_values(f, team1_id, team2_id, team1_players, team2_players)
+                + (f["decider_knife_winner"], f["decider_start_side"], match_id),
+            )
+            _generate_match_slug(conn, match_id)
+            refresh_bracket_for_match(conn, match_id)
+            conn.commit()
+        except Exception as exc:
+            conn.rollback()
+            logger.exception("更新比赛失败 match_id=%s", match_id)
+            flash(f"比赛保存失败：{exc}", "error")
+            return _match_form_response(
+                conn,
+                _match_form_state(
+                    current_match, f, team1_id, team2_id, team1_players, team2_players
+                ),
+                400,
+            )
         conn.close()
         flash("比赛更新成功", "success")
         return redirect(url_for("admin.admin_matches"))
@@ -809,6 +898,10 @@ def admin_import_demo(match_id):
         conn.close()
         return "比赛不存在", 404
     match = supplement_temp_teams(match, conn)
+    if (match["status"] or "").lower() != "completed":
+        conn.close()
+        flash("比赛结束后才能上传 Demo", "error")
+        return redirect(url_for("admin.admin_match_stats", match_id=match_id))
     demo_slot_count = get_demo_upload_slot_count(match)
     if request.method == "POST":
         step = request.form.get("step", "analyze")

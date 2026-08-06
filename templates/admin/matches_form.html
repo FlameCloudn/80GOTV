@@ -4,7 +4,7 @@
   {% include "_i18n_bootstrap.html" %}
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>{% if match %}编辑比赛{% else %}添加比赛{% endif %}</title>
+  <title>{% if is_new_match %}添加比赛{% else %}编辑比赛{% endif %}</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     body{font-family:sans-serif;background:#f5f5f5}
@@ -95,11 +95,11 @@
   {% endwith %}
 
   <div class="form-container">
-    {% set current_status = match.status if match else 'new' %}
-    {% set setup_editable = not match or current_status == 'upcoming' %}
-    <h2>{% if match %}✏️ 编辑比赛{% else %}➕ 添加比赛{% endif %}</h2>
+    {% set current_status = match.status if not is_new_match and match else 'new' %}
+    {% set setup_editable = is_new_match or current_status == 'upcoming' %}
+    <h2>{% if is_new_match %}➕ 添加比赛{% else %}✏️ 编辑比赛{% endif %}</h2>
 
-    {% if match %}
+    {% if not is_new_match %}
       {% if current_status == 'upcoming' %}
       <div class="alert alert-info">赛前设置仍可修改。比分将在数据直播收到数据后自动显示。</div>
       {% elif current_status in ('live', 'ongoing') %}
@@ -111,7 +111,7 @@
       {% endif %}
     {% endif %}
 
-    <form method="post">
+    <form method="post" id="matchForm">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 
 
@@ -142,7 +142,7 @@
                placeholder="例如：GF、SF、QF（可不填）" {% if not setup_editable %}disabled{% endif %}>
       </div>
 
-      {% if not match %}
+      {% if is_new_match %}
       <div class="form-group test-mode-control">
         <label class="test-mode-toggle" for="testMode">
           <input type="checkbox" id="testMode" name="is_test_mode" value="1" onchange="toggleTestMode()">
@@ -150,13 +150,13 @@
         </label>
         <div class="field-hint">开启后参赛方可留空，也可以为每边选择 1 至 5 名测试选手。</div>
       </div>
-      {% elif match.is_test_mode %}
+      {% elif not is_new_match and match.is_test_mode %}
       <input type="hidden" name="is_test_mode" value="1">
       <div class="alert alert-info">这是一场测试比赛，不要求填写参赛队伍或选手。</div>
       {% endif %}
 
       <!-- ===== 创建比赛时选择参赛方 ===== -->
-      {% if not match %}
+      {% if is_new_match %}
       <div id="matchParticipants">
         <!-- 队伍1 -->
         <div class="field-section team1">
@@ -229,7 +229,7 @@
       <!-- ============================== -->
       <!-- ===== 编辑模式：队伍/选手 + 可选 Demo 刷新选手 ===== -->
       <!-- ============================== -->
-      {% if match %}
+      {% if not is_new_match %}
       <div class="section-divider"><span>👥 参赛队伍（创建后不可修改）</span></div>
 
       <div class="field-section team1">
@@ -265,7 +265,7 @@
       <div class="section-divider"><span>⚙️ 比赛设置</span></div>
 
       <!-- BO格式 -->
-      {% if not match or setup_editable %}
+      {% if is_new_match or setup_editable %}
       <div class="form-group">
         <label>BO 格式</label>
         <select name="bo_format" id="boFormat" onchange="updateMapFields()">
@@ -279,7 +279,7 @@
       {% endif %}
 
       <!-- 地图模式切换（仅添加时可选） -->
-      {% if not match %}
+      {% if is_new_match %}
       <div class="form-group" id="mapModeToggleGroup">
         <label>地图模式</label>
         <div class="mode-tabs" id="mapModeTabs">
@@ -296,7 +296,7 @@
       <div id="manualMapSection">
 
       <!-- 图一 -->
-      <div class="form-row map-row{% if match %} with-results{% endif %}">
+      <div class="form-row map-row{% if not is_new_match %} with-results{% endif %}">
         <div class="form-group">
           <label>图一</label>
           <select name="map1" {% if not setup_editable %}disabled{% endif %}>
@@ -313,7 +313,7 @@
             <option value="de_cache" {% if match and match.map1=='de_cache' %}selected{% endif %}>Cache</option>
           </select>
         </div>
-        {% if match %}
+        {% if not is_new_match %}
         <div class="form-group">
           <label style="visibility:hidden">-</label>
           <div style="display:flex;align-items:center;gap:8px">
@@ -335,7 +335,7 @@
       </div>
 
       <!-- 图二 -->
-      <div class="form-row map-row{% if match %} with-results{% endif %}" id="map2Row">
+      <div class="form-row map-row{% if not is_new_match %} with-results{% endif %}" id="map2Row">
         <div class="form-group">
           <label>图二</label>
           <select name="map2" {% if not setup_editable %}disabled{% endif %}>
@@ -352,7 +352,7 @@
             <option value="de_cache" {% if match and match.map2=='de_cache' %}selected{% endif %}>Cache</option>
           </select>
         </div>
-        {% if match %}
+        {% if not is_new_match %}
         <div class="form-group">
           <label style="visibility:hidden">-</label>
           <div style="display:flex;align-items:center;gap:8px">
@@ -374,7 +374,7 @@
       </div>
 
       <!-- 图三 -->
-      <div class="form-row map-row{% if match %} with-results{% endif %}" id="map3Row">
+      <div class="form-row map-row{% if not is_new_match %} with-results{% endif %}" id="map3Row">
         <div class="form-group">
           <label>图三</label>
           <select name="map3" {% if not setup_editable %}disabled{% endif %}>
@@ -391,7 +391,7 @@
             <option value="de_cache" {% if match and match.map3=='de_cache' %}selected{% endif %}>Cache</option>
           </select>
         </div>
-        {% if match %}
+        {% if not is_new_match %}
         <div class="form-group">
           <label style="visibility:hidden">-</label>
           <div style="display:flex;align-items:center;gap:8px">
@@ -413,7 +413,7 @@
       </div>
 
       <!-- 图四 -->
-      <div class="form-row map-row{% if match %} with-results{% endif %}" id="map4Row">
+      <div class="form-row map-row{% if not is_new_match %} with-results{% endif %}" id="map4Row">
         <div class="form-group">
           <label>图四</label>
           <select name="map4" {% if not setup_editable %}disabled{% endif %}>
@@ -430,7 +430,7 @@
             <option value="de_cache" {% if match and match.map4=='de_cache' %}selected{% endif %}>Cache</option>
           </select>
         </div>
-        {% if match %}
+        {% if not is_new_match %}
         <div class="form-group">
           <label style="visibility:hidden">-</label>
           <div style="display:flex;align-items:center;gap:8px">
@@ -452,7 +452,7 @@
       </div>
 
       <!-- 图五 -->
-      <div class="form-row map-row{% if match %} with-results{% endif %}" id="map5Row">
+      <div class="form-row map-row{% if not is_new_match %} with-results{% endif %}" id="map5Row">
         <div class="form-group">
           <label>图五</label>
           <select name="map5" {% if not setup_editable %}disabled{% endif %}>
@@ -469,7 +469,7 @@
             <option value="de_cache" {% if match and match.map5=='de_cache' %}selected{% endif %}>Cache</option>
           </select>
         </div>
-        {% if match %}
+        {% if not is_new_match %}
         <div class="form-group">
           <label style="visibility:hidden">-</label>
           <div style="display:flex;align-items:center;gap:8px">
@@ -490,7 +490,7 @@
         {% endif %}
       </div>
 
-      {% if match %}
+      {% if not is_new_match %}
       <div class="section-divider"><span>决胜图拼刀与选边</span></div>
       <div class="form-row" id="deciderKnifeSection">
         <div class="form-group">
@@ -543,7 +543,7 @@
 
       {% if setup_editable %}
       <!-- 在线 BP 密码只在赛前设置 -->
-      <div id="bpModeSection" {% if not match %}style="display:none"{% endif %}>
+      <div id="bpModeSection" {% if is_new_match %}style="display:none"{% endif %}>
       <div class="form-group">
         <label>🔒 在线 BP 密码 <span style="font-weight:400;color:#999;font-size:12px">（设置后选手可通过此密码参与在线 BP）</span></label>
         <input type="password" name="bp_password"
@@ -556,11 +556,11 @@
         {% endif %}
       </div>
       </div><!-- /bpModeSection -->
-      {% elif match and match.bp_password %}
+      {% elif not is_new_match and match.bp_password %}
       <div class="alert alert-info">在线 BP 密码：已设置。比赛开始后密码保持不变，不再允许从编辑页修改。</div>
       {% endif %}
 
-      {% if match and current_status == 'completed' %}
+      {% if not is_new_match and current_status == 'completed' %}
       <!-- BP 流程在 BP 完成后补录 -->
       <div class="form-group" id="bpProcessGroup">
         <label>Ban/Pick 流程</label>
@@ -601,7 +601,7 @@
 
 
       <!-- 状态 -->
-      {% if match %}
+      {% if not is_new_match %}
       <div class="form-group">
         <label>状态</label>
         <select name="status">
@@ -615,10 +615,11 @@
 
       <div class="form-actions">
         <button type="submit" class="btn btn-primary" id="submitBtn">
-          {% if match %}💾 保存修改{% else %}✅ 添加比赛{% endif %}
+          {% if is_new_match %}✅ 添加比赛{% else %}💾 保存修改{% endif %}
         </button>
         <a href="/admin/matches" class="btn btn-secondary">❌ 取消</a>
       </div>
+      <p id="saveStatus" role="status" aria-live="polite" style="display:none;margin-top:10px;color:#5881bc;font-size:13px">正在保存，请稍候……</p>
     </form>
   </div>
 </div>
@@ -699,12 +700,34 @@ function switchMapMode(mode) {
   if (bp) bp.style.display = mode === 'bp' ? '' : 'none';
 }
 
+// 防止重复点击，也让保存中的状态可见；返回页面后按钮会自动恢复。
+(function bindMatchSaveState() {
+  var form = document.getElementById('matchForm');
+  var button = document.getElementById('submitBtn');
+  var status = document.getElementById('saveStatus');
+  if (!form || !button) return;
+  form.addEventListener('submit', function(event) {
+    if (form.dataset.submitting === '1') {
+      event.preventDefault();
+      return;
+    }
+    form.dataset.submitting = '1';
+    button.disabled = true;
+    button.textContent = '保存中……';
+    if (status) status.style.display = 'block';
+  });
+  window.addEventListener('pageshow', function() {
+    form.dataset.submitting = '';
+    button.disabled = false;
+  });
+})();
+
 // Init
 updateMapFields();
 toggleTestMode();
 toggleSide('1');
 toggleSide('2');
-{% if not match %}
+{% if is_new_match %}
 switchMapMode('manual');
 {% endif %}
 </script>

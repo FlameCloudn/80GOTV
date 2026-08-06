@@ -106,7 +106,7 @@
       {% endfor %}
     </div>
 
-    <form method="post" enctype="multipart/form-data" id="uploadForm">
+    <form method="post" enctype="multipart/form-data" id="uploadForm" class="demo-action-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="step" value="analyze">
 
@@ -188,7 +188,7 @@
       </tbody>
     </table>
 
-    <form method="post" style="margin-top:12px">
+    <form method="post" style="margin-top:12px" class="demo-action-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="step" value="import_single">
       <input type="hidden" name="demo_index" value="{{ loop.index0 }}">
@@ -200,7 +200,7 @@
   {% endfor %}
 
   <div class="form-actions" style="margin-top:20px">
-    <form method="post" style="display:inline">
+    <form method="post" style="display:inline" class="demo-action-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="step" value="import_all">
       <input type="hidden" name="all_demo_data" value="{{ all_demo_data }}">
@@ -230,5 +230,21 @@
 
 <script src="{{ versioned_url('static/js/i18n.js') }}"></script>
 <script src="{{ url_for('static', filename='js/svg_icons.js') }}?v=20260620-svg1"></script>
+<script>
+  document.querySelectorAll('.demo-action-form').forEach(function(form) {
+    form.addEventListener('submit', function(event) {
+      if (form.dataset.submitting === '1') {
+        event.preventDefault();
+        return;
+      }
+      form.dataset.submitting = '1';
+      var button = form.querySelector('button[type="submit"]');
+      if (button) {
+        button.disabled = true;
+        button.textContent = form.id === 'uploadForm' ? '分析中……' : '导入中……';
+      }
+    });
+  });
+</script>
 </body>
 </html>

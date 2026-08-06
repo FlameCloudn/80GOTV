@@ -85,10 +85,10 @@
     <p><b>对阵：</b>{{ match.team1_name }} 对 {{ match.team2_name }}</p >
     <p><b>比分：</b>{{ match.team1_score }} : {{ match.team2_score }}</p >
     <p><b>时间：</b>{{ match.match_time|datetime_display }}</p >
-    {% if not readonly %}
+    {% if readonly %}
     <div style="margin-top:12px">
       <a href="/admin/matches/{{ match.id }}/import-demo" class="btn btn-primary" style="font-size:13px;padding:8px 16px">
-        📥 从 Demo 导入数据
+        📥 从 Demo 导入/更新数据
       </a>
     </div>
     {% endif %}
@@ -125,7 +125,7 @@
       {% if m.disabled %}
       <div class="tba-message">⏳ TBA，BP 结束后可录入数据</div>
       {% else %}
-      <form method="post">
+      <form method="post" class="match-stats-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 
         <input type="hidden" name="map_name" value="{{ m.name if m.name else '' }}">
@@ -193,6 +193,7 @@
           <button type="submit" class="btn btn-primary">💾 保存此图数据</button>
           <a href="/admin/matches" class="btn btn-secondary">❌ 返回</a>
         </div>
+        <p class="save-status" role="status" aria-live="polite" style="display:none;margin-top:10px;color:#5881bc;font-size:13px">正在保存，请稍候……</p>
         {% else %}
         <div class="form-actions">
           <a href="/admin/matches" class="btn btn-secondary">❌ 返回</a>
@@ -214,6 +215,22 @@ function switchTab(idx) {
     panel.classList.toggle('active', i === idx);
   });
 }
+document.querySelectorAll('.match-stats-form').forEach(function(form) {
+  form.addEventListener('submit', function(event) {
+    if (form.dataset.submitting === '1') {
+      event.preventDefault();
+      return;
+    }
+    form.dataset.submitting = '1';
+    var button = form.querySelector('button[type="submit"]');
+    if (button) {
+      button.disabled = true;
+      button.textContent = '保存中……';
+    }
+    var status = form.querySelector('.save-status');
+    if (status) status.style.display = 'block';
+  });
+});
 </script>
 <script src="{{ versioned_url('static/js/i18n.js') }}"></script>
 <script src="{{ url_for('static', filename='js/svg_icons.js') }}?v=20260620-svg1"></script>
