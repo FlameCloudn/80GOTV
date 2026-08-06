@@ -197,6 +197,24 @@ def _ensure_match_stats_team_side_column(cursor):
         cursor.execute("ALTER TABLE match_stats ADD COLUMN match_team_side TEXT")
 
 
+def _ensure_match_stats_data_version_columns(cursor):
+    """Backfill live-data metadata for databases already on the current version."""
+    table = cursor.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='match_stats'"
+    ).fetchone()
+    if not table:
+        return
+    columns = {row[1] for row in cursor.execute("PRAGMA table_info(match_stats)").fetchall()}
+    additions = {
+        "data_source": "TEXT NOT NULL DEFAULT 'legacy'",
+        "data_status": "TEXT NOT NULL DEFAULT 'final'",
+        "data_version": "INTEGER NOT NULL DEFAULT 1",
+    }
+    for name, definition in additions.items():
+        if name not in columns:
+            cursor.execute(f"ALTER TABLE match_stats ADD COLUMN {name} {definition}")
+
+
 def _ensure_match_stats_unique_result_index(cursor):
     """Prevent duplicate player/map rows while retaining older rows as history."""
     columns = {row[1] for row in cursor.execute("PRAGMA table_info(match_stats)").fetchall()}
@@ -348,6 +366,8 @@ def _init_tables(conn):
         _ensure_match_test_mode_column(c)
         _ensure_match_decider_columns(c)
         _ensure_match_stats_team_side_column(c)
+        _ensure_match_stats_data_version_columns(c)
+        _ensure_match_stats_unique_result_index(c)
         _ensure_school_profile_columns(c)
         _ensure_yearly_top10_table(c)
         _ensure_player_private_remarks_table(c)
@@ -1252,6 +1272,7 @@ def _init_tables(conn):
         raise RuntimeError("数据库升级失败：报名表字段") from exc
 
     _ensure_placeholder_accounts_pending(c)
+    _ensure_match_stats_data_version_columns(c)
     _ensure_match_stats_unique_result_index(c)
 
     # --- 数据库性能索引 ---

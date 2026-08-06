@@ -320,7 +320,6 @@ def _render_match_detail(match_id):
         LEFT JOIN teams t ON ms.team_id=t.id
         WHERE ms.match_id=?
           AND COALESCE(ms.data_status, 'final') <> 'superseded'
-          AND COALESCE(ms.data_status, 'final') <> 'superseded'
         ORDER BY ms.map_name, ms.team_id DESC, ms.rating DESC
     """,
         (match_id,),
