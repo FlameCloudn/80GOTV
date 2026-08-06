@@ -174,6 +174,7 @@
         </td>
         <td class="actions">
           <a href="/admin/matches/edit/{{ m.id }}">✏️ 编辑</a>
+          {% if m.bp_password and m.effective_status not in ('completed', 'cancelled') %}<a href="/bp/{{ m.id }}" target="_blank">🎯 打开 BP</a>{% endif %}
           <a href="/admin/matches/{{ m.id }}/stats" class="btn-secondary">📊 录入数据</a>
           {% if m.effective_status == 'completed' %}<a href="/admin/matches/{{ m.id }}/import-demo">📥 上传 Demo</a>{% endif %}
           <form method="post" action="/admin/matches/delete/{{ m.id }}" style="display:inline" data-confirm="确定删除比赛吗？相关统计、直播记录和评论也会一起删除。" onsubmit="return window.confirm(this.dataset.confirm)"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" style="background:none;border:none;color:#5881bc;cursor:pointer;font-size:14px;padding:0">🗑️ 删除</button></form>

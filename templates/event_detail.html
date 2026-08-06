@@ -156,13 +156,11 @@ function selectSlot(n){
       <span class="team right" data-i18n-ignore>{{ m.team2_name if team2_is_assigned else 'TBD' }}</span>
       <div class="meta">{{ m.bo_format or 'BO1' }} · {{ m.match_time|datetime_display if m.match_time else 'TBD' }}</div>
     </a>
-    {% if m.bp_password and m.effective_status == 'upcoming' %}
-      {% if m.bp_window_open and session.get('user_id') %}
-      <a href="/bp/{{ m.id }}" class="event-bp-link">BP</a>
-      {% elif m.bp_window_open %}
-      <span class="event-bp-state">BP 已开放</span>
+    {% if m.bp_password and m.effective_status not in ('completed', 'cancelled') %}
+      {% if session.get('user_id') %}
+      <a href="/bp/{{ m.id }}" class="event-bp-link">BP{% if not m.bp_window_open %}（倒计时）{% endif %}</a>
       {% else %}
-      <span class="event-bp-state">BP 暂未开始</span>
+      <span class="event-bp-state">登录后进入 BP</span>
       {% endif %}
     {% endif %}
   </div>
