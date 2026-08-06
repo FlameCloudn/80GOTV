@@ -285,15 +285,18 @@ def api_live_match(match_id):
         allplayers = gsi.get("allplayers", {}) or {}
         steamids = [str(steamid) for steamid in allplayers]
         live_profiles = _load_live_player_profiles(conn, steamids)
+        roster_profiles = _load_live_player_profiles(conn, roster_side_by_steamid)
 
         t1_players = []
         t2_players = []
+        seen_roster_ids = set()
         for steamid, pdata in allplayers.items():
             # A GSI frame can briefly retain a player from a previous server
             # session. When this match has an explicit roster, never expose
             # observers or stale players outside that roster.
             if roster_side_by_steamid and steamid not in roster_side_by_steamid:
                 continue
+            seen_roster_ids.add(str(steamid))
             pstate = pdata.get("state", {}) or {}
             pweapons = pdata.get("weapons", {}) or {}
             pmatch = pdata.get("match_stats", {}) or {}
@@ -336,10 +339,43 @@ def api_live_match(match_id):
             else:
                 t2_players.append(entry)
 
+        # GSI occasionally omits a registered substitute or a player who has
+        # disconnected. Keep the fixed five-player layout filled with that
+        # roster member's website name/avatar instead of leaving a blank row.
+        for steamid, player_identity in roster_side_by_steamid.items():
+            if steamid in seen_roster_ids:
+                continue
+            profile = roster_profiles.get(steamid, {})
+            if not profile.get("name"):
+                continue
+            missing_entry = {
+                "steamid": steamid,
+                "name": profile["name"],
+                "avatar": profile.get("avatar", ""),
+                "hp": "-",
+                "armor": "-",
+                "helmet": False,
+                "money": "-",
+                "kills": 0,
+                "assists": 0,
+                "deaths": 0,
+                "adr": 0,
+                "observer_slot": 999,
+                "primary": "",
+                "secondary": "",
+                "alive": False,
+                "missing": True,
+            }
+            if player_identity == "team1":
+                t1_players.append(missing_entry)
+            else:
+                t2_players.append(missing_entry)
+
         def player_order(item):
             kills = int(item.get("kills", 0) or 0)
             deaths = int(item.get("deaths", 0) or 0)
             return (
+                1 if item.get("missing") else 0,
                 -(kills - deaths),
                 -kills,
                 deaths,
