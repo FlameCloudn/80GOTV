@@ -126,7 +126,9 @@ def _roster_profiles_by_steamid(conn, row):
             team_id = None
         for slot, player_id in enumerate(ids[:5], start=1):
             player = by_id.get(player_id)
-            steam_id = str(player["steam_id"] or "").strip() if player else ""
+            if not player:
+                continue
+            steam_id = str(player["steam_id"] or "").strip()
             if not steam_id:
                 continue
             result[steam_id] = {
