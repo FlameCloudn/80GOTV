@@ -65,37 +65,64 @@ def _player_ids(raw_value):
 
 
 def _team_players(conn, match, side):
-    ids = _player_ids(match.get(f"team{side}_players"))
+    # A live/HUD team always has five slots. Ignore stale sixth entries left
+    # by an older roster edit instead of letting one player's identity shift.
+    ids = _player_ids(match.get(f"team{side}_players"))[:5]
     if ids:
         placeholders = ",".join("?" for _ in ids)
         rows = conn.execute(
             f"""SELECT id, nickname, group_username_override, steam_id, avatar,
-                       is_bashizhong_student
-                FROM players WHERE id IN ({placeholders}) ORDER BY nickname COLLATE NOCASE""",
+                       is_bashizhong_student, team_id
+                FROM players WHERE id IN ({placeholders})""",
             ids,
         ).fetchall()
+        by_id = {row["id"]: row for row in rows}
+        ordered_rows = [by_id[player_id] for player_id in ids if player_id in by_id]
     else:
         team_id = match.get(f"team{side}_id")
+        try:
+            team_id = int(team_id) if team_id else None
+        except (TypeError, ValueError):
+            team_id = None
         if not team_id or team_id < 1:
             return []
-        rows = conn.execute(
+        ordered_rows = conn.execute(
             """SELECT id, nickname, group_username_override, steam_id, avatar,
-                      is_bashizhong_student
-               FROM players WHERE team_id=? ORDER BY nickname COLLATE NOCASE""",
+                      is_bashizhong_student, team_id
+               FROM players WHERE team_id=? ORDER BY nickname COLLATE NOCASE LIMIT 5""",
             (team_id,),
         ).fetchall()
 
-    return [
+    team_id = match.get(f"team{side}_id")
+    try:
+        team_id = int(team_id) if team_id else None
+    except (TypeError, ValueError):
+        team_id = None
+    reserve_ids = {
+        int(player["id"])
+        for player in _event_substitutes(conn, match.get("event_id"))
+        if str(player.get("id", "")).lstrip("-").isdigit() and int(player["id"]) > 0
+    }
+    result = [
         {
+            # Keep the registration order stable. The desktop app and HUD use
+            # this slot number to keep a player's name and avatar together.
             "id": row["id"],
+            "slot": index + 1,
             "nickname": row["nickname"] or "",
             "group_username": row["group_username_override"] or "",
             "steam_id": row["steam_id"] or "",
             "avatar": _asset_path("avatars", row["avatar"]),
             "is_bashizhong_student": row["is_bashizhong_student"],
+            **(
+                {"role": "substitute"}
+                if row["id"] in reserve_ids or (team_id and row["team_id"] != team_id)
+                else {}
+            ),
         }
-        for row in rows
+        for index, row in enumerate(ordered_rows)
     ]
+    return result
 
 
 def _event_substitutes(conn, event_id):

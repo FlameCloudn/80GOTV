@@ -40,22 +40,24 @@ def _roster_side_by_steamid(conn, row):
     """Map known Steam IDs to the fixed team slot used by the match."""
     team1_ids = _player_ids(
         row.get("team1_players") if hasattr(row, "get") else row["team1_players"]
-    )
+    )[:5]
     team2_ids = _player_ids(
         row.get("team2_players") if hasattr(row, "get") else row["team2_players"]
-    )
+    )[:5]
     if not team1_ids and row["team1_id"]:
         team1_ids = [
             item["id"]
             for item in conn.execute(
-                "SELECT id FROM players WHERE team_id=?", (row["team1_id"],)
+                "SELECT id FROM players WHERE team_id=? ORDER BY nickname COLLATE NOCASE LIMIT 5",
+                (row["team1_id"],),
             ).fetchall()
         ]
     if not team2_ids and row["team2_id"]:
         team2_ids = [
             item["id"]
             for item in conn.execute(
-                "SELECT id FROM players WHERE team_id=?", (row["team2_id"],)
+                "SELECT id FROM players WHERE team_id=? ORDER BY nickname COLLATE NOCASE LIMIT 5",
+                (row["team2_id"],),
             ).fetchall()
         ]
     player_ids = list(dict.fromkeys(team1_ids + team2_ids))
@@ -75,6 +77,66 @@ def _roster_side_by_steamid(conn, row):
             result[steam_id] = "team1"
         elif item["id"] in team2_set:
             result[steam_id] = "team2"
+    return result
+
+
+def _roster_profiles_by_steamid(conn, row):
+    """Return the exact website identity for every fixed match slot.
+
+    Looking profiles up only by the live display name can pair a stale GSI
+    name with the wrong avatar. The match's player-id list is authoritative,
+    so keep the player id, slot and substitute flag beside the presentation
+    name and avatar.
+    """
+    sides = {
+        "team1": _player_ids(
+            row.get("team1_players") if hasattr(row, "get") else row["team1_players"]
+        )[:5],
+        "team2": _player_ids(
+            row.get("team2_players") if hasattr(row, "get") else row["team2_players"]
+        )[:5],
+    }
+    for side in ("team1", "team2"):
+        if sides[side]:
+            continue
+        team_id = row.get(f"{side}_id") if hasattr(row, "get") else row[f"{side}_id"]
+        if team_id:
+            sides[side] = [
+                item["id"]
+                for item in conn.execute(
+                    "SELECT id FROM players WHERE team_id=? ORDER BY nickname COLLATE NOCASE LIMIT 5",
+                    (team_id,),
+                ).fetchall()
+            ]
+    player_ids = list(dict.fromkeys(sides["team1"] + sides["team2"]))
+    if not player_ids:
+        return {}
+    placeholders = ",".join("?" for _ in player_ids)
+    rows = conn.execute(
+        f"SELECT id, nickname, steam_id, avatar, team_id FROM players WHERE id IN ({placeholders})",
+        player_ids,
+    ).fetchall()
+    by_id = {item["id"]: item for item in rows}
+    result = {}
+    for side, ids in sides.items():
+        team_id = row.get(f"{side}_id") if hasattr(row, "get") else row[f"{side}_id"]
+        try:
+            team_id = int(team_id) if team_id else None
+        except (TypeError, ValueError):
+            team_id = None
+        for slot, player_id in enumerate(ids[:5], start=1):
+            player = by_id.get(player_id)
+            steam_id = str(player["steam_id"] or "").strip() if player else ""
+            if not steam_id:
+                continue
+            result[steam_id] = {
+                "player_id": player["id"],
+                "name": player["nickname"] or "",
+                "avatar": f"/static/avatars/{player['avatar']}" if player["avatar"] else "",
+                "team": side,
+                "slot": slot,
+                "is_substitute": bool(team_id and player["team_id"] != team_id),
+            }
     return result
 
 
@@ -285,7 +347,7 @@ def api_live_match(match_id):
         allplayers = gsi.get("allplayers", {}) or {}
         steamids = [str(steamid) for steamid in allplayers]
         live_profiles = _load_live_player_profiles(conn, steamids)
-        roster_profiles = _load_live_player_profiles(conn, roster_side_by_steamid)
+        roster_profiles = _roster_profiles_by_steamid(conn, row)
 
         t1_players = []
         t2_players = []
@@ -309,10 +371,17 @@ def api_live_match(match_id):
                 elif wtype == "Pistol":
                     secondary = wdata.get("name") or wname
 
+            roster_profile = roster_profiles.get(str(steamid), {})
+            live_profile = live_profiles.get(str(steamid), {})
             entry = {
                 "steamid": steamid,
-                "name": live_profiles.get(str(steamid), {}).get("name") or pdata.get("name", ""),
-                "avatar": live_profiles.get(str(steamid), {}).get("avatar", ""),
+                "player_id": roster_profile.get("player_id"),
+                "roster_slot": roster_profile.get("slot"),
+                "is_substitute": bool(roster_profile.get("is_substitute")),
+                "name": roster_profile.get("name")
+                or live_profile.get("name")
+                or pdata.get("name", ""),
+                "avatar": roster_profile.get("avatar") or live_profile.get("avatar", ""),
                 "hp": pstate.get("health", 0),
                 "armor": pstate.get("armor", 0),
                 "helmet": pstate.get("helmet", False),
@@ -350,6 +419,9 @@ def api_live_match(match_id):
                 continue
             missing_entry = {
                 "steamid": steamid,
+                "player_id": profile.get("player_id"),
+                "roster_slot": profile.get("slot"),
+                "is_substitute": bool(profile.get("is_substitute")),
                 "name": profile["name"],
                 "avatar": profile.get("avatar", ""),
                 "hp": "-",

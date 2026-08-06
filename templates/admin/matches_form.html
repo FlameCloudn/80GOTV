@@ -257,6 +257,38 @@
           {% endif %}
         </div>
       </div>
+
+      {% if setup_editable %}
+      <div class="field-section" style="border-color:#d9c27a;background:#fffdf4">
+        <h3 style="color:#8a6b16">🔁 本场出场名单与替补</h3>
+        <p style="margin:0 0 14px;color:#6a6a6a;font-size:13px;line-height:1.5">
+          默认使用队伍报名名单。需要换人时，在对应位置选择已报名替补；保存后网站和导播软件会使用同一份本场名单。
+        </p>
+        {% for side in (1, 2) %}
+        {% set side_options = match_roster_options.get(side, []) %}
+        {% set side_selected = match_roster_selected.get(side, []) %}
+        <div style="margin-top:12px;padding-top:10px;border-top:1px solid #eadfb7">
+          <strong style="display:block;margin-bottom:8px">队伍{{ side }}</strong>
+          {% if side_options %}
+          <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px">
+            {% for slot in range(5) %}
+            <select name="match_team{{ side }}_p{{ slot }}" aria-label="队伍{{ side }} 第{{ slot + 1 }}个位置">
+              <option value="">位置 {{ slot + 1 }}</option>
+              {% for p in side_options %}
+              <option value="{{ p.id }}" {% if side_selected|length > slot and side_selected[slot] == p.id %}selected{% endif %}>
+                {{ p.nickname }}{% if p.is_substitute %}（替补）{% endif %}
+              </option>
+              {% endfor %}
+            </select>
+            {% endfor %}
+          </div>
+          {% else %}
+          <span style="color:#9a8c62;font-size:13px">暂无可选选手，请先完善队伍或替补报名资料。</span>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
       {% endif %}
 
       <!-- ============================== -->

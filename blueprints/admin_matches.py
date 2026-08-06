@@ -205,10 +205,119 @@ def _match_player_ids(match, key):
         return []
 
 
+def _event_reserve_player_ids(conn, event_id):
+    """Return database player ids for registered substitutes in an event."""
+    if not event_id:
+        return []
+    rows = conn.execute(
+        """
+        SELECT DISTINCT p.id
+        FROM event_individual_registrations ir
+        JOIN players p ON p.steam_id=ir.steam_id
+        WHERE ir.event_id=? AND ir.assignment_status='reserve'
+        ORDER BY p.nickname COLLATE NOCASE
+        """,
+        (event_id,),
+    ).fetchall()
+    return [row["id"] for row in rows]
+
+
+def _match_roster_options(conn, match, side):
+    """Build the small player list an admin can use for a match substitution."""
+    team_id = row_get(match, f"team{side}_id")
+    try:
+        team_id = int(team_id) if team_id else None
+    except (TypeError, ValueError):
+        team_id = None
+    current_ids = _match_player_ids(match, f"team{side}_players")
+    team_ids = []
+    if team_id:
+        team_ids = [
+            row["id"]
+            for row in conn.execute(
+                "SELECT id FROM players WHERE team_id=? ORDER BY nickname COLLATE NOCASE",
+                (team_id,),
+            ).fetchall()
+        ]
+    reserve_ids = _event_reserve_player_ids(conn, row_get(match, "event_id"))
+    candidate_ids = list(dict.fromkeys(current_ids + team_ids + reserve_ids))
+    if not candidate_ids:
+        return []
+    placeholders = ",".join("?" for _ in candidate_ids)
+    rows = conn.execute(
+        f"""
+        SELECT p.id, p.nickname, p.team_id, t.name AS team_name
+        FROM players p
+        LEFT JOIN teams t ON t.id=p.team_id
+        WHERE p.id IN ({placeholders})
+        ORDER BY p.nickname COLLATE NOCASE
+        """,
+        candidate_ids,
+    ).fetchall()
+    reserve_set = set(reserve_ids)
+    by_id = {row["id"]: row for row in rows}
+    ordered = [by_id[player_id] for player_id in candidate_ids if player_id in by_id]
+    return [
+        {
+            "id": row["id"],
+            "nickname": row["nickname"] or "",
+            "team_name": row["team_name"] or "",
+            "is_substitute": row["id"] in reserve_set
+            or bool(team_id and row["team_id"] != team_id),
+        }
+        for row in ordered
+    ]
+
+
+def _match_roster_selected(conn, match, side):
+    """Return the current five slots, falling back to the team's roster."""
+    selected = _match_player_ids(match, f"team{side}_players")
+    if selected:
+        return selected[:5]
+    team_id = row_get(match, f"team{side}_id")
+    if not team_id:
+        return []
+    return [
+        row["id"]
+        for row in conn.execute(
+            "SELECT id FROM players WHERE team_id=? ORDER BY nickname COLLATE NOCASE LIMIT 5",
+            (team_id,),
+        ).fetchall()
+    ]
+
+
+def _parse_match_roster(conn, match, side):
+    """Read an edited five-player roster, if the form included the controls."""
+    fields = [f"match_team{side}_p{index}" for index in range(5)]
+    if not any(field in request.form for field in fields):
+        return None, None
+    values = [request.form.get(field, "").strip() for field in fields]
+    values = [value for value in values if value]
+    if len(values) != 5:
+        return None, f"队伍{side} 必须选择 5 名本场选手"
+    if len(set(values)) != 5:
+        return None, f"队伍{side} 不能重复选择同一名选手"
+    allowed = {str(option["id"]) for option in _match_roster_options(conn, match, side)}
+    if any(value not in allowed for value in values):
+        return None, f"队伍{side} 只能选择本队选手或已报名替补"
+    return json.dumps([int(value) for value in values]), None
+
+
 def _match_form_response(conn, match=None, status=200):
     events, teams, all_players = _get_form_dropdowns(conn)
     team1_player_ids = _match_player_ids(match, "team1_players")
     team2_player_ids = _match_player_ids(match, "team2_players")
+    match_roster_options = {}
+    match_roster_selected = {}
+    if match and not ("_is_new_form" in match.keys() and bool(match["_is_new_form"])):
+        match_roster_options = {
+            1: _match_roster_options(conn, match, 1),
+            2: _match_roster_options(conn, match, 2),
+        }
+        match_roster_selected = {
+            1: _match_roster_selected(conn, match, 1),
+            2: _match_roster_selected(conn, match, 2),
+        }
     conn.close()
     # sqlite3.Row does not expose dict.get(); accept both a database row and
     # the submitted-form dict used when re-rendering validation errors.
@@ -222,6 +331,8 @@ def _match_form_response(conn, match=None, status=200):
         all_players=all_players,
         team1_player_ids=team1_player_ids,
         team2_player_ids=team2_player_ids,
+        match_roster_options=match_roster_options,
+        match_roster_selected=match_roster_selected,
     ), status
 
 
@@ -552,6 +663,23 @@ def admin_matches_edit(match_id):
         team2_id = existing["team2_id"] if existing else None
         team1_players = existing["team1_players"] if existing else None
         team2_players = existing["team2_players"] if existing else None
+        if (existing["status"] or "upcoming") == "upcoming":
+            submitted_team1_players, roster_error = _parse_match_roster(conn, existing, 1)
+            if submitted_team1_players is not None:
+                team1_players = submitted_team1_players
+            if not roster_error:
+                submitted_team2_players, roster_error = _parse_match_roster(conn, existing, 2)
+                if submitted_team2_players is not None:
+                    team2_players = submitted_team2_players
+            if roster_error:
+                flash(roster_error, "error")
+                return _match_form_response(
+                    conn,
+                    _match_form_state(
+                        current_match, f, team1_id, team2_id, team1_players, team2_players
+                    ),
+                    400,
+                )
         f["is_test_mode"] = int(existing["is_test_mode"] or 0) if existing else 0
         if team1_id and team2_id and team1_id > 0 and team1_id == team2_id:
             flash("两支队伍不能相同", "error")
@@ -562,6 +690,16 @@ def admin_matches_edit(match_id):
                 ),
                 400,
             )
+        if team1_players and team2_players:
+            if set(json.loads(team1_players)) & set(json.loads(team2_players)):
+                flash("两边不能选择同一名选手", "error")
+                return _match_form_response(
+                    conn,
+                    _match_form_state(
+                        current_match, f, team1_id, team2_id, team1_players, team2_players
+                    ),
+                    400,
+                )
         if _duplicate_match(conn, f, team1_id, team2_id, team1_players, team2_players, match_id):
             flash("相同赛事、时间和参赛方的比赛已存在", "error")
             return _match_form_response(
