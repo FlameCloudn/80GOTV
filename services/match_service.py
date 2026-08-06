@@ -97,15 +97,15 @@ def supplement_temp_teams(match_row, conn=None):
         m["t1s"] = "TBD" if m["team1_name"] == "TBD" else m["team1_name"][:2]
     if not m.get("t2s"):
         m["t2s"] = "TBD" if m["team2_name"] == "TBD" else m["team2_name"][:2]
-    # A registered event team may not have a permanent teams row yet. Reuse its
-    # uploaded registration logo everywhere without overwriting a real team logo.
+    # A registered event team is the source of truth for that event. Prefer its
+    # uploaded logo everywhere so a newer event logo cannot be hidden by an old
+    # permanent team logo.
     for side in (1, 2):
         logo = _event_registration_logo(conn, m.get("event_id"), m.get(f"team{side}_name"))
         if not logo:
             continue
         for key in (f"team{side}_logo", f"t{side}_logo"):
-            if not m.get(key):
-                m[key] = logo
+            m[key] = logo
     # 补充 effective_status（若 SQL 未计算）
     if "effective_status" not in m:
         mt = m.get("match_time", "")

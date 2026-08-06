@@ -1,6 +1,8 @@
 import os
 import tempfile
 import unittest
+from io import BytesIO
+from unittest.mock import patch
 
 from app import app
 from config import Config
@@ -118,6 +120,72 @@ class AdminMatchEditLocksTests(unittest.TestCase):
         self.assertEqual(match["bp_password"], "stored-bp-hash")
         self.assertEqual(match["status"], "completed")
         conn.close()
+
+    def test_match_save_validation_keeps_submitted_values_visible(self):
+        response = self._post(match_time="", stage="现场改过的阶段")
+        self.assertEqual(response.status_code, 400)
+        html = response.get_data(as_text=True)
+        self.assertIn("比赛时间不能为空", html)
+        self.assertIn("现场改过的阶段", html)
+
+    def test_admin_demo_upload_still_analyzes_and_saves_file(self):
+        demo_root = tempfile.mkdtemp()
+        preview = {
+            "map_name": "de_mirage",
+            "team_a_score": 13,
+            "team_b_score": 9,
+            "rounds_count": 22,
+            "source": "test",
+            "players": [],
+            "map_slot": 0,
+            "demo_data": "{}",
+        }
+        try:
+            conn = get_db()
+            conn.execute("UPDATE matches SET status='completed' WHERE id=?", (self.match_id,))
+            conn.commit()
+            conn.close()
+            with (
+                patch("blueprints.admin_matches.DEMOS_DIR", demo_root),
+                patch("blueprints.admin_matches.analyze_demo", return_value=preview),
+            ):
+                response = self.client.post(
+                    f"/admin/matches/{self.match_id}/import-demo",
+                    data={
+                        "csrf_token": "match-edit-test",
+                        "step": "analyze",
+                        "demo_file_0": (BytesIO(b"demo data"), "mirage.dem"),
+                    },
+                    content_type="multipart/form-data",
+                )
+            self.assertEqual(response.status_code, 200)
+            conn = get_db()
+            saved = conn.execute(
+                "SELECT demo_file FROM matches WHERE id=?", (self.match_id,)
+            ).fetchone()["demo_file"]
+            conn.close()
+            self.assertIn("mirage", saved)
+            self.assertTrue(os.listdir(demo_root))
+        finally:
+            import shutil
+
+            shutil.rmtree(demo_root, ignore_errors=True)
+
+    def test_unfinished_match_rejects_demo_upload(self):
+        response = self.client.get(
+            f"/admin/matches/{self.match_id}/import-demo", follow_redirects=True
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("比赛结束后才能上传 Demo", response.get_data(as_text=True))
+
+    def test_completed_match_keeps_demo_update_entry_point(self):
+        conn = get_db()
+        conn.execute("UPDATE matches SET status='completed' WHERE id=?", (self.match_id,))
+        conn.commit()
+        conn.close()
+        page = self.client.get(f"/admin/matches/{self.match_id}/stats")
+        self.assertEqual(page.status_code, 200)
+        self.assertIn("从 Demo 导入/更新数据", page.get_data(as_text=True))
 
 
 if __name__ == "__main__":
