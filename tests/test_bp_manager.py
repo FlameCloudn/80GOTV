@@ -1,12 +1,16 @@
 import json
 import sqlite3
 import unittest
+from datetime import datetime
 from unittest.mock import patch
+from zoneinfo import ZoneInfo
 
 from utils.bp_manager import (
     ALL_MAPS,
     TURN_TIME_LIMIT_SECONDS,
     ban_map,
+    bp_open_at_timestamp,
+    bp_window_is_open,
     choose_side,
     get_team_for_step,
     init_bp_state,
@@ -16,6 +20,39 @@ from utils.bp_manager import (
     save_bp_to_match,
     set_first_choice,
 )
+
+
+class BPWindowTests(unittest.TestCase):
+    def test_bp_opens_exactly_twenty_minutes_before_match(self):
+        zone = ZoneInfo("Asia/Shanghai")
+        match_time = datetime(2026, 8, 6, 20, 0, tzinfo=zone)
+        self.assertFalse(
+            bp_window_is_open(
+                match_time.isoformat(),
+                "upcoming",
+                datetime(2026, 8, 6, 19, 39, tzinfo=zone),
+            )
+        )
+        self.assertTrue(
+            bp_window_is_open(
+                match_time.isoformat(),
+                "upcoming",
+                datetime(2026, 8, 6, 19, 40, tzinfo=zone),
+            )
+        )
+        self.assertEqual(
+            bp_open_at_timestamp(match_time.isoformat()),
+            int(datetime(2026, 8, 6, 19, 40, tzinfo=zone).timestamp()),
+        )
+
+    def test_completed_match_never_opens_bp_window(self):
+        self.assertFalse(
+            bp_window_is_open(
+                "2026-08-06T19:00",
+                "completed",
+                datetime(2026, 8, 6, 20, 0, tzinfo=ZoneInfo("Asia/Shanghai")),
+            )
+        )
 
 
 def ready_state(bo_format):

@@ -8,6 +8,7 @@ from flask import jsonify
 
 from models import get_db
 from services.match_service import supplement_temp_teams
+from utils.bp_manager import bp_open_at_timestamp, bp_window_is_open, ensure_bp_started
 from utils.match_utils import (
     get_bo_max_maps,
     get_sql_effective_status,
@@ -261,6 +262,9 @@ def _bp_payload(raw_state):
 
 def _match_payload(row, conn):
     match = supplement_temp_teams(row, conn)
+    bp_state, bp_changed = ensure_bp_started(conn, match)
+    if bp_changed:
+        conn.commit()
     substitutes = _event_substitutes(conn, match.get("event_id"))
     map_count = get_bo_max_maps(match.get("bo_format"))
     maps = []
@@ -307,7 +311,9 @@ def _match_payload(row, conn):
         "substitutes": substitutes,
         "substitute_count": len(substitutes),
         "maps": maps,
-        "bp": _bp_payload(match.get("bp_state")),
+        "bp": bp_state if bp_state is not None else _bp_payload(match.get("bp_state")),
+        "bp_window_open": bp_window_is_open(match.get("match_time"), match.get("status")),
+        "bp_start_timestamp": bp_open_at_timestamp(match.get("match_time")),
         "decider": {
             "knife_winner": match.get("decider_knife_winner") or "",
             "start_side": match.get("decider_start_side") or "",

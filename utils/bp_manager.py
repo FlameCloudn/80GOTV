@@ -13,6 +13,8 @@ BP 流程:
 import json
 import random
 import time
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 ALL_MAPS = ["Dust2", "Mirage", "Inferno", "Nuke", "Cache", "Ancient", "Anubis"]
 STATE_VERSION = 3
@@ -43,6 +45,77 @@ FORMAT_STEPS = {
 }
 
 FORMAT_MAP_COUNTS = {"BO1": 1, "BO3": 3, "BO5": 5}
+BP_TIMEZONE = ZoneInfo("Asia/Shanghai")
+BP_OPEN_LEAD_MINUTES = 20
+
+
+def bp_start_at(match_time):
+    """将比赛时间转为带时区的时间；无效时间返回 None。"""
+    raw = str(match_time or "").strip()
+    if not raw:
+        return None
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=BP_TIMEZONE)
+    return parsed.astimezone(BP_TIMEZONE)
+
+
+def bp_window_is_open(match_time, status=None, now=None):
+    """BP 从比赛开始前 20 分钟开放，并持续到比赛结束。"""
+    if str(status or "").lower() in {"completed", "cancelled"}:
+        return False
+    start_at = bp_start_at(match_time)
+    if start_at is None:
+        return False
+    current = now or datetime.now(BP_TIMEZONE)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=BP_TIMEZONE)
+    else:
+        current = current.astimezone(BP_TIMEZONE)
+    return current >= start_at - timedelta(minutes=BP_OPEN_LEAD_MINUTES)
+
+
+def bp_open_at_timestamp(match_time):
+    """返回 BP 自动开启时间的 Unix 秒，供页面倒计时使用。"""
+    start_at = bp_start_at(match_time)
+    if start_at is None:
+        return None
+    return int((start_at - timedelta(minutes=BP_OPEN_LEAD_MINUTES)).timestamp())
+
+
+def ensure_bp_started(conn, match):
+    """在进入窗口后的第一次读取时自动创建 BP 状态。
+
+    返回 (state, changed)。调用方负责在 changed 为真时提交连接。
+    """
+    raw_state = match["bp_state"] if "bp_state" in match.keys() else None
+    if raw_state:
+        try:
+            state = json.loads(raw_state) if isinstance(raw_state, str) else raw_state
+            changed = normalize_bp_state(state)
+            if changed:
+                conn.execute(
+                    "UPDATE matches SET bp_state=? WHERE id=?",
+                    (json.dumps(state, ensure_ascii=False), match["id"]),
+                )
+            return state, changed
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return None, False
+
+    if not bp_window_is_open(match["match_time"], match["status"]):
+        return None, False
+
+    state = init_bp_state(match["bo_format"] or "BO3")
+    state["auto_started"] = True
+    state["auto_started_at"] = time.time()
+    conn.execute(
+        "UPDATE matches SET bp_state=? WHERE id=?",
+        (json.dumps(state, ensure_ascii=False), match["id"]),
+    )
+    return state, True
 
 
 def reset_turn_timer(state, now=None):
