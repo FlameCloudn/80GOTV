@@ -574,22 +574,12 @@
       </div><!-- /manualMapSection -->
 
       {% if setup_editable %}
-      <!-- 在线 BP 密码：新建比赛和赛前编辑都可以设置。 -->
       <div id="bpModeSection">
       <div class="form-group">
-        <label>🔒 在线 BP 密码 <span style="font-weight:400;color:#999;font-size:12px">（设置后选手可通过此密码参与在线 BP）</span></label>
-        <input type="password" name="bp_password"
-               placeholder="{% if match and match.bp_password %}留空则保持原密码{% else %}留空则不启用在线 BP{% endif %}" style="width:100%;max-width:300px">
-        {% if match and match.bp_password %}
-        <div class="field-hint" style="margin-left:0">当前状态：已设置。出于安全原因不会显示原密码，留空保存不会改变它。</div>
-        <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px;font-weight:400;color:#999">
-          <input type="checkbox" name="clear_bp_password" value="1" style="width:auto"> 清除现有 BP 密码
-        </label>
-        {% endif %}
+        <label>在线 BP</label>
+        <div class="field-hint" style="margin-left:0">已取消 BP 密码。登录并绑定参赛选手后，报名队长可在开赛前 20 分钟直接参与。</div>
       </div>
       </div><!-- /bpModeSection -->
-      {% elif not is_new_match and match.bp_password %}
-      <div class="alert alert-info">在线 BP 密码：已设置。比赛开始后密码保持不变，不再允许从编辑页修改。</div>
       {% endif %}
 
       {% if not is_new_match and current_status == 'completed' %}

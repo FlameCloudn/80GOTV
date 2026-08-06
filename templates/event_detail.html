@@ -158,7 +158,7 @@ function selectSlot(n){
     </a>
     {% if m.effective_status not in ('completed', 'cancelled') %}
       {% if session.get('user_id') %}
-      <a href="/bp/{{ m.id }}" class="event-bp-link">BP{% if not m.bp_window_open %}（倒计时）{% endif %}</a>
+      <a href="/bp/{{ m.id }}" class="event-bp-link">BP{% if not m.bp_window_open %}（BP 暂未开始）{% endif %}</a>
       {% else %}
       <span class="event-bp-state">登录后进入 BP</span>
       {% endif %}

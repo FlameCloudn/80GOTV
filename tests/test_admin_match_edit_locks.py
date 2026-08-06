@@ -71,18 +71,19 @@ class AdminMatchEditLocksTests(unittest.TestCase):
         payload.update(overrides)
         return self.client.post(f"/admin/matches/edit/{self.match_id}", data=payload)
 
-    def test_blank_bp_password_is_preserved_and_live_scores_ignore_form(self):
+    def test_online_bp_password_is_removed_and_live_scores_ignore_form(self):
         page = self.client.get(f"/admin/matches/edit/{self.match_id}")
         self.assertEqual(page.status_code, 200)
         html = page.get_data(as_text=True)
-        self.assertIn("当前状态：已设置", html)
+        self.assertIn("已取消 BP 密码", html)
+        self.assertNotIn("当前状态：已设置", html)
         self.assertNotIn("stored-bp-hash", html)
 
         response = self._post(team1_score="99", team2_score="98", map1_t1="99")
         self.assertEqual(response.status_code, 302)
         conn = get_db()
         match = conn.execute("SELECT * FROM matches WHERE id=?", (self.match_id,)).fetchone()
-        self.assertEqual(match["bp_password"], "stored-bp-hash")
+        self.assertIsNone(match["bp_password"])
         self.assertEqual((match["team1_score"], match["team2_score"]), (1, 0))
         self.assertEqual(match["map1_t1"], 13)
         conn.close()
@@ -117,7 +118,7 @@ class AdminMatchEditLocksTests(unittest.TestCase):
         self.assertEqual(match["event_id"], self.event_id)
         self.assertEqual(match["match_time"], "2026-08-01T20:00")
         self.assertEqual(match["map1"], "mirage")
-        self.assertEqual(match["bp_password"], "stored-bp-hash")
+        self.assertIsNone(match["bp_password"])
         self.assertEqual(match["status"], "completed")
         conn.close()
 
