@@ -326,7 +326,7 @@ class BPSaveTests(unittest.TestCase):
         row = self.conn.execute("SELECT * FROM matches WHERE id=1").fetchone()
 
         self.assertEqual(row[3], json.dumps(ALL_MAPS, ensure_ascii=False))
-        self.assertEqual(row[4], state["map_order"][0])
+        self.assertEqual(row[4], "de_" + state["map_order"][0].lower())
         self.assertIsNone(row[6])
         self.assertIsNone(row[8])
         self.assertIsNone(row[10])

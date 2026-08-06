@@ -17,6 +17,15 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 ALL_MAPS = ["Dust2", "Mirage", "Inferno", "Nuke", "Cache", "Ancient", "Anubis"]
+_MAP_STORAGE_NAMES = {
+    "dust2": "de_dust2",
+    "mirage": "de_mirage",
+    "inferno": "de_inferno",
+    "nuke": "de_nuke",
+    "cache": "de_cache",
+    "ancient": "de_ancient",
+    "anubis": "de_anubis",
+}
 STATE_VERSION = 4
 TURN_TIME_LIMIT_SECONDS = 3 * 60
 
@@ -47,6 +56,14 @@ FORMAT_STEPS = {
 FORMAT_MAP_COUNTS = {"BO1": 1, "BO3": 3, "BO5": 5}
 BP_TIMEZONE = ZoneInfo("Asia/Shanghai")
 BP_OPEN_LEAD_MINUTES = 20
+
+
+def _storage_map_name(map_name):
+    """将 BP 的展示名写成比赛表单和数据层统一使用的地图键。"""
+    raw = str(map_name or "").strip().lower().replace(" ", "_")
+    if raw.startswith("de_"):
+        return raw
+    return _MAP_STORAGE_NAMES.get(raw, raw)
 
 
 def bp_start_at(match_time):
@@ -635,7 +652,9 @@ def save_bp_to_match(conn, match_id, state):
 
     for i, m in enumerate(map_order[:5]):
         col = f"map{i + 1}"
-        updates[col] = m
+        # BP 页面使用 Dust2/Mirage 等展示名，matches 表和后台表单使用
+        # de_dust2/de_mirage 等键；统一写入后，后台再次保存不会丢图。
+        updates[col] = _storage_map_name(m)
         if i > 1:
             updates[f"has_map{i + 1}"] = 1
 
