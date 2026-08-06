@@ -542,8 +542,8 @@
       </div><!-- /manualMapSection -->
 
       {% if setup_editable %}
-      <!-- 在线 BP 密码只在赛前设置 -->
-      <div id="bpModeSection" {% if is_new_match %}style="display:none"{% endif %}>
+      <!-- 在线 BP 密码：新建比赛和赛前编辑都可以设置。 -->
+      <div id="bpModeSection">
       <div class="form-group">
         <label>🔒 在线 BP 密码 <span style="font-weight:400;color:#999;font-size:12px">（设置后选手可通过此密码参与在线 BP）</span></label>
         <input type="password" name="bp_password"
@@ -581,7 +581,7 @@
         <div class="optional-body">
           <div class="form-group">
             <label>B站直播间链接</label>
-            <input type="url" name="stream_url" value="{{ match.stream_url if match else '' }}"
+            <input type="url" name="stream_url" value="{{ (match.stream_url or '') if match else '' }}"
                    placeholder="https://live.bilibili.com/ROOMID" style="width:100%">
           </div>
 
@@ -593,7 +593,7 @@
 
           <div class="form-group">
             <label>🖥️ 比赛服务器地址 <span style="font-weight:400;color:#999;font-size:12px">（可直接粘贴 TGPro 连接串）</span></label>
-            <input type="text" name="server_address" value="{{ match.server_address if match else '' }}"
+            <input type="text" name="server_address" value="{{ (match.server_address or '') if match else '' }}"
                    placeholder="password xxx;connect 82.156.150.252:52218" style="width:100%;max-width:500px">
           </div>
         </div>
