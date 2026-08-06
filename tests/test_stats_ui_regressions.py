@@ -122,6 +122,14 @@ class StatsUiRegressionTests(unittest.TestCase):
         self.assertNotIn("BP 暂未开始", template)
         self.assertIn("position: absolute", css)
 
+    def test_match_detail_mobile_stacks_sidebar_below_main_content(self):
+        css = (ROOT / "static/css/mobile_hltv.css").read_text(encoding="utf-8")
+
+        self.assertIn("body .layout.match-detail-layout {", css)
+        self.assertIn("grid-template-columns: minmax(0, 1fr) !important", css)
+        self.assertIn("body .layout.match-detail-layout .side-col {", css)
+        self.assertIn("flex-direction: column !important", css)
+
     def test_english_mode_hides_untranslated_first_paint(self):
         base = (ROOT / "templates/base.html").read_text(encoding="utf-8")
         bootstrap = (ROOT / "templates/_i18n_bootstrap.html").read_text(encoding="utf-8")
