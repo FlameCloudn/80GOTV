@@ -1,17 +1,12 @@
 import json
 import sqlite3
 import unittest
-from datetime import datetime
-from unittest.mock import patch
-from zoneinfo import ZoneInfo
 
 from utils.bp_manager import (
     ALL_MAPS,
-    TURN_TIME_LIMIT_SECONDS,
     ban_map,
-    bp_open_at_timestamp,
-    bp_window_is_open,
     choose_side,
+    ensure_bp_started,
     get_team_for_step,
     init_bp_state,
     normalize_bp_state,
@@ -20,39 +15,6 @@ from utils.bp_manager import (
     save_bp_to_match,
     set_first_choice,
 )
-
-
-class BPWindowTests(unittest.TestCase):
-    def test_bp_opens_exactly_twenty_minutes_before_match(self):
-        zone = ZoneInfo("Asia/Shanghai")
-        match_time = datetime(2026, 8, 6, 20, 0, tzinfo=zone)
-        self.assertFalse(
-            bp_window_is_open(
-                match_time.isoformat(),
-                "upcoming",
-                datetime(2026, 8, 6, 19, 39, tzinfo=zone),
-            )
-        )
-        self.assertTrue(
-            bp_window_is_open(
-                match_time.isoformat(),
-                "upcoming",
-                datetime(2026, 8, 6, 19, 40, tzinfo=zone),
-            )
-        )
-        self.assertEqual(
-            bp_open_at_timestamp(match_time.isoformat()),
-            int(datetime(2026, 8, 6, 19, 40, tzinfo=zone).timestamp()),
-        )
-
-    def test_completed_match_never_opens_bp_window(self):
-        self.assertFalse(
-            bp_window_is_open(
-                "2026-08-06T19:00",
-                "completed",
-                datetime(2026, 8, 6, 20, 0, tzinfo=ZoneInfo("Asia/Shanghai")),
-            )
-        )
 
 
 def ready_state(bo_format):
@@ -91,7 +53,41 @@ def complete_bp(bo_format):
     return state
 
 
+def complete_bp_with_pool(bo_format, map_pool):
+    state = init_bp_state(bo_format, map_pool)
+    process_roll(state, "t1", 80)
+    process_roll(state, "t2", 20)
+    set_first_choice(state, "t1", "first")
+    while state["status"] == "bp":
+        step_index = state["current_step"]
+        step = state["steps"][step_index]
+        team = get_team_for_step(state, step_index)
+        operation = ban_map if step["action"] == "ban" else pick_map
+        ok, message = operation(state, team, state["pool"][0])
+        assert ok, message
+    if state["status"] == "side_select":
+        for pick in state["picks"]:
+            if pick["picked_by"] == "remaining" and state["bo"] != "BO1":
+                continue
+            team = pick.get("side_team") or ("t2" if pick["picked_by"] == "t1" else "t1")
+            ok, message = choose_side(state, team, pick["map"], "CT")
+            assert ok, message
+    return state
+
+
 class BPFlowTests(unittest.TestCase):
+    def test_custom_map_pool_drives_steps_without_default_replacement(self):
+        custom_pool = ["Alpha", "Bravo", "Charlie", "Delta", "Echo"]
+        state = complete_bp_with_pool("BO3", custom_pool)
+        self.assertEqual(state["initial_pool"], custom_pool)
+        self.assertEqual(len(state["map_order"]), 3)
+        self.assertEqual(len(state["bans"]), 2)
+
+        state = complete_bp_with_pool("BO5", custom_pool)
+        self.assertEqual(state["initial_pool"], custom_pool)
+        self.assertEqual(len(state["map_order"]), 5)
+        self.assertEqual(len(state["bans"]), 0)
+
     def test_bo1_finishes_with_one_map(self):
         state = complete_bp("BO1")
         self.assertEqual(state["status"], "completed")
@@ -142,7 +138,6 @@ class BPFlowTests(unittest.TestCase):
     def test_bo1_requires_final_map_side_selection(self):
         state = ready_state("BO1")
         while state["status"] == "bp":
-            step = state["steps"][state["current_step"]]
             team = get_team_for_step(state, state["current_step"])
             ok, message = ban_map(state, team, state["pool"][0])
             self.assertTrue(ok, message)
@@ -205,90 +200,45 @@ class BPFlowTests(unittest.TestCase):
         self.assertEqual(len(state["pool"]), 4)
 
 
-class BPTimerTests(unittest.TestCase):
-    def test_new_bp_starts_with_three_minutes(self):
-        with patch("utils.bp_manager.time.time", return_value=1000):
-            state = init_bp_state("BO3")
+class BPNoTimerTests(unittest.TestCase):
+    def test_new_bp_has_no_turn_timer(self):
+        state = init_bp_state("BO3")
+        self.assertNotIn("turn_started_at", state)
+        self.assertNotIn("turn_deadline", state)
 
-        self.assertEqual(state["turn_started_at"], 1000)
-        self.assertEqual(state["turn_deadline"], 1000 + TURN_TIME_LIMIT_SECONDS)
-
-    def test_each_successful_action_restarts_the_timer(self):
-        with patch("utils.bp_manager.time.time", return_value=1000):
-            state = init_bp_state("BO3")
-
-        with patch("utils.bp_manager.time.time", return_value=2000):
-            self.assertEqual(process_roll(state, "t1", 80), (True, None))
-        self.assertEqual(state["turn_deadline"], 2000 + TURN_TIME_LIMIT_SECONDS)
-
-        with patch("utils.bp_manager.time.time", return_value=3000):
-            self.assertEqual(process_roll(state, "t2", 20), (True, "t1"))
-        self.assertEqual(state["turn_deadline"], 3000 + TURN_TIME_LIMIT_SECONDS)
-
-        with patch("utils.bp_manager.time.time", return_value=4000):
-            self.assertTrue(set_first_choice(state, "t1", "first")[0])
-        self.assertEqual(state["turn_deadline"], 4000 + TURN_TIME_LIMIT_SECONDS)
-
-        with patch("utils.bp_manager.time.time", return_value=5000):
-            self.assertTrue(ban_map(state, "t1", state["pool"][0])[0])
-        self.assertEqual(state["turn_deadline"], 5000 + TURN_TIME_LIMIT_SECONDS)
-
-    def test_invalid_action_does_not_restart_the_timer(self):
-        with patch("utils.bp_manager.time.time", return_value=1000):
-            state = init_bp_state("BO3")
-        original_deadline = state["turn_deadline"]
-
-        with patch("utils.bp_manager.time.time", return_value=5000):
-            ok, _ = process_roll(state, "invalid-team", 80)
-
-        self.assertFalse(ok)
-        self.assertEqual(state["turn_deadline"], original_deadline)
-
-    def test_pick_and_side_selection_restart_the_timer(self):
+    def test_actions_progress_without_creating_timer_fields(self):
         state = ready_state("BO3")
         self.assertTrue(ban_map(state, "t1", state["pool"][0])[0])
-        self.assertTrue(ban_map(state, "t2", state["pool"][0])[0])
+        self.assertNotIn("turn_started_at", state)
+        self.assertNotIn("turn_deadline", state)
 
-        with patch("utils.bp_manager.time.time", return_value=7000):
-            self.assertTrue(pick_map(state, "t1", state["pool"][0])[0])
-        self.assertEqual(state["turn_deadline"], 7000 + TURN_TIME_LIMIT_SECONDS)
-
-        self.assertTrue(pick_map(state, "t2", state["pool"][0])[0])
-        self.assertTrue(ban_map(state, "t1", state["pool"][0])[0])
-        self.assertTrue(ban_map(state, "t2", state["pool"][0])[0])
-        self.assertEqual(state["status"], "side_select")
-
-        first_pick = state["picks"][0]
-        side_team = "t2" if first_pick["picked_by"] == "t1" else "t1"
-        with patch("utils.bp_manager.time.time", return_value=8000):
-            self.assertTrue(choose_side(state, side_team, first_pick["map"], "CT")[0])
-        self.assertEqual(state["turn_deadline"], 8000 + TURN_TIME_LIMIT_SECONDS)
-
-    def test_expired_turn_can_continue_and_gets_a_new_three_minutes(self):
-        with patch("utils.bp_manager.time.time", return_value=1000):
-            state = init_bp_state("BO3")
-
-        with patch("utils.bp_manager.time.time", return_value=2000):
-            ok, _ = process_roll(state, "t1", 80)
-
-        self.assertTrue(ok)
-        self.assertEqual(state["turn_deadline"], 2000 + TURN_TIME_LIMIT_SECONDS)
-
-    def test_completed_bp_stops_the_timer(self):
-        state = complete_bp("BO1")
-        self.assertIsNone(state["turn_started_at"])
-        self.assertIsNone(state["turn_deadline"])
-
-    def test_old_active_state_gets_a_timer_when_loaded(self):
+    def test_old_timer_and_auto_start_fields_are_removed(self):
         state = init_bp_state("BO3")
-        state["state_version"] = 2
-        state.pop("turn_started_at")
-        state.pop("turn_deadline")
+        state["state_version"] = 5
+        state["turn_started_at"] = 1000
+        state["turn_deadline"] = 1180
+        state["auto_started"] = True
+        state["auto_started_at"] = 900
 
-        with patch("utils.bp_manager.time.time", return_value=6000):
-            self.assertTrue(normalize_bp_state(state))
+        self.assertTrue(normalize_bp_state(state))
+        self.assertNotIn("turn_started_at", state)
+        self.assertNotIn("turn_deadline", state)
+        self.assertNotIn("auto_started", state)
+        self.assertNotIn("auto_started_at", state)
 
-        self.assertEqual(state["turn_deadline"], 6000 + TURN_TIME_LIMIT_SECONDS)
+    def test_reading_an_unstarted_match_does_not_auto_create_bp(self):
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        conn.execute("CREATE TABLE matches(id INTEGER PRIMARY KEY, bp_state TEXT)")
+        conn.execute("INSERT INTO matches(id, bp_state) VALUES(1, NULL)")
+        match = conn.execute("SELECT * FROM matches WHERE id=1").fetchone()
+
+        state, changed = ensure_bp_started(conn, match)
+
+        self.assertIsNone(state)
+        self.assertFalse(changed)
+        self.assertIsNone(conn.execute("SELECT bp_state FROM matches WHERE id=1").fetchone()[0])
+        conn.close()
 
 
 class BPSaveTests(unittest.TestCase):

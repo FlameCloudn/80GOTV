@@ -551,6 +551,7 @@ def api_front_match_detail(match_id):
         JOIN players p ON ms.player_id=p.id
         LEFT JOIN teams t ON ms.team_id=t.id
         WHERE ms.match_id=?
+          AND COALESCE(ms.data_status, 'final') <> 'superseded'
         ORDER BY ms.team_id, ms.rating DESC
     """,
         (match_id,),
@@ -831,6 +832,7 @@ def api_front_player_detail(player_id):
         LEFT JOIN teams t2 ON m.team2_id=t2.id
         LEFT JOIN events e ON m.event_id=e.id
         WHERE ms.player_id=?
+          AND COALESCE(ms.data_status, 'final') <> 'superseded'
         ORDER BY m.match_time DESC
         LIMIT 10
     """,
@@ -890,7 +892,9 @@ def api_front_teams():
                COUNT(ms.id) AS maps, AVG(ms.rating) AS rating
         FROM teams t
         LEFT JOIN players p ON p.team_id=t.id
-        LEFT JOIN match_stats ms ON ms.team_id=t.id
+        LEFT JOIN match_stats ms
+          ON ms.team_id=t.id
+         AND COALESCE(ms.data_status, 'final') <> 'superseded'
         GROUP BY t.id
         ORDER BY t.name
     """).fetchall()
@@ -934,6 +938,7 @@ def api_front_stats_overview():
         FROM match_stats ms
         JOIN teams t ON ms.team_id=t.id
         WHERE ms.team_id > 0
+          AND COALESCE(ms.data_status, 'final') <> 'superseded'
         GROUP BY t.id
         ORDER BY rating DESC, maps DESC
         LIMIT 10
@@ -943,6 +948,7 @@ def api_front_stats_overview():
                AVG(adr) AS adr, AVG(headshot_percentage) AS hs
         FROM match_stats
         WHERE map_name IS NOT NULL AND map_name != ''
+          AND COALESCE(data_status, 'final') <> 'superseded'
         GROUP BY map_name
         ORDER BY maps DESC, rating DESC
         LIMIT 10
@@ -954,6 +960,7 @@ def api_front_stats_overview():
                AVG(rating) AS rating,
                SUM(kills) AS kills
         FROM match_stats
+        WHERE COALESCE(data_status, 'final') <> 'superseded'
     """).fetchone()
     conn.close()
     return jsonify(

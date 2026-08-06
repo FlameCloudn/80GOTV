@@ -276,7 +276,7 @@
               <option value="">位置 {{ slot + 1 }}</option>
               {% for p in side_options %}
               <option value="{{ p.id }}" {% if side_selected|length > slot and side_selected[slot] == p.id %}selected{% endif %}>
-                {{ p.nickname }}{% if p.is_substitute %}（替补）{% endif %}
+                {{ p.nickname }}{% if p.is_substitute %}（替补）{% endif %}{% if not p.has_steam_id %}（缺 Steam ID）{% endif %}
               </option>
               {% endfor %}
             </select>
@@ -577,7 +577,14 @@
       <div id="bpModeSection">
       <div class="form-group">
         <label>在线 BP</label>
-        <div class="field-hint" style="margin-left:0">已取消 BP 密码。登录并绑定参赛选手后，报名队长可在开赛前 20 分钟直接参与。</div>
+        <input type="password" name="bp_password" autocomplete="new-password"
+               placeholder="{% if match and match.bp_password %}留空则保持原口令{% else %}设置 BP 共享口令（可留空）{% endif %}">
+        <div class="field-hint" style="margin-left:0">锁定名单中的选手验证共享口令后，可以申请本队唯一操作席；BP 由选手或管理员手动开始。</div>
+        {% if match and match.bp_password %}
+        <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-weight:400">
+          <input type="checkbox" name="clear_bp_password" value="1"> 清除现有 BP 共享口令
+        </label>
+        {% endif %}
       </div>
       </div><!-- /bpModeSection -->
       {% endif %}

@@ -139,7 +139,11 @@
         <div class="ms-row ms-row-bottom">
           <span class="ms-half-detail">
             {% if ms.played and ms.halves %}
-            (<span class="t-side">{{ ms.halves.h1_t1 }}</span>:<span class="ct-side">{{ ms.halves.h1_t2 }}</span>;<span class="ct-side">{{ ms.halves.h2_t1 }}</span>:<span class="t-side">{{ ms.halves.h2_t2 }}</span>)
+            {% set t1_h1_side = 'CT' if ms.halves.opening_ct_team == 't1' else ('T' if ms.halves.opening_ct_team == 't2' else '?') %}
+            {% set t2_h1_side = 'CT' if ms.halves.opening_ct_team == 't2' else ('T' if ms.halves.opening_ct_team == 't1' else '?') %}
+            {% set t1_h2_side = 'T' if t1_h1_side == 'CT' else ('CT' if t1_h1_side == 'T' else '?') %}
+            {% set t2_h2_side = 'T' if t2_h1_side == 'CT' else ('CT' if t2_h1_side == 'T' else '?') %}
+            (<span class="{{ 'ct-side' if t1_h1_side == 'CT' else 't-side' if t1_h1_side == 'T' else '' }}">{{ t1_h1_side }} {{ ms.halves.h1_t1 }}</span>:<span class="{{ 'ct-side' if t2_h1_side == 'CT' else 't-side' if t2_h1_side == 'T' else '' }}">{{ t2_h1_side }} {{ ms.halves.h1_t2 }}</span>;<span class="{{ 'ct-side' if t1_h2_side == 'CT' else 't-side' if t1_h2_side == 'T' else '' }}">{{ t1_h2_side }} {{ ms.halves.h2_t1 }}</span>:<span class="{{ 'ct-side' if t2_h2_side == 'CT' else 't-side' if t2_h2_side == 'T' else '' }}">{{ t2_h2_side }} {{ ms.halves.h2_t2 }}</span>)
             {% endif %}
           </span>
         </div>

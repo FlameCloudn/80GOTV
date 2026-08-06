@@ -4,6 +4,7 @@
   .data-live .live-heading h2{font-size:15px;line-height:1.2;margin:0;font-weight:700;color:var(--live-text);letter-spacing:0}
   .data-live .source-badge{padding:3px 7px;background:#3b2d14;color:#ffd782;font-size:10px;line-height:1.4}
   .data-live .source-badge.online{background:#153d2a;color:#7fe2a8}
+  .data-live .source-badge.offline{background:#4b2020;color:#ff9b9b}
   .data-live .live-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:7px}
   .data-live .scoreboard,.data-live .radar-panel{background:var(--live-panel);border:1px solid var(--live-line);overflow:hidden}
   .data-live .score-top{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;min-height:66px;padding:0 12px;background:var(--live-panel);border-bottom:1px solid var(--live-line)}
@@ -12,6 +13,7 @@
   .data-live .side-tag{display:inline-flex;align-items:center;justify-content:center;width:25px;height:19px;font-size:10px;font-weight:800}
   .data-live .side-tag.ct{background:var(--ct-deep);color:var(--ct)}
   .data-live .side-tag.t{background:var(--t-deep);color:var(--t)}
+  .data-live .side-tag.unknown{background:#303840;color:#d2d8de}
   .data-live .team-name{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .data-live .score-center{text-align:center;padding:0 12px}
   .data-live .score{font-size:40px;font-weight:900;line-height:.92;font-variant-numeric:tabular-nums}
@@ -53,6 +55,12 @@
   .data-live .round-lane.team2 .round-lane-cells{align-items:start}
   .data-live .round-cell{display:flex;align-items:center;justify-content:center;width:22px;height:22px;min-width:0}
   .data-live .round-result{display:block;width:20px;height:20px;object-fit:contain}
+  .data-live .overtime-board{display:none;padding:4px 8px;background:var(--live-bg);border-bottom:1px solid var(--live-line)}
+  .data-live .overtime-board.active{display:block}
+  .data-live .overtime-title{color:var(--live-muted);font-size:9px;font-weight:800;margin:0 0 3px;text-align:center}
+  .data-live .overtime-strip{display:grid;grid-template-columns:repeat(6,22px);justify-content:center;gap:2px;min-height:22px}
+  .data-live .ot-round-cell{display:flex;align-items:center;justify-content:center;width:22px;height:22px}
+  .data-live .ot-round-result{display:block;width:20px;height:20px;object-fit:contain}
   .data-live .round-empty{font-size:9px;color:#77818c}
   .data-live .panel-footer{display:flex;align-items:center;justify-content:space-between;gap:7px;min-height:27px;padding:0 8px;color:var(--live-muted);font-size:10px}
   .data-live .bomb{display:flex;align-items:center;gap:5px;color:#cfd7df}
@@ -129,6 +137,9 @@
     .data-live .round-lane-cells{grid-template-columns:repeat(24,minmax(0,1fr));gap:0;width:100%;padding:0 2px}
     .data-live .round-cell{width:min(100%,16px);height:16px;justify-self:center}
     .data-live .round-result{width:14px;height:14px}
+    .data-live .overtime-strip{grid-template-columns:repeat(6,minmax(0,1fr));gap:0}
+    .data-live .ot-round-cell{width:min(100%,16px);height:16px;justify-self:center}
+    .data-live .ot-round-result{width:14px;height:14px}
     .data-live .panel-footer{min-height:23px;padding:0 5px;font-size:8px}
     .data-live .bomb img{width:13px;height:13px}
     .data-live .radar-head{min-height:25px;padding:0 6px}
@@ -153,15 +164,15 @@
   <div class="live-grid">
     <section class="scoreboard">
       <header class="score-top">
-        <div class="score-side"><span class="side-tag ct" id="team1SideTag">CT</span><span class="team-name" id="team1Name">{{ match.team1_name or '队伍 1' }}</span></div>
+        <div class="score-side"><span class="side-tag unknown" id="team1SideTag">待确认</span><span class="team-name" id="team1Name">{{ match.team1_name or '队伍 1' }}</span></div>
         <div class="score-center">
-          <div class="score"><span class="side-score ct" id="liveScore1">0</span> : <span class="side-score t" id="liveScore2">0</span></div>
+          <div class="score"><span class="side-score" id="liveScore1">-</span> : <span class="side-score" id="liveScore2">-</span></div>
           <div class="match-meta">R<span id="roundNum">-</span> <span id="mapName">-</span> <span class="timer" id="timer">-</span></div>
         </div>
-        <div class="score-side right"><span class="team-name" id="team2Name">{{ match.team2_name or '队伍 2' }}</span><span class="side-tag t" id="team2SideTag">T</span></div>
+        <div class="score-side right"><span class="team-name" id="team2Name">{{ match.team2_name or '队伍 2' }}</span><span class="side-tag unknown" id="team2SideTag">待确认</span></div>
       </header>
-      <div class="team-block side-ct" id="team1Block">
-        <div class="team-bar"><span class="team-label" id="team1RosterLabel">CT 选手</span><span>手枪</span><span>主武器</span><span>血量</span><span>护甲</span><span>金钱</span><span>K</span><span>A</span><span>D</span><span>ADR</span></div>
+      <div class="team-block side-unknown" id="team1Block">
+        <div class="team-bar"><span class="team-label" id="team1RosterLabel">阵营待确认</span><span>手枪</span><span>主武器</span><span>血量</span><span>护甲</span><span>金钱</span><span>K</span><span>A</span><span>D</span><span>ADR</span></div>
         <div id="team1Players"></div>
       </div>
       <div class="round-board" id="roundBoard">
@@ -169,8 +180,9 @@
         <div class="round-divider" aria-hidden="true"></div>
         <div class="round-lane team2"><div class="round-lane-cells" id="roundTeam2"></div></div>
       </div>
-      <div class="team-block side-t" id="team2Block">
-        <div class="team-bar"><span class="team-label" id="team2RosterLabel">T 选手</span><span>手枪</span><span>主武器</span><span>血量</span><span>护甲</span><span>金钱</span><span>K</span><span>A</span><span>D</span><span>ADR</span></div>
+      <div class="overtime-board" id="overtimeBoard"></div>
+      <div class="team-block side-unknown" id="team2Block">
+        <div class="team-bar"><span class="team-label" id="team2RosterLabel">阵营待确认</span><span>手枪</span><span>主武器</span><span>血量</span><span>护甲</span><span>金钱</span><span>K</span><span>A</span><span>D</span><span>ADR</span></div>
         <div id="team2Players"></div>
       </div>
       <footer class="panel-footer">
@@ -394,6 +406,45 @@ function renderRounds(rounds){
   document.getElementById('roundTeam1').replaceChildren(team1Rounds);
   document.getElementById('roundTeam2').replaceChildren(team2Rounds);
 }
+function renderOvertime(rounds){
+  const board=document.getElementById('overtimeBoard');
+  if(!board)return;
+  const safe=(Array.isArray(rounds)?rounds:[]).filter(function(round){
+    const number=Number(round.round_number??round.round);
+    return Number.isFinite(number)&&number>24&&number<=48;
+  }).sort(function(a,b){return Number(a.round_number??a.round)-Number(b.round_number??b.round)});
+  if(!safe.length){board.classList.remove('active');board.replaceChildren();return;}
+  board.classList.add('active');
+  board.replaceChildren();
+  const groups=new Map();
+  safe.forEach(function(round){
+    const number=Number(round.round_number??round.round);
+    const group=Math.floor((number-25)/6)+1;
+    if(!groups.has(group))groups.set(group,[]);
+    groups.get(group).push(round);
+  });
+  groups.forEach(function(groupRounds,group){
+    const title=document.createElement('div');title.className='overtime-title';title.textContent='OT'+group;
+    board.appendChild(title);
+    const strip=document.createElement('div');strip.className='overtime-strip';
+    const byOffset=new Map(groupRounds.map(function(round){
+      return [Number(round.round_number??round.round)-25-(group-1)*6,round];
+    }));
+    for(let index=0;index<6;index+=1){
+      const round=byOffset.get(index);
+      const cell=document.createElement('span');cell.className='ot-round-cell';
+      if(round){
+        const winner=String(round.winner||'').toLowerCase();
+        const side=String(round.side||'').toLowerCase();
+        const img=document.createElement('img');img.className='ot-round-result';img.alt='';
+        img.src=reasonIcon(reasonCode(round),side==='ct'||side==='t'?side:(winner==='t1'?'ct':'t'));
+        cell.appendChild(img);cell.title='第 '+Number(round.round_number??round.round)+' 回合';
+      }
+      strip.appendChild(cell);
+    }
+    board.appendChild(strip);
+  });
+}
 function eventOrder(event,type,index){
   const exact=Number(event.captured_at_epoch);
   if(Number.isFinite(exact)&&exact>0)return exact;
@@ -510,27 +561,28 @@ function currentTeamSides(team1,team2){
   if((first==='CT'||first==='T')&&(second==='CT'||second==='T')&&first!==second)return [first,second];
   if(first==='CT'||first==='T')return [first,first==='CT'?'T':'CT'];
   if(second==='CT'||second==='T')return [second==='CT'?'T':'CT',second];
-  return ['CT','T'];
+  return ['',''];
 }
 function applyTeamSide(teamNumber,side){
-  const sideKey=side.toLowerCase();
+  const sideKey=String(side||'').toLowerCase()||'unknown';
   const tag=document.getElementById('team'+teamNumber+'SideTag');
   tag.className='side-tag '+sideKey;
-  tag.textContent=side;
+  tag.textContent=side||'待确认';
   document.getElementById('team'+teamNumber+'Block').className='team-block side-'+sideKey;
   document.getElementById('team'+teamNumber+'RosterLabel').textContent=side+' 选手';
   document.getElementById('liveScore'+teamNumber).className='side-score '+sideKey;
 }
 function render(data){
-  const sourceText={gsi:'观战账号已连接',gotv:'GOTV 数据已连接',a2s:'比赛服务器已连接，等待观战账号',stale_gsi:'观战账号连接已中断'};
+  const sourceText={gsi:'观战账号已连接',gotv:'GOTV 数据已连接',a2s:'比赛服务器已连接，等待观战账号',stale_gsi:'观战账号连接已中断',stale_gotv:'GOTV 数据已中断'};
   const badge=document.getElementById('sourceBadge');
   setText('sourceBadge',sourceText[data.source]||'等待观战账号连接');
   badge.classList.toggle('online',data.source==='gsi'||data.source==='gotv'||data.source==='a2s');
+  badge.classList.toggle('offline',Boolean(data.side_uncertain)||data.source==='stale_gsi'||data.source==='stale_gotv'||data.source==='');
   const team1=data.team1||{};
   const team2=data.team2||{};
   const sides=currentTeamSides(team1,team2);
-  setText('liveScore1',team1.score??0);
-  setText('liveScore2',team2.score??0);
+  setText('liveScore1',team1.score==null?'-':team1.score);
+  setText('liveScore2',team2.score==null?'-':team2.score);
   setText('team1Name',team1.name||'队伍 1');
   setText('team2Name',team2.name||'队伍 2');
   applyTeamSide(1,sides[0]);
@@ -546,6 +598,7 @@ function render(data){
   renderTeam('team1Players',data.players_t1);
   renderTeam('team2Players',data.players_t2);
   renderRounds(data.round_history);
+  renderOvertime(data.overtime_history);
   renderRadarMap(data.map_name);
   renderMarkers(data);
   syncKillFeed(data);
@@ -556,14 +609,27 @@ async function fetchLive(){
   try{
     const response=await fetch('/api/live/'+MATCH_ID,{cache:'no-store'});
     const data=await response.json();
-    if(data.ok)render(data);
+    if(data.ok){
+      render(data);
+      fetchLive.lastSuccess=Date.now();
+    }else{
+      markLiveUnavailable('直播数据中断，保留最后一次成功数据');
+    }
   }catch(error){
     console.error('Live fetch error:',error);
+    markLiveUnavailable('直播请求失败，保留最后一次成功数据');
   }finally{
     fetching=false;
     window.clearTimeout(fetchTimer);
     fetchTimer=window.setTimeout(fetchLive,1000);
   }
+}
+function markLiveUnavailable(message){
+  const badge=document.getElementById('sourceBadge');
+  if(!badge)return;
+  badge.classList.remove('online');
+  badge.classList.add('offline');
+  badge.textContent=message||'直播数据中断';
 }
 ensurePlayerRows('team1Players');
 ensurePlayerRows('team2Players');

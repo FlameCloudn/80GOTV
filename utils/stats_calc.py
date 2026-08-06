@@ -11,11 +11,14 @@ def calculate_rating(kills, deaths, rounds_played, adr=None, kast=None, impact=N
     if rounds_played == 0:
         return 0.0, 0.0, 0.0
 
+    rounds_played = max(0, float(rounds_played or 0))
     kpr = kills / rounds_played
-    dpr = deaths / rounds_played if deaths > 0 else 0.01
+    # Zero deaths is a real value, not a missing value. The old 0.01 floor
+    # made perfect maps look worse and caused director/site differences.
+    dpr = deaths / rounds_played
 
-    # impact 未提供时从 KPR+ADR 估算
-    if impact is None or impact == 0:
+    # ``None`` means unavailable; an explicit zero Impact must remain zero.
+    if impact is None:
         impact = kpr * 0.5 + (adr or 0) / 200.0
 
     rating = (
@@ -46,7 +49,14 @@ def calculate_kast(kills, assists, survived, traded, rounds_played):
     if rounds_played == 0:
         return 0.0
 
-    kast_rounds = min(kills + assists + survived + traded, rounds_played)
+    # Callers that only have totals can still get a bounded estimate. When
+    # round-number sets/lists are supplied, count the union instead of adding
+    # overlapping K/A/S/T flags from the same round.
+    if all(isinstance(value, (set, list, tuple)) for value in (kills, assists, survived, traded)):
+        kast_rounds = len(set(kills) | set(assists) | set(survived) | set(traded))
+    else:
+        kast_rounds = min(kills + assists + survived + traded, rounds_played)
+    kast_rounds = min(kast_rounds, rounds_played)
     return round((kast_rounds / rounds_played) * 100, 1)
 
 
@@ -96,11 +106,34 @@ def aggregate_player_stats(match_stats_list):
     total_deaths = sum(s["deaths"] for s in match_stats_list)
     total_assists = sum(s["assists"] for s in match_stats_list)
     matches = len(match_stats_list)
+    total_rounds = sum(max(0, float(s.get("rounds_played", 0) or 0)) for s in match_stats_list)
+    weight = total_rounds or float(matches)
 
-    avg_adr = sum(s.get("adr", 0) for s in match_stats_list) / matches
-    avg_rating = sum(s.get("rating", 0) for s in match_stats_list) / matches
-    avg_kast = sum(s.get("kast", 0) for s in match_stats_list) / matches
-    avg_hs = sum(s.get("headshot_percentage", 0) for s in match_stats_list) / matches
+    avg_adr = (
+        sum(
+            float(s.get("adr", 0) or 0) * (float(s.get("rounds_played", 0) or 0) or 1)
+            for s in match_stats_list
+        )
+        / weight
+    )
+    avg_rating = (
+        sum(
+            float(s.get("rating", 0) or 0) * (float(s.get("rounds_played", 0) or 0) or 1)
+            for s in match_stats_list
+        )
+        / weight
+    )
+    avg_kast = (
+        sum(
+            float(s.get("kast", 0) or 0) * (float(s.get("rounds_played", 0) or 0) or 1)
+            for s in match_stats_list
+        )
+        / weight
+    )
+    avg_hs = sum(
+        float(s.get("headshot_percentage", 0) or 0) * (float(s.get("kills", 0) or 0) or 1)
+        for s in match_stats_list
+    ) / sum((float(s.get("kills", 0) or 0) or 1) for s in match_stats_list)
 
     return {
         "matches": matches,

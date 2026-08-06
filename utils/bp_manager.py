@@ -12,9 +12,6 @@ BP 流程:
 
 import json
 import random
-import time
-from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
 
 ALL_MAPS = ["Dust2", "Mirage", "Inferno", "Nuke", "Cache", "Ancient", "Anubis"]
 _MAP_STORAGE_NAMES = {
@@ -26,8 +23,7 @@ _MAP_STORAGE_NAMES = {
     "ancient": "de_ancient",
     "anubis": "de_anubis",
 }
-STATE_VERSION = 4
-TURN_TIME_LIMIT_SECONDS = 3 * 60
+STATE_VERSION = 6
 
 FORMAT_STEPS = {
     "BO1": [
@@ -54,8 +50,6 @@ FORMAT_STEPS = {
 }
 
 FORMAT_MAP_COUNTS = {"BO1": 1, "BO3": 3, "BO5": 5}
-BP_TIMEZONE = ZoneInfo("Asia/Shanghai")
-BP_OPEN_LEAD_MINUTES = 20
 
 
 def _storage_map_name(map_name):
@@ -66,48 +60,64 @@ def _storage_map_name(map_name):
     return _MAP_STORAGE_NAMES.get(raw, raw)
 
 
-def bp_start_at(match_time):
-    """将比赛时间转为带时区的时间；无效时间返回 None。"""
-    raw = str(match_time or "").strip()
-    if not raw:
-        return None
-    try:
-        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
-    except (TypeError, ValueError):
-        return None
-    if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=BP_TIMEZONE)
-    return parsed.astimezone(BP_TIMEZONE)
+def _format_steps_for_pool(bo, pool_size):
+    """按实际图池数量生成 BP 步骤；7 图时保持原有顺序。"""
+    bo = str(bo or "").upper()
+    required_maps = FORMAT_MAP_COUNTS.get(bo)
+    if required_maps is None:
+        raise ValueError("仅支持 BO1、BO3、BO5")
+    minimum_pool = 2 if bo == "BO1" else required_maps
+    if pool_size < minimum_pool:
+        raise ValueError(f"{bo} 图池至少需要 {minimum_pool} 张地图")
 
+    def alternating_bans(count):
+        return [
+            {"action": "ban", "team": "first" if index % 2 == 0 else "second", "count": 1}
+            for index in range(count)
+        ]
 
-def bp_window_is_open(match_time, status=None, now=None):
-    """BP 从比赛开始前 20 分钟开放，并持续到比赛结束。"""
-    if str(status or "").lower() in {"completed", "cancelled"}:
-        return False
-    start_at = bp_start_at(match_time)
-    if start_at is None:
-        return False
-    current = now or datetime.now(BP_TIMEZONE)
-    if current.tzinfo is None:
-        current = current.replace(tzinfo=BP_TIMEZONE)
-    else:
-        current = current.astimezone(BP_TIMEZONE)
-    return current >= start_at - timedelta(minutes=BP_OPEN_LEAD_MINUTES)
+    if bo == "BO1":
+        ban_count = pool_size - 1
+        first_count = min(2, ban_count)
+        steps = []
+        if first_count:
+            steps.append({"action": "ban", "team": "first", "count": first_count})
+        remaining = ban_count - first_count
+        second_count = min(3, remaining)
+        if second_count:
+            steps.append({"action": "ban", "team": "second", "count": second_count})
+        if remaining - second_count:
+            steps.append({"action": "ban", "team": "first", "count": remaining - second_count})
+        return steps
 
+    if bo == "BO3":
+        ban_count = pool_size - 3  # two picks plus one remaining decider
+        initial_bans = min(2, ban_count)
+        steps = alternating_bans(initial_bans)
+        steps.extend(
+            [
+                {"action": "pick", "team": "first", "count": 1},
+                {"action": "pick", "team": "second", "count": 1},
+            ]
+        )
+        steps.extend(alternating_bans(max(0, ban_count - initial_bans)))
+        return steps
 
-def bp_open_at_timestamp(match_time):
-    """返回 BP 自动开启时间的 Unix 秒，供页面倒计时使用。"""
-    start_at = bp_start_at(match_time)
-    if start_at is None:
-        return None
-    return int((start_at - timedelta(minutes=BP_OPEN_LEAD_MINUTES)).timestamp())
+    # BO5 keeps four picked maps and one remaining decider.
+    steps = alternating_bans(pool_size - 5)
+    steps.extend(
+        [
+            {"action": "pick", "team": "first", "count": 1},
+            {"action": "pick", "team": "second", "count": 1},
+            {"action": "pick", "team": "first", "count": 1},
+            {"action": "pick", "team": "second", "count": 1},
+        ]
+    )
+    return steps
 
 
 def ensure_bp_started(conn, match):
-    """在进入窗口后的第一次读取时自动创建 BP 状态。
-
-    返回 (state, changed)。调用方负责在 changed 为真时提交连接。
-    """
+    """读取并升级已有 BP 状态；不存在时等待操作员手动开始。"""
     raw_state = match["bp_state"] if "bp_state" in match.keys() else None
     if raw_state:
         try:
@@ -122,30 +132,7 @@ def ensure_bp_started(conn, match):
         except (TypeError, ValueError, json.JSONDecodeError):
             return None, False
 
-    if not bp_window_is_open(match["match_time"], match["status"]):
-        return None, False
-
-    state = init_bp_state(match["bo_format"] or "BO3")
-    state["auto_started"] = True
-    state["auto_started_at"] = time.time()
-    conn.execute(
-        "UPDATE matches SET bp_state=? WHERE id=?",
-        (json.dumps(state, ensure_ascii=False), match["id"]),
-    )
-    return state, True
-
-
-def reset_turn_timer(state, now=None):
-    """为下一次操作重新计时；BP 完成后停止计时。"""
-    if state.get("status") == "completed":
-        state["turn_started_at"] = None
-        state["turn_deadline"] = None
-        return None
-
-    started_at = time.time() if now is None else float(now)
-    state["turn_started_at"] = started_at
-    state["turn_deadline"] = started_at + TURN_TIME_LIMIT_SECONDS
-    return state["turn_deadline"]
+    return None, False
 
 
 def init_bp_state(bo_format, map_pool=None):
@@ -158,11 +145,16 @@ def init_bp_state(bo_format, map_pool=None):
     if bo not in FORMAT_STEPS:
         raise ValueError("仅支持 BO1、BO3、BO5")
 
-    pool = list(map_pool) if map_pool and len(map_pool) == 7 else list(ALL_MAPS)
-    if len(set(pool)) != 7:
-        raise ValueError("地图池必须包含 7 张不同的地图")
+    # Use the match/event pool exactly as configured. A missing pool uses the
+    # historical seven-map default; an invalid supplied pool fails loudly.
+    pool = list(ALL_MAPS) if map_pool is None else list(map_pool)
+    pool = [str(name or "").strip() for name in pool]
+    if any(not name for name in pool):
+        raise ValueError("地图池不能包含空地图名")
+    if len({name.casefold() for name in pool}) != len(pool):
+        raise ValueError("地图池不能包含重复地图")
 
-    steps = [dict(step) for step in FORMAT_STEPS[bo]]
+    steps = [dict(step) for step in _format_steps_for_pool(bo, len(pool))]
     total_maps = FORMAT_MAP_COUNTS[bo]
 
     state = {
@@ -183,8 +175,11 @@ def init_bp_state(bo_format, map_pool=None):
         "action_log": [],  # [{team, action, map, step}]
         "map_order": [],  # 最终地图顺序
         "sides": {},  # {map_name: 'CT'|'T'} 谁选了哪边
+        "revision": 0,
+        "controller_seats": {},
+        "audit_log": [],
+        "state_history": [],
     }
-    reset_turn_timer(state)
     return state
 
 
@@ -200,14 +195,42 @@ def normalize_bp_state(state):
     changed = state.get("state_version") != STATE_VERSION
     state["bo"] = bo
     state["total_maps"] = FORMAT_MAP_COUNTS[bo]
-    state["steps"] = [dict(step) for step in FORMAT_STEPS[bo]]
-    state.setdefault("initial_pool", list(ALL_MAPS))
+    initial_pool = state.get("initial_pool")
+    if not isinstance(initial_pool, list):
+        state["initial_pool"] = list(ALL_MAPS)
+        changed = True
+    else:
+        cleaned_pool = [str(name or "").strip() for name in initial_pool]
+        if (
+            any(not name for name in cleaned_pool)
+            or len({name.casefold() for name in cleaned_pool}) != len(cleaned_pool)
+            or len(cleaned_pool) < (2 if bo == "BO1" else FORMAT_MAP_COUNTS[bo])
+        ):
+            state["initial_pool"] = list(ALL_MAPS)
+            changed = True
+        elif cleaned_pool != initial_pool:
+            state["initial_pool"] = cleaned_pool
+            changed = True
+    expected_steps = _format_steps_for_pool(bo, len(state["initial_pool"]))
+    if state.get("steps") != expected_steps:
+        state["steps"] = expected_steps
+        changed = True
     state.setdefault("action_log", [])
     state.setdefault("bans", [])
     state.setdefault("picks", [])
     state.setdefault("map_order", [])
     state.setdefault("rolls", {"t1": None, "t2": None})
     state.setdefault("sides", {})
+    state.setdefault("revision", 0)
+    state.setdefault("controller_seats", {})
+    state.setdefault("audit_log", [])
+    state.setdefault("state_history", [])
+    if not isinstance(state.get("pool"), list):
+        used_maps = set(state.get("bans") or []) | {
+            pick.get("map") for pick in (state.get("picks") or []) if pick.get("map")
+        }
+        state["pool"] = [name for name in state["initial_pool"] if name not in used_maps]
+        changed = True
 
     for pick in state["picks"]:
         if pick.get("picked_by") == "remaining" and bo == "BO1":
@@ -245,20 +268,10 @@ def normalize_bp_state(state):
     else:
         state.setdefault("current_step_progress", 0)
 
-    if state.get("status") == "completed":
-        if (
-            "turn_started_at" not in state
-            or "turn_deadline" not in state
-            or state.get("turn_started_at") is not None
-            or state.get("turn_deadline") is not None
-        ):
+    for legacy_key in ("turn_started_at", "turn_deadline", "auto_started", "auto_started_at"):
+        if legacy_key in state:
+            state.pop(legacy_key, None)
             changed = True
-        reset_turn_timer(state)
-    elif not isinstance(state.get("turn_started_at"), (int, float)) or not isinstance(
-        state.get("turn_deadline"), (int, float)
-    ):
-        reset_turn_timer(state)
-        changed = True
 
     state["state_version"] = STATE_VERSION
     return changed
@@ -279,7 +292,6 @@ def process_roll(state, team, value):
         return False, "本队已经 Roll 过了"
 
     state["rolls"][team] = value
-    reset_turn_timer(state)
 
     t1_roll = state["rolls"].get("t1")
     t2_roll = state["rolls"].get("t2")
@@ -313,7 +325,6 @@ def set_first_choice(state, team, choice):
         return False, "无效选择"
 
     state["first_choice"] = choice
-    reset_turn_timer(state)
     return True, "选择成功"
 
 
@@ -392,7 +403,6 @@ def _finish_map_selection(state):
         for pick in state["picks"]
     )
     state["status"] = "side_select" if needs_side_selection else "completed"
-    reset_turn_timer(state)
     return True, "BP 完成，进入选边阶段" if needs_side_selection else "BP 已完成"
 
 
@@ -428,7 +438,6 @@ def ban_map(state, team, map_name):
     if state["current_step"] >= len(state["steps"]):
         return _finish_map_selection(state)
 
-    reset_turn_timer(state)
     return True, "ban 成功"
 
 
@@ -466,7 +475,6 @@ def pick_map(state, team, map_name):
     if state["current_step"] >= len(state["steps"]):
         return _finish_map_selection(state)
 
-    reset_turn_timer(state)
     return True, "pick 成功"
 
 
@@ -520,7 +528,6 @@ def choose_side(state, team, map_name, side):
     if all_sided:
         state["status"] = "completed"
 
-    reset_turn_timer(state)
     return True, "选边成功"
 
 

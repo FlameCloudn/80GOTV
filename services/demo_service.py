@@ -127,9 +127,17 @@ def sync_match_scores(conn, match_id, map_slot, info, a_to_t1):
     if match:
         t1_wins = 0
         t2_wins = 0
+        slot_count = get_demo_upload_slot_count(
+            {
+                "bo_format": current_match["bo_format"],
+                "status": current_match["status"],
+                "team1_score": current_match["team1_score"],
+                "team2_score": current_match["team2_score"],
+            }
+        )
         raw = [
-            (match["map1_t1"], match["map1_t2"], True),
-            (match["map2_t1"], match["map2_t2"], True),
+            (match["map1_t1"], match["map1_t2"], slot_count >= 1),
+            (match["map2_t1"], match["map2_t2"], slot_count >= 2),
             (match["map3_t1"], match["map3_t2"], bool(match["has_map3"])),
             (match["map4_t1"], match["map4_t2"], bool(row_get(match, "has_map4", 1))),
             (match["map5_t1"], match["map5_t2"], bool(row_get(match, "has_map5", 1))),
@@ -178,6 +186,11 @@ def save_halftime_data(conn, match_id, map_slot, demo_data, a_to_t1):
         halves[map_key] = {"h1_t1": h1_a, "h1_t2": h1_b, "h2_t1": h2_a, "h2_t2": h2_b}
     else:
         halves[map_key] = {"h1_t1": h1_b, "h1_t2": h1_a, "h2_t1": h2_b, "h2_t2": h2_a}
+    opening_ct_team = str(info.get("opening_ct_team") or "").lower()
+    halves[map_key]["opening_ct_team"] = (
+        opening_ct_team if opening_ct_team in {"t1", "t2"} else None
+    )
+    halves[map_key]["side_source"] = str(info.get("side_source") or "demo_review")
 
     conn.execute(
         "UPDATE matches SET map_halves=? WHERE id=?",
@@ -348,7 +361,8 @@ def import_demo_data(conn, match_id, match, demo_data_str, map_slot):
         for row in conn.execute(
             """SELECT DISTINCT player_id
                FROM match_stats
-               WHERE match_id=? AND map_name=?""",
+               WHERE match_id=? AND map_name=?
+                 AND COALESCE(data_status, 'final') <> 'superseded'""",
             (match_id, map_name),
         ).fetchall()
         if row["player_id"]
@@ -367,7 +381,18 @@ def import_demo_data(conn, match_id, match, demo_data_str, map_slot):
             f"未找到可导入的选手数据（A 队 {len(team_a_players)} 人，B 队 {len(team_b_players)} 人）",
         )
 
-    conn.execute("DELETE FROM match_stats WHERE match_id=? AND map_name=?", (match_id, map_name))
+    previous_version = conn.execute(
+        """SELECT COALESCE(MAX(data_version), 0) AS version
+           FROM match_stats WHERE match_id=? AND map_name=?""",
+        (match_id, map_name),
+    ).fetchone()["version"]
+    conn.execute(
+        """UPDATE match_stats
+           SET data_status='superseded'
+           WHERE match_id=? AND map_name=?
+             AND COALESCE(data_status, 'final') <> 'superseded'""",
+        (match_id, map_name),
+    )
 
     for stat in selected:
         letter = stat.get("team_letter", "")
@@ -382,6 +407,9 @@ def import_demo_data(conn, match_id, match, demo_data_str, map_slot):
         team_id = demo_to_match_team.get(letter, t1_key if letter == "A" else t2_key)
         match_team_side = demo_to_match_side.get(letter)
         record_player_nickname(conn, db_player["id"], stat.get("name", ""), "demo")
+        stat["_data_source"] = "demo_review"
+        stat["_data_status"] = "final"
+        stat["_data_version"] = int(previous_version or 0) + 1
         insert_match_stat(
             conn,
             match_id,
@@ -546,6 +574,9 @@ def insert_match_stat(conn, match_id, player_id, team_id, match_team_side, stat,
         "clutch_1v5",
         "flash_assists",
         "map_name",
+        "data_source",
+        "data_status",
+        "data_version",
     )
     values = (
         match_id,
@@ -600,6 +631,9 @@ def insert_match_stat(conn, match_id, player_id, team_id, match_team_side, stat,
         stat.get("clutch_1v5", 0),
         stat.get("flash_assists", 0),
         map_name,
+        stat.get("_data_source", "demo"),
+        stat.get("_data_status", "final"),
+        int(stat.get("_data_version", 1) or 1),
     )
     placeholders = ",".join("?" for _ in columns)
     conn.execute(

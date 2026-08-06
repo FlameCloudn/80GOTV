@@ -224,6 +224,13 @@ class LiveDataStreamTests(unittest.TestCase):
         history = json.loads(row["live_state"])["round_history"]
         self.assertEqual(len(history), 1)
         self.assertEqual(history[0]["round"], 12)
+        overtime_history = json.loads(row["live_state"])["overtime_history"]
+        self.assertEqual(len(overtime_history), 1)
+        self.assertEqual(overtime_history[0]["round"], 25)
+
+        live = self.client.get(f"/api/live/{self.match_id}").get_json()
+        self.assertEqual(live["round_history"][-1]["round"], 12)
+        self.assertEqual(live["overtime_history"][-1]["round"], 25)
 
     def test_new_map_clears_previous_map_live_events(self):
         self.assertEqual(self._post(self._payload()).status_code, 200)

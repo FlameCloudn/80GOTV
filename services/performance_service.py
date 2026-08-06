@@ -109,10 +109,13 @@ def refresh_player_performance(conn, player_ids=None):
                    SELECT DISTINCT player_id
                    FROM match_stats
                    WHERE player_id IS NOT NULL
+                     AND COALESCE(data_status, 'final') <> 'superseded'
                )"""
         )
     filter_sql = (
-        f"{where_sql} AND player_id IS NOT NULL" if where_sql else "WHERE player_id IS NOT NULL"
+        f"{where_sql} AND player_id IS NOT NULL AND COALESCE(data_status, 'final') <> 'superseded'"
+        if where_sql
+        else "WHERE player_id IS NOT NULL AND COALESCE(data_status, 'final') <> 'superseded'"
     )
 
     columns_sql = ",".join(SUMMARY_COLUMNS)

@@ -89,31 +89,37 @@ class StatsUiRegressionTests(unittest.TestCase):
         right_rule = re.search(r"\.bracket-match-popup \.bp-player-row-right\s*\{([^}]*)\}", css)
 
         self.assertIsNotNone(popup_rule)
+        assert popup_rule is not None
         self.assertIn("width: 350px", popup_rule.group(1))
         self.assertIn("height: 400px", popup_rule.group(1))
         self.assertIsNotNone(players_rule)
+        assert players_rule is not None
         self.assertIn(
             "grid-template-columns: repeat(2, minmax(0, 1fr))",
             players_rule.group(1),
         )
         self.assertIsNotNone(left_rule)
+        assert left_rule is not None
         self.assertIn(
             "grid-template-columns: 32px minmax(0, 1fr) 34px",
             left_rule.group(1),
         )
         self.assertIsNotNone(right_rule)
+        assert right_rule is not None
         self.assertIn(
             "grid-template-columns: 34px minmax(0, 1fr) 32px",
             right_rule.group(1),
         )
 
-    def test_event_bp_does_not_change_row_width_and_waits_for_open_window(self):
+    def test_event_bp_does_not_change_row_width_and_has_no_time_window(self):
         route = (ROOT / "routes/events.py").read_text(encoding="utf-8")
         template = (ROOT / "templates/event_detail.html").read_text(encoding="utf-8")
         css = (ROOT / "static/css/hltv_refresh.css").read_text(encoding="utf-8")
 
-        self.assertIn("timedelta(minutes=20)", route)
-        self.assertIn("BP 暂未开始", template)
+        self.assertIn("BP is manually started", route)
+        self.assertNotIn("timedelta(minutes=20)", route)
+        self.assertIn(">进入 BP<", template)
+        self.assertNotIn("BP 暂未开始", template)
         self.assertIn("position: absolute", css)
 
     def test_english_mode_hides_untranslated_first_paint(self):
@@ -132,6 +138,7 @@ class StatsUiRegressionTests(unittest.TestCase):
         result_time_rule = re.search(r"\.result-time\s*\{([^}]*)\}", css)
 
         self.assertIsNotNone(result_time_rule)
+        assert result_time_rule is not None
         self.assertIn("white-space: nowrap !important", result_time_rule.group(1))
         self.assertIn("word-break: keep-all !important", result_time_rule.group(1))
 
@@ -146,8 +153,10 @@ class StatsUiRegressionTests(unittest.TestCase):
         )
 
         self.assertIsNotNone(slot_rule)
+        assert slot_rule is not None
         self.assertIn("grid-template-columns: 44px minmax(0, 1fr)", slot_rule.group(1))
         self.assertIsNotNone(avatar_rule)
+        assert avatar_rule is not None
         self.assertIn("width: 44px", avatar_rule.group(1))
         self.assertIn("height: 44px", avatar_rule.group(1))
 
@@ -164,6 +173,7 @@ class StatsUiRegressionTests(unittest.TestCase):
             css,
         )
         self.assertIsNotNone(number_rule)
+        assert number_rule is not None
         self.assertIn("font-size: 24px !important", number_rule.group(1))
         self.assertIn("text-align: center", number_rule.group(1))
 

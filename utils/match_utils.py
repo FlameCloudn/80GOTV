@@ -96,7 +96,8 @@ def calculate_map_wins(match_row, raw_maps=None):
 
     t1_wins = 0
     t2_wins = 0
-    for mn, t1s, t2s, active in raw_maps:
+    for map_row in raw_maps:
+        mn, t1s, t2s, active = map_row[0], map_row[1], map_row[2], map_row[3]
         if mn and active:
             s1 = int(t1s or 0)
             s2 = int(t2s or 0)
@@ -127,11 +128,14 @@ def get_map_half_scores(match_row, slot_index, parsed_halves=None):
     item = halves.get(str(slot_index)) or halves.get(f"map{slot_index + 1}")
     if not isinstance(item, dict):
         return None
+    opening_ct_team = item.get("opening_ct_team") or item.get("opening_ct_side_team")
     return {
         "h1_t1": item.get("h1_t1", item.get("t1_h1", 0)),
         "h1_t2": item.get("h1_t2", item.get("t2_h1", 0)),
         "h2_t1": item.get("h2_t1", item.get("t1_h2", 0)),
         "h2_t2": item.get("h2_t2", item.get("t2_h2", 0)),
+        "opening_ct_team": opening_ct_team if opening_ct_team in {"t1", "t2"} else None,
+        "side_source": item.get("side_source") or "unknown",
     }
 
 
@@ -139,9 +143,8 @@ def build_result_maps(match_row):
     """为赛果列表准备每张已完成地图的比分与半场比分。"""
     parsed_halves = parse_map_halves(match_row)
     result_maps = []
-    for slot_index, (map_name, t1_score, t2_score, active) in enumerate(
-        build_raw_maps(match_row, include_picked_by=False)
-    ):
+    for slot_index, map_row in enumerate(build_raw_maps(match_row)):
+        map_name, t1_score, t2_score, active = map_row[0], map_row[1], map_row[2], map_row[3]
         if not map_name or not active or not (int(t1_score or 0) or int(t2_score or 0)):
             continue
         result_maps.append(

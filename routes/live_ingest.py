@@ -1,5 +1,6 @@
 """GSI and GOTV live-data receiving endpoints."""
 
+import hashlib
 import hmac
 import json
 from datetime import datetime, timezone
@@ -96,7 +97,9 @@ def _match_team_for_gsi_side(data, side, side_mapping=None):
         mapped = identity.get("team_ct" if side == "CT" else "team_t")
     if mapped == "team2":
         return "t2"
-    return "t1" if mapped == "team1" or side == "CT" else "t2"
+    if mapped == "team1":
+        return "t1"
+    return None
 
 
 def _merge_app_live_events(merged, data, side_mapping=None):
@@ -107,14 +110,18 @@ def _merge_app_live_events(merged, data, side_mapping=None):
 
     if isinstance(round_events, list):
         by_key = {}
-        for event in (merged.get("round_history", []) or []) + round_events:
+        for event in (
+            (merged.get("round_history", []) or [])
+            + (merged.get("overtime_history", []) or [])
+            + round_events
+        ):
             if not isinstance(event, dict):
                 continue
             try:
                 round_number = int(event.get("round_number", event.get("round", 0)) or 0)
             except (TypeError, ValueError):
                 continue
-            if not 1 <= round_number <= 24:
+            if not 1 <= round_number <= 48:
                 continue
             normalized = dict(event)
             normalized["round"] = round_number
@@ -129,7 +136,10 @@ def _merge_app_live_events(merged, data, side_mapping=None):
         )
         # A round has one winner; an app resend must replace the earlier partial event.
         by_round = {int(item["round"]): item for item in ordered}
-        merged["round_history"] = [by_round[number] for number in sorted(by_round)][-24:]
+        regulation = [by_round[number] for number in sorted(by_round) if number <= 24]
+        overtime = [by_round[number] for number in sorted(by_round) if number > 24]
+        merged["round_history"] = regulation[-24:]
+        merged["overtime_history"] = overtime[-24:]
 
     if isinstance(death_markers, list):
         by_id = {}
@@ -143,7 +153,7 @@ def _merge_app_live_events(merged, data, side_mapping=None):
                 round_number = int(marker.get("round_number", marker.get("round", 0)) or 0)
             except (TypeError, ValueError):
                 continue
-            if not 1 <= round_number <= 24:
+            if not 1 <= round_number <= 48:
                 continue
             marker["round"] = round_number
             marker["round_number"] = round_number
@@ -263,6 +273,7 @@ def _probe_broadcast_match(conn, match_id):
     match = conn.execute(
         """
         SELECT m.id, m.team1_id, m.team2_id, m.team1_players, m.team2_players,
+               m.bp_state,
                COALESCE(t1.name, '') AS team1_name,
                COALESCE(t1.short_name, '') AS t1s,
                COALESCE(t2.name, '') AS team2_name,
@@ -277,12 +288,30 @@ def _probe_broadcast_match(conn, match_id):
     if not match:
         return _receiver_error("gsi", "未找到比赛", 404, match_id)
     match = supplement_temp_teams(match, conn)
+
+    def _five_ids(raw):
+        try:
+            values = json.loads(raw) if raw else []
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return []
+        return values if isinstance(values, list) else []
+
+    roster_ids = _five_ids(match["team1_players"]) + _five_ids(match["team2_players"])
+    roster_locked = len(roster_ids) == 10 and len(set(str(value) for value in roster_ids)) == 10
+    bp_state = {}
+    try:
+        bp_state = json.loads(match["bp_state"] or "{}")
+    except (TypeError, ValueError, json.JSONDecodeError):
+        bp_state = {}
     return jsonify(
         {
             "ok": True,
             "match_id": match["id"],
             "team1_name": match["team1_name"],
             "team2_name": match["team2_name"],
+            "bp_revision": int(bp_state.get("revision", 0) or 0),
+            "roster_locked": roster_locked,
+            "ready_for_start": roster_locked and bp_state.get("status") == "completed",
             "server_time": datetime.now(timezone.utc).isoformat(),
         }
     )
@@ -298,7 +327,8 @@ def _bounded_number(payload, key, minimum=0, maximum=100000, integer=False):
 
 
 def _live_side_stat(payload):
-    payload = payload if isinstance(payload, dict) else {}
+    if not isinstance(payload, dict) or not payload:
+        return None
     rounds = _bounded_number(payload, "roundsPlayed", 0, 100, integer=True)
     kills = _bounded_number(payload, "kills", 0, 500, integer=True)
     deaths = _bounded_number(payload, "deaths", 0, 500, integer=True)
@@ -372,14 +402,14 @@ def _live_player_stat(payload):
         "kast": kast,
         "headshot_percentage": round(headshots * 100 / kills, 1) if kills else 0,
         "clutches_won": clutches_won,
-        "t_rating": t_stats["rating"],
-        "ct_rating": ct_stats["rating"],
-        "t_kills": t_stats["kills"],
-        "ct_kills": ct_stats["kills"],
-        "t_deaths": t_stats["deaths"],
-        "ct_deaths": ct_stats["deaths"],
-        "t_adr": t_stats["adr"],
-        "ct_adr": ct_stats["adr"],
+        "t_rating": t_stats["rating"] if t_stats else None,
+        "ct_rating": ct_stats["rating"] if ct_stats else None,
+        "t_kills": t_stats["kills"] if t_stats else None,
+        "ct_kills": ct_stats["kills"] if ct_stats else None,
+        "t_deaths": t_stats["deaths"] if t_stats else None,
+        "ct_deaths": ct_stats["deaths"] if ct_stats else None,
+        "t_adr": t_stats["adr"] if t_stats else None,
+        "ct_adr": ct_stats["adr"] if ct_stats else None,
         "multi1k": multi[0],
         "multi2k": multi[1],
         "multi3k": multi[2],
@@ -405,6 +435,54 @@ def _live_player_stat(payload):
         "flash_assists": _bounded_number(payload, "flashAssists", 0, 500, integer=True),
         "team_side": str(payload.get("team_side") or ""),
     }
+
+
+def _locked_roster_steamids(conn, match):
+    """Return the exact ten Steam IDs when the website roster is locked."""
+    player_ids = []
+    for field in ("team1_players", "team2_players"):
+        raw = match[field] if field in match.keys() else None
+        try:
+            values = json.loads(raw) if raw else []
+        except (TypeError, ValueError, json.JSONDecodeError):
+            values = []
+        if not isinstance(values, list) or len(values) != 5:
+            return set()
+        try:
+            player_ids.extend(int(value) for value in values)
+        except (TypeError, ValueError):
+            return set()
+    if len(player_ids) != 10 or len(set(player_ids)) != 10:
+        return set()
+    placeholders = ",".join("?" for _ in player_ids)
+    rows = conn.execute(
+        f"SELECT id, steam_id FROM players WHERE id IN ({placeholders})", player_ids
+    ).fetchall()
+    steam_ids = {str(row["steam_id"] or "").strip() for row in rows}
+    if len(rows) != 10 or len(steam_ids) != 10 or "" in steam_ids:
+        return set()
+    return steam_ids
+
+
+def _locked_roster_side_by_steamid(conn, match):
+    sides = {}
+    for field, side in (("team1_players", "team1"), ("team2_players", "team2")):
+        raw = match[field] if field in match.keys() else None
+        try:
+            values = json.loads(raw) if raw else []
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return {}
+        if not isinstance(values, list) or len(values) != 5:
+            return {}
+        placeholders = ",".join("?" for _ in values)
+        rows = conn.execute(
+            f"SELECT steam_id FROM players WHERE id IN ({placeholders})", values
+        ).fetchall()
+        for row in rows:
+            steam_id = str(row["steam_id"] or "").strip()
+            if steam_id:
+                sides[steam_id] = side
+    return sides if len(sides) == 10 else {}
 
 
 @app.route("/api/broadcast/matches/<int:match_id>/map-result", methods=["POST"])
@@ -438,12 +516,55 @@ def _save_broadcast_map_result(conn, payload, match_id):
     if not match:
         return _receiver_error("map_result", "比赛不存在", 404, match_id, map_name)
 
+    locked_roster = _locked_roster_steamids(conn, match)
+    if locked_roster:
+        locked_sides = _locked_roster_side_by_steamid(conn, match)
+        if len(players) != 10:
+            return _receiver_error(
+                "map_result",
+                "网站已锁定十人名单，地图结算必须包含两队各五人",
+                409,
+                match_id,
+                map_name,
+            )
+        supplied_ids = [str(player.get("steam_id") or "").strip() for player in players]
+        if any(not steam_id for steam_id in supplied_ids) or len(set(supplied_ids)) != 10:
+            return _receiver_error(
+                "map_result", "地图结算包含缺失或重复 Steam ID", 409, match_id, map_name
+            )
+        if set(supplied_ids) != locked_roster:
+            return _receiver_error(
+                "map_result", "地图结算名单与网站锁定名单不一致", 409, match_id, map_name
+            )
+        if any(
+            locked_sides.get(str(player.get("steam_id")).strip()) != player.get("team_side")
+            for player in players
+        ):
+            return _receiver_error(
+                "map_result", "地图结算队伍归属与网站名单不一致", 409, match_id, map_name
+            )
+
     map_names = [match[f"map{slot}"] for slot in range(1, 6)]
-    matching_slots = [
-        index
-        for index, configured in enumerate(map_names)
-        if configured and normalize_map_name(configured) == normalize_map_name(map_name)
-    ]
+    requested_slot = payload.get("map_slot")
+    if requested_slot is not None:
+        try:
+            requested_slot = int(requested_slot)
+        except (TypeError, ValueError):
+            return _receiver_error("map_result", "地图槽位无效", 400, match_id, map_name)
+        if not 1 <= requested_slot <= 5:
+            return _receiver_error("map_result", "地图槽位无效", 400, match_id, map_name)
+        configured = map_names[requested_slot - 1]
+        if not configured or normalize_map_name(configured) != normalize_map_name(map_name):
+            return _receiver_error(
+                "map_result", "地图槽位与地图名称不一致", 409, match_id, map_name
+            )
+        matching_slots = [requested_slot - 1]
+    else:
+        matching_slots = [
+            index
+            for index, configured in enumerate(map_names)
+            if configured and normalize_map_name(configured) == normalize_map_name(map_name)
+        ]
     if not matching_slots:
         return _receiver_error("map_result", "推送地图不在该比赛赛程中", 409, match_id, map_name)
     map_slot = matching_slots[0]
@@ -452,18 +573,116 @@ def _save_broadcast_map_result(conn, payload, match_id):
     stats = [stat for stat in stats if stat["steam_id"] and stat["name"]]
     if not stats:
         return _receiver_error("map_result", "没有可保存的选手", 400, match_id, map_name)
+    if locked_roster and len(stats) != 10:
+        return _receiver_error(
+            "map_result", "地图结算中有选手数据无法识别，保留原统计", 409, match_id, map_name
+        )
+
+    result_id = str(payload.get("result_id") or "").strip()[:120]
+    if not result_id:
+        result_id = hashlib.sha256(
+            json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode(
+                "utf-8"
+            )
+        ).hexdigest()
+    existing_live = conn.execute(
+        "SELECT live_state FROM live_match_data WHERE match_id=?", (match_id,)
+    ).fetchone()
+    existing_state = {}
+    if existing_live and existing_live["live_state"]:
+        try:
+            existing_state = json.loads(existing_live["live_state"])
+        except (TypeError, ValueError, json.JSONDecodeError):
+            existing_state = {}
+    previous_result = (
+        existing_state.get("latest_map_result") if isinstance(existing_state, dict) else None
+    )
+    stored_results = (
+        existing_state.get("map_results", []) if isinstance(existing_state, dict) else []
+    )
+    if not isinstance(stored_results, list):
+        stored_results = []
+    incoming_session = str(payload.get("session_id") or "").strip()
+    active_session = (
+        str(existing_state.get("gsi_session_id") or "").strip()
+        if isinstance(existing_state, dict)
+        else ""
+    )
+    if active_session and incoming_session and active_session != incoming_session:
+        return _receiver_error(
+            "map_result", "地图结算会话与当前导播会话不一致", 409, match_id, map_name
+        )
+    if active_session and not incoming_session:
+        return _receiver_error(
+            "map_result", "当前比赛已有导播会话，拒绝无会话结算覆盖", 409, match_id, map_name
+        )
+    duplicate_result = next(
+        (
+            item
+            for item in stored_results
+            if isinstance(item, dict) and item.get("result_id") == result_id
+        ),
+        None,
+    )
+    if isinstance(duplicate_result, dict) or (
+        isinstance(previous_result, dict) and previous_result.get("result_id") == result_id
+    ):
+        confirmed_result = (
+            duplicate_result if isinstance(duplicate_result, dict) else previous_result
+        )
+        assert isinstance(confirmed_result, dict)
+        return jsonify(
+            {
+                "ok": True,
+                "duplicate": True,
+                "match_id": match_id,
+                "map_name": confirmed_result.get("map_name") or map_name,
+                "saved": len(confirmed_result.get("players") or []),
+                "players": confirmed_result.get("players") or [],
+            }
+        )
+    frame_seq = payload.get("frame_seq")
+    if frame_seq is not None:
+        try:
+            frame_seq = int(frame_seq)
+        except (TypeError, ValueError):
+            return _receiver_error("map_result", "结算编号无效", 400, match_id, map_name)
+        try:
+            previous_seq_raw = (
+                previous_result.get("frame_seq") if isinstance(previous_result, dict) else None
+            )
+            previous_seq = int(str(previous_seq_raw)) if previous_seq_raw is not None else None
+        except (TypeError, ValueError):
+            previous_seq = None
+        if previous_seq is not None and frame_seq < previous_seq:
+            return _receiver_error("map_result", "较旧的地图结算被拒绝", 409, match_id, map_name)
 
     affected_player_ids = {
         row["player_id"]
         for row in conn.execute(
-            "SELECT DISTINCT player_id FROM match_stats WHERE match_id=? AND map_name=?",
+            """SELECT DISTINCT player_id FROM match_stats
+               WHERE match_id=? AND map_name=?
+                 AND COALESCE(data_status, 'final') <> 'superseded'""",
             (match_id, db_map_name),
         ).fetchall()
         if row["player_id"]
     }
-    conn.execute("DELETE FROM match_stats WHERE match_id=? AND map_name=?", (match_id, db_map_name))
+    previous_version = conn.execute(
+        """SELECT COALESCE(MAX(data_version), 0) AS version
+           FROM match_stats WHERE match_id=? AND map_name=?""",
+        (match_id, db_map_name),
+    ).fetchone()["version"]
+    conn.execute(
+        """UPDATE match_stats SET data_status='superseded'
+           WHERE match_id=? AND map_name=?
+             AND COALESCE(data_status, 'final') <> 'superseded'""",
+        (match_id, db_map_name),
+    )
     saved_players = []
     for stat in stats:
+        stat["_data_source"] = "director_final" if locked_roster else "director_live"
+        stat["_data_status"] = "final" if locked_roster else "provisional"
+        stat["_data_version"] = int(previous_version or 0) + 1
         db_player = auto_create_user_from_demo(conn, stat)
         if not db_player:
             continue
@@ -497,6 +716,11 @@ def _save_broadcast_map_result(conn, payload, match_id):
             }
         )
 
+    if locked_roster and len(saved_players) != 10:
+        return _receiver_error(
+            "map_result", "无法完整解析网站锁定的十名选手，原统计未替换", 409, match_id, map_name
+        )
+
     team1_score = _bounded_number(payload, "team1_score", 0, 100, integer=True)
     team2_score = _bounded_number(payload, "team2_score", 0, 100, integer=True)
     sync_match_scores(
@@ -518,15 +742,25 @@ def _save_broadcast_map_result(conn, payload, match_id):
         except (TypeError, ValueError):
             pass
     merged = _sanitize_live_state(merged)
-    merged["latest_map_result"] = {
+    result_record = {
+        "result_id": result_id,
+        "frame_seq": frame_seq,
         "map_name": db_map_name,
         "map_slot": map_slot,
         "team1_score": team1_score,
         "team2_score": team2_score,
         "series_complete": bool(payload.get("series_complete")),
+        "data_source": "director_final" if locked_roster else "director_live",
+        "data_status": "final" if locked_roster else "provisional",
         "players": saved_players,
         "received_at": datetime.now(timezone.utc).isoformat(),
     }
+    merged["latest_map_result"] = result_record
+    merged["map_results"] = [
+        item
+        for item in stored_results
+        if isinstance(item, dict) and item.get("map_slot") != map_slot
+    ] + [result_record]
     conn.execute(
         """
         INSERT INTO live_match_data(match_id, live_state)
@@ -616,15 +850,55 @@ def _save_gsi_payload(conn, data, map_name, forced_match_id=None):
         except (ValueError, TypeError):
             pass
     merged = _sanitize_live_state(merged)
+    identity = data.get("_80gotv", {}) if isinstance(data, dict) else {}
+    incoming_session = str(identity.get("session_id") or "").strip()
+    incoming_seq = identity.get("frame_seq")
+    try:
+        incoming_seq = int(incoming_seq) if incoming_seq is not None else None
+    except (TypeError, ValueError):
+        return _receiver_error("gsi", "实时帧编号无效", 400, match_id, map_name)
+    previous_session = str(merged.get("gsi_session_id") or "").strip()
+    previous_seq = merged.get("gsi_frame_seq")
+    try:
+        previous_seq = int(previous_seq) if previous_seq is not None else None
+    except (TypeError, ValueError):
+        previous_seq = None
+    if incoming_session and previous_session and incoming_session != previous_session:
+        return _receiver_error(
+            "gsi", "实时数据会话不一致，拒绝覆盖当前比赛", 409, match_id, map_name
+        )
+    if previous_session and not incoming_session:
+        return _receiver_error(
+            "gsi", "导播实时会话正在负责本场比赛，备用 GSI 不得覆盖", 409, match_id, map_name
+        )
+    if incoming_session and incoming_seq is not None and previous_seq is not None:
+        if incoming_seq < previous_seq:
+            return _receiver_error("gsi", "较旧实时帧被拒绝", 409, match_id, map_name)
+        if incoming_seq == previous_seq:
+            return jsonify(
+                {
+                    "ok": True,
+                    "duplicate": True,
+                    "match_id": match_id,
+                    "session_id": incoming_session,
+                    "frame_seq": incoming_seq,
+                }
+            )
     previous_gsi = merged.get("gsi", {}) or {}
     previous_map_name = normalize_map_name((previous_gsi.get("map", {}) or {}).get("name", ""))
     current_map_name = normalize_map_name(map_name)
     if previous_map_name and current_map_name and previous_map_name != current_map_name:
-        for key in ("round_history", "death_markers", "kill_markers", "kill_events", "bomb_events"):
+        for key in (
+            "round_history",
+            "overtime_history",
+            "death_markers",
+            "kill_markers",
+            "kill_events",
+            "bomb_events",
+        ):
             merged[key] = []
     # APP 已经在本地按正式比赛缓存阵亡点；兼容旧 GSI 客户端时才使用
     # 服务端的帧差兜底，避免两套判断互相覆盖。
-    identity = data.get("_80gotv", {}) if isinstance(data, dict) else {}
     if "death_markers" not in identity:
         _record_gsi_deaths(merged, data)
     _record_gsi_bomb_events(merged, data)
@@ -642,34 +916,48 @@ def _save_gsi_payload(conn, data, map_name, forced_match_id=None):
     # 检测新回合结束
     prev_round = data.get("previously", {}).get("round", {}) or {}
     prev_winner = prev_round.get("win_team", "")
-    # MR12 常规时间只有 24 回合；加时不进入网页上的回合历史栏。
+    # 常规时间固定保留 24 个格子；加时单独保存，不能挤进常规栏。
+    if "overtime_history" not in merged:
+        merged["overtime_history"] = []
+    overtime = merged["overtime_history"]
+    if not isinstance(overtime, list):
+        overtime = []
     if (
         (not app_round_events)
-        and 1 <= completed_round <= 24
+        and 1 <= completed_round <= 48
         and prev_winner
-        and (not rh or rh[-1].get("round") != completed_round)
+        and (
+            (completed_round <= 24 and (not rh or rh[-1].get("round") != completed_round))
+            or (
+                completed_round > 24
+                and (not overtime or overtime[-1].get("round") != completed_round)
+            )
+        )
     ):
         current_map = data.get("map", {}) or {}
         captured_at = datetime.now(timezone.utc)
         reason_code = _round_win_reason_code(data, previous_gsi, prev_winner)
-        rh.append(
-            {
-                "id": f"round-{completed_round}-{prev_winner.lower()}",
-                "round": completed_round,
-                "round_number": completed_round,
-                "winner": _match_team_for_gsi_side(data, prev_winner, side_mapping),
-                "side": prev_winner.lower(),
-                "score_ct": (current_map.get("team_ct", {}) or {}).get("score", 0),
-                "score_t": (current_map.get("team_t", {}) or {}).get("score", 0),
-                "reason": _round_win_reason(data, previous_gsi, prev_winner),
-                "reason_code": reason_code,
-                "captured_at": captured_at.isoformat(),
-                "captured_at_epoch": captured_at.timestamp(),
-            }
-        )
-        if len(rh) > 24:
-            rh = rh[-24:]
-        merged["round_history"] = rh
+        round_result = {
+            "id": f"round-{completed_round}-{prev_winner.lower()}",
+            "round": completed_round,
+            "round_number": completed_round,
+            "winner": _match_team_for_gsi_side(data, prev_winner, side_mapping),
+            "side": prev_winner.lower(),
+            "score_ct": (current_map.get("team_ct", {}) or {}).get("score", 0),
+            "score_t": (current_map.get("team_t", {}) or {}).get("score", 0),
+            "reason": _round_win_reason(data, previous_gsi, prev_winner),
+            "reason_code": reason_code,
+            "captured_at": captured_at.isoformat(),
+            "captured_at_epoch": captured_at.timestamp(),
+        }
+        if completed_round <= 24:
+            rh.append(round_result)
+            if len(rh) > 24:
+                rh = rh[-24:]
+            merged["round_history"] = rh
+        else:
+            overtime.append(round_result)
+            merged["overtime_history"] = overtime[-24:]
 
     # The app is authoritative for formal-match events. It may send an empty
     # event list while a frame is being skipped, so do not manufacture kills
@@ -677,9 +965,16 @@ def _save_gsi_payload(conn, data, map_name, forced_match_id=None):
     if app_death_markers:
         merged["death_markers"] = merged.get("death_markers", [])[-10:]
         merged["kill_markers"] = merged["death_markers"]
-    merged["kill_events"] = []
+    # Do not clear a previously persisted kill timeline just because this GSI
+    # frame did not carry a new event.
+    if not isinstance(merged.get("kill_events"), list):
+        merged["kill_events"] = []
 
     merged["gsi"] = data
+    if incoming_session:
+        merged["gsi_session_id"] = incoming_session
+    if incoming_seq is not None:
+        merged["gsi_frame_seq"] = incoming_seq
     merged["gsi_received_at"] = datetime.now(timezone.utc).isoformat()
     persist_live_match_events(conn, match_id, merged)
     record_ingest_status(conn, "gsi", "ok", "观战账号数据正常", match_id, map_name)
@@ -694,7 +989,14 @@ def _save_gsi_payload(conn, data, map_name, forced_match_id=None):
     )
     conn.commit()
 
-    return jsonify({"ok": True, "match_id": match_id})
+    return jsonify(
+        {
+            "ok": True,
+            "match_id": match_id,
+            "session_id": incoming_session or None,
+            "frame_seq": incoming_seq,
+        }
+    )
 
 
 @app.route("/api/gotv/stats", methods=["POST"])
@@ -789,6 +1091,19 @@ def _save_gotv_payload(
     if match["status"] == "completed":
         return _receiver_error("gotv", "比赛已结束，拒绝覆盖统计数据", 409, match_id, map_name)
 
+    live_row = conn.execute(
+        "SELECT live_state FROM live_match_data WHERE match_id=?", (match_id,)
+    ).fetchone()
+    if live_row and live_row["live_state"]:
+        try:
+            live_state = json.loads(live_row["live_state"])
+        except (TypeError, ValueError, json.JSONDecodeError):
+            live_state = {}
+        if live_state.get("gsi_session_id") or live_state.get("latest_map_result"):
+            return _receiver_error(
+                "gotv", "导播数据已负责本场比赛，GOTV 只能旁观不能覆盖", 409, match_id, map_name
+            )
+
     # 查找地图槽位
     map_names = [match["map1"], match["map2"], match["map3"], match["map4"], match["map5"]]
     configured_maps = [name for name in map_names if name]
@@ -804,8 +1119,17 @@ def _save_gotv_payload(
     )
 
     # 判断 A→T1 映射：比较 GOTV team_a name 与数据库中 team1 name
-    t1_name = match["team1_name"] or ""
-    a_to_t1 = (team_a_name.lower() == t1_name.lower()) if (team_a_name and t1_name) else True
+    t1_name = str(match["team1_name"] or "").strip().casefold()
+    t2_name = str(match["team2_name"] or "").strip().casefold()
+    team_a_key = str(team_a_name or "").strip().casefold()
+    if team_a_key and team_a_key == t1_name:
+        a_to_t1 = True
+    elif team_a_key and team_a_key == t2_name:
+        a_to_t1 = False
+    else:
+        return _receiver_error(
+            "gotv", "无法确认 GOTV 队伍对应关系，拒绝猜测覆盖", 409, match_id, map_name
+        )
 
     # 删除该比赛该地图的旧 match_stats（GOTV 推送的是累积数据）
     affected_player_ids = {
@@ -813,12 +1137,23 @@ def _save_gotv_payload(
         for row in conn.execute(
             """SELECT DISTINCT player_id
                FROM match_stats
-               WHERE match_id=? AND map_name=?""",
+               WHERE match_id=? AND map_name=?
+                 AND COALESCE(data_status, 'final') <> 'superseded'""",
             (match_id, db_map_name),
         ).fetchall()
         if row["player_id"]
     }
-    conn.execute("DELETE FROM match_stats WHERE match_id=? AND map_name=?", (match_id, db_map_name))
+    previous_version = conn.execute(
+        """SELECT COALESCE(MAX(data_version), 0) AS version
+           FROM match_stats WHERE match_id=? AND map_name=?""",
+        (match_id, db_map_name),
+    ).fetchone()["version"]
+    conn.execute(
+        """UPDATE match_stats SET data_status='superseded'
+           WHERE match_id=? AND map_name=?
+             AND COALESCE(data_status, 'final') <> 'superseded'""",
+        (match_id, db_map_name),
+    )
 
     imported = 0
     created = 0
@@ -847,6 +1182,9 @@ def _save_gotv_payload(
         )
 
         stat = dict(stat)
+        stat["_data_source"] = "gotv_relay"
+        stat["_data_status"] = "provisional"
+        stat["_data_version"] = int(previous_version or 0) + 1
         stat.setdefault("rounds_played", rounds_count)
         insert_match_stat(
             conn,

@@ -401,7 +401,7 @@ def _login_destination(next_target):
 def _verify_steam_openid(verify_params):
     """向 Steam 复核 OpenID 回包；国内网络偶发断连时自动重试。"""
     body = urllib.parse.urlencode(verify_params).encode("utf-8")
-    last_error = None
+    last_error: Exception | None = None
     for attempt in range(1, STEAM_VERIFY_ATTEMPTS + 1):
         try:
             req = urllib.request.Request(STEAM_OPENID_URL, data=body, method="POST")
@@ -419,7 +419,9 @@ def _verify_steam_openid(verify_params):
             )
             if attempt < STEAM_VERIFY_ATTEMPTS:
                 time.sleep(0.6 * attempt)
-    raise last_error
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError("Steam OpenID verification failed without an error")
 
 
 @app.route("/auth/steam/start")
@@ -1012,6 +1014,7 @@ def user_profile():
             JOIN matches m ON m.event_id = e.id
             JOIN match_stats ms ON ms.match_id = m.id
             WHERE ms.player_id = ?
+              AND COALESCE(ms.data_status, 'final') <> 'superseded'
             GROUP BY e.id
             ORDER BY e.start_date DESC
         """,

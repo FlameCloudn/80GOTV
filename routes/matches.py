@@ -9,7 +9,6 @@ from flask import jsonify, redirect, render_template, request, session, url_for
 
 from models import get_db
 from services.match_service import add_effective_event_status, supplement_temp_teams
-from services.player_remark_service import private_name_for_player
 from utils.helpers import (
     build_comment_tree,
     normalize_http_url,
@@ -320,6 +319,8 @@ def _render_match_detail(match_id):
         JOIN players p ON ms.player_id=p.id
         LEFT JOIN teams t ON ms.team_id=t.id
         WHERE ms.match_id=?
+          AND COALESCE(ms.data_status, 'final') <> 'superseded'
+          AND COALESCE(ms.data_status, 'final') <> 'superseded'
         ORDER BY ms.map_name, ms.team_id DESC, ms.rating DESC
     """,
         (match_id,),
@@ -523,13 +524,14 @@ def _render_match_detail(match_id):
         agg[pid]["kills"] += s["kills"]
         agg[pid]["deaths"] += s["deaths"]
         agg[pid]["assists"] += s["assists"]
-        agg[pid]["adr"] += s["adr"]
-        agg[pid]["rating"] += s["rating"]
-        agg[pid]["kast"] += s["kast"]
-        agg[pid]["hs"] += s["headshot_percentage"]
-        agg[pid]["impact"] += s["impact"]
-        agg[pid]["kpr"] += row_get(s, "kpr", 0) or 0
-        agg[pid]["dpr"] += row_get(s, "dpr", 0) or 0
+        map_rounds = max(1, int(row_get(s, "rounds_played", 0) or 0))
+        agg[pid]["adr"] += (s["adr"] or 0) * map_rounds
+        agg[pid]["rating"] += (s["rating"] or 0) * map_rounds
+        agg[pid]["kast"] += (s["kast"] or 0) * map_rounds
+        agg[pid]["hs"] += (s["headshot_percentage"] or 0) * max(1, int(s["kills"] or 0))
+        agg[pid]["impact"] += (s["impact"] or 0) * map_rounds
+        agg[pid]["kpr"] += (row_get(s, "kpr", 0) or 0) * map_rounds
+        agg[pid]["dpr"] += (row_get(s, "dpr", 0) or 0) * map_rounds
         agg[pid]["rounds_played"] += row_get(s, "rounds_played", 0) or 0
         agg[pid]["first_kills"] += row_get(s, "first_kills", 0) or 0
         agg[pid]["first_deaths"] += row_get(s, "first_deaths", 0) or 0
@@ -574,13 +576,27 @@ def _render_match_detail(match_id):
                     "kills": d["kills"],
                     "deaths": d["deaths"],
                     "assists": d["assists"],
-                    "adr": round(d["adr"] / m, 1) if m else 0,
-                    "rating": round(d["rating"] / m, 2) if m else 0,
-                    "kast": round(d["kast"] / m, 1) if m else 0,
-                    "headshot_percentage": round(d["hs"] / m, 1) if m else 0,
-                    "impact": round(d["impact"] / m, 1) if m else 0,
-                    "kpr": round(d["kpr"] / m, 2) if m else 0,
-                    "dpr": round(d["dpr"] / m, 2) if m else 0,
+                    "adr": round(d["adr"] / max(d["rounds_played"], 1), 1)
+                    if d["rounds_played"]
+                    else 0,
+                    "rating": round(d["rating"] / max(d["rounds_played"], 1), 2)
+                    if d["rounds_played"]
+                    else 0,
+                    "kast": round(d["kast"] / max(d["rounds_played"], 1), 1)
+                    if d["rounds_played"]
+                    else 0,
+                    "headshot_percentage": round(d["hs"] / max(d["kills"], 1), 1)
+                    if d["kills"]
+                    else 0,
+                    "impact": round(d["impact"] / max(d["rounds_played"], 1), 2)
+                    if d["rounds_played"]
+                    else 0,
+                    "kpr": round(d["kills"] / max(d["rounds_played"], 1), 2)
+                    if d["rounds_played"]
+                    else 0,
+                    "dpr": round(d["deaths"] / max(d["rounds_played"], 1), 2)
+                    if d["rounds_played"]
+                    else 0,
                     "rounds_played": d["rounds_played"],
                     "first_kills": d["first_kills"],
                     "first_deaths": d["first_deaths"],
@@ -1055,15 +1071,19 @@ def _aggregate_match_rows(rows, team_side, team_short, team_name):
         ):
             item[key] += _safe_int(row_get(row, key, 0))
         item["utility_damage"] += _safe_float(row_get(row, "utility_damage", 0))
-        item["adr_values"].append(_safe_float(row_get(row, "adr", 0)))
-        item["kast_values"].append(_safe_float(row_get(row, "kast", 0)))
-        item["rating_values"].append(_safe_float(row_get(row, "rating", 0)))
-        item["impact_values"].append(_safe_float(row_get(row, "impact", 0)))
-        item["hs_values"].append(_safe_float(row_get(row, "headshot_percentage", 0)))
-        item["swing_values"].append(_safe_float(row_get(row, "damage_delta_per_round", 0)))
-        item["kpr_values"].append(_safe_float(row_get(row, "kpr", 0)))
-        item["dpr_values"].append(_safe_float(row_get(row, "dpr", 0)))
-        item["rws_values"].append(_safe_float(row_get(row, "rws_basic", 0)))
+        weight = max(1, _safe_int(row_get(row, "rounds_played", 0)))
+        for _ in range(weight):
+            item["adr_values"].append(_safe_float(row_get(row, "adr", 0)))
+            item["kast_values"].append(_safe_float(row_get(row, "kast", 0)))
+            item["rating_values"].append(_safe_float(row_get(row, "rating", 0)))
+            item["impact_values"].append(_safe_float(row_get(row, "impact", 0)))
+            item["kpr_values"].append(_safe_float(row_get(row, "kpr", 0)))
+            item["dpr_values"].append(_safe_float(row_get(row, "dpr", 0)))
+            item["rws_values"].append(_safe_float(row_get(row, "rws_basic", 0)))
+        for _ in range(max(1, _safe_int(row_get(row, "kills", 0)))):
+            item["hs_values"].append(_safe_float(row_get(row, "headshot_percentage", 0)))
+        for _ in range(weight):
+            item["swing_values"].append(_safe_float(row_get(row, "damage_delta_per_round", 0)))
         if _safe_float(row_get(row, "t_rating", 0)) or _safe_int(row_get(row, "t_kills", 0)):
             item["t_adr_values"].append(_safe_float(row_get(row, "t_adr", 0)))
             item["t_rating_values"].append(_safe_float(row_get(row, "t_rating", 0)))
@@ -1449,6 +1469,7 @@ def _build_match_detailed_context(match_id):
         FROM match_stats ms
         JOIN players p ON ms.player_id=p.id
         WHERE ms.match_id=?
+          AND COALESCE(ms.data_status, 'final') <> 'superseded'
         ORDER BY ms.map_name, ms.team_id, ms.rating DESC
     """,
         (match_id,),
