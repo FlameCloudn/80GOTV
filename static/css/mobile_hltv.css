@@ -29,6 +29,26 @@
     padding: 0 8px !important;
   }
 
+  body .layout.match-detail-layout {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  body .layout.match-detail-layout .main-col,
+  body .layout.match-detail-layout .side-col {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  body .layout.match-detail-layout .main-col {
+    order: 1;
+  }
+
+  body .layout.match-detail-layout .side-col {
+    order: 2;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
   .h-panel,
   .stats-table,
   .h-table-panel,
