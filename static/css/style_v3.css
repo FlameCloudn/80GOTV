@@ -4780,8 +4780,8 @@ body{background:var(--h-page)}
 .side-rating span{
   font-size:10px;
 }
-.side-t b,.side-t span{color:#f1aa34}
-.side-ct b,.side-ct span{color:#2797ff}
+.player-rating-panel .side-t b,.player-rating-panel .side-t span{color:#f1aa34}
+.player-rating-panel .side-ct b,.player-rating-panel .side-ct span{color:#2797ff}
 .rating-gauge{
   position:relative;
   display:flex;
