@@ -310,6 +310,55 @@ class DatabaseMigrationTests(unittest.TestCase):
         conn.close()
         self.assertIn("match_team_side", columns)
 
+    def test_current_database_gets_match_stats_data_version_columns(self):
+        conn = get_db()
+        conn.executescript(
+            """
+            CREATE TABLE schema_migrations(
+                version INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE TABLE admins(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL
+            );
+            CREATE TABLE match_stats(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                match_id INTEGER,
+                player_id INTEGER,
+                team_id INTEGER,
+                map_name TEXT
+            );
+            INSERT INTO match_stats(match_id, player_id, team_id, map_name)
+            VALUES(1, 10, 100, 'de_mirage'), (1, 10, 100, 'de_mirage');
+            """
+        )
+        conn.execute(
+            "INSERT INTO schema_migrations(version, name) VALUES(?, ?)",
+            (CURRENT_SCHEMA_VERSION, "current_without_live_data_metadata"),
+        )
+        conn.commit()
+        conn.close()
+
+        init_tables()
+
+        conn = get_db()
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(match_stats)").fetchall()}
+        statuses = [
+            row[0] for row in conn.execute("SELECT data_status FROM match_stats ORDER BY id")
+        ]
+        index = conn.execute(
+            "SELECT 1 FROM sqlite_master "
+            "WHERE type='index' AND name='idx_match_stats_match_map_player_current'"
+        ).fetchone()
+        conn.close()
+
+        self.assertTrue({"data_source", "data_status", "data_version"}.issubset(columns))
+        self.assertEqual(statuses, ["superseded", "final"])
+        self.assertIsNotNone(index)
+
     def test_current_database_gets_school_profile_columns(self):
         conn = get_db()
         conn.executescript(
