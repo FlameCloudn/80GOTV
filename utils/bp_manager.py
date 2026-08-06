@@ -2,7 +2,7 @@
 在线 BP (Ban/Pick) 状态管理器
 
 BP 流程:
-  BO1: ban3-ban2-ban1 -> 剩下 1 图
+  BO1: ban2-ban3-ban1 -> 剩下 1 图，由未执行最后一次 Ban 的队伍选边
   BO3: ban1-ban1-pick1-pick1-ban1-ban1 -> 剩下 1 图 (即 3 图: 2 pick + 1 剩)
   BO5: ban1-ban1-pick1-pick1-pick1-pick1 -> 剩下 1 图 (即 5 图: 4 pick + 1 剩)
 
@@ -17,13 +17,13 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 ALL_MAPS = ["Dust2", "Mirage", "Inferno", "Nuke", "Cache", "Ancient", "Anubis"]
-STATE_VERSION = 3
+STATE_VERSION = 4
 TURN_TIME_LIMIT_SECONDS = 3 * 60
 
 FORMAT_STEPS = {
     "BO1": [
-        {"action": "ban", "team": "first", "count": 3},
-        {"action": "ban", "team": "second", "count": 2},
+        {"action": "ban", "team": "first", "count": 2},
+        {"action": "ban", "team": "second", "count": 3},
         {"action": "ban", "team": "first", "count": 1},
     ],
     "BO3": [
@@ -190,6 +190,14 @@ def normalize_bp_state(state):
     state.setdefault("picks", [])
     state.setdefault("map_order", [])
     state.setdefault("rolls", {"t1": None, "t2": None})
+    state.setdefault("sides", {})
+
+    for pick in state["picks"]:
+        if pick.get("picked_by") == "remaining" and bo == "BO1":
+            side_team = pick.get("side_team") or _bo1_remaining_side_team(state)
+            if pick.get("side_team") != side_team:
+                pick["side_team"] = side_team
+                changed = True
 
     if changed:
         action_count = len(state["action_log"])
@@ -320,13 +328,40 @@ def _advance_step(state):
         state["current_step_progress"] = progress
 
 
+def _opposite_team(team):
+    if team == "t1":
+        return "t2"
+    if team == "t2":
+        return "t1"
+    return None
+
+
+def _bo1_remaining_side_team(state):
+    """BO1 最后一张图由未执行最后一次 Ban 的队伍选边。"""
+    if state.get("bo") != "BO1":
+        return None
+    action_log = state.get("action_log") or []
+    last_ban_team = next(
+        (
+            entry.get("team")
+            for entry in reversed(action_log)
+            if entry.get("action") == "ban" and entry.get("team") in {"t1", "t2"}
+        ),
+        None,
+    )
+    return _opposite_team(last_ban_team)
+
+
 def _finish_map_selection(state):
     """加入唯一剩余地图，并进入选边或直接完成。"""
     remaining = list(state["pool"])
     if len(remaining) != 1:
         return False, f"地图数量异常，应剩 1 张，实际剩 {len(remaining)} 张"
 
-    state["picks"].append({"map": remaining[0], "picked_by": "remaining", "side": None})
+    remaining_pick = {"map": remaining[0], "picked_by": "remaining", "side": None}
+    if state.get("bo") == "BO1":
+        remaining_pick["side_team"] = _bo1_remaining_side_team(state)
+    state["picks"].append(remaining_pick)
     state["map_order"] = [pick["map"] for pick in state["picks"]]
     if len(state["map_order"]) != state["total_maps"]:
         return False, (
@@ -335,7 +370,9 @@ def _finish_map_selection(state):
         )
 
     needs_side_selection = any(
-        pick["picked_by"] != "remaining" and pick.get("side") is None for pick in state["picks"]
+        pick.get("side") is None
+        and (pick.get("picked_by") != "remaining" or state.get("bo") == "BO1")
+        for pick in state["picks"]
     )
     state["status"] = "side_select" if needs_side_selection else "completed"
     reset_turn_timer(state)
@@ -435,14 +472,19 @@ def choose_side(state, team, map_name, side):
     if not pick_entry:
         return False, "地图不在选图中"
 
-    if pick_entry["picked_by"] == "remaining":
-        return False, "最后一图无需选边"
-
     if pick_entry["side"] is not None:
         return False, "该图已选过边"
 
-    # 校验选边方必须是选图方的对手
-    opponent = "t2" if pick_entry["picked_by"] == "t1" else "t1"
+    if pick_entry["picked_by"] == "remaining":
+        if state.get("bo") != "BO1":
+            return False, "最后一图无需选边"
+        opponent = pick_entry.get("side_team") or _bo1_remaining_side_team(state)
+        if opponent is None:
+            return False, "无法确定最后一图的选边队伍"
+        pick_entry["side_team"] = opponent
+    else:
+        # 校验选边方必须是选图方的对手
+        opponent = _opposite_team(pick_entry["picked_by"])
     if team != opponent:
         return False, "该图由对方选边"
 
@@ -450,9 +492,14 @@ def choose_side(state, team, map_name, side):
         return False, "无效选边"
 
     pick_entry["side"] = side
+    state.setdefault("sides", {})[map_name] = side
 
-    # 检查是否所有非剩余图都选好边了
-    all_sided = all(p["side"] is not None for p in state["picks"] if p["picked_by"] != "remaining")
+    # BO1 的剩余图也必须选边；BO3/BO5 的决胜图由拼刀字段决定。
+    all_sided = all(
+        p["side"] is not None
+        for p in state["picks"]
+        if p["picked_by"] != "remaining" or state.get("bo") == "BO1"
+    )
     if all_sided:
         state["status"] = "completed"
 
@@ -498,9 +545,15 @@ def get_current_step_info(state):
 
     if state["status"] == "side_select":
         pending = [
-            {"map": p["map"], "picked_by": p["picked_by"]}
+            {
+                "map": p["map"],
+                "picked_by": p["picked_by"],
+                "team": p.get("side_team")
+                if p.get("picked_by") == "remaining"
+                else _opposite_team(p.get("picked_by")),
+            }
             for p in state["picks"]
-            if p["picked_by"] != "remaining" and p["side"] is None
+            if (p["picked_by"] != "remaining" or state.get("bo") == "BO1") and p["side"] is None
         ]
         return {
             "phase": "side_select",

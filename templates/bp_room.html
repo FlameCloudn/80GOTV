@@ -267,12 +267,14 @@ function getOpTeam() {
     if (idx < (bpState.steps||[]).length) return getActingTeam(idx);
   }
   if (bpState.status === 'side_select') {
-    // 侧边选择：返回第一个待选边的队伍的对手
+    // 选边阶段：后端会在 pending 中给出实际选边队伍。
     var picks = bpState.picks || [];
     for (var i = 0; i < picks.length; i++) {
       var p = picks[i];
-      if (p.picked_by !== 'remaining' && !p.side) {
-        return p.picked_by === 't1' ? 't2' : 't1';
+      if (p.picked_by === 'remaining' && bpState.bo !== 'BO1') continue;
+      if (!p.side) {
+        if (p.side_team) return p.side_team;
+        if (p.picked_by !== 'remaining') return p.picked_by === 't1' ? 't2' : 't1';
       }
     }
   }
@@ -532,7 +534,9 @@ function renderStatus() {
       }
     }
   } else if (status === 'side_select') {
-    html = '选边阶段 — 被选图的对手为每张图选择 CT 或 T 起始方';
+    html = bpState.bo === 'BO1'
+      ? '最后地图选边 — 由未执行最后一次 Ban 的队伍选择 CT 或 T 起始方'
+      : '选边阶段 — 被选图的对手为每张图选择 CT 或 T 起始方';
   } else if (status === 'completed') {
     html = '<span style="color:#22c55e">BP 已完成! 地图数据已同步到比赛。</span>';
   }
@@ -618,9 +622,11 @@ function renderActions() {
     var picks = bpState.picks || [];
     for (var i = 0; i < picks.length; i++) {
       var p = picks[i];
-      if (p.picked_by === 'remaining' || p.side) continue;
-      var sideTeam = p.picked_by === 't1' ? 't2' : 't1';
-      html += '<div style="margin-bottom:14px"><b>' + p.map + '</b> — 由 ' + getTeamName(sideTeam) + ' 选边';
+      if (p.picked_by === 'remaining' && bpState.bo !== 'BO1') continue;
+      if (p.side) continue;
+      var sideTeam = p.side_team || (p.picked_by === 't1' ? 't2' : 't1');
+      var sideLabel = p.picked_by === 'remaining' ? '最后地图' : '被选地图';
+      html += '<div style="margin-bottom:14px"><b>' + p.map + '</b> — ' + sideLabel + '，由 ' + getTeamName(sideTeam) + ' 选边';
       if (isAdmin || (isCaptain && myTeam === sideTeam)) {
         html += '<div class="side-btns">';
         html += '<button class="side-btn ct" data-bp-action="choose_side" data-bp-team="' + sideTeam + '" data-bp-map="' + p.map + '" data-bp-side="CT">CT 方</button>';
