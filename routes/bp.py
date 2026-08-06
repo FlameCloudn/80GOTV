@@ -1,14 +1,17 @@
 """Online match Ban/Pick room and APIs."""
 
 import json
-from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
 
 from flask import flash, jsonify, redirect, render_template, request, session, url_for
 
 from models import get_db
 from services.match_service import supplement_temp_teams
-from utils.bp_manager import normalize_bp_state
+from utils.bp_manager import (
+    bp_open_at_timestamp,
+    bp_window_is_open,
+    ensure_bp_started,
+    normalize_bp_state,
+)
 from utils.helpers import is_admin as _helper_is_admin
 from utils.rate_limiter import rate_limit
 from utils.web_helpers import (
@@ -21,22 +24,7 @@ from web_app import app
 
 
 def _bp_window_is_open(match):
-    """Do not expose BP before the 20-minute pre-match window."""
-    if not match or str(match["status"] or "").lower() in {"completed", "cancelled"}:
-        return False
-    raw_time = str(match["match_time"] or "").strip()
-    if not raw_time:
-        return False
-    try:
-        start_at = datetime.fromisoformat(raw_time)
-    except ValueError:
-        return False
-    timezone = ZoneInfo("Asia/Shanghai")
-    if start_at.tzinfo is None:
-        start_at = start_at.replace(tzinfo=timezone)
-    else:
-        start_at = start_at.astimezone(timezone)
-    return datetime.now(timezone) >= start_at - timedelta(minutes=20)
+    return bool(match and bp_window_is_open(match["match_time"], match["status"]))
 
 
 def _load_player_ids(raw_value):
@@ -70,6 +58,78 @@ def _get_current_player_team(conn, match):
         "SELECT id, team_id FROM players WHERE steam_id=?", (user["steam_id64"],)
     ).fetchone()
     return _get_player_team(player, match) if player else None
+
+
+def _match_team_captain_user_id(conn, match, team):
+    """Return the registered captain for a match side.
+
+    Event registrations are authoritative. For older matches without a direct
+    registration link, the first player in the stored roster is used only as a
+    compatibility fallback when that player's Steam account is linked.
+    """
+    if team not in {"t1", "t2"}:
+        return None
+    prefix = "team1" if team == "t1" else "team2"
+    team_name = str(match[f"{prefix}_name"] or "").strip()
+    event_id = match["event_id"]
+    player_ids = _load_player_ids(match[f"{prefix}_players"])
+    if event_id and player_ids:
+        placeholders = ",".join("?" for _ in player_ids)
+        steam_rows = conn.execute(
+            f"SELECT steam_id FROM players WHERE id IN ({placeholders})",
+            player_ids,
+        ).fetchall()
+        match_steam_ids = {
+            str(row["steam_id"] or "").strip()
+            for row in steam_rows
+            if str(row["steam_id"] or "").strip()
+        }
+        if match_steam_ids:
+            registration_rows = conn.execute(
+                """SELECT r.creator_user_id, s.steam_id
+                   FROM event_registrations r
+                   JOIN event_registration_slots s ON s.registration_id=r.id
+                   WHERE r.event_id=? AND r.status='pending'""",
+                (event_id,),
+            ).fetchall()
+            overlap = {}
+            for row in registration_rows:
+                steam_id = str(row["steam_id"] or "").strip()
+                if steam_id in match_steam_ids and row["creator_user_id"]:
+                    overlap[int(row["creator_user_id"])] = (
+                        overlap.get(int(row["creator_user_id"]), 0) + 1
+                    )
+            if overlap:
+                return max(overlap, key=lambda creator_id: overlap[creator_id])
+    if event_id and team_name:
+        row = conn.execute(
+            """SELECT creator_user_id
+               FROM event_registrations
+               WHERE event_id=? AND status='pending'
+                 AND lower(trim(team_name))=lower(trim(?))
+               ORDER BY id LIMIT 1""",
+            (event_id, team_name),
+        ).fetchone()
+        if row and row["creator_user_id"]:
+            return int(row["creator_user_id"])
+
+    if not player_ids:
+        return None
+    row = conn.execute(
+        """SELECT u.id
+           FROM players p
+           JOIN users u ON u.steam_id64=p.steam_id
+           WHERE p.id=?
+           ORDER BY u.id LIMIT 1""",
+        (player_ids[0],),
+    ).fetchone()
+    return int(row["id"]) if row else None
+
+
+def _current_user_is_captain(conn, match, team):
+    user_id = session.get("user_id")
+    captain_id = _match_team_captain_user_id(conn, match, team)
+    return bool(user_id and captain_id and int(user_id) == captain_id)
 
 
 def _load_bp_state(raw_state):
@@ -111,10 +171,6 @@ def bp_room(match_id):
         flash("比赛不存在", "error")
         return redirect(url_for("user_profile"))
     match = supplement_temp_teams(match)
-    if not is_admin and not _bp_window_is_open(match):
-        conn.close()
-        flash("BP 暂未开始，将在开赛前 20 分钟开放", "info")
-        return redirect(url_for("match_detail", slug=match["slug"] or match_id))
 
     team1_name = match["team1_name"]
     team2_name = match["team2_name"]
@@ -185,10 +241,15 @@ def bp_room(match_id):
         return redirect(url_for("user_profile"))
 
     bp_verified = session.get(f"bp_verified_{match_id}") or is_admin
+    bp_window_open = _bp_window_is_open(match)
+    bp_state = None
+    if bp_window_open:
+        bp_state, state_changed = ensure_bp_started(conn, match)
+        if state_changed:
+            conn.commit()
 
     # 未验证密码时不把 BP 过程发到浏览器。
-    bp_state = None
-    if (bp_verified or not match["bp_password"]) and match["bp_state"]:
+    if (bp_verified or not match["bp_password"]) and bp_state is None and match["bp_state"]:
         bp_state, state_changed = _load_bp_state(match["bp_state"])
         if state_changed:
             conn.execute(
@@ -196,6 +257,14 @@ def bp_room(match_id):
                 (json.dumps(bp_state, ensure_ascii=False), match_id),
             )
             conn.commit()
+    if match["bp_password"] and not bp_verified:
+        bp_state = None
+
+    captain_team = None
+    if my_team and _current_user_is_captain(conn, match, my_team):
+        captain_team = my_team
+    is_captain = bool(captain_team)
+    bp_start_timestamp = bp_open_at_timestamp(match["match_time"])
 
     conn.close()
     resp = app.make_response(
@@ -209,6 +278,10 @@ def bp_room(match_id):
             team1_name=team1_name,
             team2_name=team2_name,
             is_admin=is_admin,
+            is_captain=is_captain,
+            captain_team=captain_team,
+            bp_window_open=bp_window_open,
+            bp_start_timestamp=bp_start_timestamp,
         )
     )
     resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
@@ -276,9 +349,9 @@ def bp_api_state(match_id):
     conn = get_db()
     match = conn.execute("SELECT * FROM matches WHERE id=?", (match_id,)).fetchone()
 
-    if not match or not match["bp_state"]:
+    if not match:
         conn.close()
-        return jsonify({"ok": False, "msg": "BP 未开始"})
+        return jsonify({"ok": False, "msg": "比赛不存在"}), 404
     if not is_admin:
         if not _get_current_player_team(conn, match):
             conn.close()
@@ -286,25 +359,36 @@ def bp_api_state(match_id):
         if match["bp_password"] and not session.get(f"bp_verified_{match_id}"):
             conn.close()
             return jsonify({"ok": False, "msg": "请先验证 BP 密码"}), 403
-    conn.close()
-
-    state, state_changed = _load_bp_state(match["bp_state"])
-    if state is None:
-        return jsonify({"ok": False, "msg": "BP 状态数据异常"})
-
+    state, state_changed = ensure_bp_started(conn, match)
     if state_changed:
-        conn = get_db()
-        conn.execute(
-            "UPDATE matches SET bp_state=? WHERE id=?",
-            (json.dumps(state, ensure_ascii=False), match_id),
-        )
         conn.commit()
+    if state is None:
+        starts_at = bp_open_at_timestamp(match["match_time"])
         conn.close()
+        return jsonify(
+            {
+                "ok": True,
+                "state": None,
+                "status": "waiting",
+                "bp_window_open": False,
+                "bp_start_timestamp": starts_at,
+            }
+        )
+    conn.close()
 
     from utils.bp_manager import get_current_step_info
 
     info = get_current_step_info(state)
-    return jsonify({"ok": True, "state": state, "info": info})
+    window_open = bp_window_is_open(match["match_time"], match["status"])
+    return jsonify(
+        {
+            "ok": True,
+            "state": state,
+            "info": info,
+            "bp_window_open": window_open,
+            "bp_start_timestamp": bp_open_at_timestamp(match["match_time"]),
+        }
+    )
 
 
 @app.route("/api/bp/<int:match_id>/action", methods=["POST"])
@@ -337,6 +421,9 @@ def bp_api_action(match_id):
     if not match:
         conn.close()
         return jsonify({"ok": False, "msg": "比赛不存在"})
+    if not bp_window_is_open(match["match_time"], match["status"]):
+        conn.close()
+        return jsonify({"ok": False, "msg": "BP 将在开赛前 20 分钟自动开始"}), 403
     if match["bp_password"] and not session.get(f"bp_verified_{match_id}") and not is_admin:
         conn.close()
         return jsonify({"ok": False, "msg": "请先验证 BP 密码"}), 403
@@ -347,7 +434,12 @@ def bp_api_action(match_id):
         if player_team is None:
             conn.close()
             return jsonify({"ok": False, "msg": "你未参加该比赛"})
-        if action != "start" and team != player_team:
+        if not _current_user_is_captain(conn, match, player_team):
+            conn.close()
+            return jsonify({"ok": False, "msg": "只有报名队长可以参与 BP"}), 403
+        if action == "start":
+            team = player_team
+        elif team != player_team:
             conn.close()
             return jsonify({"ok": False, "msg": "不能操作对方队伍"})
 
@@ -363,9 +455,9 @@ def bp_api_action(match_id):
         set_first_choice,
     )
 
-    bp_state = None
-    if match["bp_state"]:
-        bp_state, _ = _load_bp_state(match["bp_state"])
+    bp_state, state_changed = ensure_bp_started(conn, match)
+    if state_changed:
+        conn.commit()
 
     if bp_state is None and action == "start":
         try:
