@@ -322,12 +322,17 @@ def import_demo_data(conn, match_id, match, demo_data_str, map_slot):
             elif stat.get("team_letter") == "B":
                 demo_b_db_ids.add(db_p["id"])
 
-    a_to_t1 = True
-    if demo_a_db_ids and (t1_pids_set or t2_pids_set):
-        a_in_t1 = len(demo_a_db_ids & t1_pids_set)
-        a_in_t2 = len(demo_a_db_ids & t2_pids_set)
-        if a_in_t2 > a_in_t1:
-            a_to_t1 = False
+    a_to_t1 = _infer_demo_team_order(
+        info,
+        match,
+        demo_a_db_ids,
+        demo_b_db_ids,
+        db_players,
+        t1_pids_set,
+        t2_pids_set,
+        t1_key,
+        t2_key,
+    )
     demo_to_match_team = {
         "A": t1_key if a_to_t1 else t2_key,
         "B": t2_key if a_to_t1 else t1_key,
@@ -421,6 +426,69 @@ def _match_player_from_db(stat, db_players, alias_player_ids=None):
     if alias_player_id:
         return next((db_p for db_p in db_players if db_p["id"] == alias_player_id), None)
     return None
+
+
+def _normalise_team_name(value):
+    """用稳定的字母数字串比较 Demo 和网站里的队名。"""
+    return "".join(ch.casefold() for ch in str(value or "") if ch.isalnum())
+
+
+def _team_name_matches(left, right):
+    left_key = _normalise_team_name(left)
+    right_key = _normalise_team_name(right)
+    return bool(
+        left_key
+        and right_key
+        and (left_key == right_key or left_key in right_key or right_key in left_key)
+    )
+
+
+def _infer_demo_team_order(
+    info,
+    match,
+    demo_a_db_ids,
+    demo_b_db_ids,
+    db_players,
+    t1_pids_set,
+    t2_pids_set,
+    t1_key,
+    t2_key,
+):
+    """把 Demo 的 A/B 队映射到比赛的固定左右队伍，避免顺序被 Demo 反转。"""
+    demo_a_name = info.get("team_a_name", "")
+    demo_b_name = info.get("team_b_name", "")
+    match_t1_name = row_get(match, "team1_name", "")
+    match_t2_name = row_get(match, "team2_name", "")
+
+    if _team_name_matches(demo_a_name, match_t1_name) or _team_name_matches(
+        demo_b_name, match_t2_name
+    ):
+        return True
+    if _team_name_matches(demo_a_name, match_t2_name) or _team_name_matches(
+        demo_b_name, match_t1_name
+    ):
+        return False
+
+    db_by_id = {row["id"]: row for row in db_players}
+    a_in_t1 = sum(
+        1
+        for player_id in demo_a_db_ids
+        if db_by_id.get(player_id) is not None and db_by_id[player_id]["team_id"] == t1_key
+    )
+    a_in_t2 = sum(
+        1
+        for player_id in demo_a_db_ids
+        if db_by_id.get(player_id) is not None and db_by_id[player_id]["team_id"] == t2_key
+    )
+    if a_in_t1 != a_in_t2 and (a_in_t1 or a_in_t2):
+        return a_in_t1 > a_in_t2
+
+    # 最后才使用比赛中手工固定的选手列表，兼容旧比赛。
+    a_in_t1 = len(demo_a_db_ids & t1_pids_set)
+    a_in_t2 = len(demo_a_db_ids & t2_pids_set)
+    if a_in_t1 != a_in_t2 and (a_in_t1 or a_in_t2):
+        return a_in_t1 > a_in_t2
+    return True
 
 
 def insert_match_stat(conn, match_id, player_id, team_id, match_team_side, stat, map_name):
