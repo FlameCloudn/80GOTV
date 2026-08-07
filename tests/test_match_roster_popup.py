@@ -55,6 +55,16 @@ class MatchRosterPopupTests(unittest.TestCase):
                VALUES(?,?,?,?, 'reserve')""",
             (event_id, user_id, "SubOne", "888"),
         )
+        standby_user_id = conn.execute(
+            "INSERT INTO users(username, password_hash, steam_id64) VALUES('standby','x','777')"
+        ).lastrowid
+        conn.execute("INSERT INTO players(nickname, steam_id) VALUES('Standby','666')")
+        conn.execute(
+            """INSERT INTO event_individual_registrations
+               (event_id, user_id, player_name, steam_id, assignment_status)
+               VALUES(?,?,?,?, 'reserve')""",
+            (event_id, standby_user_id, "Standby", "666"),
+        )
         roster1 = players1[:4] + [sub_player_id]
         self.match_id = conn.execute(
             """INSERT INTO matches(event_id, team1_id, team2_id, team1_players, team2_players,
@@ -92,6 +102,7 @@ class MatchRosterPopupTests(unittest.TestCase):
         self.assertIn("match-team-players-popup", html)
         self.assertIn("（替补）", html)
         self.assertIn("SubOne", html)
+        self.assertNotIn("Standby", html)
         for name in ("A1", "A2", "A3", "A4", "B1", "B5"):
             self.assertIn(name, html)
 

@@ -74,16 +74,6 @@
         <span>{{ pname }}{% if p.role == 'substitute' %}（替补）{% endif %}</span>
       </a>
       {% endfor %}
-      {% if team1_extra_subs %}
-      <div class="match-pop-divider">替补</div>
-      {% for p in team1_extra_subs %}
-      {% set pname = private_name_for_player(p.id, p.nickname) %}
-      <a class="match-player-link" href="/players/{{ p.id }}">
-        {% if p.avatar %}<img class="match-player-avatar" src="{{ p.avatar }}" alt="" loading="lazy">{% else %}<span class="match-player-avatar match-player-avatar-fallback" aria-hidden="true">{{ pname[:1]|upper }}</span>{% endif %}
-        <span>{{ pname }}（替补）</span>
-      </a>
-      {% endfor %}
-      {% endif %}
     </div>
     {% endif %}
     </div>
@@ -125,16 +115,6 @@
         <span>{{ pname }}{% if p.role == 'substitute' %}（替补）{% endif %}</span>
       </a>
       {% endfor %}
-      {% if team2_extra_subs %}
-      <div class="match-pop-divider">替补</div>
-      {% for p in team2_extra_subs %}
-      {% set pname = private_name_for_player(p.id, p.nickname) %}
-      <a class="match-player-link" href="/players/{{ p.id }}">
-        {% if p.avatar %}<img class="match-player-avatar" src="{{ p.avatar }}" alt="" loading="lazy">{% else %}<span class="match-player-avatar match-player-avatar-fallback" aria-hidden="true">{{ pname[:1]|upper }}</span>{% endif %}
-        <span>{{ pname }}（替补）</span>
-      </a>
-      {% endfor %}
-      {% endif %}
     </div>
     {% endif %}
     </div>
