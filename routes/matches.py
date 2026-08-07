@@ -351,6 +351,38 @@ def _render_match_detail(match_id):
             (match_id, t1_id, t2_id, t2_id, t1_id),
         ).fetchall()
 
+    # 队伍名单 + 替补（队标悬停浮窗用）
+    from routes.broadcast import _event_substitutes, _team_players
+
+    roster_subs = []
+    if match.get("event_id"):
+        roster_subs = _event_substitutes(conn, match["event_id"])
+
+    def _roster_with_subs(side):
+        if not (match.get(f"team{side}_id") or match.get(f"team{side}_players")):
+            return [], []
+        roster = _team_players(conn, match, side)
+        roster_ids = set()
+        for p in roster:
+            try:
+                pid = int(p.get("id") or 0)
+            except (TypeError, ValueError):
+                pid = 0
+            if pid > 0:
+                roster_ids.add(pid)
+        extras = []
+        for p in roster_subs:
+            try:
+                pid = int(p.get("id") or 0)
+            except (TypeError, ValueError):
+                pid = 0
+            if pid <= 0 or pid not in roster_ids:
+                extras.append(p)
+        return roster, extras
+
+    team1_roster, team1_extra_subs = _roster_with_subs(1)
+    team2_roster, team2_extra_subs = _roster_with_subs(2)
+
     conn.close()
 
     # 每图比分 + 分图 stats（按队伍分好）
@@ -801,6 +833,10 @@ def _render_match_detail(match_id):
         watch_urls=watch_urls,
         vote_data=vote_data,
         h2h_matches=h2h_matches,
+        team1_roster=team1_roster,
+        team2_roster=team2_roster,
+        team1_extra_subs=team1_extra_subs,
+        team2_extra_subs=team2_extra_subs,
     )
 
 
