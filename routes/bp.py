@@ -672,6 +672,16 @@ def bp_api_release_seat(match_id):
     if not match:
         conn.close()
         return jsonify({"ok": False, "msg": "比赛不存在"}), 404
+    if str(match["status"] or "") in ("completed", "cancelled"):
+        conn.close()
+        return jsonify({"ok": False, "msg": "比赛已结束，不能撤销 BP"}), 409
+    played = any(
+        int(match[f"map{slot}_t1"] or 0) > 0 or int(match[f"map{slot}_t2"] or 0) > 0
+        for slot in range(1, 6)
+    )
+    if played:
+        conn.close()
+        return jsonify({"ok": False, "msg": "比赛已产生比分，不能撤销 BP"}), 409
     state, _ = ensure_bp_started(conn, match)
     if state is None:
         conn.close()
@@ -733,6 +743,32 @@ def bp_api_undo(match_id):
     restored["state_history"] = history[:-steps_back]
     restored["audit_log"] = audit
     restored["revision"] = int(state.get("revision", 0)) + 1
+    was_completed = str(state.get("status") or "") == "completed"
+    if was_completed and str(restored.get("status") or "") != "completed":
+        bo = str(restored.get("bo") or "BO3").upper()
+        updates: dict[str, object] = {
+            "map1": None,
+            "map2": None,
+            "map3": None,
+            "map4": None,
+            "map5": None,
+            "map1_picked_by": None,
+            "map2_picked_by": None,
+            "map3_picked_by": None,
+            "map4_picked_by": None,
+            "map5_picked_by": None,
+            "bp_process": None,
+        }
+        bo3 = bo in ("BO3", "BO5")
+        bo5 = bo == "BO5"
+        updates["has_map3"] = 1 if bo3 else 0
+        updates["has_map4"] = 1 if bo5 else 0
+        updates["has_map5"] = 1 if bo5 else 0
+        set_clause = ", ".join(f"{key}=?" for key in updates)
+        conn.execute(
+            f"UPDATE matches SET {set_clause} WHERE id=?",
+            (*updates.values(), match_id),
+        )
     conn.execute(
         "UPDATE matches SET bp_state=? WHERE id=?",
         (json.dumps(restored, ensure_ascii=False), match_id),
