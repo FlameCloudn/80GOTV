@@ -1125,8 +1125,8 @@ def api_front_predictions():
     """).fetchall()
     upcoming = conn.execute("""
         SELECT m.id, m.match_time, m.bo_format,
-               COALESCE(t1.name, 'Team 1') AS team1_name,
-               COALESCE(t2.name, 'Team 2') AS team2_name,
+               COALESCE(t1.name, 'TBD') AS team1_name,
+               COALESCE(t2.name, 'TBD') AS team2_name,
                e.name AS event_name,
                COUNT(v.id) AS vote_count,
                SUM(CASE WHEN v.voted_for='t1' THEN 1 ELSE 0 END) AS t1_votes,

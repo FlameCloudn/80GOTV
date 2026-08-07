@@ -335,14 +335,14 @@
 </main>
 </div>
 <script>
-const mdText = `**{{ match.team1_name or 'TEAM 1' }} {{ match.team1_score }}-{{ match.team2_score }} {{ match.team2_name or 'TEAM 2' }}**{% if match.event_name %} ({{ match.bo_format or 'BO3' }} · {{ match.event_name }}){% endif %}
+const mdText = `**{{ match.team1_name or 'TBD' }} {{ match.team1_score }}-{{ match.team2_score }} {{ match.team2_name or 'TBD' }}**{% if match.event_name %} ({{ match.bo_format or 'BO3' }} · {{ match.event_name }}){% endif %}
 {% for mr in map_reports %}{% if mr.played %}
-- Map{{ mr.idx }} {{ mr.name }}: {{ match.team1_name or 'TEAM 1' }} {{ mr.t1 }}-{{ mr.t2 }} {{ match.team2_name or 'TEAM 2' }}{% endif %}{% endfor %}
+- Map{{ mr.idx }} {{ mr.name }}: {{ match.team1_name or 'TBD' }} {{ mr.t1 }}-{{ mr.t2 }} {{ match.team2_name or 'TBD' }}{% endif %}{% endfor %}
 {% if mvp %}MVP: {{ private_name_for_player(mvp.player_id, mvp.nickname) }} (RATING {{ mvp.rating }} | {{ mvp.kills }}-{{ mvp.deaths }} K/D | ADR {{ mvp.adr }}){% endif %}
 `;
 
-const bbText = `[b]{{ match.team1_name or 'TEAM 1' }} {{ match.team1_score }}-{{ match.team2_score }} {{ match.team2_name or 'TEAM 2' }}[/b]{% if match.event_name %} ({{ match.bo_format or 'BO3' }} · {{ match.event_name }}){% endif %}\n{% for mr in map_reports %}{% if mr.played %}
-[*] Map{{ mr.idx }} {{ mr.name }}: {{ match.team1_name or 'TEAM 1' }} {{ mr.t1 }}-{{ mr.t2 }} {{ match.team2_name or 'TEAM 2' }}{% endif %}{% endfor %}\n{% if mvp %}[b]MVP: {{ private_name_for_player(mvp.player_id, mvp.nickname) }}[/b] (RATING {{ mvp.rating }} | {{ mvp.kills }}-{{ mvp.deaths }} K/D | ADR {{ mvp.adr }}){% endif %}
+const bbText = `[b]{{ match.team1_name or 'TBD' }} {{ match.team1_score }}-{{ match.team2_score }} {{ match.team2_name or 'TBD' }}[/b]{% if match.event_name %} ({{ match.bo_format or 'BO3' }} · {{ match.event_name }}){% endif %}\n{% for mr in map_reports %}{% if mr.played %}
+[*] Map{{ mr.idx }} {{ mr.name }}: {{ match.team1_name or 'TBD' }} {{ mr.t1 }}-{{ mr.t2 }} {{ match.team2_name or 'TBD' }}{% endif %}{% endfor %}\n{% if mvp %}[b]MVP: {{ private_name_for_player(mvp.player_id, mvp.nickname) }}[/b] (RATING {{ mvp.rating }} | {{ mvp.kills }}-{{ mvp.deaths }} K/D | ADR {{ mvp.adr }}){% endif %}
 `;
 
 async function copyMarkdown() { await navigator.clipboard.writeText(mdText); showToast(); }

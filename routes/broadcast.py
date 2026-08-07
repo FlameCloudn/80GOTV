@@ -417,7 +417,17 @@ def api_broadcast_matches():
         LIMIT 100
         """
     ).fetchall()
-    matches = [_match_payload(row, conn) for row in rows]
+    matches = []
+    for row in rows:
+        payload = _match_payload(row, conn)
+        # 只有“空名单凑出来的临时队名”才过滤（例如旧测试比赛 #5）；
+        # 真实临时队伍（带选手名单的 TEAM 1 / TEAM 2）必须保留。
+        temp_names = ("TEAM 1", "TEAM 2")
+        if (payload["team1"]["name"] in temp_names and not payload["team1"]["players"]) or (
+            payload["team2"]["name"] in temp_names and not payload["team2"]["players"]
+        ):
+            continue
+        matches.append(payload)
     conn.close()
     return _broadcast_response(
         {

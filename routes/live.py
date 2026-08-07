@@ -506,7 +506,7 @@ def api_live_match(match_id):
         team2_side = identity_side.get("team2")
         result["team1"] = {
             "name": row["scheduled_team1_name"]
-            or (side_data[team1_side].get("name") if team1_side else "Team 1"),
+            or (side_data[team1_side].get("name") if team1_side else "TBD"),
             "score": side_data[team1_side].get("score") if team1_side else None,
             "side": team1_side,
             "timeouts_remaining": side_data[team1_side].get("timeouts_remaining", 0)
@@ -515,7 +515,7 @@ def api_live_match(match_id):
         }
         result["team2"] = {
             "name": row["scheduled_team2_name"]
-            or (side_data[team2_side].get("name") if team2_side else "Team 2"),
+            or (side_data[team2_side].get("name") if team2_side else "TBD"),
             "score": side_data[team2_side].get("score") if team2_side else None,
             "side": team2_side,
             "timeouts_remaining": side_data[team2_side].get("timeouts_remaining", 0)
@@ -534,11 +534,11 @@ def api_live_match(match_id):
         result["map_name"] = gotv.get("map_name", "")
         result["round"] = gotv.get("rounds_count", 0)
         result["team1"] = {
-            "name": gotv.get("team1_name", "Team 1"),
+            "name": gotv.get("team1_name", "TBD"),
             "score": gotv.get("team1_score", 0),
         }
         result["team2"] = {
-            "name": gotv.get("team2_name", "Team 2"),
+            "name": gotv.get("team2_name", "TBD"),
             "score": gotv.get("team2_score", 0),
         }
         gotv_profiles = _load_live_player_profiles(
