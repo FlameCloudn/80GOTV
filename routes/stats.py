@@ -424,8 +424,8 @@ def _pistol_rounds(filters, limit=100):
         match_teams = {}
         for mrow in conn.execute("""
             SELECT m.id, m.team1_id, m.team2_id,
-                   COALESCE(t1.name, t1.short_name, 'Team 1') AS t1_name,
-                   COALESCE(t2.name, t2.short_name, 'Team 2') AS t2_name,
+                   COALESCE(t1.name, t1.short_name, 'TBD') AS t1_name,
+                   COALESCE(t2.name, t2.short_name, 'TBD') AS t2_name,
                    t1.logo AS t1_logo, t2.logo AS t2_logo
             FROM matches m
             LEFT JOIN teams t1 ON m.team1_id=t1.id
@@ -506,9 +506,9 @@ def _pistol_rounds(filters, limit=100):
 
         t1_id = mt.get("team1_id", -1)
         t2_id = mt.get("team2_id", -2)
-        t1_name = mt.get("t1_name", "Team 1")
+        t1_name = mt.get("t1_name", "TBD")
         t1_logo = mt.get("t1_logo", "")
-        t2_name = mt.get("t2_name", "Team 2")
+        t2_name = mt.get("t2_name", "TBD")
         t2_logo = mt.get("t2_logo", "")
 
         def _team_key(is_t1):
@@ -812,8 +812,8 @@ def _top_teams(conn, filters, limit=8):
         SELECT
                MIN(CASE WHEN ms.team_id > 0 THEN t.id END) AS id,
                CASE
-                 WHEN ms.team_id = -1 THEN COALESCE(t1.name, t1.short_name, 'Team 1')
-                 WHEN ms.team_id = -2 THEN COALESCE(t2.name, t2.short_name, 'Team 2')
+                 WHEN ms.team_id = -1 THEN COALESCE(t1.name, t1.short_name, 'TBD')
+                 WHEN ms.team_id = -2 THEN COALESCE(t2.name, t2.short_name, 'TBD')
                  ELSE COALESCE(t.name, 'Team')
                END AS name,
                CASE
@@ -993,7 +993,7 @@ def _overview_context(conn, filters):
     """).fetchone()
     overview["recent_matches"] = conn.execute("""
         SELECT m.*, t1.short_name AS t1s, t2.short_name AS t2s,
-               COALESCE(t1.name,'Team 1') AS t1n, COALESCE(t2.name,'Team 2') AS t2n,
+               COALESCE(t1.name,'TBD') AS t1n, COALESCE(t2.name,'TBD') AS t2n,
                e.name AS event_name
         FROM matches m
         LEFT JOIN teams t1 ON m.team1_id=t1.id
@@ -1130,8 +1130,8 @@ def _match_statistics(conn, filters, limit=100):
         f"""
         SELECT m.id, m.slug, m.match_time, m.bo_format, m.stage,
                m.team1_score, m.team2_score,
-               COALESCE(t1.short_name, t1.name, 'Team 1') AS team1_name,
-               COALESCE(t2.short_name, t2.name, 'Team 2') AS team2_name,
+               COALESCE(t1.short_name, t1.name, 'TBD') AS team1_name,
+               COALESCE(t2.short_name, t2.name, 'TBD') AS team2_name,
                t1.logo AS team1_logo, t2.logo AS team2_logo,
                e.id AS event_id, e.slug AS event_slug, e.name AS event_name,
                (SELECT COUNT(DISTINCT counted_ms.map_name)
@@ -1410,8 +1410,8 @@ def predictions_page():
     # 即将进行的比赛。没有人投票的比赛也要显示，否则用户看不到入口。
     upcoming_matches = conn.execute("""
         SELECT m.id, m.slug, m.match_time, m.bo_format,
-               COALESCE(t1.name, 'Team 1') AS team1_name,
-               COALESCE(t2.name, 'Team 2') AS team2_name,
+               COALESCE(t1.name, 'TBD') AS team1_name,
+               COALESCE(t2.name, 'TBD') AS team2_name,
                e.name AS event_name,
                COUNT(v.id) AS vote_count,
                SUM(CASE WHEN v.voted_for = 't1' THEN 1 ELSE 0 END) AS t1_votes,

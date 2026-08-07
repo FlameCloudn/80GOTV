@@ -12,7 +12,7 @@ from utils.web_helpers import admin_required as login_required
 from utils.web_helpers import csrf_required
 
 RECENT_MATCHES_SQL = """SELECT m.id, m.match_time, t1.short_name as t1s, t2.short_name as t2s,
-    COALESCE(t1.name,'Team 1') as t1n, COALESCE(t2.name,'Team 2') as t2n, m.team1_score, m.team2_score, e.name as event_name
+    COALESCE(t1.name,'TBD') as t1n, COALESCE(t2.name,'TBD') as t2n, m.team1_score, m.team2_score, e.name as event_name
     FROM matches m LEFT JOIN teams t1 ON m.team1_id=t1.id LEFT JOIN teams t2 ON m.team2_id=t2.id
     LEFT JOIN events e ON m.event_id=e.id ORDER BY m.match_time DESC LIMIT 100"""
 

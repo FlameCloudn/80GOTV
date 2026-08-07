@@ -50,7 +50,7 @@ def news_detail(news_id):
         related_match = conn.execute(
             """
             SELECT m.*, t1.short_name as t1s, t2.short_name as t2s,
-                   COALESCE(t1.name, 'Team 1') as t1n, COALESCE(t2.name, 'Team 2') as t2n,
+                   COALESCE(t1.name, 'TBD') as t1n, COALESCE(t2.name, 'TBD') as t2n,
                    e.name as event_name
             FROM matches m
             LEFT JOIN teams t1 ON m.team1_id = t1.id
