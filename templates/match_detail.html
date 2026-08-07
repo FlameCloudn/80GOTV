@@ -2,6 +2,20 @@
 {% block title %}{{ match.team1_name }} vs {{ match.team2_name }} - 80GOTV{% endblock %}
 {% block layout_class %}match-detail-layout{% endblock %}
 {% block main %}
+<style>
+  .match-team-pop{position:relative;display:inline-flex;align-items:center}
+  .match-team-players-popup{position:absolute;top:calc(100% + 10px);left:50%;transform:translateX(-50%);z-index:120;display:flex;flex-direction:column;min-width:180px;max-width:min(280px,calc(100vw - 20px));padding:6px 0;background:var(--bg-card,#fff);border:1px solid var(--border-color,#cfd6dd);border-radius:0;box-shadow:0 8px 22px rgba(15,23,30,.18);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .15s,visibility .15s}
+  .match-team-pop.left .match-team-players-popup{left:0;transform:none}
+  .match-team-pop.right .match-team-players-popup{left:auto;right:0;transform:none}
+  .match-team-pop:hover .match-team-players-popup,.match-team-pop:focus-within .match-team-players-popup{opacity:1;visibility:visible;pointer-events:auto}
+  .match-pop-team-name{padding:5px 12px 7px;margin-bottom:4px;border-bottom:1px solid var(--border-color,#e2e7ec);color:var(--text-primary,#1b2530);font-size:12px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .match-player-link{display:flex;align-items:center;gap:8px;padding:5px 12px;color:var(--text-primary,#1b2530);text-decoration:none;font-size:13px;white-space:nowrap;transition:background .1s}
+  .match-player-link:hover{background:var(--bg-hover,#eef2f6);color:var(--text-link,#2f78a8)}
+  .match-player-avatar{width:22px;height:22px;flex:0 0 22px;border-radius:0;object-fit:cover;background:#e3e9ef}
+  .match-player-avatar-fallback{display:inline-flex;align-items:center;justify-content:center;font-weight:700;color:var(--text-muted,#6b7683)}
+  .match-pop-divider{padding:4px 12px 2px;color:var(--text-muted,#6b7683);font-size:10px;font-weight:800}
+  @media(max-width:680px){.match-team-players-popup{min-width:150px;max-width:200px}.match-player-link{font-size:12px}}
+</style>
 {% set shown_map_scores = map_scores|selectattr('display')|list %}
 {% set detail_map_scores = map_scores|rejectattr('name', 'equalto', 'TBA')|list %}
 {% set bo_upper = (match.bo_format or 'BO1')|upper %}
@@ -44,11 +58,35 @@
 {% set has_score = match.effective_status in ('live', 'completed') and match.team1_score is not none and match.team2_score is not none %}
 <div class="mh-banner">
   <div class="mh-team mh-team-left">
+    <div class="match-team-pop left">
     {% if match.t1_logo %}
     <img class="mh-logo" src="{{ url_for('static', filename='uploads/' + match.t1_logo) }}" alt="{{ match.team1_name }}" loading="lazy">
     {% else %}
     <span class="mh-logo mh-logo-fallback" data-i18n-ignore>{{ match.t1s[:2] }}</span>
     {% endif %}
+    {% if team1_roster %}
+    <div class="match-team-players-popup">
+      <div class="match-pop-team-name" data-i18n-ignore>{{ match.team1_name }}</div>
+      {% for p in team1_roster %}
+      {% set pname = private_name_for_player(p.id, p.nickname) %}
+      <a class="match-player-link" href="/players/{{ p.id }}">
+        {% if p.avatar %}<img class="match-player-avatar" src="{{ p.avatar }}" alt="" loading="lazy">{% else %}<span class="match-player-avatar match-player-avatar-fallback" aria-hidden="true">{{ pname[:1]|upper }}</span>{% endif %}
+        <span>{{ pname }}{% if p.role == 'substitute' %}（替补）{% endif %}</span>
+      </a>
+      {% endfor %}
+      {% if team1_extra_subs %}
+      <div class="match-pop-divider">替补</div>
+      {% for p in team1_extra_subs %}
+      {% set pname = private_name_for_player(p.id, p.nickname) %}
+      <a class="match-player-link" href="/players/{{ p.id }}">
+        {% if p.avatar %}<img class="match-player-avatar" src="{{ p.avatar }}" alt="" loading="lazy">{% else %}<span class="match-player-avatar match-player-avatar-fallback" aria-hidden="true">{{ pname[:1]|upper }}</span>{% endif %}
+        <span>{{ pname }}（替补）</span>
+      </a>
+      {% endfor %}
+      {% endif %}
+    </div>
+    {% endif %}
+    </div>
     <div class="mh-team-name" data-i18n-ignore>{{ match.team1_name }}</div>
     {% if has_score %}
     <div class="mh-team-score {% if match.team1_score > match.team2_score %}won{% elif match.team1_score < match.team2_score %}lost{% endif %}">{{ match.team1_score }}</div>
@@ -71,11 +109,35 @@
     </div>
   </div>
   <div class="mh-team mh-team-right">
+    <div class="match-team-pop right">
     {% if match.t2_logo %}
     <img class="mh-logo" src="{{ url_for('static', filename='uploads/' + match.t2_logo) }}" alt="{{ match.team2_name }}" loading="lazy">
     {% else %}
     <span class="mh-logo mh-logo-fallback" data-i18n-ignore>{{ match.t2s[:2] }}</span>
     {% endif %}
+    {% if team2_roster %}
+    <div class="match-team-players-popup">
+      <div class="match-pop-team-name" data-i18n-ignore>{{ match.team2_name }}</div>
+      {% for p in team2_roster %}
+      {% set pname = private_name_for_player(p.id, p.nickname) %}
+      <a class="match-player-link" href="/players/{{ p.id }}">
+        {% if p.avatar %}<img class="match-player-avatar" src="{{ p.avatar }}" alt="" loading="lazy">{% else %}<span class="match-player-avatar match-player-avatar-fallback" aria-hidden="true">{{ pname[:1]|upper }}</span>{% endif %}
+        <span>{{ pname }}{% if p.role == 'substitute' %}（替补）{% endif %}</span>
+      </a>
+      {% endfor %}
+      {% if team2_extra_subs %}
+      <div class="match-pop-divider">替补</div>
+      {% for p in team2_extra_subs %}
+      {% set pname = private_name_for_player(p.id, p.nickname) %}
+      <a class="match-player-link" href="/players/{{ p.id }}">
+        {% if p.avatar %}<img class="match-player-avatar" src="{{ p.avatar }}" alt="" loading="lazy">{% else %}<span class="match-player-avatar match-player-avatar-fallback" aria-hidden="true">{{ pname[:1]|upper }}</span>{% endif %}
+        <span>{{ pname }}（替补）</span>
+      </a>
+      {% endfor %}
+      {% endif %}
+    </div>
+    {% endif %}
+    </div>
     <div class="mh-team-name" data-i18n-ignore>{{ match.team2_name }}</div>
     {% if has_score %}
     <div class="mh-team-score {% if match.team2_score > match.team1_score %}won{% elif match.team2_score < match.team1_score %}lost{% endif %}">{{ match.team2_score }}</div>
