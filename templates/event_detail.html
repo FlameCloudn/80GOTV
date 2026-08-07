@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% block layout_class %}event-detail-layout{% endblock %}
 {% block title %}{{ event.name }} - 80GOTV{% endblock %}
 {% block main %}
 <div class="event-header">
@@ -13,6 +14,7 @@
     <span>{{ event.format }}</span>
   </div>
   <p>{{ event.description }}</p>
+  {% if event.registration_open or (event.effective_event_status == 'upcoming' and (registrations or individual_registration.count)) %}
   {% if event.registration_open %}
   {% set event_login_next = event_path(event) %}
   <div class="event-reg-banner">报名开放中
@@ -38,6 +40,7 @@
   <section id="eventRegistrationSection" aria-live="polite">
     {% include '_event_registration_list.html' %}
   </section>
+  {% endif %}
   {% endif %}
 </div>
 

@@ -317,6 +317,12 @@ body .layout.match-detailed-layout {
   padding: 0 !important;
 }
 
+body .layout.event-detail-layout {
+  width: min(calc(100% - 20px), 1040px) !important;
+  max-width: 1040px !important;
+  padding: 0 !important;
+}
+
 .layout:has(> .side-col:empty),
 .layout.no-side-layout,
 .layout.home-layout-shell,
@@ -437,6 +443,38 @@ body .layout.match-detailed-layout {
   width: auto;
   min-width: 0;
   margin: 0 !important;
+}
+
+.event-match-flex .match-card {
+  min-height: 52px;
+  padding: 8px 12px !important;
+}
+
+.event-match-flex .match-card .team {
+  font-size: 13px;
+}
+
+.event-match-flex .match-card .vs {
+  min-height: 26px;
+  padding: 1px 8px;
+}
+
+.event-match-flex .match-card .meta {
+  font-size: 11px;
+  line-height: 1.15;
+}
+
+.layout.event-detail-layout .event-header {
+  padding: 14px 16px !important;
+}
+
+.layout.event-detail-layout .event-header h1 {
+  margin-bottom: 6px !important;
+}
+
+.layout.event-detail-layout .teams-grid {
+  gap: 8px;
+  margin: 10px 0;
 }
 
 .event-bp-link,
