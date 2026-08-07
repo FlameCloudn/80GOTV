@@ -41,6 +41,16 @@ class StatsUiRegressionTests(unittest.TestCase):
         self.assertIn("{% if ms.has_stats %}", template)
         self.assertIn('class="ms-stats-placeholder"', template)
 
+    def test_half_scores_use_color_without_visible_side_abbreviations(self):
+        template = (ROOT / "templates/match_detail.html").read_text(encoding="utf-8")
+
+        self.assertIn(
+            '}}">{{ ms.halves.h1_t1 }}</span>:<span class="{{',
+            template,
+        )
+        self.assertNotIn("{{ t1_h1_side }} {{ ms.halves.h1_t1 }}", template)
+        self.assertNotIn("{{ t2_h2_side }} {{ ms.halves.h2_t2 }}", template)
+
     def test_temporary_match_teams_use_explicit_stat_side(self):
         route = (ROOT / "routes/matches.py").read_text(encoding="utf-8")
         demo_service = (ROOT / "services/demo_service.py").read_text(encoding="utf-8")
