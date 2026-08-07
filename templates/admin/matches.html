@@ -180,7 +180,7 @@
           <button type="button" class="match-action-btn undo-btn" data-bp-undo="{{ m.id }}" data-confirm="确定撤销上一步 BP 吗？">↩️ 撤销 BP</button>
           {% endif %}
           <a href="/admin/matches/{{ m.id }}/stats" class="btn-secondary">📊 录入数据</a>
-          {% if m.effective_status == 'completed' %}<a href="/admin/matches/{{ m.id }}/import-demo">📥 上传 Demo</a>{% endif %}
+          {% if m.effective_status != 'cancelled' %}<a href="/admin/matches/{{ m.id }}/import-demo">📥 上传 Demo</a>{% endif %}
           <form method="post" action="/admin/matches/delete/{{ m.id }}" style="display:inline" data-confirm="确定删除比赛吗？相关统计、直播记录和评论也会一起删除。" onsubmit="return window.confirm(this.dataset.confirm)"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" style="background:none;border:none;color:#5881bc;cursor:pointer;font-size:14px;padding:0">🗑️ 删除</button></form>
           {% if m.effective_status == 'live' %}
           <form class="match-action-form" method="post" action="/admin/matches/{{ m.id }}/complete" onsubmit="return confirm('确定结束这场比赛吗？')">

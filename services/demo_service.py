@@ -259,6 +259,46 @@ def analyze_demo(conn, match, demo_path):
                         }
                         break
 
+    def _preview_team_key(value):
+        try:
+            value = int(value)
+        except (TypeError, ValueError):
+            return None
+        return value if value > 0 else None
+
+    preview_t1_key = _preview_team_key(match["team1_id"])
+    preview_t2_key = _preview_team_key(match["team2_id"])
+    preview_t1_pids = set(int(p) for p in t1_pids_ints)
+    preview_t2_pids = set(int(p) for p in t2_pids_ints)
+    preview_a_ids = set()
+    preview_b_ids = set()
+    for stat in players:
+        db_p = _match_player_from_db(stat, db_players, alias_player_ids)
+        if db_p:
+            if stat.get("team_letter") == "A":
+                preview_a_ids.add(db_p["id"])
+            elif stat.get("team_letter") == "B":
+                preview_b_ids.add(db_p["id"])
+    preview_a_to_t1 = _infer_demo_team_order(
+        info,
+        match,
+        preview_a_ids,
+        preview_b_ids,
+        db_players,
+        preview_t1_pids,
+        preview_t2_pids,
+        preview_t1_key,
+        preview_t2_key,
+    )
+    if preview_a_to_t1 is None:
+        preview_team_map = "无法确认对应关系，导入会被拒绝"
+    else:
+        preview_team_map = (
+            f"Demo A → {match['team1_name'] or '队伍1'}，B → {match['team2_name'] or '队伍2'}"
+            if preview_a_to_t1
+            else f"Demo A → {match['team2_name'] or '队伍2'}，B → {match['team1_name'] or '队伍1'}"
+        )
+
     map_names = get_demo_map_names(match)
     map_slot = match_map_slot(info["map_name"], map_names)
 
@@ -270,6 +310,8 @@ def analyze_demo(conn, match, demo_path):
         "source": info["source"],
         "players": players,
         "map_slot": map_slot,
+        "team_map": preview_team_map,
+        "team_order_ok": preview_a_to_t1 is not None,
         "demo_data": json.dumps(
             {
                 "info": info,
@@ -346,6 +388,8 @@ def import_demo_data(conn, match_id, match, demo_data_str, map_slot):
         t1_key,
         t2_key,
     )
+    if a_to_t1 is None:
+        return None, "无法确认 Demo 队伍与网站队伍对应关系（队名和选手都不匹配），已拒绝导入"
     demo_to_match_team = {
         "A": t1_key if a_to_t1 else t2_key,
         "B": t2_key if a_to_t1 else t1_key,
@@ -516,7 +560,8 @@ def _infer_demo_team_order(
     a_in_t2 = len(demo_a_db_ids & t2_pids_set)
     if a_in_t1 != a_in_t2 and (a_in_t1 or a_in_t2):
         return a_in_t1 > a_in_t2
-    return True
+    # 无法确认对应关系时拒绝导入，避免 Demo 队伍顺序反转写错数据。
+    return None
 
 
 def insert_match_stat(conn, match_id, player_id, team_id, match_team_side, stat, map_name):

@@ -183,12 +183,14 @@ class AdminMatchEditLocksTests(unittest.TestCase):
 
             shutil.rmtree(demo_root, ignore_errors=True)
 
-    def test_unfinished_match_rejects_demo_upload(self):
+    def test_unfinished_match_allows_demo_upload(self):
         response = self.client.get(
             f"/admin/matches/{self.match_id}/import-demo", follow_redirects=True
         )
         self.assertEqual(response.status_code, 200)
-        self.assertIn("比赛结束后才能上传 Demo", response.get_data(as_text=True))
+        html = response.get_data(as_text=True)
+        self.assertIn("从 Demo 批量导入数据", html)
+        self.assertNotIn("比赛结束后才能上传 Demo", html)
 
     def test_completed_match_keeps_demo_update_entry_point(self):
         conn = get_db()
