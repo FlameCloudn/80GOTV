@@ -425,8 +425,18 @@ def _render_match_detail(match_id):
             break
         # 未开始的系列赛也要按 BO 数量完整显示地图槽位。
         all_for_map = [s for s in stats if s["map_name"] == mn] if mn else []
-        t1s = [s for s in all_for_map if _stat_belongs_to_match_side(s, "t1", t1_key)]
-        t2s = [s for s in all_for_map if _stat_belongs_to_match_side(s, "t2", t2_key)]
+        t1s = _display_rows_from_raw(
+            [s for s in all_for_map if _stat_belongs_to_match_side(s, "t1", t1_key)],
+            "t1",
+            match["t1s"],
+            match["team1_name"],
+        )
+        t2s = _display_rows_from_raw(
+            [s for s in all_for_map if _stat_belongs_to_match_side(s, "t2", t2_key)],
+            "t2",
+            match["t2s"],
+            match["team2_name"],
+        )
         halves = get_map_half_scores(match, idx, map_halves) if mn else None
         played = bool(mn and (t1 or t2))
         has_stats = bool(all_for_map)
@@ -534,9 +544,9 @@ def _render_match_detail(match_id):
         else:
             continue
         pid = s["player_id"]
-        agg[pid]["kills"] += s["kills"]
-        agg[pid]["deaths"] += s["deaths"]
-        agg[pid]["assists"] += s["assists"]
+        agg[pid]["kills"] += s["kills"] or 0
+        agg[pid]["deaths"] += s["deaths"] or 0
+        agg[pid]["assists"] += s["assists"] or 0
         map_rounds = max(1, int(row_get(s, "rounds_played", 0) or 0))
         agg[pid]["adr"] += (s["adr"] or 0) * map_rounds
         agg[pid]["rating"] += (s["rating"] or 0) * map_rounds

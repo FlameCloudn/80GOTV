@@ -110,3 +110,46 @@ class MatchRosterPopupTests(unittest.TestCase):
         response = self.client.get(f"/matches/{self.match_id}")
         html = response.get_data(as_text=True)
         self.assertIn('class="match-player-link" href="/players/', html)
+
+    def test_match_detail_survives_null_demo_stat_fields(self):
+        conn = get_db()
+        conn.execute(
+            """UPDATE matches
+               SET map1='de_mirage', map1_t1=13, map1_t2=8, status='completed'
+               WHERE id=?""",
+            (self.match_id,),
+        )
+        team1_id = conn.execute(
+            "SELECT team1_id FROM matches WHERE id=?", (self.match_id,)
+        ).fetchone()["team1_id"]
+        player_id = conn.execute(
+            "SELECT id FROM players WHERE team_id=? LIMIT 1", (team1_id,)
+        ).fetchone()["id"]
+        conn.execute(
+            """INSERT INTO match_stats(match_id, player_id, team_id, map_name,
+                                       kills, deaths, assists, adr, rating,
+                                       kast, impact, headshot_percentage, rounds_played)
+               VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (
+                self.match_id,
+                player_id,
+                team1_id,
+                "de_mirage",
+                10,
+                5,
+                3,
+                80.0,
+                1.2,
+                None,
+                None,
+                None,
+                15,
+            ),
+        )
+        conn.commit()
+        conn.close()
+
+        response = self.client.get(f"/matches/{self.match_id}")
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn("荒漠迷城", html)
