@@ -7,6 +7,55 @@ import json
 from utils.helpers import row_get
 
 
+def _normalize_map_name_for_match(map_name):
+    raw = str(map_name or "").strip().lower().replace(" ", "_")
+    return raw[3:] if raw.startswith("de_") else raw
+
+
+def _pick_opening_ct_team_from_bp(match_row, slot_index):
+    bp_raw = row_get(match_row, "bp_state")
+    if not bp_raw:
+        return None
+
+    try:
+        state = json.loads(bp_raw)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return None
+
+    if not isinstance(state, dict):
+        return None
+
+    picks = state.get("picks")
+    if not isinstance(picks, list):
+        return None
+
+    map_name = row_get(match_row, f"map{slot_index + 1}")
+    normalized_map = _normalize_map_name_for_match(map_name)
+    if not normalized_map:
+        return None
+
+    target_pick = None
+    for pick in picks:
+        if not isinstance(pick, dict):
+            continue
+        if _normalize_map_name_for_match(pick.get("map")) == normalized_map:
+            target_pick = pick
+            break
+
+    if not target_pick:
+        return None
+
+    side = target_pick.get("side")
+    side_team = target_pick.get("side_team")
+    if not side_team and target_pick.get("picked_by") in {"t1", "t2"}:
+        side_team = "t2" if target_pick["picked_by"] == "t1" else "t1"
+    if side == "CT" and side_team in {"t1", "t2"}:
+        return side_team
+    if side == "T" and side_team in {"t1", "t2"}:
+        return "t2" if side_team == "t1" else "t1"
+    return None
+
+
 def get_bo_max_maps(bo_format):
     """根据 BO 格式返回最大地图数"""
     if not bo_format:
@@ -129,13 +178,20 @@ def get_map_half_scores(match_row, slot_index, parsed_halves=None):
     if not isinstance(item, dict):
         return None
     opening_ct_team = item.get("opening_ct_team") or item.get("opening_ct_side_team")
+    opening_from_bp = False
+    if opening_ct_team not in {"t1", "t2"}:
+        opening_ct_team = _pick_opening_ct_team_from_bp(match_row, slot_index)
+        opening_from_bp = True
+    side_source = item.get("side_source") or "unknown"
+    if opening_from_bp and opening_ct_team in {"t1", "t2"} and side_source == "unknown":
+        side_source = "website_bp"
     return {
         "h1_t1": item.get("h1_t1", item.get("t1_h1", 0)),
         "h1_t2": item.get("h1_t2", item.get("t2_h1", 0)),
         "h2_t1": item.get("h2_t1", item.get("t1_h2", 0)),
         "h2_t2": item.get("h2_t2", item.get("t2_h2", 0)),
         "opening_ct_team": opening_ct_team if opening_ct_team in {"t1", "t2"} else None,
-        "side_source": item.get("side_source") or "unknown",
+        "side_source": side_source,
     }
 
 
