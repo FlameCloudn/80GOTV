@@ -1051,10 +1051,6 @@ def admin_import_demo(match_id):
         conn.close()
         return "比赛不存在", 404
     match = supplement_temp_teams(match, conn)
-    if (match["status"] or "").lower() != "completed":
-        conn.close()
-        flash("比赛结束后才能上传 Demo", "error")
-        return redirect(url_for("admin.admin_match_stats", match_id=match_id))
     demo_slot_count = get_demo_upload_slot_count(match)
     if request.method == "POST":
         step = request.form.get("step", "analyze")

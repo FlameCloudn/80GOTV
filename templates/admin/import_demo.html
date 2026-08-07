@@ -150,6 +150,12 @@
           {% if pv.map_slot >= 0 %}图{{ pv.map_slot + 1 }}{% else %}未匹配{% endif %}
         </div>
       </div>
+      <div class="preview-item">
+        <div class="label">队伍对应</div>
+        <div class="value" style="color:{% if pv.team_order_ok %}#1a7e1a{% else %}#c0392b{% endif %};font-size:13px">
+          {{ pv.team_map }}
+        </div>
+      </div>
     </div>
 
     <table>
