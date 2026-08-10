@@ -588,9 +588,11 @@ def get_current_step_info(state):
     return {"phase": state["status"]}
 
 
-def format_bp_log(state):
+def format_bp_log(state, team1_name="T1", team2_name="T2"):
     """将 BP 状态转为可读文本，用于 bp_process 字段"""
     lines = []
+
+    team_names = {"t1": team1_name, "t2": team2_name}
 
     rolls = state.get("rolls", {})
     t1r = rolls.get("t1")
@@ -600,16 +602,19 @@ def format_bp_log(state):
 
     if t1r is not None or t2r is not None:
         lines.append(
-            f"Roll: T1={'?' if t1r is None else t1r}, T2={'?' if t2r is None else t2r}"
-            + (f" → {first_picker.upper()} 胜出" if first_picker else "")
+            f"Roll: {team_names['t1']}={'?' if t1r is None else t1r}, "
+            f"{team_names['t2']}={'?' if t2r is None else t2r}"
+            + (f" → {team_names.get(first_picker, first_picker)} 胜出" if first_picker else "")
         )
 
     if first_choice:
-        lines.append(f"{first_picker.upper()} 选择{'先手' if first_choice == 'first' else '后手'}")
+        lines.append(
+            f"{team_names.get(first_picker, first_picker)} "
+            f"选择{'先手' if first_choice == 'first' else '后手'}"
+        )
 
     # action_log
     action_log = state.get("action_log", [])
-    team_names = {"t1": "T1", "t2": "T2"}
     for i, entry in enumerate(action_log):
         act = "Ban" if entry["action"] == "ban" else "Pick"
         lines.append(
@@ -625,7 +630,11 @@ def format_bp_log(state):
     # side selections
     for p in picks:
         if p.get("side"):
-            lines.append(f"选边: {p['map']} → {p['side']} 方")
+            side_team = p.get("side_team")
+            if not side_team and p.get("picked_by") in ("t1", "t2"):
+                side_team = "t2" if p["picked_by"] == "t1" else "t1"
+            side_name = team_names.get(side_team, side_team or "?")
+            lines.append(f"选边: {side_name} 为 {p['map']} 选择 {p['side']} 方")
 
     return "\n".join(lines)
 
@@ -644,10 +653,29 @@ def save_bp_to_match(conn, match_id, state):
     if expected_count is None or len(map_order) != expected_count:
         return False
 
+    try:
+        from services.match_service import supplement_temp_teams
+
+        match_row = conn.execute(
+            """SELECT m.team1_id, m.team2_id, m.team1_players, m.team2_players,
+                      t1.name AS team1_name, t2.name AS team2_name,
+                      t1.short_name AS t1s, t2.short_name AS t2s
+               FROM matches m
+               LEFT JOIN teams t1 ON t1.id=m.team1_id
+               LEFT JOIN teams t2 ON t2.id=m.team2_id
+               WHERE m.id=?""",
+            (match_id,),
+        ).fetchone()
+        filled = supplement_temp_teams(match_row, conn)
+        team1_name = filled.get("team1_name") or "T1"
+        team2_name = filled.get("team2_name") or "T2"
+    except Exception:
+        team1_name, team2_name = "T1", "T2"
+
     # 构建更新数据
     state["status"] = "completed"  # 确保状态为 completed
     updates: dict[str, object] = {
-        "bp_process": format_bp_log(state),
+        "bp_process": format_bp_log(state, team1_name, team2_name),
         "bp_state": json.dumps(state, ensure_ascii=False),
         "map_pool": json.dumps(state.get("initial_pool", ALL_MAPS), ensure_ascii=False),
     }

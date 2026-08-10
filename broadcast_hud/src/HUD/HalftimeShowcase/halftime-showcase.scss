@@ -1,0 +1,349 @@
+.halftime-showcase {
+  position: fixed;
+  inset: 0;
+  z-index: 3200;
+  overflow: hidden;
+  color: #f7f9fb;
+  background: #06090e;
+  font-family: "Montserrat", "Arial Narrow", Arial, sans-serif;
+}
+
+.halftime-score-scene,
+.halftime-stats-scene,
+.halftime-countdown-scene {
+  position: absolute;
+  inset: 0;
+}
+
+.halftime-score-scene {
+  overflow: hidden;
+  background: #07101a;
+  animation: halftime-wipe-right 820ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.halftime-map-background {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: grayscale(0.18) brightness(0.28) contrast(1.18);
+  transform: scale(1.03);
+}
+
+.halftime-score-scene::before {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(90deg, rgba(214, 70, 75, 0.42), rgba(5, 9, 15, 0.84) 42%, rgba(5, 9, 15, 0.84) 58%, rgba(64, 157, 216, 0.42));
+  content: "";
+}
+
+.halftime-score-grid,
+.halftime-countdown-grid {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  opacity: 0.17;
+  background-image: linear-gradient(rgba(255,255,255,0.11) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.11) 1px, transparent 1px);
+  background-size: 64px 64px;
+}
+
+.halftime-score-scene header {
+  position: relative;
+  z-index: 3;
+  padding-top: 50px;
+  text-align: center;
+  animation: halftime-rise 580ms 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.halftime-score-scene header strong {
+  display: block;
+  font-size: 42px;
+  line-height: 1;
+}
+
+.halftime-score-scene header span {
+  display: block;
+  margin-top: 8px;
+  color: #f2c84c;
+  font-size: 30px;
+  font-weight: 900;
+}
+
+.halftime-score-scene main {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 520px minmax(0, 1fr);
+  align-items: center;
+  min-height: 760px;
+  padding: 0 84px 40px;
+}
+
+.halftime-score-side {
+  min-width: 0;
+  text-align: center;
+  animation: halftime-rise 700ms 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.halftime-score-side b {
+  display: block;
+  font-size: 210px;
+  font-variant-numeric: tabular-nums;
+  line-height: 0.88;
+}
+
+.halftime-score-side strong {
+  display: block;
+  overflow: hidden;
+  margin-top: 28px;
+  font-size: 35px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.halftime-matchup {
+  display: grid;
+  grid-template-columns: 1fr 72px 1fr;
+  align-items: center;
+  gap: 24px;
+  animation: halftime-rise 700ms 720ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.halftime-matchup > strong {
+  color: #f2c84c;
+  font-size: 44px;
+  text-align: center;
+}
+
+.halftime-matchup > div { text-align: center; }
+
+.halftime-team-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 126px;
+  height: 126px;
+  margin: 0 auto;
+}
+
+.halftime-team-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.halftime-team-logo b {
+  font-size: 38px;
+}
+
+.halftime-matchup > div > span:last-child {
+  display: block;
+  margin-top: 20px;
+  font-size: 38px;
+  font-weight: 900;
+}
+
+.halftime-score-scene footer,
+.halftime-stats-scene footer,
+.halftime-countdown-scene footer {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  height: 48px;
+  color: #9aa5ae;
+  background: rgba(3, 6, 10, 0.94);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.halftime-score-scene footer i,
+.halftime-stats-scene footer i,
+.halftime-countdown-scene footer i {
+  width: 4px;
+  height: 4px;
+  background: #f2c84c;
+}
+
+.halftime-stats-scene {
+  padding: 46px 76px 72px;
+  background: #080d13;
+  animation: halftime-rise 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.halftime-stats-scene::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 5px;
+  background: linear-gradient(90deg, #d6464b 0 48%, #f2c84c 48% 52%, #409dd8 52% 100%);
+  content: "";
+}
+
+.halftime-stats-scene > header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px minmax(0, 1fr);
+  align-items: center;
+  gap: 36px;
+}
+
+.halftime-stats-scene > header > div {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  min-width: 0;
+  font-size: 28px;
+}
+
+.halftime-stats-scene > header > div.right { justify-content: flex-end; }
+.halftime-stats-scene > header .halftime-team-logo { width: 82px; height: 82px; margin: 0; }
+.halftime-stats-scene > header .halftime-team-logo b { font-size: 24px; }
+.halftime-stats-scene > header > div > strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.halftime-stats-scene > header > section { text-align: center; }
+.halftime-stats-scene > header small { display: block; color: #f2c84c; font-size: 12px; font-weight: 900; }
+.halftime-stats-scene > header section b { display: block; margin-top: 4px; font-size: 54px; line-height: 1; }
+.halftime-stats-scene > header section b i { padding: 0 15px; color: #65717c; font-style: normal; }
+.halftime-stats-scene > header section span { display: block; margin-top: 7px; color: #9aa5ae; font-size: 11px; font-weight: 800; }
+
+.halftime-stats-scene > main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 46px;
+  margin-top: 38px;
+}
+
+.halftime-stat-team { min-width: 0; }
+
+.halftime-stat-head {
+  display: grid;
+  grid-template-columns: minmax(190px, 1fr) repeat(4, 60px);
+  align-items: center;
+}
+
+.halftime-player-row {
+  display: grid;
+  grid-template-columns: 58px minmax(150px, 1fr) repeat(4, 60px);
+  align-items: center;
+}
+
+.halftime-stat-head {
+  height: 34px;
+  padding: 0 16px 0 74px;
+  color: #87939e;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.halftime-stat-head span:not(:first-child) { text-align: center; }
+
+.halftime-player-row {
+  position: relative;
+  height: 78px;
+  min-height: 78px;
+  max-height: 78px;
+  overflow: hidden;
+  padding-right: 16px;
+  background: #101821;
+  animation: halftime-row-in 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.halftime-player-row:nth-child(odd) { background: #151f29; }
+.halftime-player-row.left { border-left: 4px solid #d6464b; }
+.halftime-player-row.right { border-left: 4px solid #409dd8; }
+.halftime-player-row:nth-child(2) { animation-delay: 80ms; }
+.halftime-player-row:nth-child(3) { animation-delay: 150ms; }
+.halftime-player-row:nth-child(4) { animation-delay: 220ms; }
+.halftime-player-row:nth-child(5) { animation-delay: 290ms; }
+.halftime-player-row:nth-child(6) { animation-delay: 360ms; }
+
+.halftime-player-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 58px;
+  height: 58px;
+  overflow: hidden;
+  background: rgba(214, 70, 75, 0.18);
+}
+
+.halftime-player-row.right .halftime-player-avatar { background: rgba(64, 157, 216, 0.18); }
+.halftime-player-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.halftime-player-avatar b { font-size: 18px; }
+.halftime-player-row > strong { overflow: hidden; padding: 0 16px; font-size: 17px; text-overflow: ellipsis; white-space: nowrap; }
+.halftime-player-row > span:not(.halftime-player-avatar) { color: #cbd3da; font-size: 15px; font-weight: 800; text-align: center; }
+.halftime-countdown-scene {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #05090e;
+  animation: halftime-rise 580ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.halftime-countdown-scene::before,
+.halftime-countdown-scene::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  background: #d6464b;
+  content: "";
+}
+
+.halftime-countdown-scene::before { left: 0; }
+.halftime-countdown-scene::after { right: 0; background: #409dd8; }
+.halftime-countdown-scene > small { position: relative; z-index: 2; color: #f2c84c; font-size: 18px; font-weight: 900; }
+.halftime-countdown-scene > strong { position: relative; z-index: 2; margin-top: 14px; font-size: 196px; font-variant-numeric: tabular-nums; line-height: 0.9; }
+.halftime-countdown-scene > span { position: relative; z-index: 2; margin-top: 22px; color: #a8b2bb; font-size: 18px; font-weight: 800; }
+
+.halftime-countdown-scene > div:not(.halftime-countdown-grid) {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 260px 120px 260px;
+  align-items: center;
+  gap: 24px;
+  margin-top: 55px;
+  font-size: 20px;
+  text-align: center;
+}
+
+.halftime-countdown-scene > div b:first-child { text-align: right; }
+.halftime-countdown-scene > div b:last-child { text-align: left; }
+.halftime-countdown-scene > div i { color: #f2c84c; font-size: 26px; font-style: normal; font-weight: 900; }
+
+@keyframes halftime-wipe-right {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+
+@keyframes halftime-rise {
+  from { opacity: 0; transform: translateY(32px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes halftime-row-in {
+  from { opacity: 0; transform: translateY(26px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 1450px) {
+  .halftime-score-scene main { grid-template-columns: minmax(0, 1fr) 440px minmax(0, 1fr); min-height: 680px; padding-right: 58px; padding-left: 58px; }
+  .halftime-score-side b { font-size: 168px; }
+  .halftime-score-side strong { font-size: 27px; }
+  .halftime-team-logo { width: 106px; height: 106px; }
+  .halftime-stats-scene { padding: 30px 54px 64px; }
+  .halftime-stats-scene > main { gap: 28px; margin-top: 22px; }
+  .halftime-player-row { height: 65px; min-height: 65px; max-height: 65px; }
+  .halftime-player-avatar { width: 52px; height: 52px; }
+  .halftime-countdown-scene > strong { font-size: 164px; }
+}

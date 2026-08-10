@@ -1,0 +1,100 @@
+:root {
+  --main-panel-color: rgba(28, 28, 31, 0.95);
+  --sub-panel-color: rgba(35, 35, 38, 0.95);
+  --color-ct: #5d79ae;
+  --color-t: #d4a452;
+  --color-ct-light: var(--color-ct, #5d79ae);
+  --color-ct-dark: var(--color-ct, #5d79ae);
+  --color-t-light: var(--color-t, #d4a452);
+  --color-t-dark: var(--color-t, #d4a452);
+  --gradient-ct: linear-gradient(
+    to left,
+    var(--color-ct, #5d79ae) 0%,
+    rgba(53, 74, 111, 0.98) 100%
+  );
+  --gradient-t: linear-gradient(
+    to right,
+    var(--color-t, #d4a452) 0%,
+    rgba(118, 91, 44, 0.98) 100%
+  );
+}
+
+#matchbar .score.CT {
+  color: var(--color-ct, #5d79ae);
+}
+
+#matchbar .score.T {
+  color: var(--color-t, #d4a452);
+}
+
+#matchbar .bar.CT {
+  background-color: var(--color-ct, #5d79ae);
+}
+
+#matchbar .bar.T {
+  background-color: var(--color-t, #d4a452);
+}
+
+#matchbar .team.left.CT {
+  background: linear-gradient(
+    90deg,
+    var(--color-ct, #5d79ae) 0%,
+    rgba(35, 35, 38, 0.95) 45%
+  );
+}
+
+#matchbar .team.left.T {
+  background: linear-gradient(
+    90deg,
+    var(--color-t, #d4a452) 0%,
+    rgba(35, 35, 38, 0.95) 45%
+  );
+}
+
+#matchbar .team.right.CT {
+  background: linear-gradient(
+    -90deg,
+    var(--color-ct, #5d79ae) 0%,
+    rgba(35, 35, 38, 0.95) 45%
+  );
+}
+
+#matchbar .team.right.T {
+  background: linear-gradient(
+    -90deg,
+    var(--color-t, #d4a452) 0%,
+    rgba(35, 35, 38, 0.95) 45%
+  );
+}
+
+#matchbar .team.left.compact.CT {
+  background: linear-gradient(
+    90deg,
+    var(--color-ct, #5d79ae) 0%,
+    rgba(35, 35, 38, 0.95) 65%
+  );
+}
+
+#matchbar .team.left.compact.T {
+  background: linear-gradient(
+    90deg,
+    var(--color-t, #d4a452) 0%,
+    rgba(35, 35, 38, 0.95) 65%
+  );
+}
+
+#matchbar .team.right.compact.CT {
+  background: linear-gradient(
+    -90deg,
+    var(--color-ct, #5d79ae) 0%,
+    rgba(35, 35, 38, 0.95) 65%
+  );
+}
+
+#matchbar .team.right.compact.T {
+  background: linear-gradient(
+    -90deg,
+    var(--color-t, #d4a452) 0%,
+    rgba(35, 35, 38, 0.95) 65%
+  );
+}

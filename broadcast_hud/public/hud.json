@@ -1,0 +1,13 @@
+{
+    "name":"80GOTV Broadcast HUD",
+    "version":"0.1.0",
+    "author":"80GOTV",
+    "legacy": false,
+    "radar": true,
+    "killfeed": true,
+    "game":"cs2",
+    "boltobserv":{
+        "css":false,
+        "maps":false
+    }
+}

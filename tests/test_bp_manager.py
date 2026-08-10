@@ -7,6 +7,7 @@ from utils.bp_manager import (
     ban_map,
     choose_side,
     ensure_bp_started,
+    format_bp_log,
     get_team_for_step,
     init_bp_state,
     normalize_bp_state,
@@ -239,6 +240,32 @@ class BPNoTimerTests(unittest.TestCase):
         self.assertFalse(changed)
         self.assertIsNone(conn.execute("SELECT bp_state FROM matches WHERE id=1").fetchone()[0])
         conn.close()
+
+
+class BPFormatLogTests(unittest.TestCase):
+    def test_format_bp_log_uses_real_team_names_for_actions_and_sides(self):
+        state = complete_bp("BO3")
+        text = format_bp_log(state, "Alpha", "Bravo")
+
+        self.assertNotIn("T1", text)
+        self.assertNotIn("T2", text)
+        self.assertIn("Alpha", text)
+        self.assertIn("Bravo", text)
+
+        side_lines = [line for line in text.splitlines() if line.startswith("选边: ")]
+        self.assertEqual(len(side_lines), 2)
+        for line in side_lines:
+            self.assertIn("选择 CT 方", line)
+            self.assertTrue(("Alpha" in line) or ("Bravo" in line))
+
+    def test_format_bp_log_bo1_remaining_side_shows_side_team(self):
+        state = complete_bp("BO1")
+        text = format_bp_log(state, "Alpha", "Bravo")
+
+        side_lines = [line for line in text.splitlines() if line.startswith("选边: ")]
+        self.assertEqual(len(side_lines), 1)
+        self.assertIn("Bravo", side_lines[0])
+        self.assertIn("选择 CT 方", side_lines[0])
 
 
 class BPSaveTests(unittest.TestCase):

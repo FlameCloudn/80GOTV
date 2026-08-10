@@ -1,0 +1,69 @@
+@import "tailwindcss";
+
+/* 
+  1. Define your base tokens in :root. 
+  We use a different naming convention (e.g. --ui-*) to avoid 
+  circular references when mapping to Tailwind's --color-* variables.
+*/
+:root {
+  --ui-primary: var(--color-violet-500);
+  --ui-secondary: var(--color-green-500);
+
+  --ui-background: var(--color-zinc-950);
+  --ui-surface: var(--color-zinc-900);
+  --ui-surface-hover: var(--color-zinc-800);
+  --ui-border: var(--color-zinc-700);
+
+  --ui-text-main: var(--color-zinc-100);
+  --ui-text-dim: var(--color-zinc-200);
+  --ui-text-disabled: var(--color-zinc-300);
+  --ui-text-inverse: var(--color-zinc-950);
+
+  --ui-success: var(--color-green-600);
+  --ui-danger: var(--color-red-600);
+  --ui-warning: var(--color-yellow-600);
+  --ui-info: var(--color-sky-600);
+
+  --radius-base: 0.5rem;
+}
+
+/* 
+  2. Map the Tailwind Theme to your :root tokens.
+  Tailwind will generate classes like .bg-primary, .text-text-main, etc.
+*/
+@theme {
+  --color-primary: var(--ui-primary);
+  --color-secondary: var(--ui-secondary);
+
+  --color-background: var(--ui-background);
+  --color-surface: var(--ui-surface);
+  --color-surface-hover: var(--ui-surface-hover);
+  --color-border: var(--ui-border);
+
+  --color-text-main: var(--ui-text-main);
+  --color-text-dim: var(--ui-text-dim);
+  --color-text-disabled: var(--ui-text-disabled);
+  --color-text-inverse: var(--ui-text-inverse);
+
+  --color-success: var(--ui-success);
+  --color-danger: var(--ui-danger);
+  --color-warning: var(--ui-warning);
+  --color-info: var(--ui-info);
+
+  --radius-base: var(--radius-base);
+
+  /* Z-Index Scales */
+  --z-index-dropdown: 100;
+  --z-index-sticky: 200;
+  --z-index-modal: 300;
+  --z-index-popover: 400;
+  --z-index-toast: 500;
+}
+
+@layer base {
+  body {
+    background-color: var(--ui-background);
+    color: var(--ui-text-main);
+    font-family: 'Open Sans', sans-serif;
+  }
+}

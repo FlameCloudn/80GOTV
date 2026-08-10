@@ -30,7 +30,7 @@
 第一次运行前，在项目目录打开 `cmd`：
 
 ```bat
-cd C:\Users\jiuzi\Desktop\80GOTV
+cd E:\Code\Projects\80GOTV
 copy .env.example .env
 python -m pip install -r requirements.txt
 python app.py
@@ -39,7 +39,7 @@ python app.py
 以后启动只需要：
 
 ```bat
-cd C:\Users\jiuzi\Desktop\80GOTV
+cd E:\Code\Projects\80GOTV
 python app.py
 ```
 
@@ -105,3 +105,12 @@ python app.py
 本地仍然使用 `python app.py`。公网服务器使用独立的正式启动方式，代码更新不会覆盖数据库、头像、Demo 和上传图片。
 
 服务器准备、日常更新、备份和故障处理步骤见 [`deploy/README.md`](deploy/README.md)。
+
+## 导播与 HUD
+
+仓库还包含与网站配套的导播工具和 OBS / LHM 画面层：
+
+- [`jts-hud-manager/`](jts-hud-manager/)：基于 Electron、Vue 和 TypeScript 的导播与 HUD 管理器。它可以读取 CS2 的 GSI 数据，并从 80GOTV 获取比赛、队伍和选手资料。
+- [`broadcast_hud/`](broadcast_hud/)：运行在 LHM.gg HUD Manager 中的 80GOTV 广播 HUD，支持开发预览和打包导入。
+
+两个目录都保留各自的许可证和启动说明。依赖库、构建输出、安装包和本地备份不会提交到仓库；首次使用时在对应目录运行 `npm install`。

@@ -421,7 +421,10 @@ function renderPicks() {
     else if (p.picked_by === 't2') cls += ' t2';
     else cls += ' remaining';
     var label = p.map;
-    if (p.side) label += ' (' + p.side + ')';
+    if (p.side) {
+      var sideTeam = p.side_team || (p.picked_by === 't1' ? 't2' : (p.picked_by === 't2' ? 't1' : ''));
+      label += ' (' + (sideTeam ? getTeamName(sideTeam) + ' ' : '') + p.side + ')';
+    }
     html += '<div class="' + cls + '">' + label + '<span class="pick-num">图 ' + (i+1) + '</span></div>';
   }
   document.getElementById('picks-row').innerHTML = html;

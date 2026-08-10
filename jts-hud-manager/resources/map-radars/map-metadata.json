@@ -1,0 +1,29 @@
+{
+  "radar_size": 1024,
+  "maps": {
+    "ancient": {"resolution": 4.26, "offset": {"x": 2590, "y": 2520}},
+    "anubis": {"resolution": 5.25, "offset": {"x": 2830, "y": 2030}},
+    "cache": {"resolution": 5.54, "offset": {"x": 2020, "y": 2390}},
+    "dust2": {"resolution": 4.4, "offset": {"x": 2470, "y": 1255}},
+    "inferno": {"resolution": 4.91, "offset": {"x": 2090, "y": 1150}},
+    "mirage": {"resolution": 5.02, "offset": {"x": 3240, "y": 3410}},
+    "nuke": {
+      "resolution": 6.98,
+      "offset": {"x": 3290, "y": 5990},
+      "floors": [
+        {"name": "upper", "min_z": -480, "max_z": 5000},
+        {"name": "lower", "min_z": -2500, "max_z": -481}
+      ]
+    },
+    "overpass": {"resolution": 5.18, "offset": {"x": 4830, "y": 3540}},
+    "train": {"resolution": 4.74, "offset": {"x": 2730, "y": 2360}},
+    "vertigo": {
+      "resolution": 4.96,
+      "offset": {"x": 3890, "y": 3800},
+      "floors": [
+        {"name": "upper", "min_z": 11680, "max_z": 14000},
+        {"name": "lower", "min_z": 0, "max_z": 11679}
+      ]
+    }
+  }
+}

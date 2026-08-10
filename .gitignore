@@ -46,3 +46,20 @@ resources/tools/cloudflared.exe
 /deploy/.env
 /deploy/cloudflare-tunnel.local.ps1
 /deploy/cloudflare-config.yml
+
+# Local director app checkout and generated runtime output
+/jts-hud-manager/.git/
+/jts-hud-manager/.git.local-backup/
+/jts-hud-manager/node_modules/
+/jts-hud-manager/dist/
+/jts-hud-manager/out/
+/jts-hud-manager/test-results/
+/jts-hud-manager/playwright-report/
+/jts-hud-manager/resources/default-hud/build/
+
+# Generated broadcast HUD packages and local backups
+/broadcast_hud/node_modules/
+/broadcast_hud/build/
+/broadcast_hud/.codex-backups/
+/broadcast_hud/*.zip
+/broadcast_hud/*.log
