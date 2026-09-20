@@ -138,7 +138,12 @@
       {% for t in teams %}
       <tr>
         <td>{{ t.id }}</td>
-        <td>{{ t.name }}</td>
+        <td>
+          {% if t.logo %}
+          <img src="{% if t.logo.startswith('http') or t.logo.startswith('/') %}{{ t.logo }}{% else %}{{ url_for('static', filename='uploads/' ~ t.logo) }}{% endif %}" alt="" style="width:22px;height:22px;object-fit:cover;vertical-align:middle;margin-right:6px;border:1px solid var(--border-color,#d4d9e2);background:var(--bg-secondary,#f4f5f7);">
+          {% endif %}
+          {{ t.name }}
+        </td>
         <td>{{ t.short_name }}</td>
         <td>{{ t.description or '-' }}</td>
         <td>{{ t.created_at|date_display }}</td>

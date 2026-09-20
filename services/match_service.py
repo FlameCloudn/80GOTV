@@ -135,11 +135,17 @@ def add_effective_event_status(event_row, now=None):
         now = datetime.now()
     event = dict(event_row)
     try:
-        end_dt = datetime.fromisoformat(
-            event["end_date"].replace("Z", "+00:00").replace("T", " ")[:19]
+        end_val = event.get("end_date")
+        start_val = event.get("start_date")
+        end_dt = (
+            datetime.fromisoformat(str(end_val).replace("Z", "+00:00").replace("T", " ")[:19])
+            if end_val
+            else None
         )
-        start_dt = datetime.fromisoformat(
-            event["start_date"].replace("Z", "+00:00").replace("T", " ")[:19]
+        start_dt = (
+            datetime.fromisoformat(str(start_val).replace("Z", "+00:00").replace("T", " ")[:19])
+            if start_val
+            else None
         )
     except (ValueError, TypeError):
         end_dt = start_dt = None

@@ -5,115 +5,18 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>{% if event and event.id %}编辑赛事{% else %}添加赛事{% endif %}</title>
-  <style>
-    *{margin:0;padding:0;box-sizing:border-box}
-    body{font-family:sans-serif;background:#f5f5f5}
-
-    /* 顶部导航栏 */
-    .top-nav{
-      background:white;
-      border-bottom:2px solid #5881bc;
-      padding:15px 30px;
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      margin-bottom:20px;
-    }
-    .top-nav .logo{
-      font-size:18px;
-      font-weight:bold;
-      color:#5881bc;
-    }
-    .top-nav .nav-links{
-      display:flex;
-      gap:20px;
-      align-items:center;
-    }
-    .top-nav a{
-      color:#333;
-      text-decoration:none;
-      padding:8px 15px;
-      border-radius:0;
-      transition:all 0.2s;
-    }
-    .top-nav a:hover{
-      background:#f5f5f5;
-      color:#5881bc;
-    }
-    .top-nav .logout-btn{
-      background:#5881bc;
-      color:white;
-      padding:8px 15px;
-      border-radius:0;
-    }
-    .top-nav .logout-btn:hover{
-      background:#4a6fa3;
-    }
-
-    .container{padding:0 30px 30px}
-    .form-container{
-      max-width:700px;
-      margin:0 auto;
-      background:white;
-      padding:30px;
-      border-radius:0;
-    }
-    h2{margin-bottom:30px;color:#333}
-    .form-group{margin-bottom:20px}
-    .form-row{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:20px;
-    }
-    label{
-      display:block;
-      margin-bottom:8px;
-      font-weight:600;
-      color:#333;
-    }
-    input,textarea,select{
-      width:100%;
-      padding:12px;
-      border:1px solid #ddd;
-      border-radius:0;
-      font-size:14px;
-      font-family:inherit;
-    }
-    input:focus,textarea:focus,select:focus{
-      outline:none;
-      border-color:#5881bc;
-    }
-    .form-actions{
-      display:flex;
-      gap:10px;
-      margin-top:30px;
-    }
-    .btn{
-      padding:12px 24px;
-      border:none;
-      border-radius:0;
-      font-size:14px;
-      font-weight:600;
-      cursor:pointer;
-      text-decoration:none;
-      display:inline-block;
-    }
-    .btn-primary{background:#5881bc;color:white}
-    .btn-primary:hover{background:#4a6fa3}
-    .btn-secondary{background:#ddd;color:#333}
-    .btn-secondary:hover{background:#ccc}
-    .alert{
-      padding:12px 20px;
-      margin-bottom:20px;
-      border-radius:0;
-    }
-    .alert-error{background:#f8d7da;color:#721c24}.alert-success{background:#d4edda;color:#155724}
-  </style>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-comfort.css') }}">
+  <script>
+    (function(){
+      var t = localStorage.getItem('theme');
+      if(!t){ t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light'; }
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
 </head>
 <body>
 
-<!-- 顶部导航栏 -->
 {% include "admin/_top_nav.html" %}
 
 <div class="container">
@@ -139,8 +42,8 @@
       <div class="form-group">
         <label>赛事简称 *</label>
         <input type="text" name="short_name" value="{{ event.short_name if event and event.short_name else '' }}"
-               required placeholder="例如：80CS_S1">
-        <small style="color:#888">用于 Demo 文件名，只使用英文、数字、下划线或短横线。</small>
+               required placeholder="例如：80CS_S1 或 新生杯">
+        <small style="color:var(--text-muted);display:block;margin-top:4px">赛事展示简称，支持中文或英文；若包含英文字符将作为录像文件名依据。</small>
       </div>
 
       <div class="form-group">
@@ -200,16 +103,22 @@
 
       <div class="form-group">
         <label>
-          <input type="checkbox" name="registration_open" value="1" {% if event and event.registration_open %}checked{% endif %}>
+          <input type="checkbox" name="registration_open" value="1"
+                 {% if event and event.registration_open and event.status != 'completed' %}checked{% endif %}
+                 {% if event and event.status == 'completed' %}disabled{% endif %}>
           开放队伍报名
         </label>
+        {% if event and event.status == 'completed' %}
+        <small style="color:var(--text-muted);display:block;margin-top:4px">赛事已完赛，不可再开放报名。</small>
+        {% else %}
         <small style="color:var(--text-muted);display:block;margin-top:4px">开启后用户可在赛事页提交报名申请</small>
+        {% endif %}
       </div>
 
       {% if event and event.id %}
-      <details style="border:1px solid #ddd;border-radius:0;padding:14px;margin-top:22px">
+      <details class="optional" style="margin-top:22px">
         <summary style="cursor:pointer;font-weight:700;color:#5881bc">赛后荣誉：冠军、MVP、EVP</summary>
-        <p style="font-size:13px;color:#888;margin:10px 0 16px">赛事结束后再填写。平时可以保持折叠。</p>
+        <p style="font-size:13px;color:var(--text-muted);margin:10px 0 16px">赛事结束后再填写。平时可以保持折叠。</p>
 
         <div class="form-group">
           <label>冠军队伍</label>
@@ -257,6 +166,5 @@
 </div>
 
 <script src="{{ versioned_url('static/js/i18n.js') }}"></script>
-<script src="{{ url_for('static', filename='js/svg_icons.js') }}?v=20260620-svg1"></script>
 </body>
 </html>

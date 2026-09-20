@@ -14,7 +14,7 @@ from services.steam_playtime_service import (
     attach_latest_playtime,
     refresh_player_playtimes,
 )
-from utils.db_helpers import save_uploaded_avatar
+from utils.db_helpers import save_uploaded_avatar, save_uploaded_team_logo
 from utils.web_helpers import admin_required as login_required
 from utils.web_helpers import csrf_required
 
@@ -73,7 +73,17 @@ def _player_validation_error(conn, values, exclude_id=None):
     if values["is_bashizhong_student"] not in {0, 1}:
         return "请选择选手是否是或曾经是八十中学生"
     if values["is_bashizhong_student"] == 1 and not values["group_username"]:
-        return "八十中选手必须填写群内昵称"
+        if exclude_id is not None:
+            existing = conn.execute(
+                "SELECT group_username_override FROM players WHERE id=?",
+                (exclude_id,),
+            ).fetchone()
+            if existing and not existing["group_username_override"]:
+                pass
+            else:
+                return "八十中选手必须填写群内昵称"
+        else:
+            return "八十中选手必须填写群内昵称"
     if values["steam_id"] and not re.fullmatch(r"\d{17}", values["steam_id"]):
         return "Steam ID 必须为 17 位数字"
     if values["steam_id"] and _duplicate_value(
@@ -192,9 +202,12 @@ def admin_teams_add():
                 "admin/teams_form.html",
                 team={"name": name, "short_name": short_name, "description": description},
             ), 400
+        logo_file = request.files.get("logo")
+        logo_filename = save_uploaded_team_logo(logo_file, BASE_DIR) if logo_file else None
+        logo_path = f"team_logos/{logo_filename}" if logo_filename else None
         conn.execute(
-            "INSERT INTO teams(name, short_name, description) VALUES(?,?,?)",
-            (name, short_name, description),
+            "INSERT INTO teams(name, short_name, description, logo) VALUES(?,?,?,?)",
+            (name, short_name, description, logo_path),
         )
         conn.commit()
         conn.close()
@@ -225,12 +238,21 @@ def admin_teams_edit(team_id):
                     "name": name,
                     "short_name": short_name,
                     "description": description,
+                    "logo": team["logo"],
                 },
             ), 400
-        conn.execute(
-            "UPDATE teams SET name=?, short_name=?, description=? WHERE id=?",
-            (name, short_name, description, team_id),
-        )
+        logo_file = request.files.get("logo")
+        logo_filename = save_uploaded_team_logo(logo_file, BASE_DIR) if logo_file else None
+        if logo_filename:
+            conn.execute(
+                "UPDATE teams SET name=?, short_name=?, description=?, logo=? WHERE id=?",
+                (name, short_name, description, f"team_logos/{logo_filename}", team_id),
+            )
+        else:
+            conn.execute(
+                "UPDATE teams SET name=?, short_name=?, description=? WHERE id=?",
+                (name, short_name, description, team_id),
+            )
         conn.commit()
         conn.close()
         flash("队伍更新成功", "success")

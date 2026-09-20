@@ -24,11 +24,15 @@ def _event_form_values(include_status=False):
     short_name = (
         normalize_event_short_name(raw_short_name, "NEW")
         if re.search(r"[A-Za-z0-9]", raw_short_name)
-        else ""
+        else raw_short_name
     )
     name = request.form.get("name", "").strip()
     raw_slug = request.form.get("slug", "").strip()
     slug_source = raw_slug if re.search(r"[A-Za-z0-9]", raw_slug) else name or short_name
+    status = request.form.get("status", "upcoming") if include_status else "upcoming"
+    registration_open = (
+        1 if request.form.get("registration_open") == "1" and status != "completed" else 0
+    )
     return (
         name,
         short_name,
@@ -37,9 +41,9 @@ def _event_form_values(include_status=False):
         request.form.get("start_date", "").strip(),
         request.form.get("end_date", "").strip(),
         request.form.get("format", "").strip(),
-        request.form.get("status", "upcoming") if include_status else "upcoming",
+        status,
         request.form.get("stream_url", "").strip() or None,
-        1 if request.form.get("registration_open") == "1" else 0,
+        registration_open,
     )
 
 

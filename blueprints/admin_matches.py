@@ -161,16 +161,18 @@ def _preserve_managed_match_fields(values, existing):
         for slot in range(1, 6):
             values[f"map{slot}_pb"] = existing[f"map{slot}_picked_by"]
 
-    if current_status != "completed":
-        values["bp_process"] = existing["bp_process"]
-
-    if request.form.get("clear_bp_password") == "1":
-        values["bp_password"] = None
-    elif not values["bp_password"]:
-        values["bp_password"] = existing["bp_password"]
-
-    if values["server_address"] and not values["server_password"]:
+    if current_status == "completed":
+        values["server_address"] = existing["server_address"]
         values["server_password"] = existing["server_password"]
+        values["bp_password"] = existing["bp_password"]
+    else:
+        if request.form.get("clear_bp_password") == "1":
+            values["bp_password"] = None
+        elif not values["bp_password"]:
+            values["bp_password"] = existing["bp_password"]
+
+        if values["server_address"] and not values["server_password"]:
+            values["server_password"] = existing["server_password"]
     if not values.get("decider_knife_winner"):
         values["decider_knife_winner"] = existing["decider_knife_winner"]
     if not values.get("decider_start_side"):
@@ -419,12 +421,11 @@ def _match_validation_error(conn, values):
         return "比赛时间不能为空"
     if values["bo_format"] not in ("BO1", "BO3", "BO5"):
         return "BO 格式无效"
-    if values["decider_knife_winner"] not in (None, "t1", "t2"):
-        return "决胜图拼刀胜者无效"
-    if values["decider_start_side"] not in (None, "CT", "T"):
-        return "决胜图起始阵营无效"
-    if bool(values["decider_knife_winner"]) != bool(values["decider_start_side"]):
-        return "决胜图拼刀胜者和起始阵营必须一起填写"
+    if values.get("decider_knife_winner") not in ("t1", "t2") or values.get(
+        "decider_start_side"
+    ) not in ("CT", "T"):
+        values["decider_knife_winner"] = None
+        values["decider_start_side"] = None
     return None
 
 
@@ -671,24 +672,48 @@ def admin_matches_edit(match_id):
         team1_players = existing["team1_players"] if existing else None
         team2_players = existing["team2_players"] if existing else None
         if (existing["status"] or "upcoming") == "upcoming":
-            submitted_team1_players, roster_error = _parse_match_roster(conn, existing, 1)
-            if submitted_team1_players is not None:
-                team1_players = submitted_team1_players
-            if not roster_error:
-                submitted_team2_players, roster_error = _parse_match_roster(conn, existing, 2)
-                if submitted_team2_players is not None:
-                    team2_players = submitted_team2_players
-            if roster_error:
-                flash(roster_error, "error")
-                return _match_form_response(
+            if "side1_type" in request.form:
+                team1_id, team1_players, err = _parse_side(
                     conn,
-                    _match_form_state(
-                        current_match, f, team1_id, team2_id, team1_players, team2_players
-                    ),
-                    400,
+                    "side1",
+                    allow_partial=bool(f["is_test_mode"]),
+                    allow_empty=bool(f["is_test_mode"]),
                 )
+                if not err and "side2_type" in request.form:
+                    team2_id, team2_players, err = _parse_side(
+                        conn,
+                        "side2",
+                        allow_partial=bool(f["is_test_mode"]),
+                        allow_empty=bool(f["is_test_mode"]),
+                    )
+                if err:
+                    flash(err, "error")
+                    return _match_form_response(
+                        conn,
+                        _match_form_state(
+                            current_match, f, team1_id, team2_id, team1_players, team2_players
+                        ),
+                        400,
+                    )
+            else:
+                submitted_team1_players, roster_error = _parse_match_roster(conn, existing, 1)
+                if submitted_team1_players is not None:
+                    team1_players = submitted_team1_players
+                if not roster_error:
+                    submitted_team2_players, roster_error = _parse_match_roster(conn, existing, 2)
+                    if submitted_team2_players is not None:
+                        team2_players = submitted_team2_players
+                if roster_error:
+                    flash(roster_error, "error")
+                    return _match_form_response(
+                        conn,
+                        _match_form_state(
+                            current_match, f, team1_id, team2_id, team1_players, team2_players
+                        ),
+                        400,
+                    )
         f["is_test_mode"] = int(existing["is_test_mode"] or 0) if existing else 0
-        if team1_id and team2_id and team1_id > 0 and team1_id == team2_id:
+        if team1_id and team2_id and team1_id == team2_id:
             flash("两支队伍不能相同", "error")
             return _match_form_response(
                 conn,
