@@ -1,5 +1,6 @@
 """Stable filenames for saved match demos."""
 
+import os
 import re
 
 
@@ -32,7 +33,7 @@ def build_demo_download_name(filename, map_slot, map_name=""):
     map_part = normalize_demo_map_name(map_name, map_slot)
     if not safe_filename:
         return f"{map_part}.dem"
-    stem, ext = re.match(r"^(.*?)(\.[^.]+)?$", safe_filename).groups()
+    stem, ext = os.path.splitext(safe_filename)
     ext = ext or ".dem"
     if map_part.lower() in stem.lower():
         return safe_filename

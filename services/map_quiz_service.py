@@ -284,6 +284,8 @@ def submit_guess(conn, game_row, guessed_map, guessed_spot):
         return game, "请选择地图并填写点位"
 
     question = question_for_key(game_row["question_key"])
+    if not question:
+        return game, "题目不存在或已下架"
     map_correct = guessed_map == question["map_key"]
     accepted = {
         normalize_answer(question["spot"]),

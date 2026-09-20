@@ -5,6 +5,7 @@ import json
 from flask import flash, redirect, render_template, request, session, url_for
 
 from models import get_db
+from routes.stats import SIDE_OPTIONS, SIDE_VALUES, TIME_FILTER_MAP, TIME_FILTERS
 from services.match_service import supplement_temp_teams
 from services.performance_service import weighted_average_sql, weighted_rate_sql
 from services.player_awards_service import build_award_page, build_top10_page
@@ -16,19 +17,10 @@ from utils.rate_limiter import rate_limit
 from utils.web_helpers import csrf_required, safe_redirect_target, user_required
 from web_app import app
 
-PLAYER_TIME_FILTERS = [
-    {"value": "all", "label": "全部", "months": None},
-    {"value": "3m", "label": "最近 3 个月", "months": 3},
-    {"value": "6m", "label": "最近 6 个月", "months": 6},
-    {"value": "12m", "label": "最近 12 个月", "months": 12},
-]
-PLAYER_TIME_MAP = {item["value"]: item for item in PLAYER_TIME_FILTERS}
-PLAYER_SIDE_OPTIONS = [
-    {"value": "both", "label": "双方"},
-    {"value": "ct", "label": "CT 方"},
-    {"value": "t", "label": "T 方"},
-]
-PLAYER_SIDE_VALUES = {item["value"] for item in PLAYER_SIDE_OPTIONS}
+PLAYER_TIME_FILTERS = TIME_FILTERS
+PLAYER_TIME_MAP = TIME_FILTER_MAP
+PLAYER_SIDE_OPTIONS = SIDE_OPTIONS
+PLAYER_SIDE_VALUES = SIDE_VALUES
 
 
 def _with_effective_school_status(row):

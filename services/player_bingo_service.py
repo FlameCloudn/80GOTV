@@ -16,6 +16,24 @@ def _criterion(key, label, description, matches):
     return {"key": key, "label": label, "description": description, "matches": matches}
 
 
+def _age(player):
+    try:
+        return player_age(player, date.today())
+    except (TypeError, ValueError):
+        return None
+
+
+def _age_between(player, min_age=None, max_age=None):
+    age = _age(player)
+    if age is None:
+        return False
+    if min_age is not None and age < min_age:
+        return False
+    if max_age is not None and age > max_age:
+        return False
+    return True
+
+
 FAMILIES = {
     "region": (
         _criterion(
@@ -65,19 +83,19 @@ FAMILIES = {
             "age-young",
             "23 岁及以下",
             "当前年龄不超过 23 岁",
-            lambda p: _age(p) is not None and _age(p) <= 23,
+            lambda p: _age_between(p, None, 23),
         ),
         _criterion(
             "age-prime",
             "24 至 28 岁",
             "当前年龄为 24 至 28 岁",
-            lambda p: _age(p) is not None and 24 <= _age(p) <= 28,
+            lambda p: _age_between(p, 24, 28),
         ),
         _criterion(
             "age-veteran",
             "29 岁及以上",
             "当前年龄至少 29 岁",
-            lambda p: _age(p) is not None and _age(p) >= 29,
+            lambda p: _age_between(p, 29, None),
         ),
     ),
     "major": (
@@ -111,13 +129,6 @@ FAMILY_PAIRS = (
     ("major", "status"),
     ("age", "major"),
 )
-
-
-def _age(player):
-    try:
-        return player_age(player, date.today())
-    except (TypeError, ValueError):
-        return None
 
 
 def _as_date(value=None):

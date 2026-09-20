@@ -39,20 +39,20 @@ def search():
                    SELECT u.is_bashizhong_student
                    FROM users u
                    WHERE u.steam_id64=p.steam_id
-                   ORDER BY u.id DESC
+                   ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC
                    LIMIT 1
                ), p.is_bashizhong_student, 1)<>0 THEN COALESCE((
                    SELECT NULLIF(TRIM(u.group_username), '')
                    FROM users u
                    WHERE u.steam_id64=p.steam_id
-                   ORDER BY u.id
+                   ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC
                    LIMIT 1
                ), NULLIF(TRIM(p.group_username_override), ''), '') ELSE '' END AS group_username,
                COALESCE((
                    SELECT u.is_bashizhong_student
                    FROM users u
                    WHERE u.steam_id64=p.steam_id
-                   ORDER BY u.id DESC
+                   ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC
                    LIMIT 1
                ), p.is_bashizhong_student) AS is_bashizhong_student,
                t.name AS team_name
@@ -147,20 +147,20 @@ def api_search():
                    SELECT u.is_bashizhong_student
                    FROM users u
                    WHERE u.steam_id64=p.steam_id
-                   ORDER BY u.id DESC
+                   ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC
                    LIMIT 1
                ), p.is_bashizhong_student, 1)<>0 THEN COALESCE((
                    SELECT NULLIF(TRIM(u.group_username), '')
                    FROM users u
                    WHERE u.steam_id64=p.steam_id
-                   ORDER BY u.id
+                   ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC
                    LIMIT 1
                ), NULLIF(TRIM(p.group_username_override), ''), '') ELSE '' END AS group_username,
                COALESCE((
                    SELECT u.is_bashizhong_student
                    FROM users u
                    WHERE u.steam_id64=p.steam_id
-                   ORDER BY u.id DESC
+                   ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC
                    LIMIT 1
                ), p.is_bashizhong_student) AS is_bashizhong_student
         FROM players p

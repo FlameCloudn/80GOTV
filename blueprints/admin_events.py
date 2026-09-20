@@ -84,7 +84,7 @@ def _event_dict(values, event_id=None):
         "stream_url",
         "registration_open",
     )
-    result = dict(zip(keys, values))
+    result: dict[str, object] = dict(zip(keys, values))
     if event_id is not None:
         result["id"] = event_id
     return result

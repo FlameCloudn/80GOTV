@@ -189,7 +189,10 @@ def map_image_url(name):
     if not key or key in ("tba", "tbd"):
         return "/resources/maps/tba.webp"
     fn = MAP_NAME_MAPPING.get(key, key)
-    return f"/resources/maps/{fn.lower()}.webp"
+    fn_str = str(fn or "").lower()
+    if not fn_str:
+        return "/resources/maps/tba.webp"
+    return f"/resources/maps/{fn_str}.webp"
 
 
 def map_background_url(name):
@@ -198,7 +201,10 @@ def map_background_url(name):
     if not key or key in ("tba", "tbd"):
         return "/resources/maps/tba.webp"
     fn = MAP_NAME_MAPPING.get(key, key)
-    return f"/resources/map_landscapes/{fn.lower()}.png"
+    fn_str = str(fn or "").lower()
+    if not fn_str:
+        return "/resources/maps/tba.webp"
+    return f"/resources/map_landscapes/{fn_str}.png"
 
 
 def normalize_http_url(value):

@@ -96,7 +96,7 @@ def _start_timer():
     """记录请求开始时间"""
     import time as _time
 
-    request._start_time = _time.time()
+    g._start_time = _time.time()
     g.request_id = uuid.uuid4().hex
 
 
@@ -215,7 +215,7 @@ def _add_no_cache_headers(response):
     import logging as _logging
     import time as _time
 
-    start = getattr(request, "_start_time", None)
+    start = getattr(g, "_start_time", None) or getattr(request, "_start_time", None)
     if start:
         elapsed = _time.time() - start
         if elapsed > 0.5:
@@ -451,7 +451,8 @@ def robots_txt():
 @app.errorhandler(Exception)
 def _handle_exception(e):
     """统一错误处理：页面隐藏细节，日志保留完整异常信息。"""
-    code = e.code if isinstance(e, HTTPException) else 500
+    raw_code = getattr(e, "code", None)
+    code = int(raw_code) if isinstance(e, HTTPException) and raw_code is not None else 500
     if code >= 500:
         logger.exception(
             "未处理的服务器错误 request_id=%s path=%s",

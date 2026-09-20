@@ -248,8 +248,8 @@ def guess_player_multiplayer_join():
         room, error = join_multiplayer_room(conn, room_code, session["user_id"])
     finally:
         conn.close()
-    if error:
-        flash(error, "error")
+    if error or not room:
+        flash(error or "加入房间失败", "error")
         return redirect(url_for("guess_player_multiplayer_page"))
     return redirect(url_for("guess_player_multiplayer_room", room_code=room["room_code"]))
 
