@@ -61,6 +61,23 @@ class AdminUxLogicOverhaulTests(unittest.TestCase):
         except OSError:
             pass
 
+    def test_match_form_renders_tabbed_ui_and_removes_position_labels(self):
+        """测试比赛修改表单渲染全新Tab结构，去除了MOBA几号位与红蓝方，引入快捷时间选择"""
+        response = self.client.get(f"/admin/matches/edit/{self.match_id}")
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+
+        self.assertIn("match-tabs", html)
+        self.assertIn("基础与对阵", html)
+        self.assertIn("地图与赛制", html)
+        self.assertIn("出场名单与替补", html)
+        self.assertIn("选手 1", html)
+        self.assertNotIn("1号位", html)
+        self.assertNotIn("红方", html)
+        self.assertNotIn("蓝方", html)
+        self.assertIn("time-picker-card", html)
+        self.assertIn("sticky-form-actions", html)
+
     def test_upcoming_match_can_change_teams(self):
         """测试在赛前（upcoming）状态下，管理员可以直接修改对阵双方队伍"""
         response = self.client.post(
