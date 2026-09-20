@@ -31,6 +31,7 @@ def feedback_submit():
 
     user_id = session.get("user_id")
 
+    conn = None
     try:
         conn = get_db()
         conn.execute(
@@ -46,7 +47,9 @@ def feedback_submit():
             ),
         )
         conn.commit()
-        conn.close()
         return jsonify({"ok": True, "message": "感谢反馈！"})
     except Exception:
         return jsonify({"ok": False, "error": "提交失败，请稍后再试"}), 500
+    finally:
+        if conn is not None:
+            conn.close()

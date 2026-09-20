@@ -106,9 +106,17 @@ def add_comment(target_type, target_id):
     ).fetchone()[0]
 
     user = conn.execute(
-        "SELECT username, avatar, is_cheater FROM users WHERE id=?", (session["user_id"],)
+        """SELECT username, group_username, avatar, is_cheater, is_bashizhong_student
+           FROM users WHERE id=?""",
+        (session["user_id"],),
     ).fetchone()
     conn.close()
+
+    user_group_username = (
+        user["group_username"]
+        if user and user["is_bashizhong_student"] != 0 and user["group_username"]
+        else ""
+    )
 
     if is_ajax:
         return {
@@ -118,6 +126,7 @@ def add_comment(target_type, target_id):
                 "floor_number": floor_number,
                 "user_id": session["user_id"],
                 "username": user["username"],
+                "group_username": user_group_username,
                 "avatar": user["avatar"] or "",
                 "is_cheater": bool(user["is_cheater"]),
                 "content": content,

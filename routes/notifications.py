@@ -2,7 +2,7 @@
 
 from flask import jsonify, render_template, session
 
-from models import get_db
+from models import db
 from utils.web_helpers import csrf_required, user_required
 from web_app import app
 
@@ -11,12 +11,11 @@ from web_app import app
 @user_required
 def notifications_list():
     """通知列表"""
-    conn = get_db()
-    notifications = conn.execute(
-        "SELECT * FROM notifications WHERE user_id=? ORDER BY created_at DESC LIMIT 50",
-        (session["user_id"],),
-    ).fetchall()
-    conn.close()
+    with db() as conn:
+        notifications = conn.execute(
+            "SELECT * FROM notifications WHERE user_id=? ORDER BY created_at DESC LIMIT 50",
+            (session["user_id"],),
+        ).fetchall()
     return render_template("notifications.html", notifications=notifications)
 
 
@@ -25,13 +24,11 @@ def notifications_list():
 @user_required
 def notification_read(notif_id):
     """标记单条已读"""
-    conn = get_db()
-    conn.execute(
-        "UPDATE notifications SET is_read=1 WHERE id=? AND user_id=?",
-        (notif_id, session["user_id"]),
-    )
-    conn.commit()
-    conn.close()
+    with db() as conn:
+        conn.execute(
+            "UPDATE notifications SET is_read=1 WHERE id=? AND user_id=?",
+            (notif_id, session["user_id"]),
+        )
     return jsonify({"success": True})
 
 
@@ -40,10 +37,8 @@ def notification_read(notif_id):
 @user_required
 def notification_read_all():
     """全部已读"""
-    conn = get_db()
-    conn.execute("UPDATE notifications SET is_read=1 WHERE user_id=?", (session["user_id"],))
-    conn.commit()
-    conn.close()
+    with db() as conn:
+        conn.execute("UPDATE notifications SET is_read=1 WHERE user_id=?", (session["user_id"],))
     return jsonify({"success": True})
 
 
@@ -51,9 +46,9 @@ def notification_read_all():
 @user_required
 def notification_unread_count():
     """AJAX 获取未读数"""
-    conn = get_db()
-    count = conn.execute(
-        "SELECT COUNT(*) FROM notifications WHERE user_id=? AND is_read=0", (session["user_id"],)
-    ).fetchone()[0]
-    conn.close()
+    with db() as conn:
+        count = conn.execute(
+            "SELECT COUNT(*) FROM notifications WHERE user_id=? AND is_read=0",
+            (session["user_id"],),
+        ).fetchone()[0]
     return jsonify({"count": count})

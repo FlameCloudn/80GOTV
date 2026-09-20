@@ -435,7 +435,7 @@ def players_list():
                    SELECT NULLIF(TRIM(u.group_username), '')
                    FROM users u
                    WHERE u.steam_id64=p.steam_id
-                   ORDER BY u.id
+                   ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC
                    LIMIT 1
                 ), NULLIF(TRIM(p.group_username_override), ''), '') AS group_username,
                COALESCE((
@@ -707,14 +707,14 @@ def player_detail(player_id):
                    SELECT NULLIF(TRIM(u.group_username), '')
                    FROM users u
                    WHERE u.steam_id64=p.steam_id
-                   ORDER BY u.id
+                   ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC
                    LIMIT 1
                 ), NULLIF(TRIM(p.group_username_override), ''), '') AS group_username,
                COALESCE((
                    SELECT u.is_bashizhong_student
                    FROM users u
                    WHERE u.steam_id64=p.steam_id
-                   ORDER BY u.id DESC
+                   ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC
                    LIMIT 1
                ), p.is_bashizhong_student) AS managed_is_bashizhong_student,
                COALESCE((SELECT u.is_cheater FROM users u WHERE u.steam_id64=p.steam_id LIMIT 1), 0) AS is_cheater
@@ -741,14 +741,14 @@ def player_detail(player_id):
                        SELECT NULLIF(TRIM(u.group_username), '')
                        FROM users u
                        WHERE u.steam_id64=p.steam_id
-                       ORDER BY u.id
+                       ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC
                        LIMIT 1
                     ), NULLIF(TRIM(p.group_username_override), ''), '') AS group_username,
                    COALESCE((
                        SELECT u.is_bashizhong_student
                        FROM users u
                        WHERE u.steam_id64=p.steam_id
-                       ORDER BY u.id DESC
+                       ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC
                        LIMIT 1
                    ), p.is_bashizhong_student) AS managed_is_bashizhong_student,
                    COALESCE((SELECT u.is_cheater FROM users u WHERE u.steam_id64=p.steam_id LIMIT 1), 0) AS is_cheater
@@ -1248,14 +1248,14 @@ def player_stats_detail(player_id):
                    SELECT NULLIF(TRIM(u.group_username), '')
                    FROM users u
                    WHERE u.steam_id64=p.steam_id
-                   ORDER BY u.id
+                   ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC
                    LIMIT 1
                 ), NULLIF(TRIM(p.group_username_override), ''), '') AS group_username,
                COALESCE((
                    SELECT u.is_bashizhong_student
                    FROM users u
                    WHERE u.steam_id64=p.steam_id
-                   ORDER BY u.id DESC
+                   ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC
                    LIMIT 1
                ), p.is_bashizhong_student) AS managed_is_bashizhong_student
         FROM players p

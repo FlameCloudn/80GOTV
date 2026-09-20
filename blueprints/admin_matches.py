@@ -171,6 +171,10 @@ def _preserve_managed_match_fields(values, existing):
 
     if values["server_address"] and not values["server_password"]:
         values["server_password"] = existing["server_password"]
+    if not values.get("decider_knife_winner"):
+        values["decider_knife_winner"] = existing["decider_knife_winner"]
+    if not values.get("decider_start_side"):
+        values["decider_start_side"] = existing["decider_start_side"]
     return values
 
 

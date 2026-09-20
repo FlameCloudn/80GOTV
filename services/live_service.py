@@ -288,7 +288,6 @@ def _latest_round_win_code(data):
 
 def _round_win_reason_code(data, previous_gsi, winner):
     """返回稳定的回合结束原因代码，供前端选择图标和颜色。"""
-    current_map = data.get("map", {}) or {}
     latest_code = _latest_round_win_code(data)
     if "bomb" in latest_code and ("explode" in latest_code or latest_code.endswith("_bomb")):
         return "bomb_exploded"
@@ -368,7 +367,7 @@ def _record_gsi_deaths(merged, data):
                 "id": marker_id,
                 "steamid": str(steamid),
                 "name": player.get("name", ""),
-                "side": player.get("team", ""),
+                "side": victim_side,
                 "round": round_num + 1,
                 "round_number": round_num + 1,
                 "x": position[0],
