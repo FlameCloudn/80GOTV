@@ -166,6 +166,21 @@ def _reject_cross_site_writes():
     abort(403)
 
 
+@app.before_request
+def _block_public_demo_static():
+    """Demo 只能通过受登录保护的 /matches/<slug>/download-demo 下载。
+
+    DEMOS_DIR 位于 static/ 之下，而 /static/ 属于免登录前缀，于是任何人都能
+    直接访问 /static/demos/<文件名> 绕过登录下载整场 Demo（实测可匿名拿到
+    206 分片）。这些文件是真实赛事数据（两场约 510MB），且会被备份打包。
+
+    这里把该前缀彻底挡掉：对外表现与"文件不在 static 下"一致，
+    但不需要搬动任何文件，因此本地与线上的行为一致、无需配合部署。
+    """
+    if request.path.startswith("/static/demos/"):
+        abort(404)
+
+
 def _clear_user_session():
     for key in (
         "user_id",
