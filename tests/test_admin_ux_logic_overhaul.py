@@ -259,3 +259,41 @@ class AdminUxLogicOverhaulTests(unittest.TestCase):
                 os.remove(logo_path)
             except OSError:
                 pass
+
+    def test_admin_matches_filters_and_connect_copy(self):
+        """测试比赛后台列表的筛选、搜索及一键进服指令功能"""
+        conn = get_db()
+        conn.execute("UPDATE matches SET match_time='2099-01-01T20:00' WHERE id=?", (self.match_id,))
+        conn.commit()
+        conn.close()
+
+        # 1. 基础访问：检查包含筛选工具栏与复制按钮
+        response = self.client.get("/admin/matches")
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn("matches-filter-toolbar", html)
+        self.assertIn("全部 (1)", html)
+        self.assertIn("未开始 (1)", html)
+        self.assertIn("copy-connect-btn", html)
+        self.assertIn('data-connect="connect 1.2.3.4:27015; password orig-secret"', html)
+
+        # 2. 状态筛选：筛选未开始
+        resp_upcoming = self.client.get("/admin/matches?status=upcoming")
+        self.assertEqual(resp_upcoming.status_code, 200)
+        self.assertIn("Team 1 对 Team 2", resp_upcoming.get_data(as_text=True))
+
+        # 3. 状态筛选：筛选已结束（目前无结束比赛，应显示空提示）
+        resp_completed = self.client.get("/admin/matches?status=completed")
+        self.assertEqual(resp_completed.status_code, 200)
+        self.assertIn("没有找到符合条件的比赛", resp_completed.get_data(as_text=True))
+
+        # 4. 搜索队伍：匹配
+        resp_search = self.client.get("/admin/matches?q=Team 1")
+        self.assertEqual(resp_search.status_code, 200)
+        self.assertIn("Team 1 对 Team 2", resp_search.get_data(as_text=True))
+
+        # 5. 搜索不存在内容：空提示
+        resp_none = self.client.get("/admin/matches?q=NoSuchTeamExists")
+        self.assertEqual(resp_none.status_code, 200)
+        self.assertIn("没有找到符合条件的比赛", resp_none.get_data(as_text=True))
+

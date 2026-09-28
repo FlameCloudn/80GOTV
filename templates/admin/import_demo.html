@@ -4,63 +4,41 @@
   {% include "_i18n_bootstrap.html" %}
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>批量导入 Demo 数据 — {{ match.team1_name }} 对 {{ match.team2_name }}</title>
-  <style>
-    *{margin:0;padding:0;box-sizing:border-box}
-    body{font-family:sans-serif;background:#f5f5f5}
-
-    .top-nav{
-      background:white;border-bottom:2px solid #5881bc;
-      padding:15px 30px;display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;
-    }
-    .top-nav .logo{font-size:18px;font-weight:bold;color:#5881bc}
-    .top-nav .nav-links{display:flex;gap:20px;align-items:center}
-    .top-nav a{color:#333;text-decoration:none;padding:8px 15px;border-radius:0;transition:all 0.2s}
-    .top-nav a:hover{background:#f5f5f5;color:#5881bc}
-    .top-nav .logout-btn{background:#5881bc;color:white;padding:8px 15px;border-radius:0;max-width:1200px;margin:0 auto}
-
-    .panel{background:white;border-radius:0;padding:24px;margin-bottom:20px}
-    .panel h3{margin-bottom:16px;color:#333}
-    .panel p{margin-bottom:8px;font-size:14px;color:#666}
-
-    .form-group{margin-bottom:16px}
-    label{display:block;margin-bottom:8px;font-weight:600;color:#333}
-    select,input[type=file]{padding:10px 14px;border:1px solid #ddd;border-radius:0;font-size:14px}
-    select:focus,input[type=file]:focus{outline:none;border-color:#5881bc}
-
-    .alert{padding:12px 20px;margin-bottom:20px;border-radius:0;font-size:14px}
-    .alert-error{background:#f8d7da;color:#721c24}
-    .alert-success{background:#d4edda;color:#155724}
-    .alert-info{background:#d4e6f1;color:#1a5276}
-
-    .btn{padding:12px 24px;border:none;border-radius:0;font-size:14px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block}
-    .btn-primary{background:#5881bc;color:white}
-    .btn-primary:hover{background:#4a6fa3}
-    .btn-primary:disabled{background:#ccc;cursor:not-allowed}
-    .btn-secondary{background:#ddd;color:#333}
-    .btn-secondary:hover{background:#ccc}
-
-    .form-actions{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap}
-
-    table{width:100%;border-collapse:collapse;margin-top:12px}
-    th{background:#f5f5f5;padding:10px 8px;text-align:left;font-weight:600;font-size:13px;border-bottom:2px solid #ddd}
-    td{padding:8px;border-bottom:1px solid #eee;font-size:13px}
-    .match-found{color:#1a7e1a}
-    .match-partial{color:#e67e22}
-    .match-none{color:#c0392b}
-
-    .preview-info{display:flex;gap:20px;flex-wrap:wrap;margin-bottom:16px}
-    .preview-item{background:#f9f9f9;padding:12px 16px;border-radius:0;min-width:120px}
-    .preview-item .label{font-size:11px;color:#999;text-transform:uppercase}
-    .preview-item .value{font-size:18px;font-weight:bold;color:#333}
-
-    .file-slot{background:#fafafa;border:2px dashed #ddd;border-radius:0;padding:16px;margin-bottom:12px}
-    .file-slot.has-file{border-color:#4caf50;background:#f1f8e9}
-    .file-slot-label{font-weight:600;margin-bottom:8px;color:#555}
-    .demo-preview-section{border-top:2px solid #5881bc;padding-top:16px;margin-top:16px}
-    .demo-preview-section h4{color:#5881bc;margin-bottom:12px}
-  </style>
+  <title>批量导入 Demo 数据 — {{ match.team1_name }} 对 {{ match.team2_name }} - 80GOTV</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-comfort.css') }}">
+  <script>
+    (function(){
+      var t = localStorage.getItem('theme');
+      if(!t){ t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light'; }
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+  <style>
+    body{font-family:sans-serif;background:var(--bg-primary);color:var(--text-primary)}
+    .container{padding:0 20px 30px}
+    .panel{background:var(--bg-card);border:1px solid var(--border-color);padding:24px;margin-bottom:20px}
+    .panel h3{margin-bottom:16px;color:var(--text-primary)}
+    .panel p{margin-bottom:8px;font-size:14px;color:var(--text-secondary)}
+    .form-group{margin-bottom:16px}
+    label{display:block;margin-bottom:8px;font-weight:600;color:var(--text-primary)}
+    .form-actions{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap}
+    table{width:100%;border-collapse:collapse;margin-top:12px;background:var(--bg-card);border:1px solid var(--border-color)}
+    th{background:var(--bg-secondary);padding:10px 8px;text-align:left;font-weight:600;font-size:13px;border-bottom:1px solid var(--border-color);color:var(--text-primary)}
+    td{padding:8px;border-bottom:1px solid var(--border-color);font-size:13px;color:var(--text-primary)}
+    .match-found{color:#16a34a}
+    .match-partial{color:#ea580c}
+    .match-none{color:#dc2626}
+    .preview-info{display:flex;gap:20px;flex-wrap:wrap;margin-bottom:16px}
+    .preview-item{background:var(--bg-secondary);border:1px solid var(--border-color);padding:12px 16px;min-width:120px}
+    .preview-item .label{font-size:11px;color:var(--text-muted);text-transform:uppercase}
+    .preview-item .value{font-size:18px;font-weight:bold;color:var(--text-primary)}
+    .file-slot{background:var(--bg-secondary);border:2px dashed var(--border-color);padding:16px;margin-bottom:12px}
+    .file-slot.has-file{border-color:#16a34a;background:rgba(22,163,74,0.08)}
+    .file-slot-label{font-weight:600;margin-bottom:8px;color:var(--text-primary)}
+    .demo-preview-section{border-top:2px solid var(--accent);padding-top:16px;margin-top:16px}
+    .demo-preview-section h4{color:var(--accent);margin-bottom:12px}
+  </style>
 </head>
 <body>
 
@@ -252,5 +230,7 @@
     });
   });
 </script>
+<script src="{{ versioned_url('static/js/i18n.js') }}"></script>
+<script src="{{ url_for('static', filename='js/svg_icons.js') }}?v=20260620-svg1"></script>
 </body>
 </html>

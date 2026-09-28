@@ -341,7 +341,11 @@ function selectSlot(n){
   {% endif %}
 {% endmacro %}
 
-<div class="bracket-container">
+<div class="bracket-scroll-wrapper">
+  <div class="bracket-mobile-hint">
+    <span>&harr; 左右滑动查看完整淘汰赛对阵</span>
+  </div>
+  <div class="bracket-container">
 {% if is_swiss %}
   {# ── Swiss: text-based layout ── #}
   <div class="bracket-swiss">
@@ -450,6 +454,7 @@ function selectSlot(n){
     {% endfor %}
   </div>
 {% endif %}
+</div>
 </div>
 
 {% endif %}

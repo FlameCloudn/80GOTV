@@ -4,126 +4,195 @@
   {% include "_i18n_bootstrap.html" %}
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>比赛管理</title>
+  <title>比赛管理 - 80GOTV</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-comfort.css') }}">
+  <script>
+    (function(){
+      var t = localStorage.getItem('theme');
+      if(!t){ t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light'; }
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
   <style>
-    *{margin:0;padding:0;box-sizing:border-box}
-    body{font-family:sans-serif;background:#f5f5f5}
-
-    /* 顶部导航栏 */
-    .top-nav{
-      background:white;
-      border-bottom:2px solid #5881bc;
-      padding:15px 30px;
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      margin-bottom:20px;
-    }
-    .top-nav .logo{
-      font-size:18px;
-      font-weight:bold;
-      color:#5881bc;
-    }
-    .top-nav .nav-links{
-      display:flex;
-      gap:20px;
-      align-items:center;
-    }
-    .top-nav a{
-      color:#333;
-      text-decoration:none;
-      padding:8px 15px;
-      border-radius:0;
-      transition:all 0.2s;
-    }
-    .top-nav a:hover{
-      background:#f5f5f5;
-      color:#5881bc;
-    }
-    .top-nav .logout-btn{
-      background:#5881bc;
-      color:white;
-      padding:8px 15px;
-      border-radius:0;
-    }
-    .top-nav .logout-btn:hover{
-      background:#4a6fa3;
-    }
-
-    .container{padding:0 30px 30px}
+    body{background:var(--bg-primary);color:var(--text-primary);font-family:sans-serif}
+    .container{padding:0 20px 30px}
     .header{
-      background:white;
-      padding:20px;
+      background:var(--bg-card);
+      border:1px solid var(--border-color);
+      padding:16px 20px;
       margin-bottom:20px;
-      border-radius:0;
       display:flex;
       justify-content:space-between;
       align-items:center;
     }
-    .btn{
-      padding:10px 20px;
-      border-radius:0;
-      text-decoration:none;
-      font-weight:600;
-      display:inline-block;
-    }
-    .btn-primary{background:#5881bc;color:white}
-    .btn-primary:hover{background:#4a6fa3}
-    .btn-secondary{background:#4caf50;color:white;font-size:13px;padding:8px 15px}
-    .btn-secondary:hover{background:#45a049}
+    .header h2{margin:0}
     table{
       width:100%;
-      background:white;
-      border-radius:0;
-      overflow:hidden;
+      background:var(--bg-card);
+      border:1px solid var(--border-color);
       border-collapse:collapse;
     }
     th{
-      background:#f5f5f5;
-      padding:15px;
+      background:var(--bg-secondary);
+      color:var(--text-primary);
+      padding:12px 14px;
       text-align:left;
-      font-weight:600;
-      border-bottom:2px solid #ddd;
+      font-weight:700;
+      border-bottom:1px solid var(--border-color);
       font-size:13px;
     }
     td{
-      padding:15px;
-      border-bottom:1px solid #eee;
+      padding:12px 14px;
+      border-bottom:1px solid var(--border-color);
+      color:var(--text-primary);
       font-size:13px;
     }
-    tr:hover{background:#f9f9f9}
-    .actions{white-space:nowrap}
-    .actions a{
-      margin-right:12px;
-      color:#5881bc;
+    tr:hover{background:var(--bg-hover)}
+    .actions-cell{min-width:280px}
+    .action-group{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+    .action-pill{
+      padding:3px 8px;
+      background:var(--bg-secondary);
+      border:1px solid var(--border-color);
+      color:var(--text-primary);
+      font-size:12px;
       text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      gap:3px;
+      transition:all .15s;
+    }
+    .action-pill:hover{
+      background:var(--bg-hover);
+      border-color:var(--accent);
+      color:var(--accent);
+      text-decoration:none;
+    }
+    .action-pill.primary{background:#e8f0fe;border-color:#5881bc;color:#5881bc}
+    .action-pill.success{background:#e6f4ea;border-color:#137333;color:#137333}
+    [data-theme="dark"] .action-pill.primary{background:#172554;border-color:#3b82f6;color:#93c5fd}
+    [data-theme="dark"] .action-pill.success{background:#052e16;border-color:#22c55e;color:#86efac}
+    .action-delete-btn{
+      background:none;
+      border:none;
+      color:var(--text-muted);
+      cursor:pointer;
+      font-size:12px;
+      padding:3px 6px;
+      font-family:inherit;
+    }
+    .action-delete-btn:hover{color:#ef4444;text-decoration:underline}
+    .live-badge{
+      background:#16a34a;
+      color:#fff;
+      padding:2px 8px;
+      font-size:11px;
+      font-weight:700;
+      display:inline-block;
+    }
+    .test-badge{
+      display:inline-block;
+      margin-left:6px;
+      padding:2px 6px;
+      background:var(--bg-secondary);
+      color:var(--text-muted);
+      border:1px solid var(--border-color);
+      font-size:11px;
+      font-weight:700;
+    }
+    .matches-filter-toolbar{
+      display:flex;
+      flex-wrap:wrap;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      margin-bottom:16px;
+      background:var(--bg-card);
+      border:1px solid var(--border-color);
+      padding:12px 16px;
+    }
+    .status-pills{display:flex;gap:6px;flex-wrap:wrap}
+    .status-pills .pill{
+      padding:6px 12px;
+      font-size:13px;
+      font-weight:600;
+      color:var(--text-muted);
+      background:var(--bg-secondary);
+      border:1px solid var(--border-color);
+      text-decoration:none;
+      transition:all .15s;
+    }
+    .status-pills .pill:hover{color:var(--text-primary);background:var(--bg-hover)}
+    .status-pills .pill.active{
+      background:var(--accent, #5881bc);
+      border-color:var(--accent, #5881bc);
+      color:#fff;
+    }
+    .status-pills .pill.live-pill.active{background:#16a34a;border-color:#16a34a}
+    .pill-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;vertical-align:middle}
+    .pill-dot.live{background:#22c55e}
+    .pill-dot.upcoming{background:#3b82f6}
+    .pill-dot.completed{background:var(--text-muted)}
+    .filter-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .filter-select{
+      min-height:36px;
+      padding:6px 10px;
+      border:1px solid var(--border-color);
+      background:var(--bg-card);
+      color:var(--text-primary);
       font-size:13px;
     }
-    .actions a:hover{text-decoration:underline}
-    .alert{
-      padding:12px 20px;
-      margin-bottom:20px;
-      border-radius:0;
+    .search-input-wrap{position:relative;display:flex;align-items:center}
+    .filter-search{
+      min-height:36px;
+      padding:6px 28px 6px 10px;
+      border:1px solid var(--border-color);
+      background:var(--bg-card);
+      color:var(--text-primary);
+      font-size:13px;
+      width:180px;
+      transition:width .2s;
     }
-    .alert-success{background:#d4edda;color:#155724}
-    .alert-error{background:#f8d7da;color:#721c24}
-    .live{
-      background:#1db954;
-      color:white;
-      padding:2px 8px;
-      border-radius:0;
+    .filter-search:focus{width:220px}
+    .clear-search{
+      position:absolute;
+      right:8px;
+      color:var(--text-muted);
+      text-decoration:none;
+      font-size:12px;
+      cursor:pointer;
+    }
+    .copy-connect-btn{
+      background:var(--bg-secondary);
+      border:1px solid var(--border-color);
+      color:var(--text-primary);
       font-size:11px;
-      font-weight:bold;
+      font-weight:600;
+      padding:2px 7px;
+      cursor:pointer;
+      font-family:inherit;
+      display:inline-flex;
+      align-items:center;
+      gap:3px;
+      transition:all .15s;
     }
-    .test-badge{display:inline-block;margin-left:7px;padding:2px 6px;background:#e8f1f8;
-      color:#355b78;border:1px solid #c6d8e6;font-size:11px;font-weight:700}
-    .match-action-form{display:inline-flex;align-items:center;gap:5px;margin-top:8px;margin-right:8px}
-    .match-action-btn{border:0;border-radius:0;padding:6px 9px;color:#fff;cursor:pointer;font-size:12px}
-    .complete-btn{background:#b34848}.reopen-btn{background:#4b7f52}
-    .undo-btn{background:#b8860b}
-    .save-log{font-size:11px;color:#667;display:inline-flex;gap:3px;align-items:center}
+    .copy-connect-btn:hover{
+      background:var(--bg-hover);
+      border-color:var(--accent);
+      color:var(--accent);
+    }
+    .copy-connect-btn.copied{
+      background:#16a34a;
+      border-color:#16a34a;
+      color:#fff;
+    }
+    .match-action-form{display:inline-flex;align-items:center;gap:6px;margin-top:6px}
+    .match-action-btn{border:0;border-radius:0;padding:4px 8px;color:#fff;cursor:pointer;font-size:12px;font-family:inherit}
+    .complete-btn{background:#dc2626}.reopen-btn{background:#16a34a}
+    .undo-btn{background:#d97706}
+    .save-log{font-size:11px;color:var(--text-muted);display:inline-flex;gap:3px;align-items:center}
   </style>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-comfort.css') }}">
 </head>
 <body>
 
@@ -140,8 +209,37 @@
   {% endwith %}
 
   <div class="header">
-    <h2>比赛管理</h2>
+    <div>
+      <h2 style="margin:0">比赛管理</h2>
+      <p style="margin:4px 0 0;font-size:13px;color:var(--text-muted)">共 {{ matches|length }} 场比赛</p>
+    </div>
     <a href="/admin/matches/add" class="btn btn-primary">➕ 添加比赛</a>
+  </div>
+
+  <!-- 筛选与搜索工具栏 -->
+  <div class="matches-filter-toolbar">
+    <div class="status-pills">
+      <a href="?status=all{% if current_event %}&event={{ current_event }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="pill {% if current_status == 'all' %}active{% endif %}">全部 ({{ counts.all if counts else matches|length }})</a>
+      <a href="?status=live{% if current_event %}&event={{ current_event }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="pill live-pill {% if current_status == 'live' %}active{% endif %}"><span class="pill-dot live"></span>进行中 ({{ counts.live if counts else 0 }})</a>
+      <a href="?status=upcoming{% if current_event %}&event={{ current_event }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="pill {% if current_status == 'upcoming' %}active{% endif %}"><span class="pill-dot upcoming"></span>未开始 ({{ counts.upcoming if counts else 0 }})</a>
+      <a href="?status=completed{% if current_event %}&event={{ current_event }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="pill {% if current_status == 'completed' %}active{% endif %}"><span class="pill-dot completed"></span>已结束 ({{ counts.completed if counts else 0 }})</a>
+    </div>
+    <form method="get" class="filter-controls">
+      <input type="hidden" name="status" value="{{ current_status }}">
+      <select name="event" onchange="this.form.submit()" class="filter-select">
+        <option value="">全部赛事</option>
+        {% for e in events %}
+        <option value="{{ e.id }}" {% if current_event == e.id|string %}selected{% endif %}>{{ e.name }}</option>
+        {% endfor %}
+      </select>
+      <div class="search-input-wrap">
+        <input type="text" name="q" value="{{ search_query }}" placeholder="搜索队伍名 / ID..." class="filter-search">
+        {% if search_query %}
+        <a href="?status={{ current_status }}{% if current_event %}&event={{ current_event }}{% endif %}" class="clear-search" title="清除搜索">✕</a>
+        {% endif %}
+      </div>
+      <button type="submit" class="btn btn-secondary" style="min-height:36px;padding:6px 14px">搜索</button>
+    </form>
   </div>
 
   <table>
@@ -153,35 +251,52 @@
         <th>比分</th>
         <th>时间</th>
         <th>状态</th>
-        <th>操作</th>
+        <th class="actions-cell">操作</th>
       </tr>
     </thead>
     <tbody>
       {% for m in matches %}
       <tr>
-        <td>{{ m.id }}</td>
-        <td>{{ m.event_name }}</td>
+        <td>#{{ m.id }}</td>
+        <td>{{ m.event_name or '-' }}</td>
         <td>
-          {{ m.team1_name }} 对 {{ m.team2_name }}
-          {% if m.is_test_mode %}<span class="test-badge">测试</span>{% endif %}
+          <div style="font-weight:600;font-size:14px">
+            {{ m.team1_name }} 对 {{ m.team2_name }}
+            {% if m.is_test_mode %}<span class="test-badge">测试</span>{% endif %}
+          </div>
+          {% if m.server_address %}
+          {% set full_connect = 'connect ' ~ m.server_address ~ (('; password ' ~ m.server_password) if m.server_password else '') %}
+          <div style="margin-top:5px">
+            <button type="button" class="copy-connect-btn" data-connect="{{ full_connect }}" onclick="copyConnectStr(this)" title="点击复制进服指令">📋 复制进服串</button>
+          </div>
+          {% endif %}
         </td>
-        <td><b>{{ m.team1_score }} : {{ m.team2_score }}</b></td>
+        <td><b>{{ m.team1_score if m.team1_score is not none else '-' }} : {{ m.team2_score if m.team2_score is not none else '-' }}</b></td>
         <td>{{ m.match_time|datetime_display }}</td>
         <td>
-          {% if m.effective_status == 'upcoming' %}未开始
-          {% elif m.effective_status == 'live' %}<span class="live">进行中</span>
-          {% elif m.effective_status == 'cancelled' %}已取消
-          {% else %}已结束{% endif %}
+          {% if m.effective_status == 'upcoming' %}<span style="color:var(--text-muted);">未开始</span>
+          {% elif m.effective_status == 'live' %}<span class="live-badge">直播中</span>
+          {% elif m.effective_status == 'cancelled' %}<span style="color:#ef4444;">已取消</span>
+          {% else %}<span style="color:var(--text-muted);">已结束</span>{% endif %}
         </td>
-        <td class="actions">
-          <a href="/admin/matches/edit/{{ m.id }}">✏️ 编辑</a>
-          {% if m.effective_status not in ('completed', 'cancelled') %}<a href="/bp/{{ m.id }}" target="_blank">🎯 打开 BP</a>{% endif %}
-          {% if m.bp_state and m.effective_status not in ('completed', 'cancelled') %}
-          <button type="button" class="match-action-btn undo-btn" data-bp-undo="{{ m.id }}" data-confirm="确定撤销上一步 BP 吗？">↩️ 撤销 BP</button>
-          {% endif %}
-          <a href="/admin/matches/{{ m.id }}/stats" class="btn-secondary">📊 录入数据</a>
-          {% if m.effective_status != 'cancelled' %}<a href="/admin/matches/{{ m.id }}/import-demo">📥 上传 Demo</a>{% endif %}
-          <form method="post" action="/admin/matches/delete/{{ m.id }}" style="display:inline" data-confirm="确定删除比赛吗？相关统计、直播记录和评论也会一起删除。" onsubmit="return window.confirm(this.dataset.confirm)"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" style="background:none;border:none;color:#5881bc;cursor:pointer;font-size:14px;padding:0">🗑️ 删除</button></form>
+        <td class="actions-cell">
+          <div class="action-group">
+            <a href="/admin/matches/edit/{{ m.id }}" class="action-pill primary">✏️ 编辑</a>
+            <a href="/admin/matches/{{ m.id }}/stats" class="action-pill success">📊 录入数据</a>
+            {% if m.effective_status not in ('completed', 'cancelled') %}
+            <a href="/bp/{{ m.id }}" target="_blank" class="action-pill">🎯 打开 BP</a>
+            {% endif %}
+            {% if m.bp_state and m.effective_status not in ('completed', 'cancelled') %}
+            <button type="button" class="match-action-btn undo-btn" data-bp-undo="{{ m.id }}" data-confirm="确定撤销上一步 BP 吗？">↩️ 撤销 BP</button>
+            {% endif %}
+            {% if m.effective_status != 'cancelled' %}
+            <a href="/admin/matches/{{ m.id }}/import-demo" class="action-pill">📥 上传 Demo</a>
+            {% endif %}
+            <form method="post" action="/admin/matches/delete/{{ m.id }}" style="display:inline" data-confirm="确定删除比赛吗？相关统计、直播记录和评论也会一起删除。" onsubmit="return window.confirm(this.dataset.confirm)">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button type="submit" class="action-delete-btn">🗑️ 删除</button>
+            </form>
+          </div>
           {% if m.effective_status == 'live' %}
           <form class="match-action-form" method="post" action="/admin/matches/{{ m.id }}/complete" onsubmit="return confirm('确定结束这场比赛吗？')">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -196,6 +311,12 @@
           {% endif %}
         </td>
       </tr>
+      {% else %}
+      <tr>
+        <td colspan="7" style="text-align:center;padding:36px;color:var(--text-muted)">
+          没有找到符合条件的比赛{% if search_query or current_event or (current_status and current_status != 'all') %}，请尝试清除筛选条件{% endif %}
+        </td>
+      </tr>
       {% endfor %}
     </tbody>
   </table>
@@ -204,6 +325,22 @@
 <script src="{{ versioned_url('static/js/i18n.js') }}"></script>
 <script src="{{ url_for('static', filename='js/svg_icons.js') }}?v=20260620-svg1"></script>
 <script>
+function copyConnectStr(btn) {
+  var cmd = btn.getAttribute('data-connect');
+  if (!cmd) return;
+  navigator.clipboard.writeText(cmd).then(function() {
+    var oldText = btn.textContent;
+    btn.textContent = '✅ 已复制！';
+    btn.classList.add('copied');
+    setTimeout(function() {
+      btn.textContent = oldText;
+      btn.classList.remove('copied');
+    }, 1600);
+  }).catch(function() {
+    prompt('请按 Ctrl+C 复制进服指令：', cmd);
+  });
+}
+
 document.querySelectorAll('[data-bp-undo]').forEach(function(btn){
   btn.addEventListener('click', function(){
     if (!window.confirm(btn.dataset.confirm)) return;

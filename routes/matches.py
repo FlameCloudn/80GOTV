@@ -153,7 +153,9 @@ def results_list():
     conn = get_db()
     query = f"""
         SELECT m.*, t1.name AS team1_name, t2.name AS team2_name,
-               t1.short_name AS t1s, t2.short_name AS t2s, e.name AS event_name,
+               t1.short_name AS t1s, t2.short_name AS t2s,
+               t1.logo AS team1_logo, t2.logo AS team2_logo,
+               e.name AS event_name,
                {_SQL_EFFECTIVE_STATUS}
         FROM matches m
         LEFT JOIN teams t1 ON m.team1_id=t1.id

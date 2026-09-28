@@ -7,18 +7,34 @@
   <title>直播状态 - 80GOTV</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-comfort.css') }}">
+  <script>
+    (function(){
+      var t = localStorage.getItem('theme');
+      if(!t){ t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light'; }
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
   <style>
-    body{background:#f4f6f8;font-family:sans-serif}
-    .ops a{color:#416fa9;text-decoration:none}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:22px}
-    .card{background:#fff;border:1px solid #dce2e8;border-radius:0;padding:16px}.status{display:inline-block;padding:3px 7px;border-radius:0;font-size:12px;font-weight:700}
-    .ok{background:#def6e8;color:#15713c}.error{background:#fde6e6;color:#a32626}.muted{color:#6d7884;font-size:13px}
-    table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #dce2e8}th,td{text-align:left;padding:11px;border-bottom:1px solid #e6eaee;font-size:13px}
+    body{background:var(--bg-primary);color:var(--text-primary);font-family:sans-serif}
+    .ops a{color:var(--accent-primary, #416fa9);text-decoration:none}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:22px}
+    .card{background:var(--bg-card);border:1px solid var(--border-color);border-radius:8px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,0.04)}
+    .status{display:inline-block;padding:3px 8px;border-radius:4px;font-size:12px;font-weight:700}
+    .ok{background:rgba(34,197,94,0.15);color:#16a34a}
+    .error{background:rgba(239,68,68,0.15);color:#dc2626}
+    .muted{color:var(--text-muted);font-size:13px}
+    .table-wrap{background:var(--bg-card);border:1px solid var(--border-color);border-radius:8px;overflow-x:auto}
+    table{width:100%;border-collapse:collapse;background:var(--bg-card)}
+    th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--border-color);font-size:13px;color:var(--text-primary)}
+    th{background:var(--bg-secondary);color:var(--text-muted);font-weight:600}
+    tr:last-child td{border-bottom:none}
+    tr:hover td{background:var(--bg-hover)}
   </style>
 </head>
 <body>
 {% include "admin/_top_nav.html" %}
 <div class="ops">
-  <div class="ops-head"><div><h2>直播连接状态</h2><div class="muted">查看观战账号和 GOTV Relay 最近一次推送结果。</div></div></div>
+  <div class="ops-head" style="margin-bottom:16px"><div><h2>直播连接状态</h2><div class="muted">查看观战账号和 GOTV Relay 最近一次推送结果。</div></div></div>
   <div class="grid">
     {% for item in receivers %}
     <div class="card">
@@ -33,17 +49,20 @@
     {% endfor %}
   </div>
   <h3 style="margin-bottom:10px">未结束比赛</h3>
-  <table>
-    <thead><tr><th>ID</th><th>比赛</th><th>状态</th><th>计划时间</th><th>数据来源</th><th>当前地图</th><th>数据更新时间</th></tr></thead>
-    <tbody>
-    {% for m in matches %}
-      <tr><td>#{{ m.id }}</td><td>{{ m.team1_name or '队伍 1' }} 对 {{ m.team2_name or '队伍 2' }}</td><td>{% if m.effective_status == 'upcoming' %}未开始{% elif m.effective_status == 'live' %}直播中{% elif m.effective_status == 'cancelled' %}已取消{% else %}已结束{% endif %}</td><td>{{ m.match_time|datetime_display if m.match_time else '-' }}</td><td>{{ m.live_source }}</td><td>{{ m.current_map }}</td><td>{{ m.updated_at|datetime_display if m.updated_at else '-' }}</td></tr>
-    {% else %}
-      <tr><td colspan="7">暂无未结束比赛</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>ID</th><th>比赛</th><th>状态</th><th>计划时间</th><th>数据来源</th><th>当前地图</th><th>数据更新时间</th></tr></thead>
+      <tbody>
+      {% for m in matches %}
+        <tr><td>#{{ m.id }}</td><td>{{ m.team1_name or '队伍 1' }} 对 {{ m.team2_name or '队伍 2' }}</td><td>{% if m.effective_status == 'upcoming' %}未开始{% elif m.effective_status == 'live' %}直播中{% elif m.effective_status == 'cancelled' %}已取消{% else %}已结束{% endif %}</td><td>{{ m.match_time|datetime_display if m.match_time else '-' }}</td><td>{{ m.live_source }}</td><td>{{ m.current_map }}</td><td>{{ m.updated_at|datetime_display if m.updated_at else '-' }}</td></tr>
+      {% else %}
+        <tr><td colspan="7" style="text-align:center;padding:24px" class="muted">暂无未结束比赛</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 <script src="{{ versioned_url('static/js/i18n.js') }}"></script>
+<script src="{{ versioned_url('static/js/svg_icons.js') }}"></script>
 </body>
 </html>

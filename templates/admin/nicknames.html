@@ -5,18 +5,40 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>昵称管理 - 80GOTV</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-comfort.css') }}">
+  <script>
+    (function(){
+      var t = localStorage.getItem('theme');
+      if(!t){ t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light'; }
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
   <style>
-    body{margin:0;background:#f4f6f8;color:#26313c;font-family:sans-serif}.muted{color:#72808e;font-size:13px}
-    .merge,.table-wrap{background:#fff;border:1px solid #dce2e8;border-radius:0;padding:16px;margin-top:16px}.merge form{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    select{min-width:220px}.btn{border:0;border-radius:0;padding:10px 15px;background:#416fa9;color:#fff;cursor:pointer;text-decoration:none}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px;border-bottom:1px solid #e7ebef;font-size:13px;vertical-align:top}.alias{display:inline-block;margin:2px 4px 2px 0;padding:2px 6px;border-radius:0;background:#edf1f5;color:#536170;font-size:12px}
+    body{margin:0;background:var(--bg-primary);color:var(--text-primary);font-family:sans-serif}
+    .muted{color:var(--text-muted);font-size:13px}
+    .merge,.table-wrap{background:var(--bg-card);border:1px solid var(--border-color);padding:16px;margin-top:16px}
+    .merge form{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    select{min-width:220px}
+    table{width:100%;border-collapse:collapse}
+    th,td{text-align:left;padding:10px;border-bottom:1px solid var(--border-color);font-size:13px;vertical-align:top;color:var(--text-primary)}
+    th{background:var(--bg-secondary);font-weight:700}
+    tr:hover{background:var(--bg-hover)}
+    .alias{display:inline-block;margin:2px 4px 2px 0;padding:2px 6px;background:var(--bg-secondary);border:1px solid var(--border-color);color:var(--text-secondary);font-size:12px}
   </style>
 </head>
 <body>
 {% include "admin/_top_nav.html" %}
 <div class="ops">
-  <div class="head"><div><h2>选手昵称管理</h2><div class="muted">正式昵称用于网站显示，Steam 和 Demo 中见过的旧昵称仍会保留。</div></div></div>
-  {% with messages = get_flashed_messages(with_categories=true) %}{% for category,message in messages %}<div class="merge">{{ message }}</div>{% endfor %}{% endwith %}
+  <div class="head">
+    <div>
+      <h2 style="margin:0;">选手昵称管理</h2>
+      <div class="muted" style="margin-top:4px;">正式昵称用于网站显示，Steam 和 Demo 中见过的旧昵称仍会保留。</div>
+    </div>
+  </div>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category,message in messages %}<div class="alert alert-{{ category }}" style="margin-top:16px;">{{ message }}</div>{% endfor %}
+  {% endwith %}
   <section class="merge">
     <h3 style="margin-top:0">合并重复选手</h3>
     <div class="muted" style="margin-bottom:10px">把错误生成的重复档案合并到要保留的档案。历史比赛会一起搬过去。</div>
@@ -25,18 +47,30 @@
       <select name="source_id" required><option value="">要移除的重复档案</option>{% for p in players %}<option value="{{ p.id }}">#{{ p.id }} {{ p.nickname }}</option>{% endfor %}</select>
       <span>合并到</span>
       <select name="target_id" required><option value="">要保留的正式档案</option>{% for p in players %}<option value="{{ p.id }}">#{{ p.id }} {{ p.nickname }}</option>{% endfor %}</select>
-      <button class="btn" type="submit">合并档案</button>
+      <button class="btn btn-primary" type="submit">合并档案</button>
     </form>
   </section>
   <div class="table-wrap">
-    <table><thead><tr><th>ID</th><th>正式昵称</th><th>SteamID</th><th>队伍</th><th>历史昵称</th><th></th></tr></thead>
-    <tbody>{% for p in players %}<tr>
-      <td>#{{ p.id }}</td><td><b>{{ p.nickname }}</b></td><td>{{ p.steam_id or '-' }}</td><td>{{ p.team_name or '-' }}</td>
-      <td>{% for item in alias_map.get(p.id, []) %}<span class="alias" title="{{ item.source }}">{{ item.nickname }}</span>{% else %}-{% endfor %}</td>
-      <td><a href="/admin/players/edit/{{ p.id }}">编辑</a></td>
-    </tr>{% endfor %}</tbody></table>
+    <table>
+      <thead>
+        <tr><th>ID</th><th>正式昵称</th><th>SteamID</th><th>队伍</th><th>历史昵称</th><th>操作</th></tr>
+      </thead>
+      <tbody>
+        {% for p in players %}
+        <tr>
+          <td>#{{ p.id }}</td>
+          <td><b>{{ p.nickname }}</b></td>
+          <td>{{ p.steam_id or '-' }}</td>
+          <td>{{ p.team_name or '-' }}</td>
+          <td>{% for item in alias_map.get(p.id, []) %}<span class="alias" title="{{ item.source }}">{{ item.nickname }}</span>{% else %}-{% endfor %}</td>
+          <td><a href="/admin/players/edit/{{ p.id }}" style="color:var(--accent);text-decoration:none;">编辑</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
 </div>
 <script src="{{ versioned_url('static/js/i18n.js') }}"></script>
+<script src="{{ url_for('static', filename='js/svg_icons.js') }}?v=20260620-svg1"></script>
 </body>
 </html>

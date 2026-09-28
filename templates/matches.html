@@ -85,7 +85,7 @@
             {% if team1_is_assigned and m.team1_logo %}
             <img class="match-team-logo" src="{{ url_for('static', filename='uploads/' ~ m.team1_logo) }}" alt="" loading="lazy">
             {% else %}
-            <span class="match-team-mark">A</span>
+            <span class="match-team-mark" data-i18n-ignore>{{ (m.t1s or m.team1_name or 'T1')[:2]|upper if team1_is_assigned else '?' }}</span>
             {% endif %}
             <span class="team-name" data-i18n-ignore>{{ m.team1_name if team1_is_assigned else 'TBD' }}</span>
           </div>
@@ -93,7 +93,7 @@
             {% if team2_is_assigned and m.team2_logo %}
             <img class="match-team-logo" src="{{ url_for('static', filename='uploads/' ~ m.team2_logo) }}" alt="" loading="lazy">
             {% else %}
-            <span class="match-team-mark">B</span>
+            <span class="match-team-mark" data-i18n-ignore>{{ (m.t2s or m.team2_name or 'T2')[:2]|upper if team2_is_assigned else '?' }}</span>
             {% endif %}
             <span class="team-name" data-i18n-ignore>{{ m.team2_name if team2_is_assigned else 'TBD' }}</span>
           </div>

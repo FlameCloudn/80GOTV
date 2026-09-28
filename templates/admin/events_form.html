@@ -50,7 +50,7 @@
         <label>网址名称（可选）</label>
         <input type="text" name="slug" value="{{ event.slug if event and event.slug else '' }}"
                placeholder="例如：80cs-summer-major" pattern="[A-Za-z0-9-]+">
-        <small style="color:#888">最终地址形如 /events/80cs-summer-major；留空时按赛事名称自动生成。</small>
+        <small class="field-note">最终地址形如 /events/80cs-summer-major；留空时按赛事名称自动生成。</small>
       </div>
 
       <div class="form-group">
@@ -58,17 +58,28 @@
         <textarea name="description" rows="3" placeholder="赛事简介（可选）">{{ event.description if event else '' }}</textarea>
       </div>
 
-      <div class="form-row">
-        <div class="form-group">
-          <label>开始日期 *</label>
-          <input type="datetime-local" name="start_date"
-                 value="{{ event.start_date[:16] if event and event.start_date else '' }}" required>
-        </div>
+      <div class="time-picker-card" style="margin-bottom:20px;">
+        <label style="font-weight:700;margin-bottom:8px;display:block;">赛事起止时间 *</label>
+        <div class="form-row">
+          <div class="form-group" style="margin-bottom:6px;">
+            <label style="font-size:13px;color:var(--text-muted);">开始日期与时间</label>
+            <input type="datetime-local" id="startDateInput" name="start_date"
+                   value="{{ event.start_date[:16] if event and event.start_date else '' }}" required>
+          </div>
 
-        <div class="form-group">
-          <label>结束日期 *</label>
-          <input type="datetime-local" name="end_date"
-                 value="{{ event.end_date[:16] if event and event.end_date else '' }}" required>
+          <div class="form-group" style="margin-bottom:6px;">
+            <label style="font-size:13px;color:var(--text-muted);">结束日期与时间</label>
+            <input type="datetime-local" id="endDateInput" name="end_date"
+                   value="{{ event.end_date[:16] if event and event.end_date else '' }}" required>
+          </div>
+        </div>
+        <div class="time-chips" style="margin-top:6px;">
+          <span style="font-size:12px;color:var(--text-muted);line-height:26px;">快捷赛期：</span>
+          <button type="button" class="time-chip" onclick="setEventDuration(1)">1天 (单日赛)</button>
+          <button type="button" class="time-chip" onclick="setEventDuration(2)">2天 (周末杯)</button>
+          <button type="button" class="time-chip" onclick="setEventDuration(7)">7天 (1周)</button>
+          <button type="button" class="time-chip" onclick="setEventDuration(14)">14天 (2周)</button>
+          <button type="button" class="time-chip" onclick="setEventDuration(30)">30天 (月赛)</button>
         </div>
       </div>
 
@@ -97,21 +108,21 @@
           <label>B站直播间地址（可选）</label>
           <input type="url" name="stream_url" value="{{ event.stream_url if event and event.stream_url else '' }}"
                  placeholder="https://live.bilibili.com/ROOMID">
-          <small style="color:#888">创建赛事时可以留空；确定直播间后，再编辑赛事补上即可。</small>
+          <small class="field-note">创建赛事时可以留空；确定直播间后，再编辑赛事补上即可。</small>
         </div>
       </details>
 
-      <div class="form-group">
-        <label>
+      <div class="form-group" style="margin-top:16px;">
+        <label class="check-row">
           <input type="checkbox" name="registration_open" value="1"
                  {% if event and event.registration_open and event.status != 'completed' %}checked{% endif %}
                  {% if event and event.status == 'completed' %}disabled{% endif %}>
-          开放队伍报名
+          <span>开放队伍报名</span>
         </label>
         {% if event and event.status == 'completed' %}
-        <small style="color:var(--text-muted);display:block;margin-top:4px">赛事已完赛，不可再开放报名。</small>
+        <small class="field-note">赛事已完赛，不可再开放报名。</small>
         {% else %}
-        <small style="color:var(--text-muted);display:block;margin-top:4px">开启后用户可在赛事页提交报名申请</small>
+        <small class="field-note">开启后用户可在赛事页提交报名申请</small>
         {% endif %}
       </div>
 
@@ -142,9 +153,9 @@
 
         <div class="form-group">
           <label>赛事 EVP（可多选）</label>
-          <div style="max-height:200px;overflow-y:auto;border:1px solid #ddd;border-radius:0;padding:10px">
+          <div style="max-height:200px;overflow-y:auto;border:1px solid var(--border-color);background:var(--bg-card);border-radius:0;padding:10px">
             {% for p in all_players %}
-            <label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-weight:400;cursor:pointer">
+            <label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-weight:400;cursor:pointer;color:var(--text-primary);">
               <input type="checkbox" name="evp_player_ids" value="{{ p.id }}"
                 {% if evp_players and p.id in (evp_players|map(attribute='id')|list) %}checked{% endif %}>
               {{ p.nickname }}{% if p.team_name %} ({{ p.team_name }}){% endif %}
@@ -155,16 +166,41 @@
       </details>
       {% endif %}
 
-      <div class="form-actions">
+      <div class="sticky-form-actions">
+        <a href="/admin/events" class="btn btn-secondary">❌ 取消</a>
         <button type="submit" class="btn btn-primary">
           {% if event and event.id %}💾 保存修改{% else %}✅ 添加赛事{% endif %}
         </button>
-        <a href="/admin/events" class="btn btn-secondary">❌ 取消</a>
       </div>
     </form>
   </div>
 </div>
 
+<script>
+function setEventDuration(days) {
+  var startInput = document.getElementById('startDateInput');
+  var endInput = document.getElementById('endDateInput');
+  var startDate = startInput.value ? new Date(startInput.value) : new Date();
+  if (isNaN(startDate.getTime())) startDate = new Date();
+  
+  // Format to YYYY-MM-DDTHH:MM
+  function formatDT(d) {
+    var pad = function(n) { return n < 10 ? '0' + n : n; };
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+  
+  if (!startInput.value) {
+    startDate.setHours(10, 0, 0, 0);
+    startInput.value = formatDT(startDate);
+  }
+  
+  var endDate = new Date(startDate.getTime());
+  endDate.setDate(endDate.getDate() + days);
+  endDate.setHours(20, 0, 0, 0);
+  endInput.value = formatDT(endDate);
+}
+</script>
 <script src="{{ versioned_url('static/js/i18n.js') }}"></script>
+<script src="{{ url_for('static', filename='js/svg_icons.js') }}?v=20260620-svg1"></script>
 </body>
 </html>

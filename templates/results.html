@@ -40,13 +40,29 @@
         <span class="result-time">{{ m.match_time|date_display }}</span>
 
         <span class="result-score-group">
-          <span class="result-team-name {% if m.team1_score > m.team2_score %}won{% elif m.team1_score < m.team2_score %}lost{% endif %}" data-i18n-ignore>{{ m.team1_name }}</span>
-          <span class="result-big-score">
-            <span class="{% if m.team1_score > m.team2_score %}result-win{% elif m.team1_score < m.team2_score %}result-lose{% endif %}">{{ m.team1_score }}</span>
-            <span class="result-score-colon">:</span>
-            <span class="{% if m.team2_score > m.team1_score %}result-win{% elif m.team2_score < m.team1_score %}result-lose{% endif %}">{{ m.team2_score }}</span>
+          <span class="result-team-cell team-left">
+            <span class="result-team-name {% if m.team1_score is not none and m.team2_score is not none and m.team1_score > m.team2_score %}won{% elif m.team1_score is not none and m.team2_score is not none and m.team1_score < m.team2_score %}lost{% endif %}" data-i18n-ignore>{{ m.team1_name }}</span>
+            {% if m.team1_logo %}
+            <img class="result-team-logo" src="{{ url_for('static', filename='uploads/' ~ m.team1_logo) }}" alt="" loading="lazy">
+            {% else %}
+            <span class="result-team-logo-fallback" data-i18n-ignore>{{ (m.t1s or m.team1_name or 'T1')[:2]|upper }}</span>
+            {% endif %}
           </span>
-          <span class="result-team-name {% if m.team2_score > m.team1_score %}won{% elif m.team2_score < m.team1_score %}lost{% endif %}" data-i18n-ignore>{{ m.team2_name }}</span>
+
+          <span class="result-big-score">
+            <span class="{% if m.team1_score is not none and m.team2_score is not none and m.team1_score > m.team2_score %}result-win{% elif m.team1_score is not none and m.team2_score is not none and m.team1_score < m.team2_score %}result-lose{% endif %}">{{ m.team1_score if m.team1_score is not none else '-' }}</span>
+            <span class="result-score-colon">:</span>
+            <span class="{% if m.team1_score is not none and m.team2_score is not none and m.team2_score > m.team1_score %}result-win{% elif m.team1_score is not none and m.team2_score is not none and m.team2_score < m.team1_score %}result-lose{% endif %}">{{ m.team2_score if m.team2_score is not none else '-' }}</span>
+          </span>
+
+          <span class="result-team-cell team-right">
+            {% if m.team2_logo %}
+            <img class="result-team-logo" src="{{ url_for('static', filename='uploads/' ~ m.team2_logo) }}" alt="" loading="lazy">
+            {% else %}
+            <span class="result-team-logo-fallback" data-i18n-ignore>{{ (m.t2s or m.team2_name or 'T2')[:2]|upper }}</span>
+            {% endif %}
+            <span class="result-team-name {% if m.team1_score is not none and m.team2_score is not none and m.team2_score > m.team1_score %}won{% elif m.team1_score is not none and m.team2_score is not none and m.team2_score < m.team1_score %}lost{% endif %}" data-i18n-ignore>{{ m.team2_name }}</span>
+          </span>
         </span>
 
         <span class="result-event" data-i18n-ignore>{{ m.event_name }}</span>

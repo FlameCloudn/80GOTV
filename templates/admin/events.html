@@ -4,114 +4,71 @@
   {% include "_i18n_bootstrap.html" %}
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>赛事管理</title>
+  <title>赛事管理 - 80GOTV</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-comfort.css') }}">
+  <script>
+    (function(){
+      var t = localStorage.getItem('theme');
+      if(!t){ t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light'; }
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
   <style>
-    *{margin:0;padding:0;box-sizing:border-box}
-    body{font-family:sans-serif;background:#f5f5f5}
-
-    /* 顶部导航栏 */
-    .top-nav{
-      background:white;
-      border-bottom:2px solid #5881bc;
-      padding:15px 30px;
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      margin-bottom:20px;
-    }
-    .top-nav .logo{
-      font-size:18px;
-      font-weight:bold;
-      color:#5881bc;
-    }
-    .top-nav .nav-links{
-      display:flex;
-      gap:20px;
-      align-items:center;
-    }
-    .top-nav a{
-      color:#333;
-      text-decoration:none;
-      padding:8px 15px;
-      border-radius:0;
-      transition:all 0.2s;
-    }
-    .top-nav a:hover{
-      background:#f5f5f5;
-      color:#5881bc;
-    }
-    .top-nav .logout-btn{
-      background:#5881bc;
-      color:white;
-      padding:8px 15px;
-      border-radius:0;
-    }
-    .top-nav .logout-btn:hover{
-      background:#4a6fa3;
-    }
-
-    .container{padding:0 30px 30px}
+    body{background:var(--bg-primary);color:var(--text-primary);font-family:sans-serif}
+    .container{padding:0 20px 30px}
     .header{
-      background:white;
-      padding:20px;
+      background:var(--bg-card);
+      border:1px solid var(--border-color);
+      padding:16px 20px;
       margin-bottom:20px;
-      border-radius:0;
       display:flex;
       justify-content:space-between;
       align-items:center;
     }
-    .btn{
-      padding:10px 20px;
-      border-radius:0;
-      text-decoration:none;
-      font-weight:600;
-      display:inline-block;
-    }
-    .btn-primary{background:#5881bc;color:white}
-    .btn-primary:hover{background:#4a6fa3}
+    .header h2{margin:0}
     table{
       width:100%;
-      background:white;
-      border-radius:0;
-      overflow:hidden;
+      background:var(--bg-card);
+      border:1px solid var(--border-color);
       border-collapse:collapse;
     }
     th{
-      background:#f5f5f5;
-      padding:15px;
+      background:var(--bg-secondary);
+      color:var(--text-primary);
+      padding:12px 14px;
       text-align:left;
-      font-weight:600;
-      border-bottom:2px solid #ddd;
+      font-weight:700;
+      border-bottom:1px solid var(--border-color);
+      font-size:13px;
     }
     td{
-      padding:15px;
-      border-bottom:1px solid #eee;
+      padding:12px 14px;
+      border-bottom:1px solid var(--border-color);
+      color:var(--text-primary);
+      font-size:13px;
     }
-    tr:hover{background:#f9f9f9}
+    tr:hover{background:var(--bg-hover)}
     .actions a{
-      margin-right:15px;
-      color:#5881bc;
+      margin-right:12px;
+      color:var(--accent);
       text-decoration:none;
+      font-size:13px;
     }
     .actions a:hover{text-decoration:underline}
-    .alert{
-      padding:12px 20px;
-      margin-bottom:20px;
-      border-radius:0;
-    }
-    .alert-success{background:#d4edda;color:#155724}
-    .alert-error{background:#f8d7da;color:#721c24}
     .status-badge{
-      padding:4px 10px;
-      border-radius:0;
+      padding:3px 8px;
       font-size:12px;
       font-weight:600;
+      display:inline-block;
     }
-    .status-upcoming{background:#2196f3;color:white}
-    .status-ongoing{background:#ff9800;color:white}
-    .status-completed{background:#757575;color:white}
+    .status-upcoming{background:#dbeafe;color:#1e40af}
+    .status-ongoing{background:#dcfce7;color:#166534}
+    .status-completed{background:#f1f5f9;color:#475569}
+    [data-theme="dark"] .status-upcoming{background:#172554;color:#93c5fd}
+    [data-theme="dark"] .status-ongoing{background:#052e16;color:#86efac}
+    [data-theme="dark"] .status-completed{background:#1e293b;color:#94a3b8}
   </style>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-comfort.css') }}">
 </head>
 <body>
 
@@ -162,7 +119,7 @@
         <td class="actions">
           <a href="/admin/events/edit/{{ e.id }}">✏️ 编辑</a>
           <a href="/admin/events/{{ e.id }}/bracket">📋 对阵图</a>
-          <form method="post" action="/admin/events/delete/{{ e.id }}" style="display:inline" data-confirm="确定删除赛事【{{ e.name }}】吗？" onsubmit="return window.confirm(this.dataset.confirm)"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" style="background:none;border:none;color:#5881bc;cursor:pointer;font-size:14px;padding:0">🗑️ 删除</button></form>
+          <form method="post" action="/admin/events/delete/{{ e.id }}" style="display:inline" data-confirm="确定删除赛事【{{ e.name }}】吗？" onsubmit="return window.confirm(this.dataset.confirm)"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:14px;padding:0">🗑️ 删除</button></form>
         </td>
       </tr>
       {% endfor %}

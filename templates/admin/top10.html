@@ -1,21 +1,32 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
+  {% include "_i18n_bootstrap.html" %}
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>年度 TOP 10 - 80GOTV</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-comfort.css') }}">
+  <script>
+    (function(){
+      var t = localStorage.getItem('theme');
+      if(!t){ t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light'; }
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
   <style>
-    body{margin:0;background:#f4f6f8;color:#26313c;font-family:sans-serif}
+    body{margin:0;background:var(--bg-primary);color:var(--text-primary);font-family:sans-serif}
     .top10-wrap{max-width:900px;margin:24px auto;padding:0 16px}
-    .top10-card{background:#fff;border:1px solid #dce2e8;padding:18px;margin-top:16px}
+    .top10-card{background:var(--bg-card);border:1px solid var(--border-color);padding:20px;margin-top:16px}
     .top10-head,.top10-year-form,.top10-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-    .top10-head{justify-content:space-between}.top10-head h2{margin:0}
+    .top10-head{justify-content:space-between}
+    .top10-head h2{margin:0;color:var(--text-primary)}
     .top10-grid{display:grid;grid-template-columns:90px minmax(240px,1fr);gap:10px;align-items:center}
-    .top10-grid label{font-weight:700}.top10-grid select{width:100%;min-height:38px}
-    .btn{border:0;padding:10px 16px;background:#416fa9;color:#fff;cursor:pointer;text-decoration:none}
-    .btn-danger{background:#b64b4b}.muted{color:#72808e;font-size:13px}
-    .flash{background:#fff;border:1px solid #dce2e8;padding:12px;margin-top:12px}
+    .top10-grid label{font-weight:700;color:var(--text-primary)}
+    .top10-grid select{width:100%;min-height:38px;background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border-color)}
+    .btn-danger{background:#dc2626;color:#fff}
+    .muted{color:var(--text-muted);font-size:13px}
+    .flash{background:var(--bg-card);border:1px solid var(--border-color);padding:12px;margin-top:12px;color:var(--text-primary)}
     @media(max-width:600px){.top10-grid{grid-template-columns:1fr}.top10-grid label{margin-top:5px}}
   </style>
 </head>
@@ -25,21 +36,21 @@
   <div class="top10-head">
     <div>
       <h2>年度 TOP 10</h2>
-      <div class="muted">榜单只在管理员保存后公开；每年必须选择 10 名不重复选手。</div>
+      <div class="muted" style="margin-top:4px;">榜单只在管理员保存后公开；每年必须选择 10 名不重复选手。</div>
     </div>
     <form method="get" class="top10-year-form">
-      <label for="year">年份</label>
+      <label for="year" style="color:var(--text-secondary);">年份</label>
       <select id="year" name="year" onchange="this.form.submit()">
         {% for item_year in range(current_year, 2025, -1) %}
         <option value="{{ item_year }}" {% if item_year == year %}selected{% endif %}>{{ item_year }}</option>
         {% endfor %}
       </select>
-      <noscript><button class="btn" type="submit">切换</button></noscript>
+      <noscript><button class="btn btn-primary" type="submit">切换</button></noscript>
     </form>
   </div>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
-    {% for category, message in messages %}<div class="flash">{{ message }}</div>{% endfor %}
+    {% for category, message in messages %}<div class="flash alert-{{ category }}">{{ message }}</div>{% endfor %}
   {% endwith %}
 
   <section class="top10-card">
@@ -57,14 +68,16 @@
         </select>
         {% endfor %}
       </div>
-      <div class="top10-actions" style="margin-top:16px">
-        <button class="btn" type="submit" name="action" value="save">保存并公布</button>
+      <div class="top10-actions" style="margin-top:20px">
+        <button class="btn btn-primary" type="submit" name="action" value="save">💾 保存并公布</button>
         {% if existing %}
-        <button class="btn btn-danger" type="submit" name="action" value="clear" formnovalidate onclick="return confirm('确定清空 {{ year }} 年 TOP 10 吗？')">清空该年</button>
+        <button class="btn btn-danger" type="submit" name="action" value="clear" formnovalidate onclick="return confirm('确定清空 {{ year }} 年 TOP 10 吗？')">🗑️ 清空该年</button>
         {% endif %}
       </div>
     </form>
   </section>
 </main>
+<script src="{{ versioned_url('static/js/i18n.js') }}"></script>
+<script src="{{ url_for('static', filename='js/svg_icons.js') }}?v=20260620-svg1"></script>
 </body>
 </html>

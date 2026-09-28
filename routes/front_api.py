@@ -603,9 +603,17 @@ def api_front_events():
     status_filter = request.args.get("status", "").strip()
     conn = get_db()
     rows = conn.execute("""
-        SELECT e.*, COUNT(DISTINCT m.id) AS match_count,
-               COUNT(DISTINCT CASE WHEN m.team1_id > 0 THEN m.team1_id END)
-               + COUNT(DISTINCT CASE WHEN m.team2_id > 0 THEN m.team2_id END) AS team_count
+        SELECT e.*,
+               COUNT(DISTINCT CASE
+                   WHEN COALESCE(m.status, '') != 'cancelled' THEN m.id
+               END) AS match_count,
+               (SELECT COUNT(DISTINCT team_id) FROM (
+                   SELECT team1_id AS team_id FROM matches
+                   WHERE event_id = e.id AND COALESCE(status, '') != 'cancelled'
+                   UNION
+                   SELECT team2_id FROM matches
+                   WHERE event_id = e.id AND COALESCE(status, '') != 'cancelled'
+               )) AS team_count
         FROM events e
         LEFT JOIN matches m ON e.id=m.event_id
         GROUP BY e.id
@@ -1001,9 +1009,17 @@ def api_front_dashboard():
 
     # —— 赛事列表（含比赛/队伍数统计）——
     event_rows = conn.execute("""
-        SELECT e.*, COUNT(DISTINCT m.id) AS match_count,
-               COUNT(DISTINCT CASE WHEN m.team1_id > 0 THEN m.team1_id END)
-               + COUNT(DISTINCT CASE WHEN m.team2_id > 0 THEN m.team2_id END) AS team_count
+        SELECT e.*,
+               COUNT(DISTINCT CASE
+                   WHEN COALESCE(m.status, '') != 'cancelled' THEN m.id
+               END) AS match_count,
+               (SELECT COUNT(DISTINCT team_id) FROM (
+                   SELECT team1_id AS team_id FROM matches
+                   WHERE event_id = e.id AND COALESCE(status, '') != 'cancelled'
+                   UNION
+                   SELECT team2_id FROM matches
+                   WHERE event_id = e.id AND COALESCE(status, '') != 'cancelled'
+               )) AS team_count
         FROM events e
         LEFT JOIN matches m ON e.id=m.event_id
         GROUP BY e.id

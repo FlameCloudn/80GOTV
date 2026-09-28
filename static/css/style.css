@@ -825,6 +825,38 @@ a.card:hover{
   overflow:hidden;
   text-overflow:ellipsis;
 }
+.result-team-cell{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  min-width:0;
+  max-width:100%;
+}
+.result-team-cell.team-left{
+  justify-content:flex-end;
+}
+.result-team-cell.team-right{
+  justify-content:flex-start;
+}
+.result-team-logo{
+  width:20px;
+  height:20px;
+  object-fit:contain;
+  flex-shrink:0;
+}
+.result-team-logo-fallback{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:20px;
+  height:20px;
+  background:var(--bg-hover);
+  color:var(--accent);
+  font-size:10px;
+  font-weight:800;
+  flex-shrink:0;
+  border:1px solid var(--border-color);
+}
 .result-big-score{display:flex;align-items:center;gap:4px;font-size:18px;font-weight:800}
 .result-win{color:#1db954}
 .result-lose{color:#e53935}
@@ -2052,6 +2084,22 @@ canvas{max-width:100%}
 .notif-mark-read:hover{border-color:var(--accent);color:var(--accent)}
 
 /* ==================== 对阵图 ==================== */
+.bracket-scroll-wrapper{
+  width:100%;
+  position:relative;
+  margin-bottom:18px;
+}
+.bracket-mobile-hint{
+  display:none;
+  align-items:center;
+  justify-content:center;
+  font-size:12px;
+  color:var(--text-muted);
+  background:var(--bg-secondary);
+  border:1px dashed var(--border-color);
+  padding:6px 12px;
+  margin-bottom:10px;
+}
 .bracket-container{overflow:visible;padding:8px 0}
 .bracket-subtitle{text-align:center;font-size:13px;color:var(--text-secondary);margin-bottom:16px;display:flex;align-items:center;justify-content:center;gap:8px}
 .bracket-type-tag{display:inline-block;background:var(--accent);color:#fff;font-size:10px;font-weight:600;padding:1px 7px;border-radius:0;text-transform:uppercase;letter-spacing:0.5px}
@@ -2387,6 +2435,14 @@ canvas{max-width:100%}
   .bracket-swiss-matches .bracket-card{min-width:auto}
   .bracket-zone-label{font-size:clamp(9px,1.2cqw,11px)}
   .bracket-canvas .bracket-card{height:16%}
+}
+@media(max-width:768px){
+  .bracket-mobile-hint{display:flex}
+  .bracket-scroll-wrapper{
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    padding-bottom:6px;
+  }
 }
 @media(max-width:600px){
   .bracket-canvas{aspect-ratio:3/4;max-width:100%}

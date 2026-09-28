@@ -4,112 +4,69 @@
   {% include "_i18n_bootstrap.html" %}
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>选手管理</title>
+  <title>选手管理 - 80GOTV</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-comfort.css') }}">
+  <script>
+    (function(){
+      var t = localStorage.getItem('theme');
+      if(!t){ t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light'; }
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
   <style>
-    *{margin:0;padding:0;box-sizing:border-box}
-    body{font-family:sans-serif;background:#f5f5f5}
-
-    /* 顶部导航栏 */
-    .top-nav{
-      background:white;
-      border-bottom:2px solid #5881bc;
-      padding:15px 30px;
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      margin-bottom:20px;
-    }
-    .top-nav .logo{
-      font-size:18px;
-      font-weight:bold;
-      color:#5881bc;
-    }
-    .top-nav .nav-links{
-      display:flex;
-      gap:20px;
-      align-items:center;
-    }
-    .top-nav a{
-      color:#333;
-      text-decoration:none;
-      padding:8px 15px;
-      border-radius:0;
-      transition:all 0.2s;
-    }
-    .top-nav a:hover{
-      background:#f5f5f5;
-      color:#5881bc;
-    }
-    .top-nav .logout-btn{
-      background:#5881bc;
-      color:white;
-      padding:8px 15px;
-      border-radius:0;
-    }
-    .top-nav .logout-btn:hover{
-      background:#4a6fa3;
-    }
-
-    .container{padding:0 30px 30px}
+    body{background:var(--bg-primary);color:var(--text-primary);font-family:sans-serif}
+    .container{padding:0 20px 30px}
     .header{
-      background:white;
-      padding:20px;
+      background:var(--bg-card);
+      border:1px solid var(--border-color);
+      padding:16px 20px;
       margin-bottom:20px;
-      border-radius:0;
       display:flex;
       justify-content:space-between;
       align-items:center;
+      gap:16px;
+      flex-wrap:wrap;
     }
-    .btn{
-      padding:10px 20px;
-      border-radius:0;
-      text-decoration:none;
-      font-weight:600;
-      display:inline-block;
-    }
-    .btn-primary{background:#5881bc;color:white}
-    .btn-primary:hover{background:#4a6fa3}
+    .header h2{margin:0}
+    .header-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    .header-actions form{margin:0}
     table{
       width:100%;
-      background:white;
-      border-radius:0;
-      overflow:hidden;
+      background:var(--bg-card);
+      border:1px solid var(--border-color);
       border-collapse:collapse;
     }
     th{
-      background:#f5f5f5;
-      padding:15px;
+      background:var(--bg-secondary);
+      color:var(--text-primary);
+      padding:12px 14px;
       text-align:left;
-      font-weight:600;
-      border-bottom:2px solid #ddd;
+      font-weight:700;
+      border-bottom:1px solid var(--border-color);
+      font-size:13px;
     }
     td{
-      padding:15px;
-      border-bottom:1px solid #eee;
+      padding:12px 14px;
+      border-bottom:1px solid var(--border-color);
+      color:var(--text-primary);
+      font-size:13px;
     }
-    tr:hover{background:#f9f9f9}
+    tr:hover{background:var(--bg-hover)}
+    .actions{white-space:nowrap}
     .actions a{
-      margin-right:15px;
-      color:#5881bc;
+      margin-right:12px;
+      color:var(--accent);
       text-decoration:none;
+      font-size:13px;
     }
     .actions a:hover{text-decoration:underline}
     .account-name{display:block;margin-top:3px;color:var(--text-muted,#72808e);font-size:12px}
     .unlinked-account{display:inline-block;margin:2px 10px 2px 0;color:var(--text-muted,#72808e);font-size:12px}
-    .header-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-    .header-actions form{margin:0}
     .admin-playtime{min-width:120px;line-height:1.25}
     .admin-playtime strong{display:block;color:var(--text-primary,#26313c)}
     .admin-playtime small{display:block;margin-top:3px;color:var(--text-muted,#72808e)}
-    .alert{
-      padding:12px 20px;
-      margin-bottom:20px;
-      border-radius:0;
-    }
-    .alert-success{background:#d4edda;color:#155724}
-    .alert-error{background:#f8d7da;color:#721c24}
   </style>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-comfort.css') }}">
 </head>
 <body>
 {% from "admin/_playtime_macros.html" import playtime_cell %}
@@ -159,14 +116,14 @@
           <img src="{{ url_for('static', filename='avatars/' + p.avatar) }}"
                style="width:32px;height:32px;border-radius:0;object-fit:cover;" loading="lazy">
         {% else %}
-          <span style="display:inline-block;width:32px;height:32px;border-radius:0;background:#5881bc;color:#fff;text-align:center;line-height:32px;font-size:14px;font-weight:bold;">
+          <span style="display:inline-block;width:32px;height:32px;border-radius:0;background:var(--accent);color:#fff;text-align:center;line-height:32px;font-size:14px;font-weight:bold;">
             {{ p.nickname[0] }}
           </span>
         {% endif %}
       </td>
       <td>{{ p.id }}</td>
       <td>
-        {{ p.nickname }}
+        <b>{{ p.nickname }}</b>
         {% if p.account_username %}<small class="account-name">账号：{{ p.account_username }}</small>{% endif %}
       </td>
       <td data-i18n-ignore>{% if p.managed_is_bashizhong_student != 0 %}{{ p.managed_group_username or '待填写' }}{% else %}-{% endif %}</td>
@@ -181,7 +138,7 @@
         {% else %}
           <span class="unlinked-account">未关联账号</span>
         {% endif %}
-        <form method="post" action="/admin/players/delete/{{ p.id }}" style="display:inline" data-confirm="确定删除选手【{{ p.nickname }}】吗？" onsubmit="return window.confirm(this.dataset.confirm)"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" style="background:none;border:none;color:#5881bc;cursor:pointer;font-size:14px;padding:0">🗑️ 删除</button></form>
+        <form method="post" action="/admin/players/delete/{{ p.id }}" style="display:inline" data-confirm="确定删除选手【{{ p.nickname }}】吗？" onsubmit="return window.confirm(this.dataset.confirm)"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:13px;padding:0">🗑️ 删除</button></form>
       </td>
     </tr>
     {% endfor %}

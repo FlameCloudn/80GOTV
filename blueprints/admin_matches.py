@@ -561,13 +561,61 @@ def _match_values(f, team1_id, team2_id, team1_players, team2_players):
 @login_required
 def admin_matches():
     conn = get_db()
-    matches = conn.execute(f"""SELECT m.*, t1.name AS team1_name, t2.name AS team2_name, e.name AS event_name,
-        {get_sql_effective_status()} FROM matches m
+    event_filter = request.args.get("event", "").strip()
+    status_filter = request.args.get("status", "").strip()
+    search_query = request.args.get("q", "").strip()
+
+    events = conn.execute(
+        "SELECT id, name, short_name FROM events ORDER BY start_date DESC, id DESC"
+    ).fetchall()
+
+    sql_effective_status = get_sql_effective_status()
+
+    query = f"""SELECT m.*, t1.name AS team1_name, t2.name AS team2_name, e.name AS event_name,
+        {sql_effective_status} FROM matches m
         LEFT JOIN teams t1 ON m.team1_id=t1.id LEFT JOIN teams t2 ON m.team2_id=t2.id
-        LEFT JOIN events e ON m.event_id=e.id ORDER BY m.match_time DESC""").fetchall()
-    matches = [supplement_temp_teams(m, conn) for m in matches]
+        LEFT JOIN events e ON m.event_id=e.id"""
+
+    params = []
+    if event_filter:
+        query += " WHERE m.event_id=?"
+        params.append(event_filter)
+
+    query += " ORDER BY m.match_time DESC, m.id DESC"
+
+    raw_matches = conn.execute(query, params).fetchall()
+    matches = [supplement_temp_teams(m, conn) for m in raw_matches]
+
+    if search_query:
+        q_lower = search_query.lower()
+        matches = [
+            m
+            for m in matches
+            if q_lower in (m.get("team1_name") or "").lower()
+            or q_lower in (m.get("team2_name") or "").lower()
+            or q_lower in (m.get("event_name") or "").lower()
+            or str(m.get("id")) == search_query
+        ]
+
+    counts = {"all": len(matches), "live": 0, "upcoming": 0, "completed": 0, "cancelled": 0}
+    for m in matches:
+        st = m.get("effective_status")
+        if st in counts:
+            counts[st] += 1
+
+    if status_filter and status_filter != "all":
+        matches = [m for m in matches if m.get("effective_status") == status_filter]
+
     conn.close()
-    return render_template("admin/matches.html", matches=matches)
+    return render_template(
+        "admin/matches.html",
+        matches=matches,
+        events=events,
+        current_event=event_filter,
+        current_status=status_filter or "all",
+        search_query=search_query,
+        counts=counts,
+    )
 
 
 @admin_bp.route("/matches/add", methods=["GET", "POST"])
