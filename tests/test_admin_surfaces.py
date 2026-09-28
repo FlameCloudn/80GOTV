@@ -23,6 +23,18 @@ class AdminSurfaceTests(unittest.TestCase):
         Config.DATABASE = self.database_path
         app.config.update(TESTING=True, SESSION_COOKIE_SECURE=False)
         init_tables()
+        # 自建管理员行，避免依赖 .env 种出的数据。
+        # 原因：init_tables() 只在 ADMIN_PASSWORD 存在时才创建管理员，而 .env 被
+        # gitignore，CI 上没有它 —— 此时 admins 表为空，而下面 session 里的
+        # admin_id=1 会被写入 yearly_top_players.decided_by（外键指向 admins(id)），
+        # 触发外键违约，保存被回滚却仍返回 302，测试就会以 0 != 10 失败。
+        conn = get_db()
+        conn.execute(
+            "INSERT OR IGNORE INTO admins(id, username, password_hash) "
+            "VALUES(1, 'admin-surface-test', 'x')"
+        )
+        conn.commit()
+        conn.close()
         self.client = app.test_client()
         with self.client.session_transaction() as browser_session:
             browser_session["admin_id"] = 1
