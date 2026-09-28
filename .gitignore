@@ -25,7 +25,12 @@ __pycache__/
 /static/uploads/
 node_modules/
 /.agents/
-/.claude/
+# .claude/ 下只有本机配置不入库；自检脚本与约定文档必须入库，
+# 否则换台电脑就既没有工具也没有约定，而 app.py 启动时还要调用它们。
+# 注意：.claude/settings.local.json 含真实 API Key，必须保持忽略。
+/.claude/*
+!/.claude/scripts/
+!/.claude/*.md
 /.vscode/
 /.ruff_cache/
 /AGENTS.md
