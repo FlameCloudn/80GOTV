@@ -374,7 +374,9 @@ def _safe_next_target(default_endpoint="index"):
     if not target:
         return url_for(default_endpoint)
     parsed = urllib.parse.urlsplit(target)
-    if parsed.scheme or parsed.netloc or not target.startswith("/"):
+    # 反斜杠必须一并拦掉：浏览器按 WHATWG 规范把 "\" 当作 "/"，
+    # 于是 "/\evil.com" 会被解释成协议相对的 "//evil.com" 从而跳出本站。
+    if parsed.scheme or parsed.netloc or "\\" in target or not target.startswith("/"):
         return url_for(default_endpoint)
     return urllib.parse.urlunsplit(("", "", parsed.path or "/", parsed.query, parsed.fragment))
 
@@ -530,17 +532,20 @@ def user_login():
         user = conn.execute("SELECT * FROM users WHERE username=?", (username,)).fetchone()
         admin = conn.execute("SELECT * FROM admins WHERE username=?", (username,)).fetchone()
 
-        if admin and check_password_hash(admin["password_hash"], password):
-            _start_login_session(user=user, admin=admin)
-            conn.close()
-            flash("登录成功", "success")
-            return redirect(_login_destination(next_target))
-
+        # 验证码必须先于任何密码比对。原先 admin 分支排在验证码检查之前并直接
+        # return，等于管理员账号完全没有验证码保护——而管理员一旦被登入即可
+        # 下载整库备份、改任意选手密码，且系统没有管理员自助改密入口。
         if not _check_captcha(captcha_input):
             conn.close()
             flash("验证码错误", "error")
             _generate_captcha()
             return render_template("login.html", next_target=next_target)
+
+        if admin and check_password_hash(admin["password_hash"], password):
+            _start_login_session(user=user, admin=admin)
+            conn.close()
+            flash("登录成功", "success")
+            return redirect(_login_destination(next_target))
 
         if user and check_password_hash(user["password_hash"], password):
             status = user["approval_status"] or "approved"
@@ -879,16 +884,14 @@ def complete_account_profile():
 
 @app.route("/logout")
 def user_logout():
-    """前台登出：退出当前浏览器里的全部前台/管理员身份。"""
-    for key in (
-        "user_id",
-        "user_username",
-        "admin_id",
-        "admin_username",
-        "group_username_required",
-        "profile_completion_required",
-    ):
-        session.pop(key, None)
+    """前台登出：退出当前浏览器里的全部前台/管理员身份。
+
+    这里必须整体清空 session。原先只 pop 固定的 6 个键，导致 steam_verified
+    这类"找回密码专用"的短期凭证会残留——在同一台电脑上登出后，其他人仍能
+    在有效期内直接改掉该 Steam 账号的密码。清空后 csrf_token 会在下一个请求
+    由 web_app._csrf_before_request 自动重建。
+    """
+    session.clear()
     flash("已退出登录", "success")
     return redirect(url_for("index"))
 

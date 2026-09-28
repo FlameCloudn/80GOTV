@@ -38,7 +38,12 @@ def admin_login():
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
-        if not rate_limit(f"admin_login:{username.lower()}", 5, 300, by_ip=True):
+        # 两道桶：账号维度 5 次 / 5 分钟，另加一道与用户名无关的 IP 桶 20 次 / 5 分钟。
+        # 只有账号维度时，攻击者只要换用户名就能各试 5 次；管理员账号是唯一的，
+        # 一旦被猜中即可下载整库备份，因此再加一道全球 IP 桶兜底。
+        if not rate_limit(f"admin_login:{username.lower()}", 5, 300, by_ip=True) or not rate_limit(
+            "admin_login_ip", 20, 300, by_ip=True
+        ):
             flash("登录尝试次数过多，请 5 分钟后再试", "error")
             return render_template("admin/login.html"), 429
         conn = get_db()
@@ -69,8 +74,12 @@ def admin_login():
 
 @admin_bp.route("/logout")
 def admin_logout():
-    session.pop("admin_id", None)
-    session.pop("admin_username", None)
+    """管理员登出。
+
+    整体清空 session：原先只 pop admin_id/admin_username，前台 user_id 会留下来，
+    在共享电脑上管理员以为已经完全登出，实际前台身份仍然有效。
+    """
+    session.clear()
     flash("已退出登录", "success")
     return redirect(url_for("admin.admin_login"))
 

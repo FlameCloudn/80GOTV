@@ -125,6 +125,21 @@ _PUBLIC_PATHS = {
 }
 _PUBLIC_PREFIXES = ("/static/", "/resources/", "/auth/steam/")
 _INGEST_PATHS = {"/api/gsi/receive", "/api/gotv/stats"}
+# 匿名表单端点：登录、注册、邮箱验证码、改密只会提交很小的表单。
+# 这些路径无需登录即可访问，所以在限流与鉴权之前按 Content-Length 直接拒绝
+# 异常大的请求体——否则 werkzeug 会先把请求体落盘成临时文件，匿名请求即可
+# 反复写满磁盘（全局 MAX_CONTENT_LENGTH 为兼容 Demo 上传而放到 3GB）。
+_PUBLIC_FORM_PATHS = frozenset(
+    {
+        "/login",
+        "/register",
+        "/change-password",
+        "/admin/login",
+        "/auth/email/send-code",
+        "/auth/email/verify-code",
+    }
+)
+_PUBLIC_FORM_LIMIT = 256 * 1024
 
 
 def _is_ingest_path(path):
@@ -309,6 +324,12 @@ def _csrf_before_request():
             "event_register",
         }
         if request.method == "POST" and image_form and content_length > _IMAGE_FORM_LIMIT:
+            abort(413)
+        if (
+            request.method == "POST"
+            and request.path in _PUBLIC_FORM_PATHS
+            and content_length > _PUBLIC_FORM_LIMIT
+        ):
             abort(413)
     if "csrf_token" not in session:
         session["csrf_token"] = uuid.uuid4().hex
