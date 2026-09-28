@@ -196,6 +196,7 @@ class AccessAndRegistrationTests(unittest.TestCase):
 
         self.client.set_cookie("session", "stale-admin-cookie", domain="80gotv.cn")
         login_page = self.client.get("/admin/login", base_url="https://www.80gotv.cn")
+        self.assertEqual(login_page.status_code, 200)
         with self.client.session_transaction(base_url="https://www.80gotv.cn") as browser_session:
             csrf_token = browser_session["csrf_token"]
         response = self.client.post(

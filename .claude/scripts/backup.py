@@ -1,8 +1,13 @@
 """一键备份：数据库 + 头像 + 配置文件。用法: python backup.py [--restore 备份文件名]"""
-import sys, os, shutil, zipfile, datetime
+
+import datetime
+import os
+import sys
+import zipfile
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 BACKUP_DIR = os.path.join(ROOT, ".backups")
+
 
 def backup():
     os.makedirs(BACKUP_DIR, exist_ok=True)
@@ -17,7 +22,7 @@ def backup():
     db_path = os.path.join(ROOT, "cs_site.db")
     if os.path.exists(db_path):
         items.append(("cs_site.db", db_path))
-        print(f"  ✅ 数据库 ({os.path.getsize(db_path)/1024/1024:.1f}MB)")
+        print(f"  ✅ 数据库 ({os.path.getsize(db_path) / 1024 / 1024:.1f}MB)")
 
     # 头像
     avatars_dir = os.path.join(ROOT, "static", "avatars")
@@ -47,6 +52,7 @@ def backup():
             os.remove(os.path.join(BACKUP_DIR, old))
             print(f"  🗑️  清理旧备份: {old}")
 
+
 def restore(filename):
     zip_path = os.path.join(BACKUP_DIR, filename)
     if not os.path.exists(zip_path):
@@ -63,6 +69,7 @@ def restore(filename):
     with zipfile.ZipFile(zip_path, "r") as zf:
         zf.extractall(ROOT)
     print(f"✅ 恢复完成: {filename}")
+
 
 if __name__ == "__main__":
     if "--restore" in sys.argv:

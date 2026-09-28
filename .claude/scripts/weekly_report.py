@@ -7,11 +7,10 @@
 用法: python weekly_report.py
 """
 
-import subprocess
-import sys
 import os
-from datetime import datetime, timedelta
+import subprocess
 from collections import defaultdict
+from datetime import datetime, timedelta
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 
@@ -20,8 +19,7 @@ def run_git(cmd: str) -> str:
     """运行 git 命令"""
     try:
         result = subprocess.run(
-            cmd, shell=True, capture_output=True, text=True,
-            cwd=PROJECT_ROOT, timeout=15
+            cmd, shell=True, capture_output=True, text=True, cwd=PROJECT_ROOT, timeout=15
         )
         return result.stdout.strip()
     except Exception as e:
@@ -48,12 +46,14 @@ def main():
         for line in log_output.split("\n"):
             parts = line.split("|", 3)
             if len(parts) == 4:
-                commits.append({
-                    "hash": parts[0],
-                    "author": parts[1],
-                    "date": parts[2][:10],
-                    "message": parts[3],
-                })
+                commits.append(
+                    {
+                        "hash": parts[0],
+                        "author": parts[1],
+                        "date": parts[2][:10],
+                        "message": parts[3],
+                    }
+                )
 
     commit_count = len(commits)
     print(f"\n📝 提交次数: {commit_count}")
@@ -64,7 +64,9 @@ def main():
         return
 
     # 2. 获取改动文件列表
-    files_output = run_git(f'git log --since="{since_str}" --name-only --pretty=format:"" --diff-filter=AM')
+    files_output = run_git(
+        f'git log --since="{since_str}" --name-only --pretty=format:"" --diff-filter=AM'
+    )
     changed_files = set()
     file_change_count = defaultdict(int)
 
@@ -82,10 +84,11 @@ def main():
     total_deleted = 0
 
     import re
+
     for line in stat_output.split("\n"):
         # 格式: 3 files changed, 50 insertions(+), 20 deletions(-)
-        added_match = re.search(r'(\d+) insertion', line)
-        deleted_match = re.search(r'(\d+) deletion', line)
+        added_match = re.search(r"(\d+) insertion", line)
+        deleted_match = re.search(r"(\d+) deletion", line)
         if added_match:
             total_added += int(added_match.group(1))
         if deleted_match:
@@ -129,7 +132,9 @@ def main():
 
     # 汇总
     print("\n" + "=" * 60)
-    print(f"📊 本周汇总: {commit_count} 次提交 | {total_added}+ {total_deleted}- | {len(changed_files)} 文件")
+    print(
+        f"📊 本周汇总: {commit_count} 次提交 | {total_added}+ {total_deleted}- | {len(changed_files)} 文件"
+    )
     print("=" * 60)
 
 

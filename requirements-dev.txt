@@ -1,0 +1,15 @@
+# 开发/CI 专用依赖：类型检查与代码风格。
+#
+# 这些工具此前完全没有被声明——.venv 里既没有 ruff 也没有 pyright，
+# 三个 requirements*.txt 与 package.json 里都搜不到，导致 pre-commit
+# 与 CI 在别的机器上会静默跳过检查。
+#
+# 用法：
+#   pip install -r requirements-dev.txt
+#   ruff check .
+#   pyright routes services blueprints utils models.py web_app.py app.py config.py wsgi.py init_db.py
+
+-r requirements.txt
+
+ruff==0.15.17
+pyright==1.1.410

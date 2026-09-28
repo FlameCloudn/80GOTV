@@ -1,13 +1,13 @@
 """类型检查：跑 pyright 检查项目 Python 代码。用法: python type_check.py"""
-import sys, os, subprocess
+
+import os
+import subprocess
+import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 os.chdir(ROOT)
 
-result = subprocess.run(
-    ["pyright", "."],
-    capture_output=True, text=True, timeout=120
-)
+result = subprocess.run(["pyright", "."], capture_output=True, text=True, timeout=120)
 
 # 只显示最后几行（摘要）
 lines = result.stdout.strip().split("\n")

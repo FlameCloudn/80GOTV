@@ -9,7 +9,6 @@ import os
 import re
 import sys
 
-
 # 项目根目录
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 TEMPLATES_DIR = os.path.join(PROJECT_ROOT, "templates")
@@ -28,24 +27,21 @@ def add_lazy_to_img(content: str) -> tuple[str, int]:
     added_count = 0
     # 匹配 <img 后面跟任意字符直到 > （非贪婪匹配，跨行）
     # <img 后可能跟各种属性，最后以 > 结束
-    img_pattern = re.compile(
-        r'<img\b([^>]*?)>',
-        re.IGNORECASE | re.DOTALL
-    )
+    img_pattern = re.compile(r"<img\b([^>]*?)>", re.IGNORECASE | re.DOTALL)
 
     def replace_match(match):
         nonlocal added_count
-        full_tag = match.group(0)   # 完整标签，如 <img src="...">
-        attrs = match.group(1)      # 属性部分（不含 <img 和 >）
+        full_tag = match.group(0)  # 完整标签，如 <img src="...">
+        attrs = match.group(1)  # 属性部分（不含 <img 和 >）
 
         # 跳过已经含有 loading= 的标签
-        if re.search(r'\bloading\s*=', attrs, re.IGNORECASE):
+        if re.search(r"\bloading\s*=", attrs, re.IGNORECASE):
             return full_tag
 
         # 跳过 XHTML 自闭合的（在模板中极少见，但保留兼容）
         # 在 <img 后面插入 loading="lazy"
         added_count += 1
-        return '<img loading="lazy"' + match.group(1) + '>'
+        return '<img loading="lazy"' + match.group(1) + ">"
 
     new_content = img_pattern.sub(replace_match, content)
     return new_content, added_count
@@ -90,7 +86,7 @@ def main():
                 total_files += 1
                 total_added += added
 
-    print(f"\n共在 {total_files} 个文件中添加了 {total_added} 处 loading=\"lazy\"")
+    print(f'\n共在 {total_files} 个文件中添加了 {total_added} 处 loading="lazy"')
     return 0
 
 

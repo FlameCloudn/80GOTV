@@ -15,51 +15,47 @@ import os
 import re
 import sys
 
-
 # ===== 危险模式定义 =====
 # 每条规则：(正则表达式, 风险描述中文)
 DANGER_PATTERNS = [
     # 1. f-string 中直接嵌入变量到 SQL 关键字前后
     (
         r"(?i)(?:SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|JOIN).*\{.*\}",
-        "f-string 中 SQL 关键字与变量混用，可能被注入"
+        "f-string 中 SQL 关键字与变量混用，可能被注入",
     ),
     # 2. 字符串拼接 SQL 片段
     (
         r"(?i)(?:SELECT|INSERT|UPDATE|DELETE)\s.*[\"']\s*\+\s*",
-        "SQL 语句后跟字符串拼接（+ 号），可能拼接了用户输入"
+        "SQL 语句后跟字符串拼接（+ 号），可能拼接了用户输入",
     ),
     # 3. % 格式化操作符拼接 SQL
     (
         r'(?i)(?:"[^"]*(?:SELECT|INSERT|UPDATE|DELETE)[^"]*"\s*%)\s',
-        'SQL 字符串使用 % 格式化，变量可能未经转义'
+        "SQL 字符串使用 % 格式化，变量可能未经转义",
     ),
     # 4. .format() 方法在 SQL 上
     (
         r'(?i)(?:"[^"]*(?:SELECT|INSERT|UPDATE|DELETE)[^"]*")\s*\.format\(',
-        'SQL 字符串调用 .format() 方法，参数可能未转义'
+        "SQL 字符串调用 .format() 方法，参数可能未转义",
     ),
     # 5. execute() 的第一个参数是变量（非字面量字符串）
     (
         r'\.execute\(\s*(?!["\'])[a-zA-Z_]',
-        'cursor.execute() 第一个参数是变量而非字面量 SQL，有注入风险'
+        "cursor.execute() 第一个参数是变量而非字面量 SQL，有注入风险",
     ),
     # 6. 通用：字符串中包含 SQL 关键字并且使用了变量替入方式
-    (
-        r'(?i)(?:SELECT|INSERT|UPDATE|DELETE)\s.*\".*\+',
-        'SQL 与字符串拼接组合，可能有外部输入混入'
-    ),
+    (r"(?i)(?:SELECT|INSERT|UPDATE|DELETE)\s.*\".*\+", "SQL 与字符串拼接组合，可能有外部输入混入"),
 ]
 
 
 # ===== 白名单：安全的假阳性（忽略这些行）=====
 # 这些代码看起来危险但实际安全（如参数化查询、日志输出等）
 SAFE_INDICATORS = [
-    "execute(sql,",      # 手工编写参数化查询
-    "logger.",           # 日志打印
-    "logging.",          # 日志打印
-    "print(",            # 调试打印
-    "cursor.execute(",   # 当后面是参数化时（单独处理）
+    "execute(sql,",  # 手工编写参数化查询
+    "logger.",  # 日志打印
+    "logging.",  # 日志打印
+    "print(",  # 调试打印
+    "cursor.execute(",  # 当后面是参数化时（单独处理）
 ]
 
 
@@ -91,12 +87,14 @@ def scan_file(filepath: str) -> list[dict]:
 
         for pattern, reason in DANGER_PATTERNS:
             if re.search(pattern, line):
-                results.append({
-                    "file": filepath,
-                    "line": lineno,
-                    "code": stripped[:120],  # 截断长行
-                    "reason": reason,
-                })
+                results.append(
+                    {
+                        "file": filepath,
+                        "line": lineno,
+                        "code": stripped[:120],  # 截断长行
+                        "reason": reason,
+                    }
+                )
                 break  # 每行只报告一次
 
     return results

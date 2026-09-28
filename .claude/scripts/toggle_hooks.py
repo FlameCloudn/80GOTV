@@ -10,8 +10,8 @@ Git Hooks 开关工具
 """
 
 import os
-import sys
 import shutil
+import sys
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 HOOKS_DIR = os.path.join(PROJECT_ROOT, ".git", "hooks")
@@ -46,9 +46,9 @@ def status():
     if has_hook:
         # 检查是否是可执行文件
         if os.access(PRE_COMMIT_HOOK, os.X_OK):
-            print(f"✓ pre-commit: 已启用 (可执行)")
+            print("✓ pre-commit: 已启用 (可执行)")
         else:
-            print(f"⚠ pre-commit: 文件存在但不可执行")
+            print("⚠ pre-commit: 文件存在但不可执行")
         print(f"  路径: {PRE_COMMIT_HOOK}")
 
         # 读取内容，显示前几行

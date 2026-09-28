@@ -2,7 +2,13 @@
 
 不带参数默认跑全部。
 """
-import sys, os, json, time, urllib.request, subprocess, tempfile, shutil
+
+import json
+import os
+import subprocess
+import sys
+import time
+import urllib.request
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 BASE = os.environ.get("PUBLIC_BASE_URL", "http://127.0.0.1:5000").rstrip("/")
@@ -11,6 +17,7 @@ SCRIPTS = os.path.dirname(__file__)
 passed = 0
 failed = 0
 errors = []
+
 
 def test(name, condition, detail=""):
     global passed, failed
@@ -23,22 +30,28 @@ def test(name, condition, detail=""):
         errors.append(err)
         print(f"  ❌ {name} - {detail}")
 
+
 def api_get(path):
     """调 API 返回 JSON"""
     url = path if path.startswith("http") else BASE + path
-    req = urllib.request.Request(url, headers={"User-Agent": "Test/1.0", "Accept": "application/json"})
+    req = urllib.request.Request(
+        url, headers={"User-Agent": "Test/1.0", "Accept": "application/json"}
+    )
     try:
         resp = urllib.request.urlopen(req, timeout=10)
         return json.loads(resp.read())
     except Exception as e:
         return {"_error": str(e)}
 
+
 def section(title):
-    print(f"\n{'─'*30}")
+    print(f"\n{'─' * 30}")
     print(f"📋 {title}")
-    print(f"{'─'*30}")
+    print(f"{'─' * 30}")
+
 
 # ====== 1. API 测试 ======
+
 
 def test_api():
     section("API 接口测试")
@@ -70,9 +83,17 @@ def test_api():
     test("赛果 API 返回数据", isinstance(data, (list, dict)) and "_error" not in data)
 
     # 页面能正常打开 (HTML)
-    for path, name in [("/", "首页"), ("/matches", "比赛页"), ("/players", "选手页"),
-                       ("/events", "赛事页"), ("/news", "新闻页"), ("/stats", "数据页"),
-                       ("/results", "赛果页"), ("/teams", "队伍页"), ("/forum", "论坛")]:
+    for path, name in [
+        ("/", "首页"),
+        ("/matches", "比赛页"),
+        ("/players", "选手页"),
+        ("/events", "赛事页"),
+        ("/news", "新闻页"),
+        ("/stats", "数据页"),
+        ("/results", "赛果页"),
+        ("/teams", "队伍页"),
+        ("/forum", "论坛"),
+    ]:
         try:
             req = urllib.request.Request(BASE + path, headers={"User-Agent": "Test/1.0"})
             resp = urllib.request.urlopen(req, timeout=10)
@@ -81,7 +102,9 @@ def test_api():
         except Exception as e:
             test(f"页面 {name}", False, str(e)[:60])
 
+
 # ====== 2. 数据库测试 ======
+
 
 def test_db():
     section("数据库测试")
@@ -91,7 +114,9 @@ def test_db():
 
     # 表完整性
     conn = get_db()
-    tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
+    tables = [
+        r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+    ]
     conn.close()
     required = ["teams", "players", "matches", "match_stats", "events", "news", "admins", "users"]
     for t in required:
@@ -106,21 +131,27 @@ def test_db():
         conn.close()
 
     # 关键约束检查 - 选手有 team_id 但 team 被删
-    orphans = query_db("SELECT COUNT(*) FROM players WHERE team_id NOT IN (SELECT id FROM teams) AND team_id IS NOT NULL")
+    orphans = query_db(
+        "SELECT COUNT(*) FROM players WHERE team_id NOT IN (SELECT id FROM teams) AND team_id IS NOT NULL"
+    )
     count = orphans[0][0] if orphans else 0
     test("无孤立选手数据", count == 0, f"{count} 个孤儿选手" if count else "")
 
     # 比赛有队伍
-    bad_matches = query_db("SELECT COUNT(*) FROM matches WHERE team1_id IS NULL OR team2_id IS NULL")
+    bad_matches = query_db(
+        "SELECT COUNT(*) FROM matches WHERE team1_id IS NULL OR team2_id IS NULL"
+    )
     count = bad_matches[0][0] if bad_matches else 0
     test("比赛都有双方队伍", count == 0, f"{count} 个缺失" if count else "")
 
+
 # ====== 3. 统计计算测试 ======
+
 
 def test_stats():
     section("统计计算测试")
 
-    from utils.stats_calc import calculate_rating, calculate_kd_ratio, calculate_kast, calculate_adr
+    from utils.stats_calc import calculate_adr, calculate_kast, calculate_kd_ratio, calculate_rating
 
     # Rating 2.0 公式: 0.0073*KAST + 0.3591*KPR - 0.5329*DPR + 0.2372*Impact + 0.0032*ADR + 0.2698
     # 典型数据: 20杀 15死 25回合 100ADR 75%KAST
@@ -148,7 +179,9 @@ def test_stats():
     r, _, _ = calculate_rating(0, 0, 0)
     test("零回合 Rating=0", r == 0.0, f"Rating={r}")
 
+
 # ====== 4. 后台登录测试 ======
+
 
 def test_login():
     section("后台登录测试")
@@ -156,7 +189,10 @@ def test_login():
     try:
         r = subprocess.run(
             ["python", os.path.join(SCRIPTS, "browser.py"), "--flow", "login"],
-            capture_output=True, text=True, timeout=30, cwd=ROOT
+            capture_output=True,
+            text=True,
+            timeout=30,
+            cwd=ROOT,
         )
         ok = "登录流程通过" in r.stdout
         test("后台登录流程", ok, r.stdout.split("\n")[-3] if not ok else "")
@@ -165,7 +201,9 @@ def test_login():
     except Exception as e:
         test("后台登录流程", False, str(e)[:60])
 
+
 # ====== 5. 备份恢复测试 ======
+
 
 def test_backup():
     section("备份恢复测试")
@@ -178,7 +216,10 @@ def test_backup():
     try:
         r = subprocess.run(
             ["python", os.path.join(SCRIPTS, "backup.py")],
-            capture_output=True, text=True, timeout=15, cwd=ROOT
+            capture_output=True,
+            text=True,
+            timeout=15,
+            cwd=ROOT,
         )
         ok = "备份完成" in r.stdout
         test("创建备份", ok, r.stdout.strip()[-80:] if not ok else "")
@@ -191,11 +232,13 @@ def test_backup():
         test("备份文件存在", len(backups) > 0, f"共 {len(backups)} 个")
         if backups:
             size = os.path.getsize(os.path.join(backup_dir, backups[-1]))
-            test("备份文件非空", size > 0, f"{size/1024:.0f}KB")
+            test("备份文件非空", size > 0, f"{size / 1024:.0f}KB")
     else:
         test("备份目录存在", False)
 
+
 # ====== 运行器 ======
+
 
 def main():
     args = set(sys.argv[1:])
@@ -212,17 +255,22 @@ def main():
 
     start = time.time()
 
-    if run_api: test_api()
-    if run_db: test_db()
-    if run_stats: test_stats()
-    if run_login: test_login()
-    if run_backup: test_backup()
+    if run_api:
+        test_api()
+    if run_db:
+        test_db()
+    if run_stats:
+        test_stats()
+    if run_login:
+        test_login()
+    if run_backup:
+        test_backup()
 
     elapsed = time.time() - start
 
     # 结果
     total = passed + failed
-    print(f"\n{'='*40}")
+    print(f"\n{'=' * 40}")
     if failed == 0:
         print(f"🎉 全部通过！{passed}/{total} ({elapsed:.1f}s)")
     else:
@@ -232,6 +280,7 @@ def main():
             print(f"  - {e}")
 
     sys.exit(0 if failed == 0 else 1)
+
 
 if __name__ == "__main__":
     main()

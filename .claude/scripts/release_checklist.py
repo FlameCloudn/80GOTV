@@ -1,7 +1,8 @@
 """发布检查清单 — 依次运行所有检查脚本，综合判断是否可以发布。用法: python release_checklist.py"""
+
 import os
-import sys
 import subprocess
+import sys
 
 # 项目根目录
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -24,9 +25,12 @@ def run_check(script_name, description):
 
     try:
         result = subprocess.run(
-            f"python \"{script_path}\"",
-            shell=True, cwd=ROOT,
-            capture_output=True, text=True, timeout=60
+            f'python "{script_path}"',
+            shell=True,
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
         passed = result.returncode == 0
         output = result.stdout.strip()

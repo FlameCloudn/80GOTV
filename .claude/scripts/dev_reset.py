@@ -1,9 +1,10 @@
 """一键重置开发环境 — 备份数据库 → 重建 → 重启Flask → 验证。用法: python dev_reset.py"""
+
+import datetime
 import os
-import sys
 import shutil
 import subprocess
-import datetime
+import sys
 
 # 项目根目录
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -27,8 +28,7 @@ def run_script(script_name):
         return False
     print(f"  运行: python {script_name}")
     result = subprocess.run(
-        f"python \"{script_path}\"",
-        shell=True, cwd=ROOT, capture_output=False, timeout=120
+        f'python "{script_path}"', shell=True, cwd=ROOT, capture_output=False, timeout=120
     )
     return result.returncode == 0
 
@@ -55,15 +55,9 @@ def kill_flask():
     print("  正在停止 Flask...")
     try:
         # Windows: taskkill 杀掉 python 进程（比较粗暴，但在开发环境 OK）
-        subprocess.run(
-            "taskkill /F /IM python.exe 2>NUL",
-            shell=True, timeout=10
-        )
+        subprocess.run("taskkill /F /IM python.exe 2>NUL", shell=True, timeout=10)
         # 也尝试杀掉 pythonw
-        subprocess.run(
-            "taskkill /F /IM pythonw.exe 2>NUL",
-            shell=True, timeout=10
-        )
+        subprocess.run("taskkill /F /IM pythonw.exe 2>NUL", shell=True, timeout=10)
         print("  ✅ Flask 已停止")
         return True
     except Exception as e:
@@ -82,8 +76,12 @@ def reset_database():
     if os.path.exists(init_path):
         print("  正在初始化数据库...")
         result = subprocess.run(
-            f"python \"{init_path}\"",
-            shell=True, cwd=ROOT, capture_output=True, text=True, timeout=60
+            f'python "{init_path}"',
+            shell=True,
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
         if result.returncode == 0:
             print("  ✅ 数据库初始化完成")
@@ -101,14 +99,16 @@ def start_flask():
     print("  正在启动 Flask...")
     try:
         subprocess.Popen(
-            f"python \"{os.path.join(ROOT, 'app.py')}\"",
-            shell=True, cwd=ROOT,
+            f'python "{os.path.join(ROOT, "app.py")}"',
+            shell=True,
+            cwd=ROOT,
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
+            stderr=subprocess.DEVNULL,
         )
         print("  ✅ Flask 已后台启动（端口 5000）")
         print("  等待 3 秒让服务就绪...")
         import time
+
         time.sleep(3)
         return True
     except Exception as e:
@@ -149,7 +149,7 @@ def main():
     step("3/5 重建数据库")
     if not reset_database():
         print("\n❌ 数据库重建失败，终止流程。可以恢复备份：")
-        print(f"   查看 .backups/ 目录下的备份文件")
+        print("   查看 .backups/ 目录下的备份文件")
         return 1
 
     # 步骤 4: 启动 Flask

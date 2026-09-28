@@ -7,18 +7,25 @@
   python browser.py --nav /admin/login      # 打开页面并截图
   python browser.py --action action.json    # 执行 JSON 定义的操作序列
 """
-import sys, os, json, time, base64
+
+import json
+import os
+import sys
+import time
 
 BASE_URL = "http://127.0.0.1:5000"
 SCREENSHOT_DIR = os.path.join(os.path.dirname(__file__), ".screenshots")
 
+
 def get_browser():
     from playwright.sync_api import sync_playwright
+
     p = sync_playwright().start()
-    browser = p.chromium.launch(channel='msedge', headless=True)
+    browser = p.chromium.launch(channel="msedge", headless=True)
     page = browser.new_page()
     page.set_viewport_size({"width": 1280, "height": 900})
     return p, browser, page
+
 
 def screenshot(page, name):
     os.makedirs(SCREENSHOT_DIR, exist_ok=True)
@@ -27,11 +34,13 @@ def screenshot(page, name):
     print(f"  📸 {name}")
     return path
 
+
 def nav(page, path):
     url = path if path.startswith("http") else BASE_URL + path
     print(f"  🌐 打开 {url}")
     page.goto(url, wait_until="networkidle", timeout=15000)
     return page.title()
+
 
 def fill(page, selector, value, by="css"):
     """填表单。by 可以是 css, name, placeholder, label"""
@@ -49,10 +58,13 @@ def fill(page, selector, value, by="css"):
     el.fill(value)
     return True
 
+
 def click(page, selector, by="text"):
     """点击。by 可以是 text, css, name, role"""
     if by == "text":
-        el = page.locator(f'button:has-text("{selector}"), a:has-text("{selector}"), text="{selector}"').first
+        el = page.locator(
+            f'button:has-text("{selector}"), a:has-text("{selector}"), text="{selector}"'
+        ).first
     elif by == "name":
         el = page.locator(f'[name="{selector}"]').first
     elif by == "role":
@@ -68,6 +80,7 @@ def click(page, selector, by="text"):
     page.wait_for_load_state("networkidle")
     page.wait_for_timeout(500)
 
+
 def extract(page, selector, by="css"):
     """提取页面文字"""
     if by == "text":
@@ -79,6 +92,7 @@ def extract(page, selector, by="css"):
     print(f"  📋 {text[:100]}")
     return text
 
+
 def check_visible(page, selector, by="text"):
     """检查元素是否存在且可见。text模式用模糊匹配"""
     if by == "text":
@@ -89,7 +103,9 @@ def check_visible(page, selector, by="text"):
     print(f"  {'✅' if ok else '❌'} {selector} {'可见' if ok else '不可见'}")
     return ok
 
+
 # ---- 内置流程 ----
+
 
 def flow_login(p):
     """测试管理员登录"""
@@ -116,6 +132,7 @@ def flow_login(p):
     print(f"  {'✅' if ok else '❌'} 登录后URL: {page.url}")
     print(f"\n{'✅ 登录流程通过' if all(results) else '❌ 登录流程失败'}")
     return all(results)
+
 
 def flow_create_match(p, event_id=None, team1_id=None, team2_id=None):
     """测试创建比赛（需先登录）"""
@@ -149,6 +166,7 @@ def flow_create_match(p, event_id=None, team1_id=None, team2_id=None):
     print(f"\n{'✅ 创建比赛流程通过' if all(results) else '❌ 创建比赛流程失败'}")
     return all(results)
 
+
 def flow_full(p):
     """完整流程：登录 → 看仪表盘 → 看比赛列表 → 看选手列表"""
     page = p[2]
@@ -178,13 +196,15 @@ def flow_full(p):
 
     score = sum(results)
     total = len(results)
-    print(f"\n{'='*40}")
+    print(f"\n{'=' * 40}")
     print(f"完整流程: {score}/{total} 通过")
     print(f"截图保存在: {SCREENSHOT_DIR}")
-    print(f"{'='*40}")
+    print(f"{'=' * 40}")
     return score == total
 
+
 # ---- JSON Action 执行器 ----
+
 
 def execute_actions(actions_json):
     """执行 JSON 定义的操作序列
@@ -210,7 +230,7 @@ def execute_actions(actions_json):
     try:
         for i, action in enumerate(data.get("actions", [])):
             atype = action["type"]
-            print(f"\n[{i+1}] {atype}: {action.get('selector','')}")
+            print(f"\n[{i + 1}] {atype}: {action.get('selector', '')}")
 
             if atype == "nav":
                 nav(page, action["path"])
@@ -230,15 +250,16 @@ def execute_actions(actions_json):
                 print(f"  ⏳ 等待 {sec}s")
                 page.wait_for_timeout(int(sec * 1000))
 
-        print(f"\n{'='*40}")
+        print(f"\n{'=' * 40}")
         passed = sum(results)
         total = len(results) or 1
         print(f"结果: {passed}/{total} 检查通过")
         print(f"截图保存在: {SCREENSHOT_DIR}")
-        print(f"{'='*40}")
+        print(f"{'=' * 40}")
     finally:
         p[1].close()
         p[0].stop()
+
 
 # ---- CLI ----
 

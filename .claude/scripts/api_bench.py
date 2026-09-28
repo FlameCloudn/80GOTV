@@ -7,17 +7,15 @@ API 性能测试工具
 注意: 需要先启动 Flask 应用
 """
 
-import time
-import urllib.request
-import urllib.error
 import sys
-import json
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
+import urllib.error
+import urllib.request
 
 # 默认配置
 BASE_URL = "http://127.0.0.1:5000"
 TEST_COUNT = 5  # 每个API测试次数
-TIMEOUT = 10    # 请求超时秒数
+TIMEOUT = 10  # 请求超时秒数
 
 # 要测试的API列表
 # 每个: (名称, URL路径, HTTP方法)
@@ -69,9 +67,12 @@ def test_single_api(name: str, path: str, method: str = "GET") -> dict:
 
     if not times:
         return {
-            "name": name, "url": url,
+            "name": name,
+            "url": url,
             "error": "无响应",
-            "avg": None, "min": None, "max": None,
+            "avg": None,
+            "min": None,
+            "max": None,
             "status": "失败",
         }
 
@@ -94,11 +95,11 @@ def format_time(seconds: float) -> str:
         return "N/A"
     ms = seconds * 1000
     if ms < 1:
-        return f"{ms*1000:.1f}μs"
+        return f"{ms * 1000:.1f}μs"
     elif ms < 1000:
         return f"{ms:.1f}ms"
     else:
-        return f"{ms/1000:.2f}s"
+        return f"{ms / 1000:.2f}s"
 
 
 def main():
@@ -129,10 +130,12 @@ def main():
         results.append(result)
 
         if result["status"] == "成功":
-            print(f"  {result['name']:<10} "
-                  f"平均: {format_time(result['avg']):>8}  "
-                  f"最快: {format_time(result['min']):>8}  "
-                  f"最慢: {format_time(result['max']):>8}")
+            print(
+                f"  {result['name']:<10} "
+                f"平均: {format_time(result['avg']):>8}  "
+                f"最快: {format_time(result['min']):>8}  "
+                f"最慢: {format_time(result['max']):>8}"
+            )
         else:
             print(f"  {result['name']:<10} [失败] {result.get('error', '未知错误')}")
 

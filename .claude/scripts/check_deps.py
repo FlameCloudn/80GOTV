@@ -7,10 +7,10 @@
 用法: python check_deps.py
 """
 
-import subprocess
-import sys
 import os
 import re
+import subprocess
+import sys
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 
@@ -29,7 +29,9 @@ def parse_requirements(filepath: str) -> dict:
                 continue
             # 处理包名和版本约束
             # 格式: Flask==2.3.0 或 Flask>=2.0 或 Flask
-            match = re.match(r'^([a-zA-Z0-9_.-]+)\s*([><=!~]+\s*[0-9.*]+(?:\s*,\s*[><=!~]+\s*[0-9.*]+)*)?', line)
+            match = re.match(
+                r"^([a-zA-Z0-9_.-]+)\s*([><=!~]+\s*[0-9.*]+(?:\s*,\s*[><=!~]+\s*[0-9.*]+)*)?", line
+            )
             if match:
                 name = match.group(1).lower()
                 constraint = match.group(2).strip() if match.group(2) else "任意版本"
@@ -43,7 +45,9 @@ def get_outdated() -> dict:
     try:
         result = subprocess.run(
             [sys.executable, "-m", "pip", "list", "--outdated", "--format=columns"],
-            capture_output=True, text=True, timeout=60
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
         if result.returncode != 0:
             print("[警告] pip list --outdated 执行失败")
@@ -76,7 +80,9 @@ def get_installed() -> dict:
     try:
         result = subprocess.run(
             [sys.executable, "-m", "pip", "list", "--format=columns"],
-            capture_output=True, text=True, timeout=60
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
         if result.returncode != 0:
             return installed

@@ -13,7 +13,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from services.backup_service import verify_backup
+# 必须先完成上面的 sys.path 处理，项目模块才可导入，故此处豁免 E402。
+from services.backup_service import verify_backup  # noqa: E402
 
 ALLOWED_FILES = {"database/cs_site.db", "BACKUP_INFO.json"}
 ALLOWED_PREFIXES = ("static/avatars/", "static/uploads/", "static/demos/")

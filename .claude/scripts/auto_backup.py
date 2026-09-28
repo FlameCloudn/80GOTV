@@ -1,8 +1,9 @@
 """每日自动备份 — 检查今天是否已备份，没有则自动备份，保留最近7天。适合放计划任务。用法: python auto_backup.py"""
-import os
-import sys
-import subprocess
+
 import datetime
+import os
+import subprocess
+import sys
 
 # 项目根目录
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -61,9 +62,12 @@ def run_backup():
         return False
 
     result = subprocess.run(
-        f"python \"{backup_script}\"",
-        shell=True, cwd=ROOT,
-        capture_output=True, text=True, timeout=120
+        f'python "{backup_script}"',
+        shell=True,
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        timeout=120,
     )
 
     # 只输出关键信息

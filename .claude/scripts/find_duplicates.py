@@ -7,9 +7,8 @@
 用法: python find_duplicates.py
 """
 
-import os
 import ast
-import sys
+import os
 from collections import defaultdict
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
@@ -20,10 +19,10 @@ def get_function_info(node) -> dict:
     """从 AST 函数节点提取特征信息"""
     # 获取函数体的行数
     body_lines = 0
-    if hasattr(node, 'body'):
+    if hasattr(node, "body"):
         for stmt in node.body:
-            if hasattr(stmt, 'lineno') and hasattr(stmt, 'end_lineno'):
-                body_lines += (stmt.end_lineno - stmt.lineno + 1)
+            if hasattr(stmt, "lineno") and hasattr(stmt, "end_lineno"):
+                body_lines += stmt.end_lineno - stmt.lineno + 1
             else:
                 body_lines += 1
 
@@ -35,7 +34,7 @@ def get_function_info(node) -> dict:
 
     # 检查是否有装饰器
     decorators = []
-    if hasattr(node, 'decorator_list'):
+    if hasattr(node, "decorator_list"):
         for dec in node.decorator_list:
             if isinstance(dec, ast.Name):
                 decorators.append(dec.id)

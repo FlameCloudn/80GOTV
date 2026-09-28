@@ -9,8 +9,9 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from config import BASE_DIR
-from services.backup_service import create_backup_file, verify_backup
+# 必须先完成上面的 sys.path 处理，项目模块才可导入，故此处豁免 E402。
+from config import BASE_DIR  # noqa: E402
+from services.backup_service import create_backup_file, verify_backup  # noqa: E402
 
 
 def main():

@@ -1,4 +1,5 @@
 """静态资源体积 — 列出 static/ 下所有资源文件大小，按大小降序，标注大文件。用法: python asset_sizes.py"""
+
 import os
 import sys
 
@@ -7,7 +8,20 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 STATIC_DIR = os.path.join(ROOT, "static")
 
 # 关心的文件类型
-TARGET_EXTS = {".css", ".js", ".png", ".jpg", ".jpeg", ".woff2", ".woff", ".ttf", ".svg", ".gif", ".ico", ".webp"}
+TARGET_EXTS = {
+    ".css",
+    ".js",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".woff2",
+    ".woff",
+    ".ttf",
+    ".svg",
+    ".gif",
+    ".ico",
+    ".webp",
+}
 
 # 大文件阈值（字节）
 BIG_THRESHOLD = 500 * 1024  # 500KB
@@ -83,7 +97,7 @@ def main():
 
     print(f"\n📊 文件总数: {len(files_info)}")
     print(f"📦 总大小: {format_size(total_size)}")
-    print(f"\n分类统计:")
+    print("\n分类统计:")
     for ftype in ["样式", "脚本", "图片", "字体", "图标", "其他"]:
         if ftype in type_stats:
             print(f"  {ftype}: {format_size(type_stats[ftype])}")
@@ -107,12 +121,12 @@ def main():
         print(f"⚠️  超过 500KB 的文件（{len(big_files)} 个）— 可能拖慢页面加载速度：")
         for path, size in big_files:
             print(f"  📦 {format_size(size):>10}  {path}")
-        print(f"\n💡 优化建议：")
+        print("\n💡 优化建议：")
         print("  - 图片: 压缩或转 WebP 格式")
         print("  - 字体: 用 font-display:swap 避免阻塞渲染")
         print("  - JS/CSS: 开启 gzip 压缩或使用 CDN")
     else:
-        print(f"\n✅ 没有超过 500KB 的文件，资源体积健康！")
+        print("\n✅ 没有超过 500KB 的文件，资源体积健康！")
 
     return 0
 

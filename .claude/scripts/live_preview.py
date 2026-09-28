@@ -5,12 +5,24 @@
   python live_preview.py /admin/login   # 监控指定页面
   python live_preview.py --port 3000    # 用 3000 端口（需要 vite 等）
 """
-import sys, os, time, subprocess
-from pathlib import Path
+
+import os
+import sys
+import time
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 WATCH_EXTENSIONS = {".py", ".html", ".css", ".js", ".jinja", ".jinja2"}
-IGNORE_DIRS = {"__pycache__", ".git", "node_modules", ".backups", "logs", "instance", ".venv", ".claude"}
+IGNORE_DIRS = {
+    "__pycache__",
+    ".git",
+    "node_modules",
+    ".backups",
+    "logs",
+    "instance",
+    ".venv",
+    ".claude",
+}
+
 
 def get_file_timestamps():
     """扫项目所有文件，返回 {路径: 修改时间}"""
@@ -27,16 +39,19 @@ def get_file_timestamps():
                     pass
     return stamps
 
+
 def main():
     url_path = "/"
     port = 5000
     args = sys.argv[1:]
     i = 0
     while i < len(args):
-        if args[i] == "--port" and i+1 < len(args):
-            port = int(args[i+1]); i += 2
+        if args[i] == "--port" and i + 1 < len(args):
+            port = int(args[i + 1])
+            i += 2
         elif args[i].startswith("/"):
-            url_path = args[i]; i += 1
+            url_path = args[i]
+            i += 1
         else:
             i += 1
 
@@ -44,6 +59,7 @@ def main():
 
     # 检查 Flask 在不在
     import urllib.request
+
     try:
         urllib.request.urlopen(f"http://127.0.0.1:{port}/", timeout=3)
     except:
@@ -54,10 +70,11 @@ def main():
     print("监控文件改动中，改代码自动刷新 (Ctrl+C 退出)\n")
 
     from playwright.sync_api import sync_playwright
+
     p = sync_playwright().start()
 
     try:
-        browser = p.chromium.launch(channel='msedge', headless=False)
+        browser = p.chromium.launch(channel="msedge", headless=False)
         page = browser.new_page()
         page.set_viewport_size({"width": 1280, "height": 900})
         page.goto(url, wait_until="networkidle")
@@ -99,7 +116,10 @@ def main():
                 shown = changes[:3]
                 names = [os.path.relpath(p, ROOT).replace("\\", "/") for _, p in shown]
                 ts = time.strftime("%H:%M:%S")
-                print(f"  [{ts}] {', '.join(names)}" + (f" ...等 {len(changes)} 个" if len(changes) > 3 else ""))
+                print(
+                    f"  [{ts}] {', '.join(names)}"
+                    + (f" ...等 {len(changes)} 个" if len(changes) > 3 else "")
+                )
 
                 page.reload(wait_until="networkidle")
                 page.evaluate("""
@@ -112,9 +132,12 @@ def main():
     except KeyboardInterrupt:
         print("\n已停止")
     finally:
-        try: browser.close()
-        except: pass
+        try:
+            browser.close()
+        except:
+            pass
         p.stop()
+
 
 if __name__ == "__main__":
     main()

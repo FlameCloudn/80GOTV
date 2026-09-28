@@ -1,8 +1,13 @@
 """数据库查询工具。用法: python db_query.py "SELECT * FROM players LIMIT 5" """
-import sys, os, json
+
+import json
+import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from models import get_db
+
 
 def query(sql, params=None):
     """执行查询，返回 [(列名列表), [行数据], ...]"""
@@ -15,6 +20,7 @@ def query(sql, params=None):
     finally:
         conn.close()
 
+
 def query_json(sql, params=None):
     """返回 JSON 格式"""
     cols, rows = query(sql, params)
@@ -22,6 +28,7 @@ def query_json(sql, params=None):
     for row in rows:
         results.append(dict(zip(cols, row)))
     return results
+
 
 def print_table(cols, rows):
     """简单表格输出"""
@@ -46,10 +53,11 @@ def print_table(cols, rows):
 
     print(f"\n共 {len(rows)} 条")
 
+
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("用法: python db_query.py \"SQL语句\"")
-        print("示例: python db_query.py \"SELECT id,name FROM teams\"")
+        print('用法: python db_query.py "SQL语句"')
+        print('示例: python db_query.py "SELECT id,name FROM teams"')
         print("     python db_query.py --tables  (列出所有表)")
         print("     python db_query.py --schema teams  (查看表结构)")
         sys.exit(1)
@@ -71,8 +79,10 @@ if __name__ == "__main__":
         for row in rows:
             cid, name, coltype, notnull, default, pk = row
             flags = []
-            if pk: flags.append("PRIMARY KEY")
-            if notnull: flags.append("NOT NULL")
+            if pk:
+                flags.append("PRIMARY KEY")
+            if notnull:
+                flags.append("NOT NULL")
             print(f"  {name}  {coltype}  {' '.join(flags)}")
     elif arg == "--json":
         sql = sys.argv[2] if len(sys.argv) > 2 else "SELECT 1"

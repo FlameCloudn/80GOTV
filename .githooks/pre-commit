@@ -1,0 +1,61 @@
+#!/bin/bash
+# 80GOTV 提交前检查：格式化 → 风格 → 类型 → 提醒
+#
+# 本文件通过 core.hooksPath=.githooks 生效（原先只有 .git/hooks/pre-commit，
+# 不在版本控制里，任何其他 clone 上都不存在）。启用方式见 README 或执行：
+#     git config core.hooksPath .githooks
+#
+# 为什么改成阻断式：旧钩子末尾无条件 `exit 0`，格式化步骤用 `|| true` 吞掉
+# 所有错误，类型检查失败也只打印一句"允许提交"。这直接导致 97 条类型错误
+# 长期稳定存在而无人清理——门禁只有在会拦住东西时才是门禁。
+#
+# 确实需要临时跳过时：git commit --no-verify
+
+set -u
+
+STAGED_PY=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' || true)
+fail=0
+
+if ! command -v ruff >/dev/null 2>&1; then
+    echo "⚠ 未找到 ruff，风格检查已跳过。安装：pip install -r requirements-dev.txt"
+elif [ -n "$STAGED_PY" ]; then
+    echo "== 格式化（仅本次改动的文件）=="
+    # 用 NUL 分隔传递，避免文件名含空格被拆开。
+    # --force-exclude 必须加：ruff 对显式传入的路径会绕过 exclude 配置，
+    # 不加的话被 pyproject.toml 排除的开发脚本仍会被检查并阻断提交。
+    printf '%s\n' "$STAGED_PY" | tr '\n' '\0' | xargs -0 ruff format --force-exclude --quiet || true
+    printf '%s\n' "$STAGED_PY" | tr '\n' '\0' | xargs -0 ruff check --force-exclude --fix --quiet || true
+    printf '%s\n' "$STAGED_PY" | tr '\n' '\0' | xargs -0 git add || true
+    echo "ok"
+
+    echo "== 风格检查 =="
+    if ! printf '%s\n' "$STAGED_PY" | tr '\n' '\0' | xargs -0 ruff check --force-exclude; then
+        fail=1
+    fi
+fi
+
+echo "== 类型检查（应用代码）=="
+APP_PY="routes services blueprints utils models.py web_app.py app.py config.py wsgi.py init_db.py"
+if command -v pyright >/dev/null 2>&1; then
+    # 检查整个应用代码而非仅暂存文件：一处改动可能让别处的类型失效。
+    # tests/ 仍有约 24 条 Optional 取值相关的噪声，属独立待办，故暂不纳入。
+    if ! pyright $APP_PY; then
+        fail=1
+    fi
+else
+    echo "⚠ 未找到 pyright，类型检查已跳过。安装：pip install -r requirements-dev.txt"
+fi
+
+if [ "$fail" -ne 0 ]; then
+    echo ""
+    echo "✗ 检查未通过，已阻止本次提交。"
+    echo "  修好上面的问题后重新 git add 并再次提交。"
+    echo "  确实需要跳过时：git commit --no-verify"
+    echo ""
+    exit 1
+fi
+
+echo ""
+echo "✓ 检查通过。也可以跑一下体检：python .claude/scripts/doctor.py"
+echo ""
+exit 0

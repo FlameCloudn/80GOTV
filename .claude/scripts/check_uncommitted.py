@@ -6,11 +6,11 @@
 用法: python check_uncommitted.py
 """
 
+import os
 import subprocess
 import sys
-import os
-from datetime import datetime
 from collections import defaultdict
+from datetime import datetime
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 
@@ -23,8 +23,11 @@ def main():
     try:
         result = subprocess.run(
             "git status --porcelain",
-            shell=True, capture_output=True, text=True,
-            cwd=PROJECT_ROOT, timeout=10
+            shell=True,
+            capture_output=True,
+            text=True,
+            cwd=PROJECT_ROOT,
+            timeout=10,
         )
     except subprocess.TimeoutExpired:
         print("[错误] git status 超时")

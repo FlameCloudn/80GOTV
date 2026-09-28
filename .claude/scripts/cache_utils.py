@@ -11,8 +11,8 @@
 """
 
 import functools
-import time
 import threading
+import time
 
 
 def cache_result(ttl_seconds=300):
@@ -28,7 +28,7 @@ def cache_result(ttl_seconds=300):
         - 参数敏感：不同参数分别缓存
         - 可手动清缓存：调用 函数名.cache_clear()
     """
-    cache_store = {}       # 缓存存储：{参数key -> (过期时间戳, 返回值)}
+    cache_store = {}  # 缓存存储：{参数key -> (过期时间戳, 返回值)}
     lock = threading.Lock()
 
     def decorator(func):

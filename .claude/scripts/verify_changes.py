@@ -1,5 +1,9 @@
 """改完代码后快速验证页面是否正常。用法: python verify_changes.py [--all]"""
-import sys, os, urllib.request, json, time
+
+import os
+import sys
+import time
+import urllib.request
 
 BASE = os.environ.get("PUBLIC_BASE_URL", "http://127.0.0.1:5000").rstrip("/")
 
@@ -22,6 +26,7 @@ EXTRA_PAGES = [
     ("/forum", "论坛"),
 ]
 
+
 def check_url(url, name):
     """访问一个页面，返回 (成功?, HTTP状态码, 耗时秒)"""
     start = time.time()
@@ -37,6 +42,7 @@ def check_url(url, name):
         elapsed = time.time() - start
         return False, str(e)[:50], elapsed
 
+
 def check_log_for_errors():
     """检查最新日志中的错误"""
     log_file = os.path.join(os.path.dirname(__file__), "..", "..", "logs", "flask.log")
@@ -46,6 +52,7 @@ def check_log_for_errors():
         lines = f.readlines()
     errors = [l.strip() for l in lines if "[ERROR]" in l or "[CRITICAL]" in l]
     return errors[-10:] if errors else []
+
 
 def main():
     print(f"🔍 检查 {BASE}\n")
@@ -64,7 +71,7 @@ def main():
         else:
             fail += 1
 
-    print(f"\n{'='*50}")
+    print(f"\n{'=' * 50}")
     print(f"结果: {ok} 个正常, {fail} 个失败")
 
     # 检查错误日志
@@ -79,6 +86,7 @@ def main():
         print("📋 日志文件不存在（Flask 启动过吗？）")
 
     return 0 if fail == 0 else 1
+
 
 if __name__ == "__main__":
     sys.exit(main())

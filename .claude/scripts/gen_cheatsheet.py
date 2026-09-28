@@ -1,8 +1,9 @@
 """命令速查表 — 扫描 .claude/scripts/ 下所有 .py 脚本，提取说明，生成 Markdown 表格。用法: python gen_cheatsheet.py"""
-import os
-import sys
-import re
+
 import datetime
+import os
+import re
+import sys
 
 # 项目根目录
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -29,7 +30,7 @@ def extract_docstring(filepath):
             first_line = doc.split("\n")[0].strip()
             # 如果包含"用法:"，截取前面的部分
             if "用法:" in first_line or "用法：" in first_line:
-                first_line = re.split(r'用法[：:]', first_line)[0].strip()
+                first_line = re.split(r"用法[：:]", first_line)[0].strip()
             # 去掉末尾的句号
             first_line = first_line.rstrip("。.").strip()
             return first_line
@@ -64,10 +65,9 @@ def main():
         return 1
 
     # 扫描所有 .py 文件
-    py_files = sorted([
-        f for f in os.listdir(SCRIPTS_DIR)
-        if f.endswith(".py") and f != "__init__.py"
-    ])
+    py_files = sorted(
+        [f for f in os.listdir(SCRIPTS_DIR) if f.endswith(".py") and f != "__init__.py"]
+    )
 
     # 按用途分类
     categories = {
@@ -88,11 +88,20 @@ def main():
         lower_name = py_file.lower()
         lower_desc = desc.lower()
 
-        if any(kw in lower_name for kw in ["check", "verify", "audit", "scan", "find", "doctor", "env", "type"]):
+        if any(
+            kw in lower_name
+            for kw in ["check", "verify", "audit", "scan", "find", "doctor", "env", "type"]
+        ):
             cat = "🔍 检查与诊断"
-        elif any(kw in lower_name for kw in ["gen", "scaffold", "live", "browser", "add", "cache", "toggle"]):
+        elif any(
+            kw in lower_name
+            for kw in ["gen", "scaffold", "live", "browser", "add", "cache", "toggle"]
+        ):
             cat = "🛠️  开发工具"
-        elif any(kw in lower_name for kw in ["report", "stat", "heatmap", "weekly", "cheatsheet", "prompt"]):
+        elif any(
+            kw in lower_name
+            for kw in ["report", "stat", "heatmap", "weekly", "cheatsheet", "prompt"]
+        ):
             cat = "📊 分析与报告"
         elif any(kw in lower_name for kw in ["backup", "rollback", "restore", "db"]):
             cat = "💾 备份与恢复"

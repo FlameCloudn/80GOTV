@@ -1,0 +1,46 @@
+# 行尾与二进制处理规则。
+#
+# 此前仓库里 LF 与 CRLF 文件混放，靠每台机器的 core.autocrlf 默认值决定，
+# 于是每次 git diff 都刷几十条 "LF will be replaced by CRLF" 警告，真实改动
+# 容易被淹没；更麻烦的是 deploy/*.sh 若被签出成 CRLF，在 Linux 上会因为
+# shebang 后面的 \r 直接执行失败。
+
+# 默认由 git 自动判断文本文件，检出时保持各平台习惯
+* text=auto
+
+# Shell 脚本与 git 钩子必须是 LF：CRLF 会让 Linux 上的 shebang 失效
+*.sh text eol=lf
+.githooks/* text eol=lf
+
+# Windows 批处理必须是 CRLF，否则 cmd 解析异常
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# 二进制：禁止任何行尾转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.svg text
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+*.zip binary
+*.7z binary
+*.gz binary
+*.dem binary
+*.db binary
+*.db-wal binary
+*.db-shm binary
+*.wasm binary
+*.exe binary
+*.dll binary
+*.flac binary
+*.mp3 binary
+*.ogg binary
+*.mp4 binary
+*.pdf binary

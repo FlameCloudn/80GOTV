@@ -1,5 +1,11 @@
 """调用 Kimi K2.6 视觉能力分析网页截图。前置：pip install playwright openai"""
-import subprocess, json, base64, os, sys, tempfile
+
+import base64
+import json
+import os
+import subprocess
+import sys
+import tempfile
 
 KIMI_KEY = os.environ.get("KIMI_API_KEY", "")
 if not KIMI_KEY:
@@ -35,6 +41,7 @@ KIMI_DEFAULT_PROMPT = """你是一个专业网页设计审查助手。这是 80G
 
 用中文回复，直接给结论，不要自我介绍。"""
 
+
 def take_screenshot(url="http://127.0.0.1:5000/", output="tmp_visual.png", full_page=False):
     """用系统 Edge 浏览器截图"""
     node_code = f"""
@@ -52,10 +59,12 @@ def take_screenshot(url="http://127.0.0.1:5000/", output="tmp_visual.png", full_
     r = subprocess.run(["node", "-e", node_code], capture_output=True, text=True, timeout=30)
     return "ok" in r.stdout
 
+
 def compress_image(input_path, output_path, max_width=1024):
     """缩小截图，加快上传"""
     try:
         from PIL import Image
+
         img = Image.open(input_path)
         if img.width > max_width:
             ratio = max_width / img.width
@@ -65,6 +74,7 @@ def compress_image(input_path, output_path, max_width=1024):
         return output_path
     except ImportError:
         return input_path
+
 
 def ask_kimi_about_image(image_path, question=None):
     """把图片发给 Kimi K2.6 分析"""
@@ -79,11 +89,16 @@ def ask_kimi_about_image(image_path, question=None):
 
     body = {
         "model": "kimi-k2.6",
-        "messages": [{"role": "user", "content": [
-            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}},
-            {"type": "text", "text": question}
-        ]}],
-        "max_tokens": 2000
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}},
+                    {"type": "text", "text": question},
+                ],
+            }
+        ],
+        "max_tokens": 2000,
     }
 
     fd, tmpf = tempfile.mkstemp(suffix=".json", prefix="kimi_req_")
@@ -91,12 +106,22 @@ def ask_kimi_about_image(image_path, question=None):
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(body, f)
 
-        result = subprocess.run([
-            "curl", "-s", "https://api.moonshot.cn/v1/chat/completions",
-            "-H", "Content-Type: application/json",
-            "-H", f"Authorization: Bearer {KIMI_KEY}",
-            "-d", f"@{tmpf}"
-        ], capture_output=True, text=True, timeout=180)
+        result = subprocess.run(
+            [
+                "curl",
+                "-s",
+                "https://api.moonshot.cn/v1/chat/completions",
+                "-H",
+                "Content-Type: application/json",
+                "-H",
+                f"Authorization: Bearer {KIMI_KEY}",
+                "-d",
+                f"@{tmpf}",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
 
         resp = json.loads(result.stdout)
         if "choices" not in resp:
@@ -105,6 +130,7 @@ def ask_kimi_about_image(image_path, question=None):
     finally:
         if os.path.exists(tmpf):
             os.remove(tmpf)
+
 
 if __name__ == "__main__":
     url = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:5000/"

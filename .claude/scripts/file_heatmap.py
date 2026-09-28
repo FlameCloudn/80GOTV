@@ -7,18 +7,24 @@
 用法: python file_heatmap.py
 """
 
+import os
 import subprocess
 import sys
-import os
 from collections import Counter
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 
 # 要忽略的目录/文件模式
 IGNORE_PATTERNS = [
-    "__pycache__", ".rollback", "node_modules",
-    ".venv", "venv", ".git", ".claude/worktrees",
-    "instance", "*.pyc",
+    "__pycache__",
+    ".rollback",
+    "node_modules",
+    ".venv",
+    "venv",
+    ".git",
+    ".claude/worktrees",
+    "instance",
+    "*.pyc",
 ]
 
 
@@ -44,8 +50,11 @@ def get_file_changes() -> Counter:
     try:
         result = subprocess.run(
             'git log --name-only --pretty=format:"" --diff-filter=AM',
-            shell=True, capture_output=True, text=True,
-            cwd=PROJECT_ROOT, timeout=30
+            shell=True,
+            capture_output=True,
+            text=True,
+            cwd=PROJECT_ROOT,
+            timeout=30,
         )
     except subprocess.TimeoutExpired:
         print("[错误] git log 执行超时")

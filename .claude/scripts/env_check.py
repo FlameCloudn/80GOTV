@@ -8,7 +8,6 @@
 """
 
 import os
-import sys
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 ENV_FILE = os.path.join(PROJECT_ROOT, ".env")
@@ -51,7 +50,7 @@ def main():
         print("\n可以继续，但应用可能无法正常运行。")
         return
 
-    print(f"✓ 找到 .env 文件")
+    print("✓ 找到 .env 文件")
 
     env_vars = read_env_file(ENV_FILE)
 

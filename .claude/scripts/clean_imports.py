@@ -1,7 +1,8 @@
 """未使用import清理 — 扫描 routes/ blueprints/ 下 .py 文件，找出 import 了但未使用的模块。用法: python clean_imports.py"""
+
+import ast
 import os
 import sys
-import ast
 
 # 项目根目录
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -14,11 +15,38 @@ SCAN_DIRS = [
 
 # Python 内置模块（不应标为未使用，因为可能在运行时用到）
 BUILTIN_MODULES = {
-    "os", "sys", "json", "re", "time", "datetime", "math", "random",
-    "hashlib", "base64", "uuid", "io", "csv", "pathlib", "shutil",
-    "subprocess", "logging", "traceback", "warnings", "functools",
-    "itertools", "collections", "typing", "enum", "dataclasses",
-    "urllib", "http", "ssl", "socket", "email", "html", "xml",
+    "os",
+    "sys",
+    "json",
+    "re",
+    "time",
+    "datetime",
+    "math",
+    "random",
+    "hashlib",
+    "base64",
+    "uuid",
+    "io",
+    "csv",
+    "pathlib",
+    "shutil",
+    "subprocess",
+    "logging",
+    "traceback",
+    "warnings",
+    "functools",
+    "itertools",
+    "collections",
+    "typing",
+    "enum",
+    "dataclasses",
+    "urllib",
+    "http",
+    "ssl",
+    "socket",
+    "email",
+    "html",
+    "xml",
 }
 
 
@@ -81,7 +109,9 @@ def find_unused_imports(filepath):
                     continue  # import * 无法判断
                 if imported_name not in used_names:
                     line = node.lineno
-                    unused.append((line, f"from {node.module} import {imported_name}", imported_name))
+                    unused.append(
+                        (line, f"from {node.module} import {imported_name}", imported_name)
+                    )
 
     return unused
 
@@ -100,10 +130,9 @@ def main():
         dir_name = os.path.basename(scan_dir)
         print(f"\n📁 {dir_name}/")
 
-        py_files = sorted([
-            f for f in os.listdir(scan_dir)
-            if f.endswith(".py") and f != "__init__.py"
-        ])
+        py_files = sorted(
+            [f for f in os.listdir(scan_dir) if f.endswith(".py") and f != "__init__.py"]
+        )
 
         if not py_files:
             print("  (无 .py 文件)")

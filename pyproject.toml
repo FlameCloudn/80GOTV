@@ -26,6 +26,24 @@ reportMissingTypeStubs = false
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+# 与 pyright 保持同一套排除口径：第三方、内置子项目、开发期脚本与
+# 历史产物都不参与应用代码的质量门禁。
+exclude = [
+    ".venv",
+    "**/node_modules",
+    "backups",
+    ".backups",
+    "instance",
+    "temp",
+    "output",
+    "logs",
+    "cs2demoview_src",
+    "jts-hud-manager",
+    "broadcast_hud",
+    "gotv_relay",
+    ".agents",
+    ".claude/scripts",
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I"]

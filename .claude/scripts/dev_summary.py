@@ -6,17 +6,20 @@
 用法: python dev_summary.py
 """
 
+import os
 import subprocess
 import sys
-import os
 from datetime import datetime
 
 
 def run_git(cmd: str) -> str:
     """运行 git 命令并返回输出"""
     result = subprocess.run(
-        cmd, shell=True, capture_output=True, text=True,
-        cwd=os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+        cmd,
+        shell=True,
+        capture_output=True,
+        text=True,
+        cwd=os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")),
     )
     if result.returncode != 0:
         print(f"[错误] 命令执行失败: {cmd}")

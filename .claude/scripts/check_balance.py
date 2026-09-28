@@ -1,5 +1,9 @@
 """查询 Kimi API 余额。用法: python check_balance.py"""
-import sys, os, json, subprocess
+
+import json
+import os
+import subprocess
+import sys
 
 # 读 API Key
 KIMI_KEY = os.environ.get("KIMI_API_KEY", "")
@@ -12,13 +16,22 @@ if not KIMI_KEY:
                     KIMI_KEY = line.split("=", 1)[1].strip().strip('"').strip("'")
                     break
 
+
 def check_balance():
     """返回 (总额, 现金, 赠金, 是否低余额)"""
     try:
-        result = subprocess.run([
-            "curl", "-s", "https://api.moonshot.cn/v1/users/me/balance",
-            "-H", f"Authorization: Bearer {KIMI_KEY}"
-        ], capture_output=True, text=True, timeout=10)
+        result = subprocess.run(
+            [
+                "curl",
+                "-s",
+                "https://api.moonshot.cn/v1/users/me/balance",
+                "-H",
+                f"Authorization: Bearer {KIMI_KEY}",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
 
         data = json.loads(result.stdout)
         if data.get("status") and "data" in data:
@@ -31,6 +44,7 @@ def check_balance():
         return None, None, None, False
     except Exception:
         return None, None, None, False
+
 
 if __name__ == "__main__":
     total, cash, voucher, low = check_balance()

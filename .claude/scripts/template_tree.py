@@ -1,7 +1,8 @@
 """模板继承图 — 分析 templates/ 下所有 .html 的 extends/include 关系，输出树状结构。用法: python template_tree.py"""
+
 import os
-import sys
 import re
+import sys
 
 # 项目根目录
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -96,7 +97,7 @@ def print_tree(extends_map, includes_map, all_info):
             children = sorted(children_map[name])
             for i, child in enumerate(children):
                 child_prefix = prefix + ("    " if is_last else "│   ")
-                is_child_last = (i == len(children) - 1)
+                is_child_last = i == len(children) - 1
                 print_branch(child, child_prefix, is_child_last)
 
     # 输出每个根

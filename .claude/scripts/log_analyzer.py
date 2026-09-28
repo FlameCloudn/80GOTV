@@ -1,7 +1,8 @@
 """日志分析器 — 分析 flask.log 中的错误趋势和重复错误。用法: python log_analyzer.py"""
+
 import os
-import sys
 import re
+import sys
 from collections import Counter
 
 # 项目根目录
@@ -22,7 +23,7 @@ def parse_log(log_path):
 
     # 匹配时间戳和日志级别
     # Flask 日志格式通常: [2024-01-01 12:00:00,000] ERROR in xxx: message
-    time_pattern = re.compile(r'(\d{4}-\d{2}-\d{2}\s+\d{2}):\d{2}')
+    time_pattern = re.compile(r"(\d{4}-\d{2}-\d{2}\s+\d{2}):\d{2}")
 
     for line in lines:
         # 判断日志级别
@@ -43,8 +44,8 @@ def parse_log(log_path):
         # 清理内容（去掉时间戳和模块信息，保留核心消息）
         content = line.strip()
         # 尝试提取更简洁的错误消息
-        clean = re.sub(r'\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[,\.]\d+', '', content)
-        clean = re.sub(r'\[(ERROR|WARNING|CRITICAL)\]', '', clean)
+        clean = re.sub(r"\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}[,\.]\d+", "", content)
+        clean = re.sub(r"\[(ERROR|WARNING|CRITICAL)\]", "", clean)
         clean = clean.strip()
 
         errors.append((hour, level, clean))
@@ -80,7 +81,7 @@ def main():
 
     # 1. 统计各类型错误数量
     level_counts = Counter(level for _, level, _ in errors)
-    print(f"\n📊 错误类型统计:")
+    print("\n📊 错误类型统计:")
     for level in ["CRITICAL", "ERROR", "WARNING"]:
         count = level_counts.get(level, 0)
         icon = "🔴" if level == "CRITICAL" else ("🟠" if level == "ERROR" else "🟡")
@@ -88,7 +89,7 @@ def main():
 
     # 2. 按小时分组
     if hour_dist:
-        print(f"\n⏰ 按小时分布（显示前 12 小时）:")
+        print("\n⏰ 按小时分布（显示前 12 小时）:")
         for hour, count in list(hour_dist.items())[:12]:
             bar = "█" * min(count, 30)  # 柱状图，最多 30 个字符
             print(f"  {hour}:00  {bar} {count}")
@@ -97,7 +98,7 @@ def main():
     error_counter = Counter(error_texts)
     top_errors = error_counter.most_common(3)
     if top_errors:
-        print(f"\n🔁 重复最多的 3 条错误:")
+        print("\n🔁 重复最多的 3 条错误:")
         for i, (msg, count) in enumerate(top_errors, 1):
             # 截断长消息
             display = msg[:120] + "..." if len(msg) > 120 else msg
