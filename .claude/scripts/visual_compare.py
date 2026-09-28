@@ -125,7 +125,7 @@ if __name__ == "__main__":
         after_path = "tmp_after_new.png"
 
         if not os.path.exists(before_path):
-            print(f"⚠️ 未找到旧截图 {before_path}，正在截一张作为"当前"…")
+            print(f"⚠️ 未找到旧截图 {before_path}，正在截一张作为「当前」…")
             take_snapshot(path, before_path)
             print("💡 去做你的修改，然后运行: python visual_compare.py --compare-url / --before-id " + before_id)
             sys.exit(0)

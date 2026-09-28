@@ -1,6 +1,24 @@
 [tool.pyright]
 include = ["."]
-exclude = ["**/__pycache__", ".venv", "node_modules", ".backups", "instance"]
+# 注意：裸写的 "node_modules" 匹配不到 jts-hud-manager/node_modules 这类
+# 嵌套目录，而 "backups"（不带点）此前根本没有被排除——两者叠加让 886 条
+# 报错里的 792 条来自第三方与历史死副本，把真实的技术债（97 条）淹没了。
+exclude = [
+    "**/__pycache__",
+    ".venv",
+    "**/node_modules",
+    "backups",
+    ".backups",
+    "instance",
+    "temp",
+    "output",
+    "logs",
+    "cs2demoview_src",
+    "jts-hud-manager",
+    "broadcast_hud",
+    "gotv_relay",
+    ".agents",
+]
 typeCheckingMode = "basic"
 reportMissingImports = false
 reportMissingTypeStubs = false
