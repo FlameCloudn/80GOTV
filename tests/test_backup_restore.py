@@ -1,8 +1,11 @@
+import configparser
+import shlex
 import shutil
 import sqlite3
 import tempfile
 import unittest
 import zipfile
+from contextlib import closing
 from pathlib import Path
 from unittest.mock import patch
 
@@ -91,6 +94,71 @@ class BackupRestoreTests(unittest.TestCase):
         daily = list(output.glob("80gotv-*-日常.zip"))
         self.assertEqual(len(daily), 2)
         self.assertTrue(unrelated.exists())
+
+    def test_production_retention_preserves_latest_saved_data(self):
+        deploy = Path(__file__).resolve().parents[1] / "deploy"
+        policies = {}
+        for kind, expected in (("daily", 2), ("full", 1)):
+            config = configparser.ConfigParser(interpolation=None)
+            config.read(deploy / f"80gotv-backup-{kind}.service", encoding="utf-8")
+            command = shlex.split(config["Service"]["ExecStart"])
+            self.assertEqual(
+                command[:3], ["/usr/bin/flock", "--nonblock", "/srv/80gotv/backups/.backup.lock"]
+            )
+            self.assertEqual("--full" in command, kind == "full")
+            policies[kind] = int(command[command.index("--keep") + 1])
+            self.assertEqual(policies[kind], expected)
+
+        output = self.root / "backups"
+        output.mkdir()
+        unrelated = output / "my-important-archive.zip"
+        unrelated.write_bytes(b"keep")
+        with patch("services.backup_service.BASE_DIR", str(self.root)):
+            for value, full in (
+                ("daily-old", False),
+                ("full-old", True),
+                ("daily-middle", False),
+                ("full-latest", True),
+                ("daily-latest", False),
+            ):
+                with closing(sqlite3.connect(self.database)) as conn:
+                    conn.execute("UPDATE sample SET value=?", (value,))
+                    conn.commit()
+                create_backup_file(
+                    output, include_demos=full, keep=policies["full" if full else "daily"]
+                )
+
+        self.assertTrue(unrelated.exists())
+        daily = list(output.glob("80gotv-*-日常.zip"))
+        full = list(output.glob("80gotv-*-完整.zip"))
+        self.assertEqual(len(daily), 2)
+        self.assertEqual(len(full), 1)
+        values = set()
+        for index, archive in enumerate(daily + full):
+            restored = restore_to_empty_directory(archive, self.root / f"policy-restore-{index}")
+            with closing(sqlite3.connect(restored / "database" / "cs_site.db")) as conn:
+                values.add(conn.execute("SELECT value FROM sample").fetchone()[0])
+            self.assertEqual(
+                (restored / "static" / "demos" / "demos.txt").exists(), archive in full
+            )
+        self.assertEqual(values, {"daily-middle", "daily-latest", "full-latest"})
+
+    def test_failed_new_backup_does_not_prune_previous_verified_backup(self):
+        output = self.root / "backups"
+        with patch("services.backup_service.BASE_DIR", str(self.root)):
+            previous = create_backup_file(output, include_demos=True, keep=1)
+            with patch(
+                "services.backup_service.verify_backup", side_effect=RuntimeError("备份校验失败")
+            ):
+                with self.assertRaisesRegex(RuntimeError, "备份校验失败"):
+                    create_backup_file(output, include_demos=True, keep=1)
+
+        self.assertEqual(list(output.glob("80gotv-*-完整.zip")), [previous])
+        self.assertEqual(list(output.glob("*.partial")), [])
+        self.assertTrue(verify_backup(previous))
+        restored = restore_to_empty_directory(previous, self.root / "failed-backup-restore")
+        with closing(sqlite3.connect(restored / "database" / "cs_site.db")) as conn:
+            self.assertEqual(conn.execute("SELECT value FROM sample").fetchone()[0], "latest")
 
     def test_restore_rejects_unsafe_member_without_touching_target(self):
         with patch("services.backup_service.BASE_DIR", str(self.root)):

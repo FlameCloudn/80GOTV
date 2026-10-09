@@ -11,4 +11,4 @@ UMask=0077
 Nice=10
 IOSchedulingClass=best-effort
 IOSchedulingPriority=7
-ExecStart=/usr/bin/flock --nonblock /srv/80gotv/backups/.backup.lock /srv/80gotv/venv/bin/python scripts/backup_site.py --full --output-dir /srv/80gotv/backups --keep 8
+ExecStart=/usr/bin/flock --nonblock /srv/80gotv/backups/.backup.lock /srv/80gotv/venv/bin/python scripts/backup_site.py --full --output-dir /srv/80gotv/backups --keep 1
