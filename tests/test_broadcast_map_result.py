@@ -138,6 +138,26 @@ class BroadcastMapResultTests(unittest.TestCase):
                 headers={"X-80GOTV-Token": token},
             )
 
+    def test_completed_match_rejects_new_results_but_accepts_already_saved_duplicate(self):
+        payload = self._payload()
+        payload["result_id"] = "audit-final-result"
+        self.assertEqual(self._post(payload).status_code, 200)
+        conn = get_db()
+        before = [dict(row) for row in conn.execute("SELECT * FROM match_stats ORDER BY id")]
+        conn.execute("UPDATE matches SET status='completed' WHERE id=?", (self.match_id,))
+        conn.commit()
+        conn.close()
+        duplicate = self._post(payload)
+        self.assertEqual(duplicate.status_code, 200)
+        self.assertTrue(duplicate.get_json()["duplicate"])
+        payload["result_id"] = "audit-unrequested-replacement"
+        payload["players"][0]["kills"] = 99
+        self.assertEqual(self._post(payload).status_code, 409)
+        conn = get_db()
+        after = [dict(row) for row in conn.execute("SELECT * FROM match_stats ORDER BY id")]
+        conn.close()
+        self.assertEqual(after, before)
+
     def test_rejects_bad_token_before_database_work(self):
         response = self._post(token="wrong")
         self.assertEqual(response.status_code, 403)

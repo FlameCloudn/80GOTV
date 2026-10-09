@@ -18,6 +18,7 @@ from services.demo_service import (
 )
 from services.live_log_service import persist_live_match_events, record_ingest_status
 from services.live_service import (
+    _is_recent_iso_timestamp,
     _record_gsi_bomb_events,
     _record_gsi_deaths,
     _round_win_reason,
@@ -515,6 +516,10 @@ def _save_broadcast_map_result(conn, payload, match_id):
     match = conn.execute("SELECT * FROM matches WHERE id=?", (match_id,)).fetchone()
     if not match:
         return _receiver_error("map_result", "比赛不存在", 404, match_id, map_name)
+    if match["status"] == "cancelled":
+        return _receiver_error(
+            "map_result", "比赛已取消，拒绝覆盖统计数据", 409, match_id, map_name
+        )
 
     locked_roster = _locked_roster_steamids(conn, match)
     if locked_roster:
@@ -642,6 +647,10 @@ def _save_broadcast_map_result(conn, payload, match_id):
             }
         )
     frame_seq = payload.get("frame_seq")
+    if match["status"] == "completed":
+        return _receiver_error(
+            "map_result", "比赛已结束，拒绝新的导播结算覆盖", 409, match_id, map_name
+        )
     if frame_seq is not None:
         try:
             frame_seq = int(frame_seq)
@@ -805,8 +814,10 @@ def _save_gsi_payload(conn, data, map_name, forced_match_id=None):
                FROM matches WHERE id=?""",
             (forced_match_id,),
         ).fetchall()
-        if matches and matches[0]["status"] == "completed":
-            return _receiver_error("gsi", "比赛已结束，拒绝覆盖直播数据", 409, forced_match_id)
+        if matches and matches[0]["status"] in {"completed", "cancelled"}:
+            return _receiver_error(
+                "gsi", "比赛已结束或取消，拒绝覆盖直播数据", 409, forced_match_id
+            )
         configured_maps = [matches[0][f"map{slot}"] for slot in range(1, 6)] if matches else []
         configured_maps = [name for name in configured_maps if name]
         if configured_maps and not any(
@@ -864,9 +875,12 @@ def _save_gsi_payload(conn, data, map_name, forced_match_id=None):
     except (TypeError, ValueError):
         previous_seq = None
     if incoming_session and previous_session and incoming_session != previous_session:
-        return _receiver_error(
-            "gsi", "实时数据会话不一致，拒绝覆盖当前比赛", 409, match_id, map_name
-        )
+        if _is_recent_iso_timestamp(merged.get("gsi_received_at")):
+            return _receiver_error(
+                "gsi", "实时数据会话仍在使用，拒绝覆盖当前比赛，请稍后重试", 409, match_id, map_name
+            )
+        # 旧导播已断开超过有效期，新会话可以恢复；帧编号不能跨会话比较。
+        previous_seq = None
     if previous_session and not incoming_session:
         return _receiver_error(
             "gsi", "导播实时会话正在负责本场比赛，备用 GSI 不得覆盖", 409, match_id, map_name
@@ -886,6 +900,9 @@ def _save_gsi_payload(conn, data, map_name, forced_match_id=None):
             )
     previous_gsi = merged.get("gsi", {}) or {}
     previous_map_name = normalize_map_name((previous_gsi.get("map", {}) or {}).get("name", ""))
+    if previous_gsi and not _is_recent_iso_timestamp(merged.get("gsi_received_at")):
+        merged["gsi"] = {}
+        previous_gsi = {}
     current_map_name = normalize_map_name(map_name)
     if previous_map_name and current_map_name and previous_map_name != current_map_name:
         for key in (
@@ -897,6 +914,9 @@ def _save_gsi_payload(conn, data, map_name, forced_match_id=None):
             "bomb_events",
         ):
             merged[key] = []
+        # 换图后的首帧不能与上一张图比较，否则会制造阵亡或漏掉下包事件。
+        merged["gsi"] = {}
+        previous_gsi = {}
     # APP 已经在本地按正式比赛缓存阵亡点；兼容旧 GSI 客户端时才使用
     # 服务端的帧差兜底，避免两套判断互相覆盖。
     if "death_markers" not in identity:
@@ -1088,8 +1108,10 @@ def _save_gotv_payload(
     ).fetchone()
     if not match:
         return _receiver_error("gotv", "比赛不存在", 404, match_id, map_name)
-    if match["status"] == "completed":
-        return _receiver_error("gotv", "比赛已结束，拒绝覆盖统计数据", 409, match_id, map_name)
+    if match["status"] in {"completed", "cancelled"}:
+        return _receiver_error(
+            "gotv", "比赛已结束或取消，拒绝覆盖统计数据", 409, match_id, map_name
+        )
 
     live_row = conn.execute(
         "SELECT live_state FROM live_match_data WHERE match_id=?", (match_id,)

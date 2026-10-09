@@ -3,7 +3,15 @@
 import json
 import os
 
-from flask import render_template, request, send_file, send_from_directory
+from flask import (
+    redirect,
+    render_template,
+    request,
+    send_file,
+    send_from_directory,
+    session,
+    url_for,
+)
 
 from models import get_db
 from services.live_log_service import load_match_timeline
@@ -15,6 +23,8 @@ from web_app import DEMOS_DIR, app
 
 @app.route("/matches/<slug>/download-demo")
 def download_demo(slug):
+    if not session.get("user_id") and not session.get("admin_id"):
+        return redirect(url_for("user_login", next=request.full_path.rstrip("?")))
     match_id = resolve_match_slug(slug)
     if not match_id:
         return "比赛不存在", 404

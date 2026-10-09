@@ -3109,6 +3109,7 @@ body .layout.match-detail-layout {
   }
 
   #fbBtn {
+    display: inline-grid !important;
     right: 14px !important;
     bottom: 14px !important;
     width: 42px !important;

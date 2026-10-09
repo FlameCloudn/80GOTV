@@ -22,7 +22,7 @@ def main():
         os.environ["TURSO_URL"] = ""
         os.environ["TURSO_TOKEN"] = ""
 
-        from flask import render_template, session
+        from flask import render_template, request, session
         from werkzeug.security import generate_password_hash
 
         from app import app
@@ -41,8 +41,8 @@ def main():
             conn.execute(
                 """INSERT OR IGNORE INTO users(
                        username, password_hash, group_username,
-                       is_placeholder, approval_status
-                   ) VALUES(?, ?, ?, 0, 'approved')""",
+                       is_placeholder, approval_status, is_bashizhong_student
+                   ) VALUES(?, ?, ?, 0, 'approved', 0)""",
                 ("e2e-user", "not-used-by-browser-tests", "E2E User"),
             )
             user = conn.execute(
@@ -55,6 +55,18 @@ def main():
             session["user_id"] = user["id"]
             session["user_username"] = user["username"]
             return {"ok": True, "user_id": user["id"]}
+
+        @app.get("/__e2e__/feedback-records")
+        def _e2e_feedback_records():
+            conn = get_db()
+            try:
+                rows = conn.execute(
+                    "SELECT * FROM feedback WHERE content=?",
+                    (request.args.get("content", ""),),
+                ).fetchall()
+                return [dict(row) for row in rows]
+            finally:
+                conn.close()
 
         @app.get("/testing/incomplete-user-session")
         def _e2e_incomplete_user_session():

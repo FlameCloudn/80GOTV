@@ -27,8 +27,8 @@ class GuessPlayerTests(unittest.TestCase):
         conn = get_db()
         cursor = conn.execute(
             """INSERT INTO users(
-                   username, password_hash, approval_status, group_username
-               ) VALUES(?, ?, 'approved', ?)""",
+                   username, password_hash, approval_status, group_username, is_bashizhong_student
+               ) VALUES(?, ?, 'approved', ?, 1)""",
             ("GuessTester", generate_password_hash("123456"), "GuessTester"),
         )
         self.user_id = cursor.lastrowid
@@ -172,8 +172,8 @@ class GuessPlayerTests(unittest.TestCase):
         conn = get_db()
         second_cursor = conn.execute(
             """INSERT INTO users(
-                   username, password_hash, approval_status, group_username
-               ) VALUES(?, ?, 'approved', ?)""",
+                   username, password_hash, approval_status, group_username, is_bashizhong_student
+               ) VALUES(?, ?, 'approved', ?, 1)""",
             ("GuessOpponent", generate_password_hash("123456"), "GuessOpponent"),
         )
         second_user_id = second_cursor.lastrowid

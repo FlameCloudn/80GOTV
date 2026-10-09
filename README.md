@@ -88,7 +88,9 @@ python app.py
 
 ## Steam 验证
 
-选手注册和找回密码会跳转到 [Steam Community OpenID](https://steamcommunity.com/openid/) 验证身份。游客注册不需要 Steam 验证。
+注册和找回密码会跳转到 [Steam Community OpenID](https://steamcommunity.com/openid/) 验证身份。新账号还需要邮箱验证和管理员审核；访客可以直接浏览公开内容，不需要注册。
+
+Demo 导入只接受比赛赛程中已设置的地图，目前不支持同队超过五名选手的录像，会明确拒绝而不是截取部分选手。批量导入中任何一份失败时，整批数据不保存，原有数据保持不变；分析预览不代表统计数据已经导入。
 
 网站会保留选手历史昵称。Steam 昵称变化不会覆盖网站内设置的正式昵称，旧昵称仍可用于 Demo 识别和站内搜索。
 

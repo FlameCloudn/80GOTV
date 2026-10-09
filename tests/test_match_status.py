@@ -49,8 +49,8 @@ class MatchStatusTests(unittest.TestCase):
         self._insert(4, "cancelled", "-10 minutes")
 
         self.assertEqual(self._ids(get_sql_match_upcoming()), {1})
-        self.assertEqual(self._ids(get_sql_match_live()), {2})
-        self.assertEqual(self._ids(get_sql_match_completed()), {3})
+        self.assertEqual(self._ids(get_sql_match_live()), {2, 3})
+        self.assertEqual(self._ids(get_sql_match_completed()), set())
 
         statuses = {
             row["id"]: row["effective_status"]
@@ -60,7 +60,7 @@ class MatchStatusTests(unittest.TestCase):
         }
         self.assertEqual(
             statuses,
-            {1: "upcoming", 2: "live", 3: "completed", 4: "cancelled"},
+            {1: "upcoming", 2: "live", 3: "live", 4: "cancelled"},
         )
 
     def test_recent_past_upcoming_match_can_receive_gsi_data(self):
@@ -72,6 +72,14 @@ class MatchStatusTests(unittest.TestCase):
             ("ancient",) * 5,
         ).fetchall()
         self.assertEqual([row["id"] for row in rows], [8])
+
+    def test_overdue_match_is_not_completed_without_an_explicit_result(self):
+        self._insert(9, "upcoming", "-2 days", "nuke")
+        self.assertEqual(self._ids(get_sql_match_completed()), set())
+        self.assertEqual(self._ids(get_sql_match_live()), {9})
+        self.conn.execute("UPDATE matches SET status='completed' WHERE id=9")
+        self.assertEqual(self._ids(get_sql_match_completed()), {9})
+        self.assertEqual(self._ids(get_sql_match_live()), set())
 
 
 if __name__ == "__main__":

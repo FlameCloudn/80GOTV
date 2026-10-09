@@ -124,6 +124,65 @@ _PUBLIC_PATHS = {
     "/admin/login",
 }
 _PUBLIC_PREFIXES = ("/static/", "/resources/", "/auth/steam/")
+# 账号检查暂时失败时，只有明确公开的只读页面可以继续；私有读取同样要拦截。
+_PUBLIC_READ_ENDPOINTS = {
+    "index",
+    "news_list",
+    "news_detail",
+    "matches_list",
+    "match_detail",
+    "match_detailed_stats",
+    "match_live",
+    "results_list",
+    "events_list",
+    "event_detail",
+    "event_stats",
+    "event_mvp_poster",
+    "event_award_poster",
+    "players_list",
+    "player_detail",
+    "player_compare",
+    "player_stats_detail",
+    "stats_page",
+    "stats_overview_detail",
+    "predictions_page",
+    "awards_page",
+    "teams_list",
+    "dashboard",
+    "forum_index",
+    "forum_thread",
+    "games_page",
+    "search",
+    "api_search",
+    "sitemap",
+    "match_poster",
+    "match_report",
+    "api_live_match",
+    "api_broadcast_matches",
+    "api_broadcast_events",
+    "api_broadcast_event",
+    "api_broadcast_current",
+    "api_broadcast_match",
+    "api_front_home",
+    "api_front_matches",
+    "api_front_features",
+    "api_front_news",
+    "api_front_news_detail",
+    "api_front_results",
+    "api_front_match_detail",
+    "api_front_events",
+    "api_front_event_detail",
+    "api_front_players",
+    "api_front_player_detail",
+    "api_front_teams",
+    "api_front_stats_overview",
+    "api_front_dashboard",
+    "api_front_predictions",
+    "api_front_forum",
+    "current_csrf_token",
+    "user_logout",
+    "admin.admin_logout",
+}
 _INGEST_PATHS = {"/api/gsi/receive", "/api/gotv/stats"}
 # 匿名表单端点：登录、注册、邮箱验证码、改密只会提交很小的表单。
 # 这些路径无需登录即可访问，所以在限流与鉴权之前按 Content-Length 直接拒绝
@@ -209,8 +268,24 @@ def _require_site_login():
             ).fetchone()
         except Exception:
             logger.exception("检查账号审核状态失败")
-            # 数据库短暂繁忙时不要把有效登录直接清掉；下一次请求会重新检查。
-            return None
+            # 保留登录，但无法确认审核结果时不能继续受限操作。
+            if (
+                request.method in ("GET", "HEAD", "OPTIONS")
+                and request.endpoint in _PUBLIC_READ_ENDPOINTS
+            ):
+                return None
+            error = "暂时无法确认账号权限，请稍后重试"
+            if (
+                path.startswith("/api/")
+                or request.is_json
+                or request.headers.get("X-Requested-With") == "XMLHttpRequest"
+            ):
+                response = jsonify({"ok": False, "success": False, "error": error})
+            else:
+                response = app.make_response(error)
+            response.status_code = 503
+            response.headers["Retry-After"] = "5"
+            return response
         finally:
             if conn is not None:
                 conn.close()
@@ -220,7 +295,9 @@ def _require_site_login():
                 bool(user["is_bashizhong_student"])
                 and not str(user["group_username"] or "").strip()
             )
-            if not needs_completion:
+            if needs_completion:
+                session["profile_completion_required"] = True
+            else:
                 session.pop("profile_completion_required", None)
                 session.pop("group_username_required", None)
             return None

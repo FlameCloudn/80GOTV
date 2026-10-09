@@ -12,6 +12,7 @@ from services.live_service import (
     _load_live_player_profiles,
     _position_to_radar,
 )
+from utils.demo_parser import normalize_map_name
 from web_app import app
 
 
@@ -287,6 +288,12 @@ def api_live_match(match_id):
     # timeline when the in-memory frame no longer contains old kills.
     result["kill_markers"] = result["death_markers"]
     timeline = load_match_timeline(conn, match_id)
+    current_map = normalize_map_name(
+        (gsi.get("map", {}) or {}).get("name", "") or gotv.get("map_name", "")
+    )
+    timeline = [
+        event for event in timeline if normalize_map_name(event.get("map_name", "")) == current_map
+    ]
     result["kill_events"] = [event for event in timeline if event.get("type") == "kill"][-40:]
     if not result["bomb_events"]:
         result["bomb_events"] = [event for event in timeline if event.get("type") == "plant"][-24:]

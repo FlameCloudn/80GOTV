@@ -62,14 +62,8 @@ test('feedback dialog opens, closes, and restores focus', async ({ page }, testI
   expect(stylesheetHref).toMatch(/hltv_refresh\.css\?v=\d+$/);
   const opener = page.locator('#fbBtn');
   const dialog = page.locator('#fbOverlay');
-  if (testInfo.project.name === 'mobile') {
-    await dialog.evaluate(element => {
-      element.showModal();
-      document.getElementById('fbType').focus();
-    });
-  } else {
-    await opener.click();
-  }
+  await expect(opener).toBeVisible();
+  await opener.click();
   await expect(dialog).toHaveAttribute('open', '');
   await expect(dialog).toHaveCSS('display', 'grid');
   await expect(dialog).toHaveCSS('position', 'fixed');
@@ -82,9 +76,74 @@ test('feedback dialog opens, closes, and restores focus', async ({ page }, testI
   await expect(page.locator('#fbType')).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(dialog).not.toHaveAttribute('open', '');
-  if (testInfo.project.name === 'desktop') {
-    await expect(opener).toBeFocused();
-  }
+  await expect(opener).toBeFocused();
+});
+
+test('feedback submits through the visible entry and is saved for admin review', async ({ page }, testInfo) => {
+  await page.addInitScript(() => localStorage.setItem('siteLang', 'zh'));
+  const login = await page.request.get('/__e2e__/user-session');
+  const { user_id: userId } = await login.json();
+  await page.goto('/');
+  const opener = page.getByRole('button', { name: '意见反馈', exact: true });
+  await expect(opener).toBeVisible();
+  const box = await opener.boundingBox();
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize().width);
+  expect(box.y + box.height).toBeLessThanOrEqual(page.viewportSize().height);
+  await opener.click();
+  await expect(page.getByRole('dialog', { name: '意见反馈' })).toBeVisible();
+  const content = `浏览器反馈审查 ${testInfo.project.name} ${Date.now()}`;
+  await page.locator('#fbType').selectOption('bug');
+  await page.locator('#fbContent').fill(content);
+  await page.locator('#fbContact').fill('audit@example.invalid');
+  await page.screenshot({ path: testInfo.outputPath('feedback-filled.png'), fullPage: true });
+  const submitted = page.waitForResponse(response =>
+    response.url().endsWith('/api/feedback/submit') && response.request().method() === 'POST'
+  );
+  await page.getByRole('button', { name: '提交', exact: true }).click();
+  const response = await submitted;
+  expect(response.status()).toBe(200);
+  expect((await response.json()).ok).toBe(true);
+  await expect(page.locator('#fbMsg')).toHaveText('成功 感谢反馈！');
+  await expect(page.locator('#fbMsg')).toHaveAttribute('data-type', 'success');
+  await expect(page.locator('#fbContent')).toHaveValue('');
+  const stored = await page.request.get(`/__e2e__/feedback-records?content=${encodeURIComponent(content)}`);
+  expect(await stored.json()).toEqual([expect.objectContaining({
+    content, type: 'bug', contact: 'audit@example.invalid', user_id: userId, status: 'open',
+  })]);
+  await page.request.get('/__e2e__/admin-session');
+  await page.goto('/admin/feedback');
+  await expect(page.getByText(content, { exact: true })).toBeVisible();
+});
+
+test('feedback failure preserves the draft and a real retry stores it once', async ({ page }, testInfo) => {
+  if (testInfo.project.name === 'mobile') await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => localStorage.setItem('siteLang', 'zh'));
+  await page.request.get('/__e2e__/user-session');
+  await page.goto('/');
+  await page.getByRole('button', { name: '意见反馈', exact: true }).click();
+  const content = `失败重试审查 ${testInfo.project.name} ${Date.now()}`;
+  await page.locator('#fbContent').fill(content);
+  // Simulate only the unavailable-service response; the retry uses the real backend.
+  await page.route('**/api/feedback/submit', route => route.fulfill({
+    status: 503, contentType: 'application/json',
+    body: JSON.stringify({ ok: false, success: false, error: '暂时无法确认账号权限，请稍后重试' }),
+  }));
+  await page.locator('#fbSubmit').click();
+  await expect(page.locator('#fbMsg')).toContainText('暂时无法确认账号权限，请稍后重试');
+  await expect(page.locator('#fbMsg')).toHaveAttribute('data-type', 'error');
+  await expect(page.locator('#fbContent')).toHaveValue(content);
+  await expect(page.locator('#fbSubmit')).toBeEnabled();
+  const before = await page.request.get(`/__e2e__/feedback-records?content=${encodeURIComponent(content)}`);
+  expect(await before.json()).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+  await page.screenshot({ path: testInfo.outputPath('feedback-retry.png'), fullPage: true });
+  await page.unroute('**/api/feedback/submit');
+  const submitted = page.waitForResponse(response => response.url().endsWith('/api/feedback/submit'));
+  await page.locator('#fbSubmit').click();
+  expect((await (await submitted).json()).ok).toBe(true);
+  const stored = await page.request.get(`/__e2e__/feedback-records?content=${encodeURIComponent(content)}`);
+  expect(await stored.json()).toEqual([expect.objectContaining({ content, status: 'open' })]);
 });
 
 test('mobile menu closes with Escape and touch targets are large enough', async ({ page }, testInfo) => {

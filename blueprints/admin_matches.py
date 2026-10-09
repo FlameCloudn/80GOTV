@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 import tempfile
+import uuid
 
 from flask import flash, redirect, render_template, request, url_for
 
@@ -914,6 +915,9 @@ def admin_match_reopen(match_id):
         "UPDATE matches SET status='live' WHERE id=? AND status='completed'", (match_id,)
     ).rowcount
     if changed:
+        conn.execute(
+            "UPDATE match_votes SET scored=0, points_earned=0 WHERE match_id=?", (match_id,)
+        )
         refresh_bracket_for_match(conn, match_id)
     conn.commit()
     conn.close()
@@ -1154,7 +1158,6 @@ def admin_import_demo(match_id):
                 file.save(demo_path)
                 try:
                     pv = analyze_demo(conn, match, demo_path)
-                    previews.append(pv)
                     os.makedirs(DEMOS_DIR, exist_ok=True)
                     map_slot = int(pv.get("map_slot", i))
                     if not 0 <= map_slot < demo_slot_count:
@@ -1163,6 +1166,9 @@ def admin_import_demo(match_id):
                     demo_filename = build_demo_filename(
                         match_id, map_slot, match["event_short_name"], map_name
                     )
+                    # Keep the previous file intact until the new reference is committed.
+                    demo_stem, demo_ext = os.path.splitext(demo_filename)
+                    demo_filename = f"{demo_stem}_{uuid.uuid4().hex}{demo_ext}"
                     shutil.copy2(demo_path, os.path.join(DEMOS_DIR, demo_filename))
                     existing_raw = row_get(match, "demo_file", "") or "[]"
                     demo_list = (
@@ -1177,7 +1183,9 @@ def admin_import_demo(match_id):
                     )
                     conn.commit()
                     match["demo_file"] = json.dumps(demo_list, ensure_ascii=False)
+                    previews.append(pv)
                 except Exception as e:
+                    conn.rollback()
                     flash(f"Demo #{i + 1} 分析失败：{str(e)}", "error")
             for d in tmpdirs:
                 shutil.rmtree(d, ignore_errors=True)
@@ -1206,15 +1214,23 @@ def admin_import_demo(match_id):
                         flash(msg, "success")
                 else:
                     all_demo_data = json.loads(request.form.get("all_demo_data", "[]"))
+                    if not isinstance(all_demo_data, list) or not all_demo_data:
+                        raise ValueError("请选择至少一个有效 Demo，未保存任何导入数据")
                     imported_count = 0
+                    messages = []
                     for pv in all_demo_data:
+                        if not isinstance(pv, dict):
+                            raise ValueError("Demo 数据格式无效，整批导入未保存")
                         result, msg = import_demo_data(
                             conn, match_id, match, pv.get("demo_data", "{}"), pv.get("map_slot", 0)
                         )
-                        if result is not None:
-                            imported_count += 1
-                        flash(msg, "info")
+                        if result is None or result <= 0:
+                            raise ValueError(f"{msg}；整批导入未保存")
+                        imported_count += 1
+                        messages.append(msg)
                     conn.commit()
+                    for msg in messages:
+                        flash(msg, "info")
                     flash(f"批量导入完成：{imported_count} 个 Demo 已导入", "success")
             except Exception as e:
                 conn.rollback()

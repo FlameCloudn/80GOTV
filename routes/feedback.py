@@ -14,11 +14,16 @@ def feedback_submit():
     """提交反馈"""
     if not rate_limit("feedback_submit", 10, 3600, by_ip=True):
         return jsonify({"ok": False, "error": "提交过于频繁，请稍后再试"}), 429
-    data = request.get_json(silent=True) or {}
-    content = (data.get("content") or "").strip()
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or any(
+        key in data and not isinstance(data[key], str)
+        for key in ("content", "type", "contact", "page_url")
+    ):
+        return jsonify({"ok": False, "error": "反馈格式无效，请检查后重试"}), 400
+    content = data.get("content", "").strip()
     fb_type = data.get("type", "suggestion")
-    contact = (data.get("contact") or "").strip()
-    page_url = (data.get("page_url") or "").strip()
+    contact = data.get("contact", "").strip()
+    page_url = data.get("page_url", "").strip()
 
     if not content or len(content) < 2:
         return jsonify({"ok": False, "error": "内容太短"}), 400

@@ -26,8 +26,8 @@ class GamesTests(unittest.TestCase):
         conn = get_db()
         cursor = conn.execute(
             """INSERT INTO users(
-                   username, password_hash, approval_status, group_username
-               ) VALUES(?, ?, 'approved', ?)""",
+                   username, password_hash, approval_status, group_username, is_bashizhong_student
+               ) VALUES(?, ?, 'approved', ?, 1)""",
             ("GamesTester", generate_password_hash("123456"), "GamesTester"),
         )
         self.user_id = cursor.lastrowid

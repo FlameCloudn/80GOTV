@@ -821,17 +821,13 @@ def match_map_slot(demo_map_name, match_map_names):
         match_map_names: list，比赛的三张图名（如 ['Mirage', None, None]）
 
     返回:
-        int: 匹配到的 slot 索引 (0/1/2)，匹配不到返回 0
+        int: 匹配到的 slot 索引；匹配不到返回 -1，不自动占用其他地图。
     """
     demo_norm = normalize_map_name(demo_map_name)
     for i, map_name in enumerate(match_map_names):
         if map_name and normalize_map_name(map_name) == demo_norm:
             return i
-    # 未精确匹配，找第一个空槽
-    for i, map_name in enumerate(match_map_names):
-        if not map_name:
-            return i
-    return 0
+    return -1
 
 
 def validate_demo(demo_path):

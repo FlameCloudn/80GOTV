@@ -145,6 +145,147 @@ class LiveDataStreamTests(unittest.TestCase):
         self.assertIn("战术暂停", html)
         self.assertIn("技术暂停", html)
 
+    def test_map_change_does_not_infer_deaths_or_skip_new_bomb_from_previous_map(self):
+        previous = self._payload()
+        previous["allplayers"]["111"]["position"] = "100, 200, 300"
+        self.assertEqual(self._post(previous).status_code, 200)
+        changed = self._payload()
+        changed["map"]["name"] = "de_mirage"
+        changed["map"]["round"] = 0
+        changed["allplayers"]["111"]["state"]["health"] = 0
+        changed["allplayers"]["111"]["position"] = "800, 900, 100"
+        self.assertEqual(self._post(changed).status_code, 200)
+        live = self.client.get(f"/api/live/{self.match_id}").get_json()
+        self.assertEqual(live["death_markers"], [])
+        self.assertEqual(len(live["bomb_events"]), 1)
+        self.assertEqual(live["bomb_events"][0]["round_number"], 1)
+        conn = get_db()
+        timeline = conn.execute(
+            "SELECT payload FROM live_match_events WHERE match_id=? AND event_type='plant'",
+            (self.match_id,),
+        ).fetchall()
+        conn.close()
+        self.assertEqual(
+            {json.loads(row["payload"])["map_name"] for row in timeline}, {"de_nuke", "de_mirage"}
+        )
+
+    def test_live_view_excludes_old_map_events_but_durable_timeline_keeps_them(self):
+        self.assertEqual(self._post(self._payload()).status_code, 200)
+        changed = self._payload()
+        changed["map"]["name"] = "de_mirage"
+        changed["bomb"] = {}
+        self.assertEqual(self._post(changed).status_code, 200)
+        live = self.client.get(f"/api/live/{self.match_id}").get_json()
+        self.assertEqual(live["map_name"], "de_mirage")
+        self.assertEqual(live["bomb_events"], [])
+        conn = get_db()
+        self.assertEqual(
+            conn.execute(
+                "SELECT COUNT(*) FROM live_match_events WHERE match_id=? AND event_type='plant'",
+                (self.match_id,),
+            ).fetchone()[0],
+            1,
+        )
+        conn.close()
+
+    def test_duplicate_and_out_of_order_frames_do_not_mutate_saved_state(self):
+        first = self._payload()
+        first["_80gotv"].update(session_id="audit-session", frame_seq=10)
+        self.assertEqual(self._post(first).status_code, 200)
+        conn = get_db()
+        before = conn.execute(
+            "SELECT live_state FROM live_match_data WHERE match_id=?", (self.match_id,)
+        ).fetchone()[0]
+        conn.close()
+        first["map"]["team_t"]["score"] = 99
+        duplicate = self._post(first)
+        self.assertTrue(duplicate.get_json()["duplicate"])
+        first["_80gotv"]["frame_seq"] = 9
+        self.assertEqual(self._post(first).status_code, 409)
+        conn = get_db()
+        after = conn.execute(
+            "SELECT live_state FROM live_match_data WHERE match_id=?", (self.match_id,)
+        ).fetchone()[0]
+        conn.close()
+        self.assertEqual(after, before)
+        first["_80gotv"]["frame_seq"] = 11
+        first["map"]["team_t"]["score"] = 8
+        self.assertEqual(self._post(first).status_code, 200)
+        self.assertEqual(
+            self.client.get(f"/api/live/{self.match_id}").get_json()["team1"]["score"], 8
+        )
+
+    def test_restarted_director_can_resume_after_old_session_expires(self):
+        first = self._payload()
+        first["_80gotv"].update(session_id="old-director", frame_seq=99)
+        self.assertEqual(self._post(first).status_code, 200)
+        restarted = self._payload()
+        restarted["_80gotv"].update(session_id="new-director", frame_seq=1)
+        self.assertEqual(self._post(restarted).status_code, 409)
+        conn = get_db()
+        state = json.loads(
+            conn.execute(
+                "SELECT live_state FROM live_match_data WHERE match_id=?", (self.match_id,)
+            ).fetchone()[0]
+        )
+        state["gsi_received_at"] = "2000-01-01T00:00:00+00:00"
+        conn.execute(
+            "UPDATE live_match_data SET live_state=? WHERE match_id=?",
+            (json.dumps(state), self.match_id),
+        )
+        conn.commit()
+        conn.close()
+        self.assertEqual(self._post(restarted).status_code, 200)
+        self.assertEqual(self._post(first).status_code, 409)
+
+    def test_reconnect_on_new_map_clears_expired_map_state(self):
+        first = self._payload()
+        first["_80gotv"].update(session_id="old-director", frame_seq=99)
+        self.assertEqual(self._post(first).status_code, 200)
+        conn = get_db()
+        state = json.loads(
+            conn.execute(
+                "SELECT live_state FROM live_match_data WHERE match_id=?", (self.match_id,)
+            ).fetchone()[0]
+        )
+        state["gsi_received_at"] = "2000-01-01T00:00:00+00:00"
+        state["death_markers"] = [{"steam_id": "111", "round_number": 12, "x": 100, "y": 200}]
+        conn.execute(
+            "UPDATE live_match_data SET live_state=? WHERE match_id=?",
+            (json.dumps(state), self.match_id),
+        )
+        conn.commit()
+        conn.close()
+        restarted = self._payload()
+        restarted["map"]["name"] = "de_mirage"
+        restarted["map"]["round"] = 0
+        restarted["bomb"] = {}
+        restarted["_80gotv"].update(session_id="new-director", frame_seq=1)
+        self.assertEqual(self._post(restarted).status_code, 200)
+        conn = get_db()
+        state = json.loads(
+            conn.execute(
+                "SELECT live_state FROM live_match_data WHERE match_id=?", (self.match_id,)
+            ).fetchone()[0]
+        )
+        conn.close()
+        self.assertEqual(state["death_markers"], [])
+        self.assertEqual(state["bomb_events"], [])
+
+    def test_cancelled_match_cannot_receive_live_frames(self):
+        conn = get_db()
+        conn.execute("UPDATE matches SET status='cancelled' WHERE id=?", (self.match_id,))
+        conn.commit()
+        conn.close()
+        self.assertEqual(self._post(self._payload()).status_code, 409)
+        conn = get_db()
+        self.assertIsNone(
+            conn.execute(
+                "SELECT * FROM live_match_data WHERE match_id=?", (self.match_id,)
+            ).fetchone()
+        )
+        conn.close()
+
     def test_round_history_uses_match_team_and_bomb_icon_reason(self):
         self.assertEqual(self._post(self._payload()).status_code, 200)
         finished = self._payload(win_team="T")

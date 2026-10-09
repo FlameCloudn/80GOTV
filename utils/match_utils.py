@@ -218,12 +218,7 @@ def build_result_maps(match_row):
 # 规则：状态可以是手动设的 completed/live/upcoming。
 # 新建比赛固定保存为 upcoming；到达开赛时间后也必须自动进入 live，
 # 否则管理员稍晚创建的比赛会同时从比赛和赛果页面消失。
-_SQL_MATCH_COMPLETED = (
-    "(COALESCE(m.status, '') = 'completed'"
-    " OR (m.match_time IS NOT NULL"
-    "     AND datetime(m.match_time) < datetime('now', 'localtime', '-1 day')"
-    "     AND COALESCE(m.status, '') NOT IN ('live', 'cancelled')))"
-)
+_SQL_MATCH_COMPLETED = "(COALESCE(m.status, '') = 'completed')"
 _SQL_MATCH_UPCOMING = (
     "(COALESCE(m.status, '') NOT IN ('completed', 'live', 'cancelled')"
     " AND (m.match_time IS NULL OR datetime(m.match_time) > datetime('now', 'localtime')))"
@@ -232,19 +227,14 @@ _SQL_MATCH_LIVE = (
     "(COALESCE(m.status, '') = 'live'"
     " OR (COALESCE(m.status, '') NOT IN ('completed', 'cancelled')"
     "     AND m.match_time IS NOT NULL"
-    "     AND datetime(m.match_time) >= datetime('now', 'localtime', '-1 day')"
     "     AND datetime(m.match_time) <= datetime('now', 'localtime')))"
 )
 _SQL_EFFECTIVE_STATUS = (
     "CASE"
     " WHEN COALESCE(m.status, '') = 'cancelled' THEN 'cancelled'"
     " WHEN COALESCE(m.status, '') = 'completed' THEN 'completed'"
-    " WHEN m.match_time IS NOT NULL"
-    "      AND datetime(m.match_time) < datetime('now', 'localtime', '-1 day')"
-    "      AND COALESCE(m.status, '') NOT IN ('live', 'cancelled') THEN 'completed'"
     " WHEN COALESCE(m.status, '') = 'live' THEN 'live'"
     " WHEN m.match_time IS NOT NULL"
-    "      AND datetime(m.match_time) >= datetime('now', 'localtime', '-1 day')"
     "      AND datetime(m.match_time) <= datetime('now', 'localtime')"
     "      AND COALESCE(m.status, '') NOT IN ('completed', 'cancelled') THEN 'live'"
     " ELSE 'upcoming' END AS effective_status"

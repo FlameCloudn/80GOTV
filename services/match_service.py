@@ -115,6 +115,9 @@ def supplement_temp_teams(match_row, conn=None):
         if m.get("status") == "completed":
             m["effective_status"] = "completed"
             return m
+        if m.get("status") == "live":
+            m["effective_status"] = "live"
+            return m
         try:
             if mt:
                 mt_dt = datetime.fromisoformat(mt.replace("Z", "+00:00").replace("T", " ")[:19])
@@ -169,6 +172,7 @@ def score_predictions(conn):
         FROM match_votes v
         JOIN matches m ON v.match_id = m.id
         WHERE v.scored = 0
+          AND m.status = 'completed'
           AND m.team1_score IS NOT NULL
           AND m.team2_score IS NOT NULL
           AND m.team1_score != m.team2_score

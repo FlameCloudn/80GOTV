@@ -218,7 +218,8 @@ class AccessAndRegistrationTests(unittest.TestCase):
         conn.execute(
             """INSERT INTO users(
                    username, password_hash, approval_status, group_username
-               ) VALUES('FeedbackUser', ?, 'approved', 'Feedback Group')""",
+                   , is_bashizhong_student
+               ) VALUES('FeedbackUser', ?, 'approved', 'Feedback Group', 1)""",
             (generate_password_hash("password123"),),
         )
         user_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]

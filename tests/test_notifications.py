@@ -23,8 +23,8 @@ class NotificationTests(unittest.TestCase):
 
         conn = get_db()
         cursor = conn.execute(
-            """INSERT INTO users(username, password_hash, group_username)
-               VALUES(?, ?, ?)""",
+            """INSERT INTO users(username, password_hash, group_username, is_bashizhong_student)
+               VALUES(?, ?, ?, 1)""",
             ("notify-user", generate_password_hash("password"), "notify-user"),
         )
         self.user_id = cursor.lastrowid

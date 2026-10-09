@@ -34,7 +34,7 @@ class RemovedTagFeatureTests(unittest.TestCase):
             ("General", "general", 0),
         )
         conn.execute(
-            "INSERT INTO users(username, password_hash, group_username) VALUES(?,?,?)",
+            "INSERT INTO users(username, password_hash, group_username, is_bashizhong_student) VALUES(?,?,?,1)",
             ("tag-test-user", "unused", "Tag Test User"),
         )
         self.user_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]

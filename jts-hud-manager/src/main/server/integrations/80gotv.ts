@@ -776,10 +776,13 @@ let forwardInFlight = false
 let forwardAttempts = 0
 
 const resetForwardTarget = (matchId: number | null) => {
+  const sameTarget = matchId !== null && matchId === status.forwardTargetMatchId && status.sessionId !== null
   status.forwardGeneration += 1
   status.forwardTargetMatchId = matchId
-  status.sessionId = matchId ? `80gotv:${matchId}:${Date.now()}` : null
-  status.frameSeq = 0
+  if (!sameTarget) {
+    status.sessionId = matchId ? `80gotv:${matchId}:${Date.now()}` : null
+    status.frameSeq = 0
+  }
   status.confirmedMatchId = null
   status.lastConfirmedAt = null
   pendingPayload = null

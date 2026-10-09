@@ -19,7 +19,13 @@ from services.player_service import (
     record_player_nickname,
 )
 from services.steam_profile_service import enrich_player_from_steam
-from utils.demo_parser import get_match_info, match_map_slot, parse_player_stats, run_analysis
+from utils.demo_parser import (
+    get_match_info,
+    match_map_slot,
+    normalize_map_name,
+    parse_player_stats,
+    run_analysis,
+)
 from utils.helpers import row_get
 from utils.match_utils import get_demo_map_names, get_demo_upload_slot_count
 
@@ -61,20 +67,19 @@ def auto_create_user_from_demo(conn, stat):
                 (username, generate_password_hash(secrets.token_hex(8)), steam_id),
             )
             break
-        except Exception as _e:
-            from sqlite3 import IntegrityError
-
-            if not issubclass(type(_e), IntegrityError):
-                err_str = str(_e)
-                if "UNIQUE" not in err_str.upper() and "unique" not in err_str.lower():
-                    return None
+        except Exception as exc:
+            # Only a taken username can be fixed by choosing another name.
+            if "unique constraint" not in str(exc).lower():
+                raise
+            if not conn.execute("SELECT id FROM users WHERE username=?", (username,)).fetchone():
+                raise
             username = (
                 f"{base[:15]}_{steam_id[-4:]}"
                 if attempt == 0
                 else f"{base[:12]}_{steam_id[-6:]}_{attempt}"
             )
     else:
-        return None
+        raise ValueError("无法为录像选手创建账号，未导入本次数据，请检查后重试")
 
     conn.execute("INSERT INTO players(nickname, steam_id) VALUES(?,?)", (name, steam_id))
     player_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
@@ -301,6 +306,8 @@ def analyze_demo(conn, match, demo_path):
 
     map_names = get_demo_map_names(match)
     map_slot = match_map_slot(info["map_name"], map_names)
+    if map_slot < 0:
+        raise ValueError("Demo 地图不在当前比赛赛程中，请先检查比赛地图设置")
 
     return {
         "map_name": info["map_name"],
@@ -335,8 +342,17 @@ def import_demo_data(conn, match_id, match, demo_data_str, map_slot):
         return None, "地图编号超出当前比赛范围"
 
     demo_data = json.loads(demo_data_str)
+    if not isinstance(demo_data, dict):
+        return None, "Demo 数据格式无效"
     players = demo_data.get("players", [])
     info = demo_data.get("info", {})
+    if not isinstance(players, list) or not isinstance(info, dict):
+        return None, "Demo 数据格式无效"
+
+    source_map = normalize_map_name(info.get("map_name", ""))
+    scheduled_map = normalize_map_name(map_names[map_slot] or "")
+    if not source_map or source_map != scheduled_map:
+        return None, "Demo 地图与选择的比赛地图不一致，已拒绝导入"
 
     map_name = map_names[map_slot] or info.get("map_name", "")
 
@@ -399,7 +415,7 @@ def import_demo_data(conn, match_id, match, demo_data_str, map_slot):
         "B": "t2" if a_to_t1 else "t1",
     }
 
-    imported, skipped, created = 0, 0, 0
+    imported, created = 0, 0
     affected_player_ids = {
         row["player_id"]
         for row in conn.execute(
@@ -413,10 +429,12 @@ def import_demo_data(conn, match_id, match, demo_data_str, map_slot):
     }
     team_a_players = sorted(
         [s for s in players if s.get("team_letter") == "A"], key=lambda x: x["rating"], reverse=True
-    )[:5]
+    )
     team_b_players = sorted(
         [s for s in players if s.get("team_letter") == "B"], key=lambda x: x["rating"], reverse=True
-    )[:5]
+    )
+    if len(team_a_players) > 5 or len(team_b_players) > 5:
+        return None, "暂不支持同队超过五名选手的录像，未截取或导入部分选手"
     selected = team_a_players + team_b_players
 
     if not selected:
@@ -446,8 +464,7 @@ def import_demo_data(conn, match_id, match, demo_data_str, map_slot):
             if db_player:
                 created += 1
             else:
-                skipped += 1
-                continue
+                raise ValueError("录像中有选手无法识别或创建账号，未导入本次数据")
         team_id = demo_to_match_team.get(letter, t1_key if letter == "A" else t2_key)
         match_team_side = demo_to_match_side.get(letter)
         record_player_nickname(conn, db_player["id"], stat.get("name", ""), "demo")
@@ -479,7 +496,7 @@ def import_demo_data(conn, match_id, match, demo_data_str, map_slot):
     refresh_player_performance(conn, affected_player_ids)
     return (
         imported,
-        f"{info.get('map_name', '')} → {map_name}，成功 {imported} 人（新建 {created}，跳过 {skipped}）",
+        f"{info.get('map_name', '')} → {map_name}，成功 {imported} 人（新建 {created}）",
     )
 
 
