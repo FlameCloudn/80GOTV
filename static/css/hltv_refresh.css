@@ -4,61 +4,11 @@
  * public pages share one predictable, compact layout.
  */
 
-:root[data-theme='light'] {
-  --bg-primary: #d8dee5;
-  --bg-card: #ffffff;
-  --bg-hover: #f1f4f7;
-  --surface-soft: #f6f8fa;
-  --text-primary: #17212b;
-  --text-secondary: #445364;
-  --text-muted: #718092;
-  --text-link: #316f9f;
-  --text-link-hover: #24587f;
-  --border-color: #c5ced8;
-  --accent: #337cac;
-  --accent-hover: #28678f;
-  --nav-bg: #f8f9fa;
-  --nav-border: #c8d0d9;
-  --nav-text: #17212b;
-  --nav-hover: #edf1f4;
-  --h-panel: #ffffff;
-  --h-panel-head: #e9eef3;
-  --h-panel-line: #c5ced8;
-  --h-row: #ffffff;
-  --h-row-alt: #f6f8fa;
-  --shadow: rgba(39, 51, 64, 0.12);
-}
 
-:root[data-theme='dark'] {
-  --bg-primary: #171d24;
-  --bg-card: #222a33;
-  --bg-hover: #2a343e;
-  --surface-soft: #27313b;
-  --text-primary: #edf2f6;
-  --text-secondary: #c5ced7;
-  --text-muted: #96a4b1;
-  --text-link: #7eb0d4;
-  --text-link-hover: #a0c6e2;
-  --border-color: #3a4652;
-  --accent: #5e96be;
-  --accent-hover: #76a9cd;
-  --nav-bg: #202832;
-  --nav-border: #3a4652;
-  --nav-text: #edf2f6;
-  --nav-hover: #2a343e;
-  --h-panel: #222a33;
-  --h-panel-head: #29343f;
-  --h-panel-line: #3a4652;
-  --h-row: #222a33;
-  --h-row-alt: #26303a;
-  --shadow: rgba(0, 0, 0, 0.28);
-}
 
-:root {
-  --max-width: 1100px;
-  --site-gap: 10px;
-  --panel-shadow: 0 1px 2px var(--shadow);
-}
+
+
+
 
 html,
 body {
@@ -314,12 +264,6 @@ body .layout.match-detail-layout,
 body .layout.match-detailed-layout {
   width: min(calc(100% - 20px), 1100px) !important;
   max-width: 1100px !important;
-  padding: 0 !important;
-}
-
-body .layout.event-detail-layout {
-  width: min(calc(100% - 20px), 1040px) !important;
-  max-width: 1040px !important;
   padding: 0 !important;
 }
 
@@ -3359,23 +3303,23 @@ body .layout.match-detail-layout {
 
 .profile-completion-dialog {
   width: min(460px, 100%);
-  border: 1px solid var(--border, #c6ced7);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
-  background: var(--card-bg, #fff);
-  color: var(--text, #17212b);
+  background: var(--bg-card);
+  color: var(--text-primary);
   box-shadow: 0 16px 44px rgba(0, 0, 0, .26);
   overflow: hidden;
 }
 
 .profile-completion-head {
   padding: 22px 24px 18px;
-  border-bottom: 1px solid var(--border, #c6ced7);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .profile-completion-kicker {
   display: block;
   margin-bottom: 5px;
-  color: var(--accent, #2f78a8);
+  color: var(--accent);
   font-size: 12px;
   font-weight: 700;
 }
@@ -3387,7 +3331,7 @@ body .layout.match-detail-layout {
 
 .profile-completion-head p {
   margin: 0;
-  color: var(--muted, #687789);
+  color: var(--text-muted);
   font-size: 13px;
   line-height: 1.6;
 }
@@ -3431,23 +3375,23 @@ body .layout.match-detail-layout {
   gap: 3px;
   min-height: 64px;
   padding: 12px 14px;
-  border: 1px solid var(--border, #c6ced7);
-  background: var(--panel-bg, #f1f4f7);
+  border: 1px solid var(--border-color);
+  background: var(--surface-soft);
 }
 
 .profile-completion-status input:checked + span {
-  border-color: var(--accent, #2f78a8);
-  box-shadow: inset 3px 0 0 var(--accent, #2f78a8);
-  background: color-mix(in srgb, var(--accent, #2f78a8) 8%, var(--card-bg, #fff));
+  border-color: var(--accent);
+  box-shadow: inset 3px 0 0 var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-card));
 }
 
 .profile-completion-status input:focus-visible + span {
-  outline: 2px solid var(--accent, #2f78a8);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
 .profile-completion-status small {
-  color: var(--muted, #687789);
+  color: var(--text-muted);
   font-size: 11px;
 }
 
@@ -3466,9 +3410,9 @@ body .layout.match-detail-layout {
   width: 100%;
   box-sizing: border-box;
   padding: 10px 11px;
-  border: 1px solid var(--border, #c6ced7);
+  border: 1px solid var(--border-color);
   border-radius: 2px;
-  background: var(--input-bg, #fff);
+  background: var(--bg-input);
   color: inherit;
   font: inherit;
   font-weight: 400;
@@ -3478,7 +3422,7 @@ body .layout.match-detail-layout {
   min-height: 42px;
   border: 0;
   border-radius: 2px;
-  background: var(--accent, #2f78a8);
+  background: var(--accent);
   color: #fff;
   font-weight: 700;
   cursor: pointer;
@@ -3563,7 +3507,7 @@ body .layout.match-detail-layout {
   display: block;
   max-width: 100%;
   overflow: hidden;
-  color: var(--accent, #2f78a8);
+  color: var(--accent);
   font-size: 13px;
   font-weight: 700;
   text-overflow: ellipsis;
@@ -3729,7 +3673,7 @@ body .layout.match-detail-layout {
 .bracket-match-popup .bp-player-name {
   min-width: 0;
   overflow: hidden;
-  color: var(--accent, #2f78a8);
+  color: var(--accent);
   font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3851,4 +3795,1069 @@ body .layout.match-detail-layout {
     overflow-y: scroll;
     scrollbar-gutter: stable;
   }
+}
+
+/* ==========================================================================
+   全站统一层
+   --------------------------------------------------------------------------
+   这一段放在文件最后，把各页面零散的写法收拢成同一套：
+   版心、页面标题、面板、按钮、输入框、标签页、空状态、弹窗、动效。
+
+   写新页面时请直接用这里的 class，不要再写行内 style：
+     .page-head            页面顶部标题条
+     .h-panel + .h-panel-title   带标题栏的面板
+     .ui-btn / .ui-btn--primary  按钮
+     .ui-form / .ui-field / .ui-label / .ui-hint   表单
+     .empty-state          "暂无数据"提示
+   颜色、字号只用 templates/_design_tokens.html 里的变量。
+   ========================================================================== */
+
+/*
+ * 注意：全站老样式里有一条"所有元素统一 13px、不加粗"的强制规则（style_v2.css 的 body *），
+ * 所以这里凡是要改字号、加粗的地方都必须写 !important 才会生效。
+ */
+/* ---------- 1. 版心：所有页面同宽 ---------- */
+body .layout.event-detail-layout {
+  width: min(calc(100% - 20px), var(--max-width)) !important;
+  max-width: var(--max-width) !important;
+}
+
+.form-container {
+  width: min(100%, var(--form-width));
+  margin: 0 auto;
+}
+
+/* 主栏里的面板之间保持同样的间距 */
+.main-col > .h-panel,
+.main-col > .page-head + .h-panel,
+.compare-container > .h-panel {
+  margin-bottom: var(--site-gap);
+}
+
+.main-col > .h-panel:last-child {
+  margin-bottom: 0;
+}
+
+/* ---------- 2. 页面标题条 ---------- */
+.page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  margin: 0 0 var(--site-gap) !important;
+  padding: 0 0 8px !important;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.page-head h1 {
+  margin: 0 !important;
+  color: var(--text-primary);
+  font-size: var(--font-lg) !important;
+  font-weight: 700 !important;
+  line-height: 1.25;
+}
+
+.page-head-kicker {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--text-muted);
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: .08em;
+  line-height: 1.3;
+}
+
+.page-head-meta {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-sm) !important;
+  white-space: nowrap;
+}
+
+.page-head-link {
+  color: var(--text-link);
+  font-size: var(--font-sm) !important;
+  font-weight: 700 !important;
+  white-space: nowrap;
+}
+
+.page-head-link:hover {
+  color: var(--text-link-hover);
+}
+
+/* ---------- 3. 面板与标题栏 ---------- */
+.h-panel-link {
+  color: var(--text-link);
+  font-size: var(--font-xs) !important;
+  font-weight: 400 !important;
+}
+
+.h-panel-link:hover {
+  color: var(--text-link-hover);
+}
+
+.ui-panel-body {
+  padding: 12px;
+}
+
+/* 侧栏：标题栏和内容贴在一起，各页面同一种样子 */
+body .layout .side-col .h-panel > .card.small,
+body .layout.match-detail-layout .side-col .h-panel > .card.small {
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+body .layout .side-col .h-panel > .h-side-card:not(:has(.sidebar-event-item)) {
+  padding: 10px 12px !important;
+  font-size: var(--font-sm) !important;
+  line-height: 1.7;
+}
+
+body .layout .side-col .h-panel > .h-side-card p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-sm) !important;
+}
+
+/* 面板里的表格不再套第二层边框 */
+.h-panel > .stats-table.h-table-panel {
+  margin: 0 !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+/* 详情页大标题统一字号 */
+.event-header h1,
+.player-header h1,
+.match-header h1,
+.stats-detail-heading h1,
+.thread-header h1 {
+  font-size: var(--font-xl) !important;
+  line-height: 1.25 !important;
+}
+
+.news-detail .news-detail-title {
+  font-size: 22px !important;
+  line-height: 1.3 !important;
+}
+
+/* ---------- 4. 按钮 ---------- */
+.ui-btn,
+body .btn,
+body .btn-primary,
+body .btn-secondary,
+body .btn-back,
+body .comment-submit,
+body .roll-btn,
+body .guess-submit,
+body .guess-primary-action,
+body .guess-replay,
+body .event-reg-control-btn,
+body .event-reg-join-btn,
+body .profile-completion-submit,
+body .feedback-submit,
+body .map-quiz-form button,
+body .bingo-pick-form button,
+body .game-replay-form button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: var(--control-h);
+  padding: 0 12px !important;
+  color: var(--text-primary) !important;
+  background: var(--surface-soft) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  font-family: inherit;
+  font-size: var(--font-sm) !important;
+  font-weight: 400 !important;
+  line-height: 1.2 !important;
+  text-decoration: none !important;
+  white-space: nowrap;
+  cursor: pointer;
+  transform: none !important;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.ui-btn:hover,
+body .btn:hover,
+body .btn-secondary:hover,
+body .btn-back:hover {
+  color: var(--text-primary) !important;
+  background: var(--bg-hover) !important;
+  border-color: var(--border-strong) !important;
+}
+
+/* 主要按钮：一种蓝 */
+.ui-btn--primary,
+body .btn-primary,
+body .comment-submit,
+body .roll-btn,
+body .guess-submit,
+body .guess-primary-action,
+body .guess-replay,
+body .event-reg-control-btn,
+body .event-reg-join-btn,
+body .profile-completion-submit,
+body .feedback-submit,
+body .map-quiz-form button,
+body .bingo-pick-form button,
+body .game-replay-form button {
+  color: #fff !important;
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+}
+
+.ui-btn--primary:hover,
+body .btn-primary:hover,
+body .comment-submit:hover,
+body .roll-btn:hover,
+body .guess-submit:hover,
+body .guess-primary-action:hover,
+body .guess-replay:hover,
+body .event-reg-control-btn:hover,
+body .event-reg-join-btn:hover,
+body .profile-completion-submit:hover,
+body .feedback-submit:hover,
+body .map-quiz-form button:hover,
+body .bingo-pick-form button:hover,
+body .game-replay-form button:hover {
+  color: #fff !important;
+  background: var(--accent-hover) !important;
+  border-color: var(--accent-hover) !important;
+  filter: none !important;
+}
+
+.ui-btn--danger,
+body .btn-danger {
+  color: var(--color-red) !important;
+}
+
+.ui-btn--sm {
+  min-height: 24px;
+  padding: 0 8px !important;
+  font-size: var(--font-xs) !important;
+}
+
+.ui-btn:disabled,
+.ui-btn[aria-disabled='true'],
+body .btn:disabled,
+body button[type='submit']:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+.ui-btn:active,
+body .btn:active,
+body .btn-primary:active,
+body .comment-submit:active {
+  transform: translateY(1px) !important;
+}
+
+/* ---------- 5. 输入框 ---------- */
+body main input[type='text'],
+body main input[type='password'],
+body main input[type='search'],
+body main input[type='email'],
+body main input[type='number'],
+body main input[type='url'],
+body main input[type='tel'],
+body main input:not([type]),
+body main select,
+body main textarea,
+.profile-completion-group input,
+.feedback-dialog select,
+.feedback-dialog textarea,
+.feedback-dialog input {
+  color: var(--text-primary) !important;
+  background-color: var(--bg-input) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 0 !important;
+  font-family: inherit;
+  font-size: var(--font-md) !important;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+body main input[type='text'],
+body main input[type='password'],
+body main input[type='search'],
+body main input[type='email'],
+body main input[type='number'],
+body main input[type='url'],
+body main input[type='tel'],
+body main input:not([type]),
+body main select {
+  min-height: var(--control-h);
+}
+
+body main input::placeholder,
+body main textarea::placeholder {
+  color: var(--text-muted);
+  opacity: .85;
+}
+
+body main input:hover,
+body main select:hover,
+body main textarea:hover {
+  border-color: var(--border-strong) !important;
+}
+
+body main input:focus,
+body main select:focus,
+body main textarea:focus,
+.profile-completion-group input:focus,
+.feedback-dialog select:focus,
+.feedback-dialog textarea:focus,
+.feedback-dialog input:focus {
+  border-color: var(--accent) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px var(--accent-soft) !important;
+}
+
+/* 数据页的筛选条保持紧凑 */
+body main .stats-filter-strip select,
+body main .stats-overview-filter select {
+  min-height: 26px;
+}
+
+.ui-file {
+  max-width: 100%;
+  color: var(--text-secondary);
+  font-size: var(--font-sm) !important;
+}
+
+.ui-file::file-selector-button {
+  min-height: 28px;
+  margin-right: 8px;
+  padding: 0 10px;
+  color: var(--text-primary);
+  background: var(--surface-soft);
+  border: 1px solid var(--border-color);
+  font: inherit;
+  cursor: pointer;
+}
+
+/* ---------- 6. 表单排版 ---------- */
+.ui-form {
+  display: grid;
+  gap: 12px;
+}
+
+.ui-form--narrow {
+  max-width: 420px;
+}
+
+.ui-form-row {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ui-form-row--center {
+  align-items: center;
+}
+
+.ui-field {
+  display: grid;
+  flex: 1 1 220px;
+  gap: 5px;
+  min-width: 0;
+}
+
+.ui-field input,
+.ui-field select,
+.ui-field textarea {
+  width: 100%;
+  padding: 0 10px;
+}
+
+.ui-label {
+  color: var(--text-muted);
+  font-size: var(--font-sm) !important;
+}
+
+.ui-required {
+  color: var(--color-red);
+}
+
+.ui-hint,
+.form-hint {
+  color: var(--text-muted);
+  font-size: var(--font-xs) !important;
+}
+
+.ui-btn--with-hint {
+  margin-bottom: 21px;
+}
+
+.ui-alert {
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border: 1px solid;
+  font-size: var(--font-sm) !important;
+}
+
+.ui-alert--error {
+  color: var(--alert-error-color);
+  background: var(--alert-error-bg);
+  border-color: var(--alert-error-border);
+}
+
+.ui-alert--success {
+  color: var(--alert-success-color);
+  background: var(--alert-success-bg);
+  border-color: var(--alert-success-border);
+}
+
+/* 论坛发帖 / 编辑 */
+.form-card {
+  padding: 0 !important;
+}
+
+.form-group {
+  position: relative;
+  margin-bottom: 14px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--text-muted);
+  font-size: var(--font-sm) !important;
+}
+
+.form-group input[type='text'],
+.form-group select {
+  width: 100%;
+  padding: 0 10px;
+}
+
+.form-group textarea {
+  width: 100%;
+  min-height: 300px;
+  padding: 10px;
+  line-height: 1.7;
+  resize: vertical;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* ---------- 7. 标签页 ---------- */
+.ui-tabs .tab-btn,
+.tab-nav .tab-btn {
+  font-size: var(--font-sm) !important;
+  font-weight: 700 !important;
+  text-decoration: none !important;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+/* ---------- 8. 空状态：全站一个样 ---------- */
+body .empty-state,
+body .h-empty,
+body .guess-empty {
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 12px;
+  color: var(--text-muted) !important;
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-color);
+  font-size: var(--font-sm) !important;
+  text-align: center;
+}
+
+/* 面板里面的空状态不再重复画边框 */
+.h-panel > .empty-state,
+.h-panel > .h-empty,
+.h-side-card > .empty-state,
+.card > .empty-state {
+  background: transparent !important;
+  border: 0 !important;
+}
+
+/* ---------- 9. 排名、数字小部件 ---------- */
+.rank-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  color: var(--text-muted);
+  font-size: var(--font-sm) !important;
+  font-weight: 700 !important;
+}
+
+.rank-num-top {
+  color: #fff;
+  background: var(--border-strong);
+}
+
+.rank-num-1 {
+  background: var(--color-gold);
+}
+
+.pred-accuracy {
+  font-weight: 700 !important;
+}
+
+.pred-accuracy.is-good { color: var(--color-green); }
+.pred-accuracy.is-mid { color: var(--color-gold); }
+.pred-accuracy.is-bad { color: var(--color-red); }
+
+.pred-points {
+  color: var(--accent);
+  font-size: 15px !important;
+}
+
+.pred-perfect {
+  margin-left: 6px;
+  padding: 1px 5px;
+  color: var(--color-gold);
+  border: 1px solid currentColor;
+  font-size: 10px !important;
+}
+
+body .card.pred-match-row {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.pred-match-main {
+  display: grid;
+  flex: 1;
+  gap: 3px;
+  min-width: 0;
+}
+
+.pred-match-main small {
+  color: var(--text-muted);
+  font-size: var(--font-xs) !important;
+}
+
+.pred-vs {
+  color: var(--text-muted);
+  font-weight: 400 !important;
+}
+
+.pred-match-votes {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-muted);
+  font-size: var(--font-sm) !important;
+}
+
+.pred-vote-bar {
+  display: flex;
+  width: 80px;
+  height: 6px;
+  overflow: hidden;
+  background: var(--bg-hover);
+}
+
+.pred-vote-bar i {
+  display: block;
+  height: 100%;
+}
+
+.pred-vote-a { background: var(--accent); }
+.pred-vote-b { background: var(--color-t); }
+
+/* ---------- 10. 个人主页 ---------- */
+.profile-event-list {
+  display: grid;
+}
+
+.profile-event-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-color);
+  border-left: 3px solid transparent;
+}
+
+.profile-event-row:last-child {
+  border-bottom: 0;
+}
+
+.profile-event-row.is-active {
+  border-left-color: var(--color-green);
+}
+
+.profile-event-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.profile-event-main strong {
+  font-size: var(--font-md) !important;
+}
+
+.profile-event-main small {
+  color: var(--text-muted);
+  font-size: var(--font-xs) !important;
+}
+
+.profile-event-live {
+  color: var(--color-green);
+  font-weight: 700 !important;
+}
+
+body .profile-stat-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 1px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: var(--border-color) !important;
+}
+
+body .profile-stat-grid .stat-card {
+  margin: 0 !important;
+  padding: 12px 10px !important;
+  background: var(--bg-card) !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  text-align: center;
+}
+
+body .profile-stat-grid .stat-value {
+  overflow: hidden;
+  color: var(--text-primary) !important;
+  font-size: var(--font-md) !important;
+  font-weight: 700 !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body .profile-stat-grid .stat-label {
+  margin-top: 3px;
+  color: var(--text-muted) !important;
+  font-size: var(--font-xs) !important;
+}
+
+.profile-avatar-preview {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  color: var(--text-muted);
+  background: var(--surface-soft);
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  font-size: 22px !important;
+}
+
+.player-header .avatar-xl {
+  object-fit: cover;
+}
+
+#group-username-settings {
+  scroll-margin-top: 64px;
+}
+
+/* ---------- 11. 队伍列表 / 通知 / 错误页 / 新闻关联比赛 ---------- */
+body .card.team-list-row {
+  display: flex !important;
+  align-items: center;
+  gap: 12px;
+}
+
+.team-list-logo {
+  object-fit: cover;
+  background: var(--surface-soft);
+  border: 1px solid var(--border-color);
+}
+
+.team-list-main {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.team-list-main strong {
+  font-size: var(--font-md) !important;
+}
+
+.team-list-tag,
+.team-list-main small {
+  color: var(--text-muted);
+  font-size: var(--font-sm) !important;
+}
+
+body .notif-list.h-panel {
+  display: grid;
+  gap: 0;
+  padding: 0;
+}
+
+body .notif-list .notif-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 !important;
+  padding: 10px 12px !important;
+  color: var(--text-primary);
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--border-color) !important;
+  border-left: 3px solid transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  text-decoration: none;
+  transition: background-color var(--transition-fast);
+}
+
+body .notif-list .notif-item:last-child {
+  border-bottom: 0 !important;
+}
+
+body .notif-list .notif-item:hover {
+  background: var(--bg-hover) !important;
+}
+
+body .notif-list .notif-item.unread {
+  border-left-color: var(--accent) !important;
+  background: var(--accent-soft) !important;
+}
+
+.notif-list .notif-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.notif-list .notif-body p {
+  margin: 0;
+  font-size: var(--font-md) !important;
+}
+
+.notif-list .notif-time {
+  color: var(--text-muted);
+  font-size: var(--font-xs) !important;
+}
+
+.error-page {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 48px 20px !important;
+  text-align: center;
+}
+
+.error-code {
+  color: var(--accent);
+  font-size: 64px !important;
+  font-weight: 800 !important;
+  line-height: 1;
+}
+
+.error-title {
+  margin: 0;
+  font-size: var(--font-xl) !important;
+}
+
+.error-text {
+  max-width: 460px;
+  margin: 0 0 8px;
+  color: var(--text-muted);
+  font-size: var(--font-md) !important;
+}
+
+.error-debug {
+  width: min(100%, 900px);
+  margin-top: 20px;
+  text-align: left;
+}
+
+.error-debug summary {
+  margin-bottom: 8px;
+  color: var(--text-muted);
+  font-size: var(--font-sm) !important;
+  cursor: pointer;
+}
+
+.error-debug pre {
+  padding: 12px;
+  overflow-x: auto;
+  color: var(--text-secondary);
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  font-size: var(--font-sm) !important;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.related-match-card {
+  display: block;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  color: var(--text-primary);
+  background: var(--surface-soft);
+  border: 1px solid var(--border-color);
+  text-decoration: none;
+  transition: border-color var(--transition-fast);
+}
+
+.related-match-card:hover {
+  border-color: var(--accent);
+}
+
+.related-match-card small {
+  display: block;
+  color: var(--text-muted);
+  font-size: var(--font-xs) !important;
+}
+
+.related-match-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.related-match-vs {
+  color: var(--text-muted);
+  font-weight: 400 !important;
+}
+
+.related-match-score {
+  color: var(--accent);
+  font-size: var(--font-xl) !important;
+}
+
+.comments-title {
+  margin: 0 0 10px;
+  color: var(--text-primary);
+  font-size: var(--font-md) !important;
+}
+
+body .news-comments {
+  margin-top: var(--site-gap) !important;
+}
+
+/* ---------- 12. 弹窗：补充资料 ---------- */
+.profile-completion-backdrop {
+  background: var(--overlay);
+}
+
+.profile-completion-dialog,
+.profile-completion-group input,
+.profile-completion-submit {
+  border-radius: 0;
+}
+
+.profile-completion-head h2 {
+  color: var(--text-primary);
+  font-size: var(--font-xl) !important;
+}
+
+.profile-completion-status legend,
+.profile-completion-group {
+  font-size: var(--font-md) !important;
+}
+
+.profile-completion-status label > span {
+  color: var(--text-primary);
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.profile-completion-status label:hover > span {
+  border-color: var(--border-strong);
+}
+
+.profile-completion-group input {
+  min-height: 36px;
+}
+
+.profile-completion-submit {
+  min-height: 36px;
+}
+
+/* ---------- 13. 统一的悬停 / 聚焦手感 ---------- */
+a,
+button,
+.card,
+.h-side-row,
+.h-news-row,
+.h-rank-row,
+.match-schedule-row,
+.result-row,
+.thread-row,
+.nav-links a {
+  transition-duration: var(--transition-fast);
+  transition-timing-function: ease;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: 2px !important;
+  border-radius: 0;
+}
+
+/* 用户在系统里选了"减少动态效果"时，关掉所有过渡和动画 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------- 14. 小屏 ---------- */
+@media (max-width: 640px) {
+  .page-head {
+    min-height: 0;
+    flex-wrap: wrap;
+  }
+
+  .page-head-meta,
+  .page-head-link {
+    white-space: normal;
+  }
+
+  body .profile-stat-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  body .card.pred-match-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .ui-btn--with-hint {
+    margin-bottom: 0;
+  }
+}
+
+/* ---------- 15. 通用小工具（原来写在每个页面的 HTML 里，现在统一放这里） ---------- */
+
+/* 骨架屏：数据没回来之前用灰色块占位，避免页面跳动。
+   用法：<div class="skeleton skeleton-text"></div>
+        <div class="skeleton skeleton-title"></div>
+        <div class="skeleton skeleton-avatar"></div>
+        <div class="skeleton skeleton-thumb"></div> */
+@keyframes skeleton-shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.skeleton {
+  color: transparent !important;
+  background: linear-gradient(90deg, var(--surface-soft) 0%, var(--bg-hover) 40%, var(--surface-soft) 80%);
+  background-size: 800px 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  pointer-events: none;
+  user-select: none;
+}
+
+.skeleton-text {
+  height: 14px;
+  margin-bottom: 8px;
+}
+
+.skeleton-text.skeleton-short {
+  width: 60%;
+}
+
+.skeleton-title {
+  width: 50%;
+  height: 24px;
+  margin-bottom: 12px;
+}
+
+.skeleton-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+}
+
+.skeleton-thumb {
+  width: 100%;
+  padding-bottom: 56.25%;
+}
+
+/* 只给读屏软件看的文字：眼睛看不到，但读屏能读到 */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- 16. 数据看板 ---------- */
+.dashboard-grid > .chart-card {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.chart-card > .chart-canvas-wrap {
+  padding: 12px;
+}
+
+/* ---------- 17. 带名次的表格：第一列是名次，第二列才是名字 ---------- */
+.stats-table table:has(td.rank-cell) th:first-child,
+.stats-table td.rank-cell {
+  width: 48px !important;
+  min-width: 0 !important;
+  color: var(--text-muted);
+}
+
+.stats-table table:has(td.rank-cell) th:nth-child(2),
+.stats-table table:has(td.rank-cell) td:nth-child(2) {
+  width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- 18. 评论区：新闻页和比赛页同一种外框 ---------- */
+body .comment-section,
+body .comments.news-comments {
+  margin-top: var(--space-2xl) !important;
+  padding: 12px !important;
+  background: transparent !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+body .comment-section .comment-textarea,
+body .comments .comment-textarea,
+body .comment-section .reply-textarea,
+body .comments .reply-textarea {
+  background-color: var(--bg-input) !important;
 }

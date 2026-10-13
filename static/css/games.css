@@ -6,7 +6,7 @@
 
 .game-page,
 .games-hub {
-  width: min(100%, 920px);
+  width: min(100%, var(--narrow-width));
   margin: 0 auto;
   color: var(--text-primary);
 }
@@ -57,7 +57,7 @@
 
 .game-heading h1 {
   margin: 3px 0;
-  font-size: 24px;
+  font-size: var(--font-xl);
   line-height: 1.2;
   letter-spacing: 0;
 }
@@ -449,30 +449,6 @@
   margin: -2px 0 0;
   color: var(--game-red);
   font-size: 11px;
-}
-
-.games-hub-heading {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  min-height: 62px;
-  margin-bottom: 8px;
-  border-bottom: 1px solid var(--h-panel-line);
-}
-
-.games-hub-heading span,
-.games-hub-heading p {
-  color: var(--text-muted);
-  font-size: 10px;
-}
-
-.games-hub-heading h1 {
-  margin: 2px 0 8px;
-  font-size: 25px;
-}
-
-.games-hub-heading p {
-  margin: 0 0 10px;
 }
 
 .games-list {

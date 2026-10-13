@@ -1,34 +1,38 @@
 {% extends 'base.html' %}
 {% block title %}数据仪表盘 - 80GOTV{% endblock %}
 {% block head %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard_awards.css') }}?v=20260711-1">
+<link rel="stylesheet" href="{{ versioned_url('static/css/dashboard_awards.css') }}">
 {% endblock %}
 {% block main %}
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>DASHBOARD</span><h1>数据看板</h1></div>
+</header>
+
 <div class="dashboard-summary">
   <div class="dashboard-summary-item"><span>MVP 数量</span><b>{{ medal_totals.mvp_count or 0 }}</b></div>
   <div class="dashboard-summary-item"><span>EVP 数量</span><b>{{ medal_totals.evp_count or 0 }}</b></div>
 </div>
 
 <div class="dashboard-grid">
-  <div class="chart-card">
-    <h3 class="section-title">选手生涯 RATING 分布</h3>
+  <section class="chart-card h-panel">
+    <div class="h-panel-title">选手生涯 RATING 分布</div>
     <div class="chart-canvas-wrap"><canvas id="chartRating"></canvas></div>
-  </div>
+  </section>
 
-  <div class="chart-card">
-    <h3 class="section-title">MVP 数量排行 TOP 5</h3>
+  <section class="chart-card h-panel">
+    <div class="h-panel-title">MVP 数量排行 TOP 5</div>
     <div class="chart-canvas-wrap"><canvas id="chartMvpMedals"></canvas></div>
-  </div>
+  </section>
 
-  <div class="chart-card">
-    <h3 class="section-title">EVP 数量排行 TOP 5</h3>
+  <section class="chart-card h-panel">
+    <div class="h-panel-title">EVP 数量排行 TOP 5</div>
     <div class="chart-canvas-wrap"><canvas id="chartEvpMedals"></canvas></div>
-  </div>
+  </section>
 
-  <div class="chart-card">
-    <h3 class="section-title">赛事比赛数量</h3>
+  <section class="chart-card h-panel">
+    <div class="h-panel-title">赛事比赛数量</div>
     <div class="chart-canvas-wrap"><canvas id="chartEvents"></canvas></div>
-  </div>
+  </section>
 </div>
 {% endblock %}
 
@@ -39,10 +43,15 @@
 <script src="{{ versioned_url('static/vendor/chartjs/chart.umd.min.js') }}"></script>
 <script>
 (function(){
-  var textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim() || '#4a4a4a';
-  var gridColor = getComputedStyle(document.documentElement).getPropertyValue('--border-color').trim() || '#e2e4e8';
-  var accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#5881bc';
-  Chart.defaults.font.family = "'Microsoft YaHei','PingFang SC',sans-serif";
+  // 图表颜色直接读全站设计变量，换主题时颜色自动跟着变
+  var rootStyle = getComputedStyle(document.documentElement);
+  function token(name, fallback) { return rootStyle.getPropertyValue(name).trim() || fallback; }
+  var textColor = token('--text-secondary', '#c5ced7');
+  var gridColor = token('--border-color', '#3a4652');
+  var accentColor = token('--accent', '#5e96be');
+  var goldColor = token('--color-gold', '#d4a72c');
+  Chart.defaults.font.family = token('--site-font-family', 'sans-serif');
+  Chart.defaults.font.size = 12;
   Chart.defaults.devicePixelRatio = window.devicePixelRatio || 1;
   var commonOptions = { responsive: true, maintainAspectRatio: false };
 
@@ -92,14 +101,14 @@
   }
 
   // 2. MVP 排行 — 独立横向柱状图
-  drawMedalChart('chartMvpMedals', {{ top_mvps|tojson }}, 'mvp_count', 'MVP', '#c9a227');
+  drawMedalChart('chartMvpMedals', {{ top_mvps|tojson }}, 'mvp_count', 'MVP', goldColor);
 
   // 3. EVP 排行 — 独立横向柱状图
-  drawMedalChart('chartEvpMedals', {{ top_evps|tojson }}, 'evp_count', 'EVP', '#6b9fd4');
+  drawMedalChart('chartEvpMedals', {{ top_evps|tojson }}, 'evp_count', 'EVP', accentColor);
 
   // 4. 赛事比赛数量 — 饼图
   var events = {{ event_matches|tojson }};
-  var pieColors = ['#5881bc','#6b9fd4','#82ade0','#9dc3eb','#b8d4f0','#4a6fa3','#3d5d8a','#2e4a6e','#4caf50','#2196f3'];
+  var pieColors = [accentColor, goldColor, token('--color-t', '#e0a23c'), token('--color-green', '#22c55e'), token('--color-ct', '#5b9bd5'), token('--color-red', '#ef4444'), token('--text-muted', '#96a4b1'), token('--border-strong', '#526171')];
   new Chart(document.getElementById('chartEvents'), {
     type: 'doughnut',
     data: {

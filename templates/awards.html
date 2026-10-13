@@ -1,6 +1,9 @@
 {% extends 'base.html' %}
 {% block title %}荣誉堂 - 80GOTV{% endblock %}
 {% block main %}
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>AWARDS</span><h1>荣誉堂</h1></div>
+</header>
 {% if event_groups %}
 <div class="awards-grid">
   {% for (event_id, event_slug, event_name, event_date), group in event_groups %}

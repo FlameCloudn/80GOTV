@@ -1,13 +1,16 @@
 {% extends 'base.html' %}
 {% block title %}通知 - 80GOTV{% endblock %}
 {% block main %}
-<h2 style="margin-bottom:var(--space-xl);color:var(--text-primary)">通知</h2>
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>NOTIFICATIONS</span><h1>通知</h1></div>
+  {% if notifications %}<button class="ui-btn" type="button" onclick="markAllRead()">全部已读</button>{% endif %}
+</header>
 
 {% if notifications %}
-<div class="notif-list">
+<div class="notif-list h-panel">
   {% for n in notifications %}
   <a href="{{ n.link or '#' }}" class="notif-item {% if not n.is_read %}unread{% endif %}" data-id="{{ n.id }}">
-    <div class="notif-type">
+    <div class="notif-type" aria-hidden="true">
       {% if n.type == 'reply' %}💬
       {% elif n.type == 'system' %}📢
       {% else %}🔔{% endif %}
@@ -17,19 +20,13 @@
       <span class="notif-time">{{ n.created_at|datetime_display }}</span>
     </div>
     {% if not n.is_read %}
-    <button class="notif-mark-read" onclick="event.preventDefault();markRead({{ n.id }}, this.closest('.notif-item'))">标记已读</button>
+    <button class="notif-mark-read ui-btn ui-btn--sm" type="button" onclick="event.preventDefault();markRead({{ n.id }}, this.closest('.notif-item'))">标记已读</button>
     {% endif %}
   </a>
   {% endfor %}
 </div>
-
-<div style="margin-top:var(--space-xl);text-align:center">
-  <button class="btn-primary" onclick="markAllRead()" style="display:inline-block;width:auto">全部已读</button>
-</div>
 {% else %}
-<div class="card" style="text-align:center;padding:var(--space-2xl)">
-  <p style="color:var(--text-muted)">暂无通知</p>
-</div>
+<div class="empty-state">暂无通知</div>
 {% endif %}
 
 <script>
@@ -66,3 +63,6 @@ function markAllRead() {
 }
 </script>
 {% endblock %}
+
+{% block layout_class %}no-side-layout{% endblock %}
+{% block side %}{% endblock %}

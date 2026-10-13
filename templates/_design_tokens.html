@@ -1,0 +1,177 @@
+{#
+  全站设计变量（颜色 / 字号 / 间距）——唯一来源。
+
+  所有页面（包括登录页、战报页这类不继承 base.html 的独立页面）都引入这个文件，
+  这样改一处颜色，全站一起变，不会再出现"某个页面自己一套配色"。
+
+  规则：
+  1. 新样式只用上半部分的"标准变量"。
+  2. 下半部分的"旧名字"只是为了兼容老样式，全部指向标准变量，不要再新增使用。
+  3. 这段样式直接写在页面里（不是外部文件），浏览器一打开就能拿到颜色，避免闪白。
+#}
+<style id="design-tokens">
+/* ---------- 不随主题变化 ---------- */
+:root{
+  /* 版心宽度 */
+  --max-width:1100px;        /* 普通页面 */
+  --narrow-width:920px;      /* 小游戏、对比这类工具页 */
+  --form-width:720px;        /* 单列表单页 */
+  --site-gap:10px;
+
+  /* 字体与字号 */
+  --site-font-family:'Segoe UI',Arial,'Helvetica Neue','Microsoft YaHei','PingFang SC',sans-serif;
+  --site-font-size:13px;
+  --font-xs:11px;            /* 辅助说明、时间 */
+  --font-sm:12px;            /* 面板标题、按钮、表头 */
+  --font-md:13px;            /* 正文 */
+  --font-lg:16px;            /* 页面标题 */
+  --font-xl:20px;            /* 详情页大标题 */
+
+  /* 间距 */
+  --space-xs:4px;
+  --space-sm:8px;
+  --space-md:12px;
+  --space-lg:16px;
+  --space-xl:20px;
+  --space-2xl:24px;
+  --space-3xl:32px;
+  --front-pad-x:12px;
+  --front-pad-y:8px;
+
+  /* 形状与动效：全站直角 */
+  --radius-sm:0;
+  --radius-md:0;
+  --radius-lg:0;
+  --radius-xl:0;
+  --control-h:32px;          /* 按钮、输入框统一高度 */
+  --transition-fast:0.15s;
+  --transition-base:0.25s;
+
+  /* 固定语义色 */
+  --color-white:#fff;
+  --color-dark:#333840;
+  --live:#1db954;
+}
+
+/* ---------- 暗色（默认） ---------- */
+:root,:root[data-theme='dark']{
+  color-scheme:dark;
+  /* 底色 */
+  --bg-primary:#171d24;      /* 页面背景 */
+  --bg-card:#222a33;         /* 面板 */
+  --bg-hover:#2a343e;        /* 悬停 */
+  --surface-soft:#27313b;    /* 面板内的浅色块 */
+  --bg-input:#171d24;        /* 输入框 */
+  --h-panel-head:#29343f;    /* 面板标题栏 */
+  --nav-bg:#202832;
+  /* 文字 */
+  --text-primary:#edf2f6;
+  --text-secondary:#c5ced7;
+  --text-muted:#96a4b1;
+  --text-link:#7eb0d4;
+  --text-link-hover:#a0c6e2;
+  /* 线条 */
+  --border-color:#3a4652;
+  --border-strong:#526171;
+  /* 强调色 */
+  --accent:#5e96be;
+  --accent-hover:#76a9cd;
+  --accent-soft:rgba(94,150,190,.14);
+  /* 语义色 */
+  --color-green:#22c55e;     /* 胜利、正向数据 */
+  --color-red:#ef4444;       /* 失败、负向数据、删除 */
+  --color-gold:#d4a72c;      /* MVP、冠军 */
+  --color-ct:#5b9bd5;        /* CT 阵营 */
+  --color-t:#e0a23c;         /* T 阵营 */
+  /* 阴影与遮罩 */
+  --shadow:rgba(0,0,0,.28);
+  --shadow-raised:0 1px 2px rgba(0,0,0,.34),0 8px 22px rgba(0,0,0,.2);
+  --overlay:rgba(10,14,20,.72);
+  /* 提示条 */
+  --alert-success-bg:#1a3a2a;--alert-success-color:#7ddb8f;--alert-success-border:#2d5a3d;
+  --alert-error-bg:#3a1a1a;--alert-error-color:#f5a5a5;--alert-error-border:#5a2d2d;
+  --alert-info-bg:#1a2a3a;--alert-info-color:#8ab4d8;--alert-info-border:#2d3d5a;
+  /* 状态标签 */
+  --status-upcoming-bg:#1565c0;--status-upcoming-color:#bbdefb;
+  --status-live-bg:#e65100;--status-live-color:#ffe0b2;
+  --status-ongoing-bg:#e65100;--status-ongoing-color:#ffe0b2;
+  --status-completed-bg:#424242;--status-completed-color:#bdbdbd;
+}
+
+/* ---------- 亮色 ---------- */
+:root[data-theme='light']{
+  color-scheme:light;
+  --bg-primary:#d8dee5;
+  --bg-card:#ffffff;
+  --bg-hover:#f1f4f7;
+  --surface-soft:#f6f8fa;
+  --bg-input:#ffffff;
+  --h-panel-head:#e9eef3;
+  --nav-bg:#f8f9fa;
+  --text-primary:#17212b;
+  --text-secondary:#445364;
+  --text-muted:#687889;
+  --text-link:#316f9f;
+  --text-link-hover:#24587f;
+  --border-color:#c5ced8;
+  --border-strong:#aeb7c2;
+  --accent:#337cac;
+  --accent-hover:#28678f;
+  --accent-soft:rgba(51,124,172,.1);
+  --color-green:#0f8a35;
+  --color-red:#d63232;
+  --color-gold:#b8860b;
+  --color-ct:#2f6fa3;
+  --color-t:#c07a12;
+  --shadow:rgba(39,51,64,.12);
+  --shadow-raised:0 1px 2px rgba(21,31,43,.12),0 8px 20px rgba(21,31,43,.04);
+  --overlay:rgba(25,31,38,.55);
+  --alert-success-bg:#d4edda;--alert-success-color:#155724;--alert-success-border:#c3e6cb;
+  --alert-error-bg:#f8d7da;--alert-error-color:#721c24;--alert-error-border:#f5c6cb;
+  --alert-info-bg:#d1ecf1;--alert-info-color:#0c5460;--alert-info-border:#bee5eb;
+  --status-upcoming-bg:#2196f3;--status-upcoming-color:#fff;
+  --status-live-bg:#ff9800;--status-live-color:#fff;
+  --status-ongoing-bg:#ff9800;--status-ongoing-color:#fff;
+  --status-completed-bg:#757575;--status-completed-color:#fff;
+}
+
+/* ---------- 旧名字（只做兼容，全部指向上面的标准变量） ---------- */
+:root{
+  --panel-shadow:0 1px 2px var(--shadow);
+  --color-blue:var(--accent);
+  --color-win:var(--color-green);
+  --color-loss:var(--color-red);
+  --rating-good:var(--color-green);
+  --bg-secondary:var(--surface-soft);
+  --nav-border:var(--border-color);
+  --nav-text:var(--text-primary);
+  --nav-hover:var(--bg-hover);
+  --nav-muted:var(--text-muted);
+  --h-page:var(--bg-primary);
+  --h-panel:var(--bg-card);
+  --h-panel-soft:var(--surface-soft);
+  --h-panel-line:var(--border-color);
+  --h-row:var(--bg-card);
+  --h-row-alt:var(--surface-soft);
+  --h-blue:var(--accent);
+  --h-shadow:var(--panel-shadow);
+  --hltv-page:var(--bg-primary);
+  --hltv-panel:var(--bg-card);
+  --hltv-panel-2:var(--surface-soft);
+  --hltv-head:var(--h-panel-head);
+  --hltv-line:var(--border-color);
+  --hltv-line-dark:var(--border-strong);
+  --hltv-blue:var(--accent);
+  --hltv-green:var(--color-green);
+  --hltv-red:var(--color-red);
+  --hltv-nav:var(--nav-bg);
+  --hltv-nav-2:var(--nav-bg);
+  --hltv-shadow:var(--panel-shadow);
+  --front-shadow:var(--shadow-raised);
+  --front-soft-shadow:var(--panel-shadow);
+  --front-blue-soft:var(--accent-soft);
+}
+
+/* 样式文件还没下载完时，先铺好背景色，避免白屏闪一下 */
+html{background:var(--bg-primary);color:var(--text-primary)}
+</style>

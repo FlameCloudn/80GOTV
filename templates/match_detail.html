@@ -893,8 +893,9 @@ document.addEventListener('click', function(e) {
 
 {% block side %}
 
-<h3 class="section-title">赛事</h3>
-<div class="card small">
+<section class="h-panel">
+<div class="h-panel-title">赛事</div>
+<div class="card small h-side-card">
   {% if sidebar_events %}
     {% for ev in sidebar_events %}
     <a href="{{ event_path(ev) }}" class="sidebar-event-item">
@@ -909,9 +910,11 @@ document.addEventListener('click', function(e) {
   <div class="empty-state">暂无赛事</div>
   {% endif %}
 </div>
+</section>
 
-<h3 class="section-title">比赛</h3>
-<div class="card small">
+<section class="h-panel">
+<div class="h-panel-title">比赛</div>
+<div class="card small h-side-card">
   {% if sidebar_matches %}
     {% for m in sidebar_matches %}
     <a href="/matches/{{ m.slug or m.id }}" class="sidebar-event-item">
@@ -927,9 +930,11 @@ document.addEventListener('click', function(e) {
   <div class="empty-state">暂无比赛</div>
   {% endif %}
 </div>
+</section>
 
-<h3 class="section-title">新闻</h3>
-<div class="card small">
+<section class="h-panel">
+<div class="h-panel-title">新闻</div>
+<div class="card small h-side-card">
   {% if sidebar_news %}
     {% for n in sidebar_news %}
     <a href="{{ news_path(n) }}" class="sidebar-event-item">
@@ -940,5 +945,6 @@ document.addEventListener('click', function(e) {
   <div class="empty-state">暂无新闻</div>
   {% endif %}
 </div>
+</section>
 
 {% endblock %}

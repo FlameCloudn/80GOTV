@@ -1,0 +1,315 @@
+/* 比赛战报页。颜色全部来自全站设计变量。 */
+
+.report-hero {
+  margin-bottom: var(--site-gap);
+  padding: 22px 20px !important;
+  text-align: center;
+}
+
+.report-event-name {
+  margin-bottom: 8px;
+  color: var(--text-link);
+  font-size: var(--font-sm) !important;
+  letter-spacing: .06em;
+}
+
+.report-teams-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 10px;
+}
+
+.report-team-name {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: var(--font-xl) !important;
+  font-weight: 800 !important;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+}
+
+.report-team-name:first-child {
+  text-align: right;
+}
+
+.report-team-name:last-child {
+  text-align: left;
+}
+
+.report-score {
+  color: var(--text-primary);
+  font-size: 34px !important;
+  font-weight: 900 !important;
+  line-height: 1;
+  letter-spacing: 1px;
+}
+
+.report-meta {
+  color: var(--text-muted);
+  font-size: var(--font-sm) !important;
+}
+
+/* 全场 MVP：顶部一条金色线 */
+.mvp-card {
+  margin-bottom: var(--site-gap);
+  padding: 16px 20px !important;
+  border-top: 3px solid var(--color-gold) !important;
+  text-align: center;
+}
+
+.mvp-label {
+  margin-bottom: 6px;
+  color: var(--color-gold);
+  font-size: var(--font-xs) !important;
+  font-weight: 700 !important;
+  letter-spacing: .24em;
+}
+
+.mvp-name {
+  margin-bottom: 10px;
+  color: var(--text-primary);
+  font-size: var(--font-xl) !important;
+  font-weight: 800 !important;
+}
+
+.mvp-stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 28px;
+}
+
+.mvp-stat-val {
+  color: var(--text-primary);
+  font-size: 17px !important;
+  font-weight: 700 !important;
+}
+
+.mvp-stat-label {
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: var(--font-xs) !important;
+}
+
+/* 每张地图 */
+.map-report-card {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.map-report-card:last-child {
+  border-bottom: 0;
+}
+
+.map-report-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.map-report-header:last-child {
+  margin-bottom: 0;
+}
+
+.map-report-name {
+  color: var(--text-primary);
+  font-size: var(--font-md) !important;
+  font-weight: 700 !important;
+}
+
+.map-report-score {
+  color: var(--text-primary);
+  font-size: var(--font-lg) !important;
+  font-weight: 800 !important;
+}
+
+.map-report-score .win {
+  color: var(--color-green);
+}
+
+.map-report-score .lose {
+  color: var(--color-red);
+}
+
+.map-report-score.is-pending {
+  color: var(--text-muted);
+  font-size: var(--font-sm) !important;
+  font-weight: 400 !important;
+}
+
+.map-report-best {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.best-player-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--surface-soft);
+  border: 1px solid var(--border-color);
+}
+
+.best-player-rating {
+  flex-shrink: 0;
+  font-size: 18px !important;
+  font-weight: 900 !important;
+}
+
+.best-player-team {
+  color: var(--text-muted);
+  font-size: var(--font-xs) !important;
+  text-transform: uppercase;
+}
+
+.best-player-name {
+  color: var(--text-primary);
+  font-size: var(--font-md) !important;
+  font-weight: 700 !important;
+}
+
+.best-player-stats {
+  display: flex;
+  gap: 12px;
+  margin-top: 2px;
+  color: var(--text-secondary);
+  font-size: var(--font-sm) !important;
+}
+
+/* 队伍数据对比 */
+.team-compare-grid {
+  display: grid;
+  grid-template-columns: 1fr 110px 1fr;
+  align-items: center;
+  gap: 10px 16px;
+  padding: 14px 16px 4px;
+}
+
+.team-compare-label {
+  color: var(--text-muted);
+  font-size: var(--font-sm) !important;
+  text-align: center;
+}
+
+.team-compare-val {
+  font-size: var(--font-lg) !important;
+  font-weight: 700 !important;
+  text-align: center;
+}
+
+.team-compare-val.t1 {
+  color: var(--accent);
+}
+
+.team-compare-val.t2 {
+  color: var(--color-t);
+}
+
+.team-compare-bar-wrap {
+  display: flex;
+  height: 6px;
+  margin: 12px 16px 14px;
+  overflow: hidden;
+  background: var(--bg-hover);
+}
+
+.team-compare-bar-t1 {
+  height: 100%;
+  background: var(--accent);
+}
+
+.team-compare-bar-t2 {
+  height: 100%;
+  background: var(--color-t);
+}
+
+/* 比赛日志 */
+.timeline-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border-color);
+  font-size: var(--font-sm) !important;
+}
+
+.timeline-row:last-child {
+  border-bottom: 0;
+}
+
+.timeline-round {
+  min-width: 38px;
+  color: var(--text-muted);
+}
+
+.timeline-ct {
+  color: var(--color-ct);
+  font-weight: 700 !important;
+}
+
+.timeline-t {
+  color: var(--color-t);
+  font-weight: 700 !important;
+}
+
+.report-footer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.report-copy-toast {
+  margin-left: 6px;
+  color: var(--color-green);
+  font-size: var(--font-sm) !important;
+}
+
+@media (max-width: 600px) {
+  .report-hero {
+    padding: 16px 10px !important;
+  }
+
+  .report-teams-row {
+    gap: 8px;
+  }
+
+  .report-team-name {
+    font-size: 14px !important;
+    word-break: break-word;
+  }
+
+  .report-score {
+    font-size: 25px !important;
+  }
+
+  .mvp-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .mvp-stat-val {
+    font-size: 14px !important;
+  }
+
+  .map-report-best {
+    grid-template-columns: 1fr;
+  }
+
+  .team-compare-grid {
+    grid-template-columns: 1fr 80px 1fr;
+    padding: 12px 10px 4px;
+  }
+
+  .report-footer-actions .ui-btn {
+    flex: 1 1 calc(50% - 3px);
+  }
+}

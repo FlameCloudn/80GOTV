@@ -1,24 +1,29 @@
 {% extends 'base.html' %}
 {% block title %}队伍 - 80GOTV{% endblock %}
 {% block main %}
-<div class="card-list h-compact-list">
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>TEAMS</span><h1>队伍</h1></div>
+  <p class="page-head-meta">共 {{ teams|length }} 支队伍</p>
+</header>
+
+{% if teams %}
+<div class="card-list h-compact-list team-list">
   {% for t in teams %}
-  <div class="card" style="display:flex;align-items:center;gap:var(--space-md)">
+  <div class="card team-list-row">
     {% if t.logo %}
-    <img src="{% if t.logo.startswith('http') or t.logo.startswith('/') %}{{ t.logo }}{% else %}{{ url_for('static', filename='uploads/' ~ t.logo) }}{% endif %}" alt="{{ t.name }}" class="avatar-lg" style="object-fit:cover;border:1px solid var(--border-color);background:var(--bg-secondary);" loading="lazy">
+    <img src="{% if t.logo.startswith('http') or t.logo.startswith('/') %}{{ t.logo }}{% else %}{{ url_for('static', filename='uploads/' ~ t.logo) }}{% endif %}" alt="" class="avatar-lg team-list-logo" loading="lazy">
     {% else %}
-    <div class="avatar-lg">{{ t.name[0] }}</div>
+    <div class="avatar-lg" data-i18n-ignore>{{ t.name[0] }}</div>
     {% endif %}
-    <div>
-      <div style="font-weight:600;font-size:15px;" data-i18n-ignore>{{ t.name }}</div>
-      {% if t.short_name %}<div style="font-size:13px;color:var(--text-muted)" data-i18n-ignore>{{ t.short_name }}</div>{% endif %}
-      {% if t.description %}<div style="font-size:12px;color:var(--text-muted);margin-top:4px">{{ t.description[:100] }}</div>{% endif %}
+    <div class="team-list-main">
+      <strong data-i18n-ignore>{{ t.name }}</strong>
+      {% if t.short_name %}<span class="team-list-tag" data-i18n-ignore>{{ t.short_name }}</span>{% endif %}
+      {% if t.description %}<small data-i18n-ignore>{{ t.description[:100] }}</small>{% endif %}
     </div>
   </div>
   {% endfor %}
 </div>
-
-{% if not teams %}
+{% else %}
 <div class="empty-state">暂无队伍</div>
 {% endif %}
 {% endblock %}

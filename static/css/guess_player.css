@@ -5,7 +5,7 @@
 }
 
 .guess-game {
-  width: min(100%, 900px);
+  width: min(100%, var(--narrow-width));
   margin: 0 auto;
   color: var(--text-primary);
 }
@@ -84,7 +84,7 @@
 
 .guess-heading h1 {
   margin: 4px 0 3px;
-  font-size: 24px;
+  font-size: var(--font-xl);
   line-height: 1.2;
   letter-spacing: 0;
 }
@@ -98,7 +98,7 @@
 
 .guess-kicker {
   color: var(--h-blue);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
 }
 
@@ -736,7 +736,7 @@
   }
 
   .guess-heading h1 {
-    font-size: 21px;
+    font-size: 18px;
   }
 
   .guess-difficulty a {

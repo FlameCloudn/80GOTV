@@ -1,0 +1,17 @@
+{#
+  独立页面（登录、改密码这类不带顶部导航的页面）共用的 <head> 开头部分。
+  作用：先定好明暗主题和语言，再提供全站设计变量，保证和其他页面是同一套配色。
+#}
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<script>
+  // 提前应用主题，避免页面先亮后暗地闪一下（必须在样式之前执行）
+  (function () {
+    var theme = localStorage.getItem('theme');
+    if (!theme) { theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; }
+    document.documentElement.setAttribute('data-theme', theme);
+  })();
+</script>
+{% include "_i18n_bootstrap.html" %}
+{% include "_design_tokens.html" %}

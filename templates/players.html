@@ -200,8 +200,8 @@
   <a href="{{ url_for('players_list', initial='other', team=team_filter, filter=filter_type) }}" class="{% if initial_filter == 'other' %}active{% endif %}">!@#</a>
 </nav>
 
-<div class="player-directory-heading">
-  <h1>{% if filter_type=='mvps' %}MVP 选手{% elif filter_type=='evps' %}EVP 选手{% elif filter_type=='top10' %}TOP 10 选手{% else %}Counter-Strike 2 选手{% endif %}</h1>
+<div class="player-directory-heading page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>PLAYERS</span><h1>{% if filter_type=='mvps' %}MVP 选手{% elif filter_type=='evps' %}EVP 选手{% elif filter_type=='top10' %}TOP 10 选手{% else %}Counter-Strike 2 选手{% endif %}</h1></div>
   <form method="get" class="player-team-filter">
     {% if filter_type %}<input type="hidden" name="filter" value="{{ filter_type }}">{% endif %}
     <input type="hidden" name="initial" value="{{ initial_filter }}">

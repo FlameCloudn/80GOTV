@@ -9,10 +9,10 @@
   </div>
 </div>
 
-<div class="tab-nav" style="display:flex;gap:4px;margin-bottom:var(--space-lg)">
-  <a href="{{ event_path(event) }}" class="tab-btn" style="padding:10px 20px;border-radius:0;font-size:14px;font-weight:600;text-decoration:none;background:transparent;color:var(--text-muted);border:1px solid transparent">对阵图</a>
-  <a href="{{ event_path(event) }}/stats" class="tab-btn active" style="padding:10px 20px;border-radius:0;font-size:14px;font-weight:600;text-decoration:none;background:var(--bg-card);color:var(--accent);border:1px solid var(--border-color);border-bottom-color:var(--bg-card)">赛事数据</a>
-</div>
+<nav class="tab-nav ui-tabs" aria-label="赛事页面导航">
+  <a href="{{ event_path(event) }}" class="tab-btn">对阵图</a>
+  <a href="{{ event_path(event) }}/stats" class="tab-btn active" aria-current="page">赛事数据</a>
+</nav>
 
 {% if rankings %}
 <h3 class="section-title">选手排行榜</h3>

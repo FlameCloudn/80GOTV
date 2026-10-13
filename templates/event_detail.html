@@ -495,10 +495,12 @@ function selectSlot(n){
 {% endblock %}
 
 {% block side %}
-<h3 class="section-title">赛事信息</h3>
-<div class="card small">
-  <div><b>赛制：</b>{{ event.format }}</div>
-  <div><b>队伍数：</b>{{ teams|length }}</div>
-  <div><b>比赛数：</b>{{ matches|length }}</div>
-</div>
+<section class="h-panel">
+  <div class="h-panel-title">赛事信息</div>
+  <div class="card small h-side-card">
+    <div><b>赛制：</b>{{ event.format }}</div>
+    <div><b>队伍数：</b>{{ teams|length }}</div>
+    <div><b>比赛数：</b>{{ matches|length }}</div>
+  </div>
+</section>
 {% endblock %}

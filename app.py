@@ -100,4 +100,9 @@ if __name__ == "__main__":
 
     threading.Thread(target=_startup_check, daemon=True).start()
 
+    # 本地开发：改完模板后刷新页面就能看到效果，不用重启。
+    # 公网由 wsgi.py 启动，不会走到这里，所以不影响线上性能。
+    app.config["TEMPLATES_AUTO_RELOAD"] = True
+    app.jinja_env.auto_reload = True
+
     app.run(**_local_server_options())
