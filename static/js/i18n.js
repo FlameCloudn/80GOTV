@@ -1086,30 +1086,249 @@
   Object.keys(comprehensiveTranslations).forEach(function (key) {
     translations[key] = comprehensiveTranslations[key];
   });
+  // 2026-10 补充：小游戏、战报、报名、个人主页、错误页等后来新增页面的词条
+  var laterPageTranslations = {
+    // 通用
+    '是': 'Yes', '不是': 'No', '你': 'You', '一般': 'Average', '刷新': 'Refresh',
+    '个人主页': 'Profile', '比赛战报': 'Match report', '预测排行': 'Prediction rankings',
+    '数据看板': 'Dashboard', '荣誉堂': 'Hall of fame', '队伍': 'Teams', '选手对比': 'Player comparison',
+    '← 返回比赛': '← Back to match', '← 返回登录': '← Back to login',
+    '作弊封禁': 'Banned for cheating', '验证码': 'Captcha',
+    '甲+盔': 'Armor + helmet', '阵营': 'Side', '数据统计导航': 'Stats navigation', '游戏版本': 'Game version',
+    '赛事页面导航': 'Event page navigation', '语言': 'Language',
+    '80GO 猜选手：每天 8 次机会 →': '80GO Guess the player: 8 guesses a day →',
+    // 错误页
+    '页面未找到': 'Page not found', '服务器错误': 'Server error', '页面走丢了': 'Something went wrong',
+    '你访问的页面不存在，可能已被删除或地址输入有误。': 'This page does not exist. It may have been removed, or the address may be wrong.',
+    '服务器内部发生错误，请稍后再试。如持续出现，请联系管理员。': 'The server ran into an error. Please try again later, and contact an admin if it keeps happening.',
+    '抱歉，出了点问题，请稍后重试。': 'Sorry, something went wrong. Please try again later.',
+    // 战报
+    '地图战况': 'Maps', '队伍数据对比': 'Team comparison', '总击杀': 'Total kills', '总死亡': 'Total deaths',
+    '场均 ADR': 'Average ADR', '场均 RATING': 'Average RATING', '查看完整数据': 'View full stats',
+    '复制 Markdown': 'Copy Markdown', '复制 BBcode': 'Copy BBcode',
+    // 个人主页
+    '我的赛事': 'My events', '查看/BP': 'View / BP', '查看赛事': 'View event', '查看选手数据 →': 'View player stats →',
+    '游戏昵称': 'In-game nickname', '所属队伍': 'Team', '修改头像': 'Change avatar', '上传头像': 'Upload avatar',
+    '修改群昵称': 'Change group nickname', '保存群昵称': 'Save group nickname', '群昵称': 'Group nickname',
+    '群昵称为必填项，填写后才能继续使用其他网站功能。': 'A group nickname is required before you can use the rest of the site.',
+    '保存后显示为“选手昵称 @群昵称”；可以随时修改，但不能留空。': 'Shown as “nickname @group nickname”. You can change it at any time, but it cannot be empty.',
+    '例如：Crinia_': 'Example: Crinia_',
+    '修改昵称': 'Change nickname', '新昵称': 'New nickname', '修改密码': 'Change password',
+    '当前密码': 'Current password', '新密码': 'New password', '确认新密码': 'Confirm new password',
+    '账户信息': 'Account', '用户名：': 'Username: ', '群昵称：': 'Group nickname: ', '来源：': 'From: ',
+    '标记：': 'Flag: ', 'Steam64 ID：': 'Steam64 ID: ', '注册时间：': 'Registered: ', '身份：': 'Role: ',
+    '八十中': 'No. 80 High School', '外校': 'Other school', '待设置': 'Not set', '未绑定': 'Not linked',
+    '无队伍': 'No team', '参赛选手': 'Player',
+    // 补充资料弹窗 / 注册
+    '账号资料': 'Account details', '登录前请补充一项资料': 'One more detail before you continue',
+    '这会决定选手页面的地区标识。八十中学生还需要填写群内昵称。': 'This decides the region badge on your player page. No. 80 High School students also need a group nickname.',
+    '你是否是或曾经是八十中学生？': 'Are you, or were you, a No. 80 High School student?',
+    '需要填写群内昵称': 'A group nickname is required', '选手资料会显示世界标识': 'Your profile will show the globe badge',
+    '还需填写群内用户名': 'A group username is also required', '选手资料显示世界标识': 'Your profile shows the globe badge',
+    '群内昵称': 'Group nickname', '填写群聊中使用的名字': 'The name you use in the group chat', '保存并继续': 'Save and continue',
+    '验证码 10 分钟内有效': 'The code is valid for 10 minutes',
+    '通过 Steam 验证后修改密码': 'Verify with Steam to change your password',
+    '请先前往 Steam 确认账号归属。本站不会接触你的 Steam 密码。': 'Confirm you own the account on Steam first. This site never sees your Steam password.',
+    '已验证的 SteamID': 'Verified SteamID', '至少 8 位': 'At least 8 characters', '再次输入新密码': 'Enter the new password again',
+    // 赛事报名
+    '队长': 'Captain', '队员': 'Member', '预留位置': 'Reserved', '登录后进入 BP': 'Log in to enter BP', '进入 BP': 'Enter BP',
+    '你的昵称': 'Your nickname',
+    // 猜选手
+    '每日猜选手': 'Daily Guess the player', '每日完整题库': 'Full daily pool', '无限重玩': 'Unlimited replays',
+    'Noob：年度 Top 20 + 世界前 5 战队阵容': 'Noob: yearly Top 20 + rosters of the world top 5 teams',
+    'Pro：完整选手数据库': 'Pro: full player database',
+    '本局未猜中': 'Not guessed this round', '今天未猜中': 'Not guessed today', '猜对了': 'Correct!',
+    '是否为正确选手': 'Whether this is the correct player', '是否效力于同一队伍': 'Whether they play for the same team',
+    '橙色表示属于同一区域': 'Orange means the same region', '箭头指向正确答案的年龄': 'The arrow points toward the correct age',
+    'HLTV 选手位置': 'HLTV player role', '箭头指向正确答案的 Major 参赛次数': 'The arrow points toward the correct number of Majors',
+    '猜测进度': 'Guess progress', '下次挑战': 'Next challenge', '分享结果': 'Share result',
+    '自由游玩难度': 'Free play difficulty', '职业选手昵称': 'Pro player nickname', '游戏模式': 'Game modes',
+    '对战双方': 'Players', '等待对手加入': 'Waiting for an opponent', '比赛进行中': 'Match in progress', '房间已失效': 'Room expired',
+    '对手加入后，输入一名选手开始对战。': 'Once your opponent joins, enter a player to start.',
+    '返回对战大厅': 'Back to lobby', '复制房间码': 'Copy room code', '对手先猜中了': 'Your opponent got it first', '本局平局': 'Draw',
+    // 地图点位
+    'CS2 地图点位题目截图': 'CS2 map location screenshot', 'Anubis 地图截图': 'Anubis map screenshot',
+    '地图点位模式': 'Map location modes', '本局猜测记录': 'Guesses this round',
+    '地图正确': 'Correct map', '地图不对': 'Wrong map', '点位正确': 'Correct spot', '点位不对': 'Wrong spot',
+    '查看截图来源': 'View screenshot source',
+    // 选手 Bingo
+    '选手 Bingo 模式': 'Player Bingo modes', '3 乘 3 选手 Bingo 题板': '3 by 3 Player Bingo board',
+    '无限题板': 'Unlimited boards', '换一张题板': 'New board', '再来一盘': 'Play again',
+    '先选择一个空格': 'Pick an empty cell first', '请先选择一个空格': 'Pick an empty cell first',
+    '选择选手': 'Pick a player', '填入格子': 'Fill cell', '条件': 'Criteria', '连线': 'Lines', '失误': 'Mistakes',
+    '完成题板': 'Boards completed', '最少失误': 'Fewest mistakes',
+    '每格填入一名同时符合横向与纵向条件的选手，同一人不能重复。': 'Fill each cell with a player who matches both its row and its column. No player can be used twice.',
+    '选手条件取自本站保存的 HLTV 职业选手资料快照。': 'Player criteria come from the HLTV pro player snapshot stored on this site.',
+    '美洲': 'Americas', '欧洲': 'Europe', '现役': 'Active', '退役': 'Retired',
+    '0 次 Major': 'No Majors', '1 至 3 次 Major': '1–3 Majors', '4 次以上 Major': '4+ Majors',
+    '国籍属于欧洲': 'Nationality is in Europe', '国籍属于 CIS 地区': 'Nationality is in the CIS region',
+    '国籍属于北美或南美': 'Nationality is in North or South America', '当前仍有队伍': 'Currently on a team',
+    '当前为自由选手': 'Currently a free agent', '资料标记为退役': 'Marked as retired',
+    '没有 Major 参赛记录': 'No Major appearances', 'Major 参赛 1 至 3 次': '1 to 3 Major appearances',
+    'Major 参赛至少 4 次': 'At least 4 Major appearances',
+    '本局已经完成': 'This board is already complete', '格子位置无效': 'Invalid cell',
+    '这个格子已经填过了': 'This cell is already filled', '同一名选手不能重复使用': 'A player cannot be used twice',
+    '这名选手不同时符合两个条件': 'This player does not match both criteria',
+    // 论坛版块说明
+    'Counter-Strike 2 赛事、战队、选手讨论': 'Counter-Strike 2 events, teams and players',
+    'S/A/B 级赛事讨论与赛后分析': 'S/A/B-tier event talk and post-match analysis',
+    '战队阵容变动、转会新闻讨论': 'Roster changes and transfer news',
+    '版本更新、地图变化、武器平衡讨论': 'Patches, map changes and weapon balance',
+    '灌水闲聊，非 CS 话题': 'Casual chat and non-CS topics',
+    // 比赛直播面板
+    '比赛数据直播': 'Live match data', '等待观战账号连接': 'Waiting for observer account', '待确认': 'TBC',
+    '阵营待确认': 'Side TBC', 'CT 选手': 'CT players', 'T 选手': 'T players', '比赛事件': 'Match events',
+    '观战账号已连接': 'Observer account connected', 'GOTV 数据已连接': 'GOTV data connected',
+    '比赛服务器已连接，等待观战账号': 'Match server connected, waiting for observer account',
+    '观战账号连接已中断': 'Observer account disconnected', 'GOTV 数据已中断': 'GOTV data interrupted',
+    '直播数据中断，保留最后一次成功数据': 'Live data interrupted. Showing the last good data.',
+    '直播请求失败，保留最后一次成功数据': 'Live request failed. Showing the last good data.',
+    '直播数据中断': 'Live data interrupted', '未知选手': 'Unknown player',
+    'C4 爆炸': 'C4 exploded', 'C4 拆除': 'C4 defused', '时间耗尽': 'Time ran out', '敌方全灭': 'Enemy eliminated', '回合结束': 'Round over',
+    '已安放': 'planted', '携带中': 'carried', '已掉落': 'dropped', '已拆除': 'defused', '已爆炸': 'exploded',
+    '正在安放': 'planting', '正在拆除': 'defusing',
+    '装备': 'Equipment', '武器': 'Weapons',
+    'GSI 未连接（KDA 仅显示 GOTV 数据）': 'GSI not connected (K/D/A from GOTV only)',
+    '炸弹爆炸': 'Bomb exploded', '炸弹已拆除': 'Bomb defused', '全灭对手': 'Enemy eliminated', '回合胜利': 'Round won',
+    'GSI 在线': 'GSI online', 'GSI 未连接': 'GSI not connected', '战术暂停': 'Tactical timeout', '技术暂停': 'Technical timeout', '胜方': 'Winner',
+    '你未参加该比赛': 'You are not a participant in this match',
+    // —— 操作后的提示消息：登录 / 注册 ——
+    '请输入有效的邮箱地址': 'Enter a valid email address',
+    '发送次数过多，请一小时后再试': 'Too many emails sent. Try again in an hour.',
+    '该邮箱已经注册': 'This email is already registered',
+    '邮件发送失败，请稍后再试': 'Could not send the email. Please try again later.',
+    '验证码已发送，请检查收件箱': 'Code sent. Check your inbox.',
+    '请输入邮箱和六位验证码': 'Enter your email and the six-digit code',
+    '验证码已过期，请重新发送': 'The code has expired. Send a new one.',
+    '邮箱与验证码不匹配': 'The email and code do not match',
+    '错误次数过多，请重新发送验证码': 'Too many wrong attempts. Send a new code.',
+    '邮箱验证码错误': 'Wrong email code', '邮箱验证成功': 'Email verified', '邮箱已验证': 'Email verified',
+    '登录尝试次数过多，请 5 分钟后再试': 'Too many login attempts. Try again in 5 minutes.',
+    '验证码错误': 'Wrong captcha', '登录成功': 'Logged in',
+    '账号正在等待管理员审核，审核通过后才能登录': 'Your account is waiting for admin approval. You can log in once it is approved.',
+    '账号申请未通过，请联系管理员': 'Your application was not approved. Please contact an admin.',
+    '账号当前不可登录，请联系管理员': 'This account cannot log in right now. Please contact an admin.',
+    '用户名或密码错误': 'Wrong username or password',
+    '注册申请未通过安全检查': 'The application did not pass the security check',
+    '提交过快，请稍等两秒后再试': 'Too fast. Wait two seconds and try again.',
+    '注册尝试次数过多，请稍后再试': 'Too many sign-up attempts. Please try again later.',
+    '用户名和密码不能为空': 'Username and password are required',
+    '请选择你是否是或曾经是八十中学生': 'Choose whether you are or were a No. 80 High School student',
+    '请先完成邮箱验证码验证': 'Verify your email code first',
+    '用户名长度 2-20 个字符': 'Usernames must be 2–20 characters',
+    '用户名只能包含中文、字母、数字、下划线或短横线': 'Usernames may only contain Chinese characters, letters, numbers, underscores or hyphens',
+    '两次密码不一致': 'The passwords do not match',
+    '密码至少 10 位，并且同时包含字母和数字': 'Passwords need at least 10 characters with both letters and numbers',
+    '提交申请前请先通过 Steam 验证': 'Verify with Steam before submitting',
+    '用户名已存在': 'This username is taken',
+    '该 Steam 账号已注册，请使用忘记密码找回账号': 'This Steam account is already registered. Use “Forgot password” to recover it.',
+    '该昵称已被选手使用，请更换用户名': 'A player already uses this nickname. Choose another username.',
+    '头像文件无效，请上传 png/jpg/jpeg/gif 图片': 'Invalid avatar. Upload a png, jpg, jpeg or gif image.',
+    '申请已提交，等待管理员审核；审核通过后才能登录': 'Application submitted. You can log in after an admin approves it.',
+    '资料已保存': 'Details saved', '已退出登录': 'Logged out', '请先完成账号资料设置': 'Finish your account details first',
+    '昵称长度 2-20 个字符': 'Nicknames must be 2–20 characters', '该昵称已被使用': 'This nickname is taken',
+    '昵称已更新': 'Nickname updated', '外校选手不需要填写群内用户名': 'Players from other schools do not need a group username',
+    '群内用户名已更新': 'Group username updated', '当前密码错误': 'Wrong current password',
+    '新密码至少 8 位': 'The new password needs at least 8 characters', '两次新密码不一致': 'The new passwords do not match',
+    '密码已更新': 'Password updated', '请选择图片': 'Choose an image',
+    '文件内容无效，请上传 png/jpg/jpeg/gif 图片': 'Invalid file. Upload a png, jpg, jpeg or gif image.',
+    '头像已更新': 'Avatar updated', '请先通过 Steam 验证身份': 'Verify with Steam first', '密码至少 8 位': 'Passwords need at least 8 characters',
+    '未找到该 Steam ID 对应的账号': 'No account is linked to this Steam ID',
+    '密码修改成功，账号等待管理员审核': 'Password changed. Your account is waiting for admin approval.',
+    '请先登录': 'Please log in first', '隐藏': 'Hide', '显示': 'Show',
+    '邮箱已更改，请重新发送并验证': 'The email changed. Send and verify a new code.',
+    '页面安全验证刷新失败，请刷新页面后重试': 'Could not refresh the page security token. Reload the page and try again.',
+    '操作失败，请稍后再试': 'Something went wrong. Please try again later.',
+    '正在提交...': 'Submitting...', '正在向服务器提交审核申请，请勿重复点击': 'Submitting your application. Please do not click again.',
+    '正在发送...': 'Sending...', '重新发送': 'Resend', '已验证': 'Verified',
+    // —— 意见反馈 ——
+    '请至少写2个字': 'Write at least 2 characters', '✅ 感谢反馈！': '✅ Thanks for the feedback!', '感谢反馈！': 'Thanks for the feedback!',
+    '❌ 网络错误，请稍后再试': '❌ Network error. Please try again later.',
+    '提交过于频繁，请稍后再试': 'Too many submissions. Please try again later.',
+    '反馈格式无效，请检查后重试': 'Invalid feedback. Check it and try again.', '内容太短': 'Too short',
+    '内容太长（最多2000字）': 'Too long (2,000 characters max)', '提交失败，请稍后再试': 'Could not submit. Please try again later.',
+    // —— 评论 / 论坛 ——
+    '评论过于频繁，请稍后再试': 'You are commenting too fast. Please try again later.',
+    '评论内容不能为空': 'The comment cannot be empty', '评论最多 2000 字': 'Comments are limited to 2,000 characters',
+    '评论目标不存在': 'The item you are commenting on does not exist', '评论发表成功': 'Comment posted',
+    '评论不存在': 'Comment not found', '无权删除此评论': 'You cannot delete this comment',
+    '操作过于频繁，请稍后再试': 'Too many actions. Please try again later.',
+    '发帖过于频繁，请 5 分钟后再试': 'You are posting too fast. Try again in 5 minutes.',
+    '请填写标题和内容': 'Enter a title and content', '标题最多 120 字': 'Titles are limited to 120 characters',
+    '内容最多 10000 字': 'Content is limited to 10,000 characters', '请选择有效的论坛版块': 'Choose a valid forum section',
+    '帖子发布成功': 'Thread posted', '标题最多 120 字，内容最多 10000 字': 'Titles are limited to 120 characters and content to 10,000',
+    '帖子已更新': 'Thread updated', '帖子已删除': 'Thread deleted', '回复内容不能为空': 'The reply cannot be empty',
+    '回复最多 5000 字': 'Replies are limited to 5,000 characters', '回复过于频繁，请稍后再试': 'You are replying too fast. Please try again later.',
+    '回复成功': 'Reply posted', '已复制!': 'Copied!',
+    // —— 赛事报名 / BP ——
+    '请先登录后再报名': 'Log in before registering', '报名操作过于频繁，请稍后再试': 'Too many registration actions. Please try again later.',
+    '该赛事未开放报名': 'Registration is not open for this event', '报名赛事前请先绑定 Steam 账号': 'Link your Steam account before registering',
+    '请输入队伍名': 'Enter a team name', '请选择有效的位置': 'Choose a valid slot',
+    '你已经加入该赛事的一支报名队伍': 'You are already on a registered team for this event',
+    '你已经选择个人报名，请先取消个人报名': 'You are registered individually. Cancel that first.',
+    '该队伍名已经提交过报名': 'A team with this name is already registered',
+    '队标无效，请上传不超过 5MB 的 PNG、JPG 或 GIF 图片': 'Invalid logo. Upload a PNG, JPG or GIF up to 5 MB.',
+    '比赛不存在': 'Match not found', '赛事不存在': 'Event not found', '新闻不存在': 'News not found', '选手不存在': 'Player not found',
+    '请先在个人主页绑定 Steam ID': 'Link your Steam ID on your profile first',
+    'BP 房间': 'BP room', '你的队伍': 'Your team', '你可以申请本队 BP 操作席': 'You can claim your team’s BP seat',
+    '管理员模式': 'Admin mode', '输入 BP 共享口令': 'Enter the shared BP password', 'BP 共享口令': 'Shared BP password',
+    '验证口令': 'Verify', '已选地图': 'Picked maps', '重置 BP': 'Reset BP', '已被 Ban': 'Banned', '剩余地图': 'Decider',
+    '地图池': 'Map pool', '暂无': 'None', 'BP 尚未开始': 'BP has not started',
+    '比赛已结束或取消，BP 已锁定': 'The match is over or cancelled. BP is locked.',
+    '双方 Roll 点决定先手 — 点数大者可以选择先 Ban/Pick 或后 Ban/Pick': 'Both teams roll — the higher roll chooses to ban/pick first or second',
+    'BP 阶段完成': 'BP phase complete',
+    '最后地图选边 — 由未执行最后一次 Ban 的队伍选择 CT 或 T 起始方': 'Decider side — the team that did not make the last ban chooses CT or T',
+    '选边阶段 — 被选图的对手为每张图选择 CT 或 T 起始方': 'Side selection — for each picked map, the opponent chooses CT or T',
+    'BP 已完成! 地图数据已同步到比赛。': 'BP complete! Map data has been synced to the match.',
+    '开始 BP': 'Start BP', '当前比赛不能开始 BP': 'BP cannot start for this match',
+    '验证共享口令后即可开始 BP': 'Verify the shared password to start BP', '等待对方 Roll...': 'Waiting for the other team to roll...',
+    '作为 Roll 胜方，你选择：': 'You won the roll. Choose:', '先手': 'First', '后手': 'Second',
+    '先手 = 先 Ban/Pick': 'First = ban/pick first', '后手 = 后 Ban/Pick': 'Second = ban/pick second',
+    '点击上方地图卡片执行操作': 'Click a map card above to act', '所有地图已选边完毕': 'All sides have been chosen',
+    '查看比赛详情': 'View match', '确认重置 BP？这将清除所有 Ban/Pick 记录。': 'Reset BP? This clears every ban and pick.',
+    '重置确认': 'Confirm reset', '操作正在提交，请稍候': 'Submitting, please wait', '口令验证失败': 'Password check failed',
+    '网络错误，请稍后重试': 'Network error. Please try again later.', '启动失败': 'Could not start',
+    '● 你的回合': '● Your turn', '● 替对方操作': '● Acting for the other team', '(等待另一方)': '(waiting for the other team)',
+    // —— 小游戏 ——
+    '操作太快了，稍等几秒再试': 'Too fast. Wait a few seconds and try again.',
+    '今天的猜选手已经结束，明天再来吧': 'Today’s challenge is over. Come back tomorrow.',
+    '这名选手今天已经猜过了': 'You already guessed this player today', '本局已经结束，可以再开一局': 'This round is over. Start a new one.',
+    '这名选手本局已经猜过了': 'You already guessed this player this round', '换题太快了，稍等几秒再试': 'Too fast. Wait a few seconds before the next one.',
+    '创建房间太快了，稍等一会再试': 'Too fast. Wait a moment before creating another room.',
+    '加入房间太快了，稍等一会再试': 'Too fast. Wait a moment before joining again.',
+    '请先通过房间码加入比赛': 'Join with a room code first', '房间不存在或你不在房间内': 'The room does not exist or you are not in it',
+    '操作太快了，请稍后再试': 'Too fast. Please try again later.', '请选择一名选手': 'Choose a player',
+    '房间不存在': 'Room not found', '房间已经满员或比赛已经开始': 'The room is full or the match has started',
+    '本局已经结束': 'This round is over', '请选择地图并填写点位': 'Choose a map and enter a spot',
+    '题目不存在或已下架': 'This question no longer exists',
+    '请先点一个空格，再从候选列表中选择选手': 'Click an empty cell first, then choose a player from the list',
+    // —— 选手备注 ——
+    '备注修改过于频繁，请稍后再试': 'Too many note changes. Please try again later.',
+    '该选手尚未关联网站账号，暂时不能设置备注': 'This player has no site account yet, so a note cannot be set',
+    '不能给自己设置私人备注': 'You cannot set a private note for yourself'
+  };
   var partialTranslations = [
     ['地图与赛制', 'Maps and format'],
-    ['赛果 - ', 'Results - '], ['评论 ', 'Comments '], [' 场比赛', ' matches'],
-    [' 支队伍', ' teams'], ['共 ', 'Total '], [' 个赛事', ' events'],
-    ['第 ', 'Page '], [' 页', ''], [' 对 ', ' vs '], [' 条', ' items'], [' 场', ' matches'],
-    [' 地图', ' maps'], [' 回合', ' rounds'], [' 数据 - ', ' stats - '],
+    ['赛果 - ', 'Results - '], [' 场比赛', ' matches'],
+    [' 支队伍', ' teams'], [' 个赛事', ' events'],
+    [' 对 ', ' vs '], [' 数据 - ', ' stats - '],
     [' 选图', ' pick'],
-    ['（线上）', ' (Online)'], ['线上', 'Online']
+    ['（线上）', ' (Online)'], ['线上', 'Online'],
+    ['荒漠迷城', 'Mirage'], ['炼狱小镇', 'Inferno'], ['核子危机', 'Nuke'], ['炙热沙城 II', 'Dust2'],
+    ['远古遗迹', 'Ancient'], ['阿努比斯', 'Anubis'], ['死亡游乐园', 'Overpass'], ['殒命大厦', 'Vertigo'],
+    ['列车停放站', 'Train'], ['死城之谜', 'Cache']
   ];
   var extraPartialTranslations = [
     ['回复 @', 'Reply @'],
     ['确定删除新闻【', 'Delete news "'],
     ['确定删除选手【', 'Delete player "'],
     ['】吗？', '"?'],
-    [' 图', ' map'],
-    ['选手 ', 'Player '],
     ['下载 ', 'Download '],
     ['比赛结束', 'Match over'],
     ['即将开始', 'Upcoming'],
     ['直播中', 'Live'],
     ['进行中', 'Ongoing'],
     ['已结束', 'Completed'],
-    ['人预测', 'predictions'],
-    ['浏览', 'views'],
     ['依报名队伍决定', 'Depends on registered teams'],
     ['单场BO3', 'Single BO3'],
     ['双败淘汰', 'Double elimination'],
@@ -1194,10 +1413,13 @@
     ['Delete news "', '确定删除新闻【'],
     ['Delete player "', '确定删除选手【'],
     ['"?', '】吗？'],
-    [' map', ' 图'],
-    ['Player ', '选手 '],
     ['Download ', '下载 ']
   ]);
+  // 合并 2026-10 新增词条：已有的翻译保持不变，只补上缺的
+  Object.keys(laterPageTranslations).forEach(function (key) {
+    if (!Object.prototype.hasOwnProperty.call(translations, key)) translations[key] = laterPageTranslations[key];
+  });
+  // 这些区域里是用户自己写的内容（昵称、队名、新闻正文、评论），一律不翻译
   var ignored = [
     '.news-title', '.news-summary', '.news-detail', '.comment-content', '.comment-body',
     '.comment-author', '.comment-avatar-fb', '.username',
@@ -1211,6 +1433,114 @@
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
+  // 带数字或名字的句式：先于"零散词替换"执行，避免翻出"Page 1 次"这类半中半英的结果
+  var zhToEnPatterns = [
+    // —— 整句优先：必须排在下面的通用句式之前 ——
+    [/在\s*(\d+)\s*次机会内猜出今天的职业选手/g, 'Guess today’s pro player within $1 attempts'],
+    [/在\s*(\d+)\s*次机会内猜出本局的职业选手/g, 'Guess this round’s pro player within $1 attempts'],
+    [/看截图，猜出地图和具体位置。每局有\s*(\d+)\s*次机会。/g, 'Look at the screenshot and guess the map and the exact spot. You get $1 attempts per round.'],
+    [/(\d+)\s*次机会\s*·\s*房间码加入/g, '$1 guesses · join with a room code'],
+    [/把房间码\s*/g, 'Send the room code '],
+    [/\s*发给对方/g, ' to your opponent'],
+    [/今天的\s*(\d+)\s*次机会已经用完/g, 'You have used all $1 guesses for today'],
+    [/本局\s*(\d+)\s*次机会已经用完/g, 'You have used all $1 guesses this round'],
+    [/操作失败[:：]\s*(.*?)，请刷新页面后重试/g, 'Action failed: $1. Refresh the page and try again.'],
+    [/等待\s*(.+?)\s*选择先手\/后手\.\.\./g, 'Waiting for $1 to choose first or second...'],
+    [/等待\s*(.+?)\s*Roll\.\.\./g, 'Waiting for $1 to roll...'],
+    [/等待\s*(.+?)\s*选边\.\.\./g, 'Waiting for $1 to choose a side...'],
+    [/等待\s*(.+?)\s*操作\.\.\./g, 'Waiting for $1...'],
+    [/—\s*最后地图，由\s*(.+?)\s*选边/g, '— decider map, side chosen by $1'],
+    [/—\s*被选地图，由\s*(.+?)\s*选边/g, '— picked map, side chosen by $1'],
+    [/\[管理员\]\s*替\s*(.+?)\s*选择：/g, '[Admin] Choose for $1: '],
+    [/\[管理员\]\s*/g, '[Admin] '],
+    [/当前轮到\s*/g, 'Current turn: '],
+    [/\s*—\s*点击上方地图替其操作/g, ' — click a map above to act for them'],
+    [/替\s*(.+?)\s*操作/g, 'Acting for $1'],
+    [/Roll 结果[:：]\s*/g, 'Roll result: '],
+    [/\s*胜出!/g, ' wins!'],
+    [/\s*Roll 胜出\s*—\s*请选择先手或后手/g, ' won the roll — choose first or second'],
+    [/(Ban|Pick)\s*(\d+)\s*张图/g, '$1 $2 map(s)'],
+    [/，本轮还剩\s*(\d+)\s*张/g, ', $1 left this turn'],
+    [/^(.+?)\s+选$/g, 'Picked by $1'],    [/当前年龄至少\s*(\d+)\s*岁/g, 'Currently at least $1 years old'],
+    [/当前年龄不超过\s*(\d+)\s*岁/g, 'Currently $1 or younger'],
+    [/当前年龄为\s*(\d+)\s*至\s*(\d+)\s*岁/g, 'Currently aged $1 to $2'],
+    [/Demo 下载（地图\s*(\d+)）/g, 'Demo download (Map $1)'],
+    [/队伍报名\s*—\s*/g, 'Team registration — '],
+    [/^(.+?)\s+战报$/g, '$1 match report'],
+    [/^(.+?)\s+赛事数据$/g, '$1 event stats'],
+    // —— 带数字的通用句式 ——
+    [/第\s*(\d+)\s*回合/g, 'Round $1'],
+    [/第\s*(\d+)\s*轮/g, 'Round $1'],
+    [/第\s*(\d+)\s*次/g, 'Attempt $1'],
+    [/第\s*(\d+)\s*页/g, 'Page $1'],
+    [/图\s*(\d+)：/g, 'Map $1: '],
+    [/地图\s*(\d+)/g, 'Map $1'],
+    [/(^|[\s（(])图\s*(\d+)/g, '$1Map $2'],
+    [/位置\s*(\d+)\s*选手昵称/g, 'Slot $1 player nickname'],
+    [/位置\s*(\d+)/g, 'Slot $1'],
+    [/选手\s*(\d+)\s*昵称\(可选\)/g, 'Player $1 nickname (optional)'],
+    [/选择选手\s*([AB])\b/g, 'Choose player $1'],
+    [/选手\s+(\d+|[AB])\b/g, 'Player $1'],
+    [/每日挑战\s*#(\d+)/g, 'Daily challenge #$1'],
+    [/每日题板\s*#(\d+)/g, 'Daily board #$1'],
+    [/截图\s*(\d+)\/(\d+)/g, 'Screenshot $1/$2'],
+    [/房间\s+([A-Z0-9]{4,8})/g, 'Room $1'],
+    [/(\d+)\s*\/\s*(\d+)\s*格/g, '$1/$2 cells'],
+    [/(\d+)\s*条连线/g, '$1 lines'],
+    [/(\d+)\s*次失误/g, '$1 mistakes'],
+    [/(\d+)\s*次机会/g, '$1 guesses left'],
+    [/\/\s*(\d+)\s*次/g, '/ $1'],
+    [/(\d+)\s*个可玩项目/g, '$1 games'],
+    [/(\d+)\s*名常见选手/g, '$1 well-known players'],
+    [/(\d+)\s*名全部选手/g, '$1 players in total'],
+    [/(\d+)\s*岁及以上/g, '$1 or older'],
+    [/(\d+)\s*岁及以下/g, '$1 or younger'],
+    [/(\d+)\s*至\s*(\d+)\s*岁/g, 'Aged $1 to $2'],
+    [/共\s*(\d+)\s*支队伍/g, '$1 teams'],
+    [/共\s*(\d+)\s*个赛事/g, '$1 events'],
+    [/共\s*(\d+)\s*条记录/g, '$1 records'],
+    [/(\d+)\s*场比赛/g, '$1 matches'],
+    [/(\d+)\s*场(?![\u4e00-\u9fff])/g, '$1 matches'],
+    [/(\d+)\s*回合/g, '$1 rounds'],
+    [/(\d+)\s*地图(?![\u4e00-\u9fff])/g, '$1 maps'],
+    [/(\d+)\s*条记录/g, '$1 records'],
+    [/(\d+)\s*人预测/g, '$1 predictions'],
+    [/(\d+)\s*人(?![\u4e00-\u9fff])/g, '$1 players'],
+    [/(\d+)\s*回复/g, '$1 replies'],
+    [/(\d+)\s*浏览/g, '$1 views'],
+    [/(\d+)\s*票/g, '$1 votes'],
+    [/(\d+)\s*条未读/g, '$1 unread'],
+    [/评论\s*\((\d+)\)/g, 'Comments ($1)'],
+    [/评论\s+(\d+)/g, 'Comments $1'],
+    [/(\d+)\s*评论/g, '$1 comments'],
+    [/(\d+)\s*胜/g, '$1 wins'],
+    [/(\d+)\s*天前/g, '$1 days ago'],
+    [/(\d+)\s*天后/g, 'in $1 days'],
+    [/(\d+)\s*秒后重发/g, 'Resend in $1s'],
+    [/([012]-[012])\s*组/g, '$1 pool'],
+    [/搜索“(.+?)”的结果/g, 'Results for “$1”'],
+    [/搜索：(.*)$/g, 'Search: $1'],
+    [/未找到与“(.+?)”相关的结果/g, 'No results related to “$1”'],
+    [/BO([135])（(?:Online|线上)）/g, 'BO$1 (Online)'],
+    // —— 固定前后缀 ——
+    [/队长：/g, 'Captain: '],
+    [/作者：/g, 'Author: '],
+    [/发布：/g, 'Posted: '],
+    [/更新[:：]\s*/g, 'Updated: '],
+    [/炸弹状态：/g, 'Bomb: '],
+    [/（替补）/g, ' (substitute)'],
+    [/；橙色表示属于同一区域/g, '; orange means the same region'],
+    [/答案更高/g, 'Answer is higher'],
+    [/答案更低/g, 'Answer is lower'],
+    [/\s*回复了你的评论：/g, ' replied to your comment: '],
+    [/\s*回复了你的帖子：/g, ' replied to your thread: '],
+    [/在\s*(\S+)\s*点安放 C4/g, 'planted the C4 at $1'],
+    [/回合结束\s*·\s*胜方\s*/g, 'Round over · Winner: '],
+    [/题图来自\s*/g, 'Screenshots from '],
+    [/，网站运行时只读取本地副本。/g, '. The site only reads its local copy.'],
+    [/(MVP|EVP)\s*数据图/g, '$1 stat card']
+  ];
+  var pairsZhToEn = partialTranslations.concat(extraPartialTranslations);
 
   function formatDatesForLanguage(value) {
     if (!value) return value;
@@ -1222,6 +1552,7 @@
     });
     if (language === 'zh') {
       monthNames.forEach(function (month, index) {
+        if (result.indexOf(month) === -1) return;
         var monthPattern = new RegExp(month + ' (\\d{1,2}), (\\d{4})(?:\\s+(\\d{1,2}:\\d{2}))?', 'g');
         result = result.replace(monthPattern, function (_, day, year, time) {
           return year + '年' + (index + 1) + '月' + Number(day) + '日' + (time ? ' ' + time : '');
@@ -1231,39 +1562,35 @@
     return result;
   }
 
-  function replaceAllText(value, from, to) {
-    return value.split(from).join(to);
-  }
-
   function applyPhrasePairs(value, pairs) {
     var result = value;
-    pairs.forEach(function (pair) {
-      if (pair[0]) result = replaceAllText(result, pair[0], pair[1]);
-    });
+    for (var i = 0; i < pairs.length; i += 1) {
+      if (pairs[i][0] && result.indexOf(pairs[i][0]) !== -1) {
+        result = result.split(pairs[i][0]).join(pairs[i][1]);
+      }
+    }
     return result;
   }
+
+  // "A · B"、"A × B" 这种用符号隔开的文字，每一段单独翻译
+  var PART_SEPARATOR = /(\s[·×|/]\s)/;
 
   function translateZhToEn(value) {
     var trimmed = value.trim();
     if (translations[trimmed]) return formatDatesForLanguage(value.replace(trimmed, translations[trimmed]));
+    if (PART_SEPARATOR.test(trimmed)) {
+      return value.split(PART_SEPARATOR).map(function (part, index) {
+        return index % 2 === 1 ? part : translateZhToEn(part);
+      }).join('');
+    }
     var result = value;
-    result = applyPhrasePairs(result, partialTranslations.concat(extraPartialTranslations));
-    result = result.replace(/Demo 下载（地图\s*(\d+)）/g, 'Demo download (Map $1)');
-    result = result.replace(/地图\s*(\d+)/g, 'Map $1');
-    result = result.replace(/(^|[\s（(])图\s*(\d+)/g, '$1Map $2');
-    result = result.replace(/(\d+)\s*票/g, '$1 votes');
-    result = result.replace(/(\d+)\s*条未读/g, '$1 unread');
-    result = result.replace(/(\d+)\s*次机会/g, '$1 guesses');
-    result = result.replace(/(\d+)\s*评论/g, '$1 comments');
-    result = result.replace(/(\d+)\s*胜/g, '$1 wins');
-    result = result.replace(/(\d+)\s*天前/g, '$1 days ago');
-    result = result.replace(/(\d+)\s*天后/g, 'in $1 days');
-    result = result.replace(/第\s*(\d+)\s*轮/g, 'Round $1');
-    result = result.replace(/([012]-[012])\s*组/g, '$1 pool');
-    result = result.replace(/搜索“(.+?)”的结果/g, 'Results for “$1”');
-    result = result.replace(/未找到与“(.+?)”相关的结果/g, 'No results related to “$1”');
-    result = result.replace(/BO([135])（Online）/g, 'BO$1 (Online)');
-    result = result.replace(/BO([135])（线上）/g, 'BO$1 (Online)');
+    for (var i = 0; i < zhToEnPatterns.length; i += 1) {
+      result = result.replace(zhToEnPatterns[i][0], zhToEnPatterns[i][1]);
+    }
+    // 句式处理完后，剩下的部分如果正好是一个完整词条，直接整体翻译
+    var rest = result.trim();
+    if (translations[rest]) return formatDatesForLanguage(result.replace(rest, translations[rest]));
+    result = applyPhrasePairs(result, pairsZhToEn);
     return formatDatesForLanguage(result);
   }
 
@@ -1274,6 +1601,7 @@
     result = applyPhrasePairs(result, reversePartialTranslations);
     result = result.replace(/(\d+)\s*votes/g, '$1 票');
     result = result.replace(/(\d+)\s*unread/g, '$1 条未读');
+    result = result.replace(/(\d+)\s*guesses left/g, '$1 次机会');
     result = result.replace(/(\d+)\s*guesses/g, '$1 次机会');
     result = result.replace(/(\d+)\s*comments/g, '$1 评论');
     result = result.replace(/(\d+)\s*wins/g, '$1 胜');
@@ -1287,13 +1615,89 @@
     return formatDatesForLanguage(result);
   }
 
+  // 性能关键：先用一次正则判断"这段文字有没有可能需要翻译"，没有就直接跳过；
+  // 翻译过的结果记下来，同一段文字不重复计算。
+  var CJK_PATTERN = /[㐀-鿿＀-￯]/;
+  var LATIN_PATTERN = /[A-Za-z]/;
+  var translationCache = new Map();
+
+  function mayNeedTranslation(value) {
+    return language === 'en' ? CJK_PATTERN.test(value) : LATIN_PATTERN.test(value);
+  }
+
   function translateText(value) {
-    if (!value || !value.trim()) return value;
-    return language === 'en' ? translateZhToEn(value) : translateEnToZh(value);
+    if (!value || !mayNeedTranslation(value)) return value;
+    var cached = translationCache.get(value);
+    if (cached !== undefined) return cached;
+    var result = language === 'en' ? translateZhToEn(value) : translateEnToZh(value);
+    if (translationCache.size < 4000) translationCache.set(value, result);
+    return result;
+  }
+
+  // 页面标题形如"游戏 - 80GOTV"：按分隔符拆开，每段单独翻译
+  function translateTitle(value) {
+    if (!value || !mayNeedTranslation(value)) return value;
+    var exact = translateText(value);
+    if (exact !== value && !mayNeedTranslation(exact)) return exact;
+    return value.split(/(\s[-—·|]\s)/).map(function (part) {
+      return /^\s[-—·|]\s$/.test(part) ? part : translateText(part);
+    }).join('');
+  }
+
+  // 判断一个元素里的文字要不要跳过。就近原则：离它最近的标记说了算——
+  // data-i18n-translate 表示"这里要翻译"（可以写在不翻译的大区域里面），其余标记表示"这里不翻译"。
+  var MARKERS = '[data-i18n-translate],' + ignored;
+  function isIgnored(element) {
+    var marker = element.closest(MARKERS);
+    return !!marker && !marker.hasAttribute('data-i18n-translate');
+  }
+  var SKIP_TAGS = /^(SCRIPT|STYLE|TEXTAREA|NOSCRIPT)$/;
+  var TRANSLATED_ATTRIBUTES = ['placeholder', 'title', 'aria-label'];
+
+  function translateTextNode(node) {
+    var value = node.nodeValue;
+    if (!value || !mayNeedTranslation(value)) return;
+    var parent = node.parentElement;
+    if (!parent || SKIP_TAGS.test(parent.tagName) || isIgnored(parent)) return;
+    var translated = translateText(value);
+    if (translated !== value) node.nodeValue = translated;
+  }
+
+  function translateAttributes(element) {
+    for (var i = 0; i < TRANSLATED_ATTRIBUTES.length; i += 1) {
+      var name = TRANSLATED_ATTRIBUTES[i];
+      var current = element.getAttribute(name);
+      if (!current) continue;
+      var translated = translateText(current);
+      if (translated !== current) element.setAttribute(name, translated);
+    }
+    // 图片说明里常常是选手名，只在整句正好是界面词条时才翻译
+    var alt = element.getAttribute('alt');
+    if (alt && language === 'en' && translations[alt.trim()]) element.setAttribute('alt', translations[alt.trim()]);
+  }
+
+  // 翻译一个节点和它里面的全部内容
+  function translateSubtree(root) {
+    if (!root) return;
+    if (root.nodeType === Node.TEXT_NODE) {
+      translateTextNode(root);
+      return;
+    }
+    if (root.nodeType !== Node.ELEMENT_NODE) return;
+    var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    var nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach(translateTextNode);
+    if (root.hasAttribute('placeholder') || root.hasAttribute('title') || root.hasAttribute('aria-label') || root.hasAttribute('alt')) {
+      translateAttributes(root);
+    }
+    root.querySelectorAll('[placeholder],[title],[aria-label],[alt]').forEach(translateAttributes);
   }
 
   var observer = null;
-  var translateQueued = false;
+  var pendingRoots = [];
+  var flushQueued = false;
+
   function startObserver() {
     if (!observer || !document.body) return;
     observer.observe(document.body, {
@@ -1308,21 +1712,55 @@
   function mutationIsInsideEditor(mutation) {
     var target = mutation && mutation.target;
     if (target && target.nodeType === Node.TEXT_NODE) target = target.parentElement;
-    return !!(target && target.closest && target.closest(
-      'input,textarea,select,[contenteditable="true"],[data-i18n-ignore]'
-    ));
+    if (!target || !target.closest) return false;
+    if (target.closest('input,textarea,select,[contenteditable="true"]')) return true;
+    return isIgnored(target);
   }
 
-  function scheduleTranslate(mutations) {
-    if (mutations && mutations.length && mutations.every(mutationIsInsideEditor)) return;
-    if (translateQueued) return;
-    translateQueued = true;
-    Promise.resolve().then(function () {
-      translateQueued = false;
-      translatePage();
-    });
+  // 页面内容变化时，只处理"变了的那一小块"，不再把整页重新翻一遍
+  function collectMutations(mutations) {
+    for (var i = 0; i < mutations.length; i += 1) {
+      var mutation = mutations[i];
+      if (mutation.type === 'childList') {
+        if (mutationIsInsideEditor(mutation)) continue;
+        for (var j = 0; j < mutation.addedNodes.length; j += 1) pendingRoots.push(mutation.addedNodes[j]);
+      } else if (mutation.type === 'characterData') {
+        if (!mutationIsInsideEditor(mutation)) pendingRoots.push(mutation.target);
+      } else if (mutation.target && mutation.target.nodeType === Node.ELEMENT_NODE) {
+        pendingRoots.push({ attributesOf: mutation.target });
+      }
+    }
   }
 
+  function scheduleFlush() {
+    if (flushQueued || !pendingRoots.length) return;
+    flushQueued = true;
+    Promise.resolve().then(flushPending);
+  }
+
+  function flushPending() {
+    flushQueued = false;
+    if (!observer) return;
+    collectMutations(observer.takeRecords());
+    observer.disconnect();
+    var roots = pendingRoots;
+    pendingRoots = [];
+    for (var i = 0; i < roots.length; i += 1) {
+      var root = roots[i];
+      if (root && root.attributesOf) translateAttributes(root.attributesOf);
+      else if (root && root.isConnected) translateSubtree(root);
+    }
+    var title = translateTitle(document.title);
+    if (title !== document.title) document.title = title;
+    startObserver();
+  }
+
+  function onMutations(mutations) {
+    collectMutations(mutations);
+    scheduleFlush();
+  }
+
+  // 整页翻译：页面刚打开时执行一次
   function translatePage() {
     document.documentElement.lang = language === 'zh' ? 'zh-CN' : 'en';
     if (observer) observer.disconnect();
@@ -1332,26 +1770,10 @@
         ? pageTitle.getAttribute('data-title-en')
         : pageTitle.getAttribute('data-title-zh');
     } else {
-      document.title = translateText(document.title);
+      var title = translateTitle(document.title);
+      if (title !== document.title) document.title = title;
     }
-    var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-    var nodes = [];
-    while (walker.nextNode()) nodes.push(walker.currentNode);
-    nodes.forEach(function (node) {
-      var parent = node.parentElement;
-      if (!parent || /^(SCRIPT|STYLE|TEXTAREA)$/.test(parent.tagName) || parent.closest(ignored)) return;
-      var translated = translateText(node.nodeValue);
-      if (translated !== node.nodeValue) node.nodeValue = translated;
-    });
-    document.querySelectorAll('[placeholder],[title],[aria-label]').forEach(function (element) {
-      ['placeholder', 'title', 'aria-label'].forEach(function (attribute) {
-        if (element.hasAttribute(attribute)) {
-          var currentValue = element.getAttribute(attribute);
-          var translatedValue = translateText(currentValue);
-          if (translatedValue !== currentValue) element.setAttribute(attribute, translatedValue);
-        }
-      });
-    });
+    translateSubtree(document.body);
     bindToggle();
     document.documentElement.classList.remove('i18n-pending');
     startObserver();
@@ -1360,33 +1782,39 @@
   function bindToggle() {
     var select = document.getElementById('languageSelect');
     if (!select) {
+      // 没有导航栏的页面（比如后台）：在右上角补一个语言选择，颜色跟随页面主题
       select = document.createElement('select');
       select.id = 'languageSelect';
       select.className = 'language-floating';
-      select.setAttribute('aria-label', language === 'zh' ? '语言' : 'Language');
-      select.style.cssText = 'position:fixed;right:14px;top:14px;z-index:9999;padding:6px 9px;border:1px solid #ccd4dc;border-radius:0;background:#fff;color:#3b516b;font:600 12px sans-serif;cursor:pointer';
+      select.style.cssText = 'position:fixed;right:14px;top:14px;z-index:9999;height:32px;padding:0 8px;' +
+        'border:1px solid var(--border-color,#ccd4dc);border-radius:0;background:var(--bg-card,#fff);' +
+        'color:var(--text-primary,#3b516b);font:12px sans-serif;cursor:pointer';
       document.body.appendChild(select);
     }
     select.setAttribute('aria-label', language === 'zh' ? '语言' : 'Language');
     select.innerHTML = language === 'zh'
-      ? '<option value="auto">跟随系统</option><option value="zh">中文</option><option value="en">英文</option>'
-      : '<option value="auto">Auto</option><option value="zh">Chinese</option><option value="en">English</option>';
+      ? '<option value="auto">跟随系统</option><option value="zh">中文</option><option value="en" data-i18n-ignore>English</option>'
+      : '<option value="auto">Auto</option><option value="zh" lang="zh" data-i18n-ignore>中文</option><option value="en">English</option>';
     select.value = mode;
     if (select.getAttribute('data-i18n-bound') !== '1') {
       select.setAttribute('data-i18n-bound', '1');
       select.addEventListener('change', function () {
-      if (select.value === 'auto') localStorage.removeItem('siteLang');
-      else localStorage.setItem('siteLang', select.value);
-      location.reload();
+        if (select.value === 'auto') localStorage.removeItem('siteLang');
+        else localStorage.setItem('siteLang', select.value);
+        location.reload();
       });
     }
   }
 
   function init() {
-    observer = new MutationObserver(scheduleTranslate);
+    observer = new MutationObserver(onMutations);
     translatePage();
   }
   window.applySiteI18n = translatePage;
+  // 给页面脚本用：传入中文界面文字，英文模式下返回英文，中文模式原样返回
+  window.siteTranslate = function (text) {
+    return language === 'en' ? translateText(String(text)) : String(text);
+  };
   if (document.body) init();
   else document.addEventListener('DOMContentLoaded', init);
 })();

@@ -120,11 +120,11 @@ function selectSlot(n){
     <img class="event-team-logo" src="{{ url_for('static', filename='uploads/' ~ t.logo) }}"
          alt="{{ t.name }}" loading="lazy">
     {% else %}
-    <div class="avatar event-team-logo-fallback">{{ (t.short_name or t.name)[0] }}</div>
+    <div class="avatar event-team-logo-fallback" data-i18n-ignore>{{ (t.short_name or t.name)[0] }}</div>
     {% endif %}
     <span class="team-badge-name" data-i18n-ignore>{{ t.name }}</span>
     {% if t.players %}
-    <div class="team-players-popup">
+    <div class="team-players-popup" data-i18n-ignore>
       {% for p in t.players %}
       {% set display_name = private_name_for_player(p.id, p.nickname) if private_name_for_player is defined else p.nickname %}
       {% if p.id %}<a href="/players/{{ p.id }}" class="team-player-link">{% else %}<span class="team-player-link">{% endif %}
@@ -486,7 +486,7 @@ function selectSlot(n){
     <figure class="event-award-poster-wrap">
       {% set award_display_name = private_name_for_player(player.id, player.nickname) if private_name_for_player is defined else player.nickname %}
       <img src="/events/{{ event.id }}/award-poster/{{ player.type }}/{{ player.id }}.png" alt="{{ award_display_name }} {{ player.type }} 数据图" loading="lazy">
-      <figcaption>{{ player.type }}{% if player.type == 'EVP' and player.evp_rank %} #{{ player.evp_rank }}{% endif %} · {{ award_display_name }}</figcaption>
+      <figcaption data-i18n-ignore>{{ player.type }}{% if player.type == 'EVP' and player.evp_rank %} #{{ player.evp_rank }}{% endif %} · {{ award_display_name }}</figcaption>
     </figure>
     {% endfor %}
   </div>

@@ -19,7 +19,7 @@
       {{ cheater_badge(user.is_cheater) }}
     </h1>
     <div class="meta">
-      {% if player %}<span><span data-i18n-ignore>{{ player.nickname }}</span> · {% if player.team_name %}<span data-i18n-ignore>{{ player.team_name }}</span>{% else %}无队伍{% endif %}</span>{% endif %}
+      {% if player %}<span><span data-i18n-ignore>{{ player.nickname }}</span> · {% if player.team_name %}<span data-i18n-ignore>{{ player.team_name }}</span>{% else %}<span>无队伍</span>{% endif %}</span>{% endif %}
       {% if user.steam_id64 %}<span>Steam64: {{ user.steam_id64 }}</span>{% endif %}
       {% if user.is_bashizhong_student == 1 %}<a href="#group-username-settings" class="ui-btn ui-btn--sm">修改群昵称</a>{% endif %}
     </div>
@@ -152,7 +152,7 @@
     {% if user.is_cheater %}<div><b>标记：</b>{{ cheater_badge(user.is_cheater) }}</div>{% endif %}
     <div><b>Steam64 ID：</b>{{ user.steam_id64 or '未绑定' }}</div>
     <div><b>注册时间：</b>{{ user.created_at|date_display if user.created_at else '-' }}</div>
-    <div><b>身份：</b>{{ '选手' if player else '游客' }}</div>
+    <div><b>身份：</b>{{ '参赛选手' if player else '游客' }}</div>
   </div>
 </section>
 {% endblock %}

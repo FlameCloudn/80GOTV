@@ -157,22 +157,22 @@
   }
 </style>
 <div class="data-live" id="data-live" data-i18n-ignore>
-  <div class="live-heading">
+  <div class="live-heading" data-i18n-translate>
     <h2>比赛数据直播</h2>
     <span class="source-badge" id="sourceBadge">等待观战账号连接</span>
   </div>
   <div class="live-grid">
     <section class="scoreboard">
       <header class="score-top">
-        <div class="score-side"><span class="side-tag unknown" id="team1SideTag">待确认</span><span class="team-name" id="team1Name">{{ match.team1_name or '队伍 1' }}</span></div>
+        <div class="score-side"><span class="side-tag unknown" id="team1SideTag" data-i18n-translate>待确认</span><span class="team-name" id="team1Name">{{ match.team1_name or '队伍 1' }}</span></div>
         <div class="score-center">
           <div class="score"><span class="side-score" id="liveScore1">-</span> : <span class="side-score" id="liveScore2">-</span></div>
           <div class="match-meta">R<span id="roundNum">-</span> <span id="mapName">-</span> <span class="timer" id="timer">-</span></div>
         </div>
-        <div class="score-side right"><span class="team-name" id="team2Name">{{ match.team2_name or '队伍 2' }}</span><span class="side-tag unknown" id="team2SideTag">待确认</span></div>
+        <div class="score-side right"><span class="team-name" id="team2Name">{{ match.team2_name or '队伍 2' }}</span><span class="side-tag unknown" id="team2SideTag" data-i18n-translate>待确认</span></div>
       </header>
       <div class="team-block side-unknown" id="team1Block">
-        <div class="team-bar"><span class="team-label" id="team1RosterLabel">阵营待确认</span><span>手枪</span><span>主武器</span><span>血量</span><span>护甲</span><span>金钱</span><span>K</span><span>A</span><span>D</span><span>ADR</span></div>
+        <div class="team-bar" data-i18n-translate><span class="team-label" id="team1RosterLabel">阵营待确认</span><span>手枪</span><span>主武器</span><span>血量</span><span>护甲</span><span>金钱</span><span>K</span><span>A</span><span>D</span><span>ADR</span></div>
         <div id="team1Players"></div>
       </div>
       <div class="round-board" id="roundBoard">
@@ -182,19 +182,19 @@
       </div>
       <div class="overtime-board" id="overtimeBoard"></div>
       <div class="team-block side-unknown" id="team2Block">
-        <div class="team-bar"><span class="team-label" id="team2RosterLabel">阵营待确认</span><span>手枪</span><span>主武器</span><span>血量</span><span>护甲</span><span>金钱</span><span>K</span><span>A</span><span>D</span><span>ADR</span></div>
+        <div class="team-bar" data-i18n-translate><span class="team-label" id="team2RosterLabel">阵营待确认</span><span>手枪</span><span>主武器</span><span>血量</span><span>护甲</span><span>金钱</span><span>K</span><span>A</span><span>D</span><span>ADR</span></div>
         <div id="team2Players"></div>
       </div>
-      <footer class="panel-footer">
+      <footer class="panel-footer" data-i18n-translate>
         <span id="updatedAt">尚未收到数据</span>
         <span class="bomb" id="bombState"><img loading="lazy" id="bombStateIcon" src="/resources/icons/match/bomb.webp" alt=""><span id="bombStateText">炸弹状态：-</span></span>
       </footer>
     </section>
     <aside class="radar-panel">
-      <div class="radar-head"><span class="radar-title">比赛日志</span><span class="radar-map" id="radarMap">-</span></div>
+      <div class="radar-head"><span class="radar-title" data-i18n-translate>比赛日志</span><span class="radar-map" id="radarMap">-</span></div>
       <div class="game-log-body">
         <div class="kill-feed">
-          <div class="kill-feed-list" id="killFeed" role="log" aria-label="比赛事件" tabindex="0"><div class="kill-line" data-feed-placeholder><span class="kill-round">等待数据</span></div></div>
+          <div class="kill-feed-list" id="killFeed" role="log" aria-label="比赛事件" tabindex="0"><div class="kill-line" data-feed-placeholder><span class="kill-round" data-i18n-translate>等待数据</span></div></div>
         </div>
         <div class="radar" id="radar">
           <img loading="lazy" class="radar-image" id="radarImage" src="/resources/radars/mirage.svg" alt="">
@@ -226,6 +226,9 @@ let initialFeedRendered = false;
 let fetchTimer = 0;
 let fetching = false;
 
+// 取界面文字的翻译：英文模式下返回英文，中文模式原样返回（翻译脚本没加载时也原样返回）
+function tr(text){return window.siteTranslate?window.siteTranslate(String(text)):String(text)}
+function liveLocale(){return document.documentElement.lang==='en'?'en-US':'zh-CN'}
 function setText(id,value){
   const el=document.getElementById(id),text=String(value??'');
   if(el&&el.textContent!==text)el.textContent=text;
@@ -347,7 +350,7 @@ function renderMarkers(data){
     node.style.left=point.left+'%';
     node.style.top=point.top+'%';
     const floor=marker.z==null?null:MAP_METADATA[mapKey(data.map_name)]?.floors?.find(function(item){return Number(marker.z)>=item[1]&&Number(marker.z)<=item[2]});
-    node.title=(marker.name||'未知选手')+(floor?' · '+floor[0]:'');
+    node.title=(marker.name||tr('未知选手'))+(floor?' · '+floor[0]:'');
     fragment.appendChild(node);
   });
   document.getElementById('killMarkers').replaceChildren(fragment);
@@ -362,7 +365,7 @@ function reasonCode(round){
   return 'completed';
 }
 function reasonLabel(code){
-  return {bomb_exploded:'C4 爆炸',bomb_defused:'C4 拆除',time_expired:'时间耗尽',elimination:'敌方全灭',completed:'回合结束'}[code]||'回合结束';
+  return tr({bomb_exploded:'C4 爆炸',bomb_defused:'C4 拆除',time_expired:'时间耗尽',elimination:'敌方全灭',completed:'回合结束'}[code]||'回合结束');
 }
 function reasonIcon(code,side){
   if(code==='bomb_exploded')return ICON_BASE+'bomb_exploded.svg';
@@ -393,7 +396,7 @@ function renderRounds(rounds){
       const wonByThisTeam=Boolean(round)&&teamKey===winnerTeam;
       const cell=document.createElement('span');
       cell.className='round-cell'+(wonByThisTeam?'':' empty');
-      cell.title='第 '+(roundIndex+1)+' 回合'+(wonByThisTeam?' · '+winnerSide.toUpperCase()+' · '+reasonLabel(code):'');
+      cell.title=tr('第 '+(roundIndex+1)+' 回合')+(wonByThisTeam?' · '+winnerSide.toUpperCase()+' · '+reasonLabel(code):'');
       if(wonByThisTeam){
         const img=document.createElement('img');
         img.loading='lazy';img.className='round-result';img.alt='';
@@ -438,7 +441,7 @@ function renderOvertime(rounds){
         const side=String(round.side||'').toLowerCase();
         const img=document.createElement('img');img.className='ot-round-result';img.alt='';
         img.src=reasonIcon(reasonCode(round),side==='ct'||side==='t'?side:(winner==='t1'?'ct':'t'));
-        cell.appendChild(img);cell.title='第 '+Number(round.round_number??round.round)+' 回合';
+        cell.appendChild(img);cell.title=tr('第 '+Number(round.round_number??round.round)+' 回合');
       }
       strip.appendChild(cell);
     }
@@ -482,7 +485,7 @@ function updateFeedNode(node,item){
     const icon=document.createElement('img');
     icon.loading='lazy';icon.className='plant-icon';icon.src=ICON_BASE+'bombplant.webp';icon.alt='';
     node.appendChild(icon);
-    addText(node,'event-text','在 '+(event.site||'?')+' 点安放 C4 · '+Number(event.alive_t||0)+'v'+Number(event.alive_ct||0));
+    addText(node,'event-text',tr('在 '+(event.site||'?')+' 点安放 C4')+' · '+Number(event.alive_t||0)+'v'+Number(event.alive_ct||0));
     addText(node,'kill-round','R'+Number((event.round_number??event.round) || 0));
     return;
   }
@@ -491,7 +494,7 @@ function updateFeedNode(node,item){
   const icon=document.createElement('img');
   icon.loading='lazy';icon.className='reason-icon';icon.src=reasonIcon(code,side);icon.alt='';
   node.appendChild(icon);
-  addText(node,'event-text','回合结束 · 胜方 ');
+  addText(node,'event-text',tr('回合结束')+' · '+tr('胜方')+' ');
   addText(node,'round-winner '+side,side.toUpperCase());
   addText(node,'event-text',' ('+Number(event.score_ct||0)+' - '+Number(event.score_t||0)+') · '+reasonLabel(code));
 }
@@ -503,7 +506,7 @@ function syncKillFeed(data){
     if(!feedNodes.size){
       const placeholder=document.createElement('div');
       placeholder.className='kill-line';placeholder.dataset.feedPlaceholder='1';
-      addText(placeholder,'kill-round','等待数据');
+      addText(placeholder,'kill-round',tr('等待数据'));
       feed.replaceChildren(placeholder);
     }
     return;
@@ -545,15 +548,15 @@ function bombIcon(bomb){
 }
 function bombLabel(bomb){
   const states={planted:'已安放',carried:'携带中',dropped:'已掉落',defused:'已拆除',exploded:'已爆炸',planting:'正在安放',defusing:'正在拆除'};
-  if(!bomb||!bomb.state)return '炸弹状态：-';
+  if(!bomb||!bomb.state)return tr('炸弹状态：')+'-';
   const seconds=Number(bomb.countdown);
-  return '炸弹状态：'+(states[bomb.state]||bomb.state)+(Number.isFinite(seconds)?' '+seconds.toFixed(1)+'s':'');
+  return tr('炸弹状态：')+tr(states[bomb.state]||bomb.state)+(Number.isFinite(seconds)?' '+seconds.toFixed(1)+'s':'');
 }
 function formatUpdatedAt(value){
-  if(!value)return '尚未收到数据';
+  if(!value)return tr('尚未收到数据');
   const date=new Date(value);
-  if(Number.isNaN(date.getTime()))return '更新：'+String(value).replace('T',' ').slice(0,16);
-  return '更新：'+date.toLocaleString('zh-CN',{hour12:false,year:'numeric',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit'});
+  if(Number.isNaN(date.getTime()))return tr('更新：')+String(value).replace('T',' ').slice(0,16);
+  return tr('更新：')+date.toLocaleString(liveLocale(),{hour12:false,year:'numeric',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit'});
 }
 function currentTeamSides(team1,team2){
   const first=String(team1&&team1.side||'').toUpperCase();
@@ -567,15 +570,15 @@ function applyTeamSide(teamNumber,side){
   const sideKey=String(side||'').toLowerCase()||'unknown';
   const tag=document.getElementById('team'+teamNumber+'SideTag');
   tag.className='side-tag '+sideKey;
-  tag.textContent=side||'待确认';
+  tag.textContent=side||tr('待确认');
   document.getElementById('team'+teamNumber+'Block').className='team-block side-'+sideKey;
-  document.getElementById('team'+teamNumber+'RosterLabel').textContent=side+' 选手';
+  document.getElementById('team'+teamNumber+'RosterLabel').textContent=tr(side+' 选手');
   document.getElementById('liveScore'+teamNumber).className='side-score '+sideKey;
 }
 function render(data){
   const sourceText={gsi:'观战账号已连接',gotv:'GOTV 数据已连接',a2s:'比赛服务器已连接，等待观战账号',stale_gsi:'观战账号连接已中断',stale_gotv:'GOTV 数据已中断'};
   const badge=document.getElementById('sourceBadge');
-  setText('sourceBadge',sourceText[data.source]||'等待观战账号连接');
+  setText('sourceBadge',tr(sourceText[data.source]||'等待观战账号连接'));
   badge.classList.toggle('online',data.source==='gsi'||data.source==='gotv'||data.source==='a2s');
   badge.classList.toggle('offline',Boolean(data.side_uncertain)||data.source==='stale_gsi'||data.source==='stale_gotv'||data.source==='');
   const team1=data.team1||{};
@@ -583,8 +586,8 @@ function render(data){
   const sides=currentTeamSides(team1,team2);
   setText('liveScore1',team1.score==null?'-':team1.score);
   setText('liveScore2',team2.score==null?'-':team2.score);
-  setText('team1Name',team1.name||'队伍 1');
-  setText('team2Name',team2.name||'队伍 2');
+  setText('team1Name',team1.name||tr('队伍 1'));
+  setText('team2Name',team2.name||tr('队伍 2'));
   applyTeamSide(1,sides[0]);
   applyTeamSide(2,sides[1]);
   setText('roundNum',data.round??'-');
@@ -629,7 +632,7 @@ function markLiveUnavailable(message){
   if(!badge)return;
   badge.classList.remove('online');
   badge.classList.add('offline');
-  badge.textContent=message||'直播数据中断';
+  badge.textContent=tr(message||'直播数据中断');
 }
 ensurePlayerRows('team1Players');
 ensurePlayerRows('team2Players');

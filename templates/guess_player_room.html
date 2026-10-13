@@ -5,7 +5,7 @@
 {% endblock %}
 {% block layout_class %}no-side-layout guess-player-layout{% endblock %}
 {% block main %}
-<div class="guess-game guess-room" data-i18n-ignore
+<div class="guess-game guess-room"
      data-room-code="{{ room_code }}"
      data-state-url="{{ url_for('guess_player_multiplayer_state', room_code=room_code) }}"
      data-guess-url="{{ url_for('guess_player_multiplayer_guess', room_code=room_code) }}">
@@ -17,7 +17,7 @@
 
   <header class="guess-room-head h-panel">
     <div>
-      <span class="guess-kicker">{{ pool_mode|upper }} ROOM</span>
+      <span class="guess-kicker" data-i18n-ignore>{{ pool_mode|upper }} ROOM</span>
       <h1>房间 {{ room_code }}</h1>
     </div>
     <button type="button" class="guess-copy-code" id="copyRoomCode" title="复制房间码">复制房间码</button>
@@ -25,14 +25,14 @@
 
   <section class="guess-versus h-panel" aria-label="对战双方">
     <div class="guess-contender is-me">
-      <span>YOU</span>
-      <strong id="roomMeName">{{ state.me.username }}</strong>
+      <span data-i18n-ignore>YOU</span>
+      <strong id="roomMeName" data-i18n-ignore>{{ state.me.username }}</strong>
       <small><b id="roomMeAttempts">{{ state.me.attempts }}</b> / {{ max_guesses }} 次</small>
     </div>
-    <div class="guess-versus-mark">VS</div>
+    <div class="guess-versus-mark" data-i18n-ignore>VS</div>
     <div class="guess-contender is-opponent">
-      <span>OPPONENT</span>
-      <strong id="roomOpponentName">{{ state.opponent.username }}</strong>
+      <span data-i18n-ignore>OPPONENT</span>
+      <strong id="roomOpponentName" data-i18n-ignore>{{ state.opponent.username }}</strong>
       <small><b id="roomOpponentAttempts">{{ state.opponent.attempts }}</b> / {{ max_guesses }} 次</small>
     </div>
   </section>
@@ -54,7 +54,7 @@
       <div class="guess-search-field">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
         <input type="text" id="guessPlayerQuery" list="guessPlayerOptions" autocomplete="off" required placeholder="输入职业选手昵称...">
-        <datalist id="guessPlayerOptions">
+        <datalist id="guessPlayerOptions" data-i18n-ignore>
           {% for player in players %}
           <option value="{{ player.nickname }}" data-player-id="{{ player.id }}">{{ player.full_name }}</option>
           {% endfor %}
@@ -82,8 +82,8 @@
 
   <section class="guess-answer h-panel" id="roomOutcome" hidden>
     <span id="roomOutcomeLabel"></span>
-    <strong id="roomAnswerName"></strong>
-    <small id="roomAnswerDetail"></small>
+    <strong id="roomAnswerName" data-i18n-ignore></strong>
+    <small id="roomAnswerDetail" data-i18n-ignore></small>
     <a href="{{ url_for('guess_player_multiplayer_page') }}" class="guess-replay">返回对战大厅</a>
   </section>
 </div>

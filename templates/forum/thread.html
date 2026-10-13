@@ -46,7 +46,7 @@
 <div class="breadcrumb">
   <a href="{{ url_for('forum_index') }}">论坛</a> ›
   <a href="{{ url_for('forum_index', category=thread.category_slug) }}">{{ thread.category_name }}</a> ›
-  {{ thread.title }}
+  <span data-i18n-ignore>{{ thread.title }}</span>
 </div>
 <div class="thread-header">
   <h1>

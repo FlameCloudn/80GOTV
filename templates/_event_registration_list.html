@@ -19,7 +19,7 @@
         {% endif %}
       </div>
       <div class="event-reg-team-identity">
-        <span class="event-reg-team-name">{{ reg.info.team_name }}</span>
+        <span class="event-reg-team-name" data-i18n-ignore>{{ reg.info.team_name }}</span>
         <span class="event-reg-team-creator">队长：{{ creator_display_name }}{% if not creator_private_remark and reg.info.creator_group_username %} <b>@{{ reg.info.creator_group_username }}</b>{% endif %}</span>
         {% if is_captain and not reg.info.team_logo %}<span class="event-reg-logo-hint">可在“队长操作”中上传队标</span>{% endif %}
       </div>
@@ -78,7 +78,7 @@
       <div class="event-reg-slot {% if slot.user_id %}is-filled{% elif slot.filled_by_creator %}is-reserved{% else %}is-empty{% endif %}">
         <div class="event-reg-slot-index">位置 {{ slot.slot_index + 1 }}</div>
         {% if slot_has_name %}
-          <div class="event-reg-slot-player" title="{{ slot_display_name }}">
+          <div class="event-reg-slot-player" title="{{ slot_display_name }}" data-i18n-ignore>
             {{ slot_display_name }}{% if not slot_private_remark and slot.group_username %} <b>@{{ slot.group_username }}</b>{% endif %}
           </div>
           <div class="event-reg-slot-role">

@@ -33,8 +33,8 @@
       {% for r in rankings %}
       <tr>
         <td class="rank-cell">{{ loop.index }}</td>
-        <td><a href="/players/{{ r.id }}">{{ private_name_for_player(r.id, r.nickname) }}</a></td>
-        <td>{{ r.team or '-' }}</td>
+        <td><a href="/players/{{ r.id }}" data-i18n-ignore>{{ private_name_for_player(r.id, r.nickname) }}</a></td>
+        <td data-i18n-ignore>{{ r.team or '-' }}</td>
         <td>{{ r.matches }}</td>
         <td class="rt-cell" data-val="{{ r.rating }}"><b>{{ "%.2f"|format(r.rating) }}</b></td>
         <td data-val="{{ r.kd }}">{{ "%.2f"|format(r.kd) if r.kd else '-' }}</td>
@@ -66,13 +66,13 @@
       {% for t in team_rankings %}
       <tr>
         <td class="rank-cell">{{ loop.index }}</td>
-        <td><b>{{ t.team_short or t.team_name }}</b></td>
+        <td><b data-i18n-ignore>{{ t.team_short or t.team_name }}</b></td>
         <td data-val="{{ t.match_count }}">{{ t.match_count }}</td>
         <td data-val="{{ t.wins }}">{{ t.wins }}</td>
         <td data-val="{{ (t.wins / t.match_count * 100) if t.match_count > 0 else 0 }}">
           {% if t.match_count > 0 %}
           {% set wr = (t.wins / t.match_count * 100)|round|int %}
-          <span style="font-weight:700;color:{% if wr >= 60 %}#22c55e{% elif wr >= 40 %}#eab308{% else %}#ef4444{% endif %}">{{ wr }}%</span>
+          <span class="pred-accuracy {% if wr >= 60 %}is-good{% elif wr >= 40 %}is-mid{% else %}is-bad{% endif %}">{{ wr }}%</span>
           {% else %}-{% endif %}
         </td>
         <td data-val="{{ t.avg_score or 0 }}">{{ "%.1f"|format(t.avg_score) if t.avg_score else '-' }}</td>

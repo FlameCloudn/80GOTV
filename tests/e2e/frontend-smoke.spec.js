@@ -288,7 +288,8 @@ test('English mode translates static UI without hiding user content', async ({ p
   const publicPaths = [
     '/', '/matches', '/results', '/events', '/players', '/stats', '/predictions',
     '/dashboard', '/forum', '/games', '/guess-player', '/map-quiz', '/player-bingo',
-    '/login', '/search?q=test',
+    '/login', '/register', '/change-password', '/search?q=test',
+    '/teams', '/awards', '/players/compare', '/stats?tab=players',
   ];
 
   async function untranslatedText(path) {

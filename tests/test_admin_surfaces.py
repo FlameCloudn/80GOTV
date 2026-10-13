@@ -466,7 +466,9 @@ class AdminSurfaceTests(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn('[contenteditable="true"]', i18n_source)
-        self.assertIn("mutations.every(mutationIsInsideEditor)", i18n_source)
+        # 翻译脚本改为逐条处理页面变化：编辑器里的输入必须逐条跳过，不能被翻译。
+        self.assertIn("if (mutationIsInsideEditor(mutation)) continue;", i18n_source)
+        self.assertIn("if (!mutationIsInsideEditor(mutation)) pendingRoots.push", i18n_source)
 
     def test_admin_post_forms_have_csrf_and_no_missing_helpers(self):
         template_dir = Path(app.root_path) / "templates" / "admin"

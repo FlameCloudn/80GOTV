@@ -120,7 +120,7 @@
       <span class="logo-fallback" aria-hidden="true">{{ (match.t1s or 'TBD')[:3] }}</span>
       {% endif %}
       <span class="name" id="t1name">{{ match.team1_name or 'TBD' }}</span>
-      <div class="stat-icons"><span>装备</span><span>武器</span><span>血量</span><span>K</span><span>A</span><span>D</span><span>ADR</span></div>
+      <div class="stat-icons" data-i18n-translate><span>装备</span><span>武器</span><span>血量</span><span>K</span><span>A</span><span>D</span><span>ADR</span></div>
     </div>
     <div id="team1Players"></div>
   </div>
@@ -137,15 +137,15 @@
       <span class="logo-fallback" aria-hidden="true">{{ (match.t2s or 'TBD')[:3] }}</span>
       {% endif %}
       <span class="name" id="t2name">{{ match.team2_name or 'TBD' }}</span>
-      <div class="stat-icons"><span>装备</span><span>武器</span><span>血量</span><span>K</span><span>A</span><span>D</span><span>ADR</span></div>
+      <div class="stat-icons" data-i18n-translate><span>装备</span><span>武器</span><span>血量</span><span>K</span><span>A</span><span>D</span><span>ADR</span></div>
     </div>
     <div id="team2Players"></div>
   </div>
 
   <!-- 底部 -->
   <div class="live-footer">
-    <span id="statusBadge"><span class="no-gsi-badge">GSI 未连接</span></span>
-    <span>更新: <span id="updatedAt">-</span> · <span class="refresh" onclick="fetchLive()">🔄 刷新</span></span>
+    <span id="statusBadge" data-i18n-translate><span class="no-gsi-badge">GSI 未连接</span></span>
+    <span data-i18n-translate>更新: <span id="updatedAt" data-i18n-ignore>-</span> · <span class="refresh" onclick="fetchLive()">🔄 刷新</span></span>
   </div>
 
   <!-- 观赛链接 -->
@@ -204,6 +204,9 @@ function weaponIconPath(name) {
   const file = WEAPON_ICON_FILES[weaponKey(name)];
   return file ? ICON_BASE + file : '';
 }
+// 取界面文字的翻译：英文模式下返回英文，中文模式原样返回（翻译脚本没加载时也原样返回）
+function tr(text){return window.siteTranslate?window.siteTranslate(String(text)):String(text)}
+function liveLocale(){return document.documentElement.lang==='en'?'en-US':'zh-CN'}
 function setText(element, value) {
   const next = String(value ?? '');
   if (element && element.textContent !== next) element.textContent = next;
@@ -265,7 +268,7 @@ function renderLive(d) {
     const dt = new Date(d.updated_at);
     setText(document.getElementById('updatedAt'), Number.isNaN(dt.getTime())
       ? String(d.updated_at).replace('T', ' ').slice(0, 16)
-      : dt.toLocaleString('zh-CN', {hour12:false, year:'numeric', month:'long', day:'numeric', hour:'2-digit', minute:'2-digit'}));
+      : dt.toLocaleString(liveLocale(), {hour12:false, year:'numeric', month:'long', day:'numeric', hour:'2-digit', minute:'2-digit'}));
   } else {
     setText(document.getElementById('updatedAt'), '-');
   }
@@ -295,16 +298,16 @@ function renderLive(d) {
 
   // GSI 状态
   const badge = document.getElementById('statusBadge');
-  let badgeText = d.has_gsi ? 'GSI 在线' : 'GSI 未连接（KDA 仅显示 GOTV 数据）';
+  let badgeText = tr(d.has_gsi ? 'GSI 在线' : 'GSI 未连接（KDA 仅显示 GOTV 数据）');
   let badgeClass = d.has_gsi ? 'gsi-ok-badge' : 'no-gsi-badge';
   if (d.has_gsi && d.paused) {
     badgeClass = 'pause-badge';
     if (d.pause_type === 'tactical') {
       const timeoutSide = String(d.phase_countdown || '').endsWith('_t') ? 'T' : 'CT';
       const timeoutTeam = d.team1?.side === timeoutSide ? d.team1?.name : d.team2?.name;
-      badgeText = `战术暂停${timeoutTeam ? ` · ${timeoutTeam}` : ''}`;
+      badgeText = tr('战术暂停') + (timeoutTeam ? ` · ${timeoutTeam}` : '');
     } else {
-      badgeText = '技术暂停';
+      badgeText = tr('技术暂停');
     }
   }
   let badgeContent = badge.firstElementChild;
@@ -362,7 +365,7 @@ function renderTeam(containerId, players, cls) {
     const armorAvailable = !!p && p.armor !== '-';
     const armorSrc = armorAvailable && p.helmet ? ICON_BASE + 'kevlar_helmet.webp'
       : (armorAvailable && Number(p.armor) > 0 ? ICON_BASE + 'kevlar.webp' : '');
-    setImage(row.querySelector('.p-armor img'), armorSrc, p?.helmet ? '甲+盔' : '护甲');
+    setImage(row.querySelector('.p-armor img'), armorSrc, tr(p?.helmet ? '甲+盔' : '护甲'));
     row.querySelector('.p-armor-empty').hidden = armorAvailable && !!armorSrc;
     setText(row.querySelector('.p-money'), !p || p.money === '-' ? '-' : `$${p.money ?? 0}`);
     setText(row.querySelector('.p-stat.k'), p ? (p.kills ?? 0) : '-');
@@ -401,15 +404,15 @@ function renderRoundHistory(history) {
       const wonOnThisSide = String(round?.side || '').toLowerCase() === side;
       const dot = document.createElement('div');
       dot.className = wonOnThisSide ? `round-dot ${round.winner || ''}` : 'round-dot empty';
-      dot.title = wonOnThisSide ? '' : `第 ${roundIndex + 1} 回合`;
+      dot.title = wonOnThisSide ? '' : tr(`第 ${roundIndex + 1} 回合`);
       if (wonOnThisSide) {
         const reason = round.reason_code || 'completed';
         const icon = ROUND_WIN_ICONS[reason]
           || (side === 'ct' ? 'ct_win.svg' : 't_win.svg');
         const image = document.createElement('img');
         image.src = ICON_BASE + icon;
-        image.alt = ROUND_WIN_LABELS[reason] || '回合胜利';
-        dot.title = `第 ${roundIndex + 1} 回合 · ${image.alt}`;
+        image.alt = tr(ROUND_WIN_LABELS[reason] || '回合胜利');
+        dot.title = `${tr(`第 ${roundIndex + 1} 回合`)} · ${image.alt}`;
         dot.appendChild(image);
       }
       track.appendChild(dot);

@@ -5,7 +5,7 @@
 {% endblock %}
 {% block layout_class %}no-side-layout games-layout{% endblock %}
 {% block main %}
-<div class="game-page map-quiz" data-i18n-ignore>
+<div class="game-page map-quiz">
   <div class="game-breadcrumb"><a href="{{ url_for('games_page') }}">游戏</a><span>/</span><strong>地图点位</strong></div>
   <nav class="game-mode-tabs" aria-label="地图点位模式">
     <a href="{{ url_for('map_quiz_page') }}" class="{{ 'active' if mode == 'daily' else '' }}">每日挑战</a>
@@ -43,13 +43,13 @@
         <span>地图</span>
         <select name="map_name" required>
           <option value="">选择地图</option>
-          {% for map_key, map_name in maps %}<option value="{{ map_key }}">{{ map_name }}</option>{% endfor %}
+          {% for map_key, map_name in maps %}<option value="{{ map_key }}" data-i18n-ignore>{{ map_name }}</option>{% endfor %}
         </select>
       </label>
       <label>
         <span>点位</span>
         <input type="text" name="spot_name" list="mapSpotOptions" maxlength="80" autocomplete="off" required placeholder="例如：A 包点 / Window">
-        <datalist id="mapSpotOptions">
+        <datalist id="mapSpotOptions" data-i18n-ignore>
           {% for spot in spot_options %}<option value="{{ spot }}">{% endfor %}
         </datalist>
       </label>
@@ -63,11 +63,11 @@
       <article>
         <strong>#{{ attempt.attempt_number }}</strong>
         <span class="{{ 'is-correct' if attempt.map_correct else 'is-wrong' }}">
-          {{ map_names.get(attempt.guessed_map, attempt.guessed_map) }}
+          <b data-i18n-ignore>{{ map_names.get(attempt.guessed_map, attempt.guessed_map) }}</b>
           <small>{{ '地图正确' if attempt.map_correct else '地图不对' }}</small>
         </span>
         <span class="{{ 'is-correct' if attempt.spot_correct else 'is-wrong' }}">
-          {{ attempt.guessed_spot }}
+          <b data-i18n-ignore>{{ attempt.guessed_spot }}</b>
           <small>{{ '点位正确' if attempt.spot_correct else '点位不对' }}</small>
         </span>
       </article>
@@ -80,7 +80,7 @@
   <section class="game-result h-panel {{ 'is-win' if game.won else 'is-loss' }}">
     <div>
       <span>{{ '猜对了' if game.won else '本局未猜中' }}</span>
-      <strong>{{ game.answer.map_name }} · {{ game.answer.spot }}</strong>
+      <strong data-i18n-ignore>{{ game.answer.map_name }} · {{ game.answer.spot }}</strong>
     </div>
     <a href="{{ game.answer.source_url }}" target="_blank" rel="noopener noreferrer">查看截图来源</a>
   </section>

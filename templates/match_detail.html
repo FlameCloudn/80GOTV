@@ -71,7 +71,7 @@
       {% set pname = private_name_for_player(p.id, p.nickname) %}
       <a class="match-player-link" href="/players/{{ p.id }}">
         {% if p.avatar %}<img class="match-player-avatar" src="{{ p.avatar }}" alt="" loading="lazy">{% else %}<span class="match-player-avatar match-player-avatar-fallback" aria-hidden="true">{{ pname[:1]|upper }}</span>{% endif %}
-        <span>{{ pname }}{% if p.role == 'substitute' %}（替补）{% endif %}</span>
+        <span><span data-i18n-ignore>{{ pname }}</span>{% if p.role == 'substitute' %}（替补）{% endif %}</span>
       </a>
       {% endfor %}
     </div>
@@ -112,7 +112,7 @@
       {% set pname = private_name_for_player(p.id, p.nickname) %}
       <a class="match-player-link" href="/players/{{ p.id }}">
         {% if p.avatar %}<img class="match-player-avatar" src="{{ p.avatar }}" alt="" loading="lazy">{% else %}<span class="match-player-avatar match-player-avatar-fallback" aria-hidden="true">{{ pname[:1]|upper }}</span>{% endif %}
-        <span>{{ pname }}{% if p.role == 'substitute' %}（替补）{% endif %}</span>
+        <span><span data-i18n-ignore>{{ pname }}</span>{% if p.role == 'substitute' %}（替补）{% endif %}</span>
       </a>
       {% endfor %}
     </div>
@@ -923,7 +923,7 @@ document.addEventListener('click', function(e) {
         '进行中' if m.effective_status == 'live' else
         '已取消' if m.effective_status == 'cancelled' else
         '已结束' }}</span>
-      <span class="sidebar-event-name">{{ (m.team1_name or '队伍 1') ~ ' vs ' ~ (m.team2_name or '队伍 2') }}</span>
+      <span class="sidebar-event-name">{% if m.team1_name %}{{ m.team1_name }}{% else %}<span data-i18n-translate>队伍 1</span>{% endif %} vs {% if m.team2_name %}{{ m.team2_name }}{% else %}<span data-i18n-translate>队伍 2</span>{% endif %}</span>
     </a>
     {% endfor %}
   {% else %}

@@ -4861,3 +4861,9 @@ body .comment-section .reply-textarea,
 body .comments .reply-textarea {
   background-color: var(--bg-input) !important;
 }
+
+/* "登录 后即可评论"这类提示：链接和后面的文字之间留一点空隙（英文下尤其需要） */
+.comment-login-prompt,
+.vote-login-hint {
+  gap: .3em;
+}

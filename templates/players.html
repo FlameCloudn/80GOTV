@@ -209,7 +209,7 @@
     <select name="team" id="team-filter" onchange="this.form.submit()">
       <option value="">全部队伍</option>
       {% for t in teams %}
-      <option value="{{ t.id }}" {% if team_filter==t.id|string %}selected{% endif %}>{{ t.name }}</option>
+      <option value="{{ t.id }}" {% if team_filter==t.id|string %}selected{% endif %} data-i18n-ignore>{{ t.name }}</option>
       {% endfor %}
     </select>
   </form>

@@ -5,7 +5,7 @@
 {% endblock %}
 {% block layout_class %}no-side-layout guess-player-layout{% endblock %}
 {% block main %}
-<div class="guess-game" data-i18n-ignore>
+<div class="guess-game">
   <nav class="guess-mode-tabs" aria-label="游戏模式">
     <a href="{{ url_for('guess_player_page') }}" class="{{ 'active' if mode == 'daily' else '' }}">每日挑战</a>
     <a href="{{ url_for('guess_player_practice_page') }}" class="{{ 'active' if mode == 'practice' else '' }}">自由游玩</a>
@@ -27,10 +27,10 @@
   {% if mode == 'practice' %}
   <nav class="guess-difficulty" aria-label="自由游玩难度">
     <a href="{{ url_for('guess_player_practice_page', difficulty='noob') }}" class="{{ 'active' if pool_mode == 'noob' else '' }}">
-      <strong>Noob</strong><span>{{ pool_counts.noob }} 名常见选手</span>
+      <strong data-i18n-ignore>Noob</strong><span>{{ pool_counts.noob }} 名常见选手</span>
     </a>
     <a href="{{ url_for('guess_player_practice_page', difficulty='pro') }}" class="{{ 'active' if pool_mode == 'pro' else '' }}">
-      <strong>Pro</strong><span>{{ pool_counts.pro }} 名全部选手</span>
+      <strong data-i18n-ignore>Pro</strong><span>{{ pool_counts.pro }} 名全部选手</span>
     </a>
   </nav>
   {% endif %}
@@ -45,7 +45,7 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
         <input type="text" name="player_query" id="guessPlayerQuery" list="guessPlayerOptions"
                autocomplete="off" required placeholder="输入职业选手昵称..." aria-label="职业选手昵称">
-        <datalist id="guessPlayerOptions">
+        <datalist id="guessPlayerOptions" data-i18n-ignore>
           {% for player in players %}
           <option value="{{ player.nickname }}" data-player-id="{{ player.id }}">{{ player.full_name }}</option>
           {% endfor %}
@@ -72,8 +72,8 @@
         <tbody>
           {% for result in game.results %}
           <tr>
-            <td class="clue-{{ result.name_state }}" title="是否为正确选手"><b>{{ result.player.nickname }}</b></td>
-            <td class="clue-{{ result.team_state }}" title="是否效力于同一队伍">{{ result.affiliation or '未知' }}</td>
+            <td class="clue-{{ result.name_state }}" title="是否为正确选手"><b data-i18n-ignore>{{ result.player.nickname }}</b></td>
+            <td class="clue-{{ result.team_state }}" title="是否效力于同一队伍">{% if result.affiliation %}<span data-i18n-ignore>{{ result.affiliation }}</span>{% else %}未知{% endif %}</td>
             <td class="clue-{{ result.country_state }}" title="{{ result.player.country_name }}；橙色表示属于同一区域">
               {% if result.country_flag %}<span class="guess-country-flag" aria-label="{{ result.player.country_name }}">{{ result.country_flag }}</span>{% else %}未知{% endif %}
             </td>
@@ -118,8 +118,8 @@
            data-attempts="{{ game.results|length }}" data-won="{{ '1' if game.won else '0' }}">
     <div class="guess-result-player">
       <span>{{ '猜对了' if game.won else ('本局未猜中' if mode == 'practice' else '今天未猜中') }}</span>
-      <strong>{{ game.answer.nickname }}</strong>
-      <small>{{ game.answer.full_name }}{% if game.answer_affiliation %} · {{ game.answer_affiliation }}{% endif %}</small>
+      <strong data-i18n-ignore>{{ game.answer.nickname }}</strong>
+      <small data-i18n-ignore>{{ game.answer.full_name }}{% if game.answer_affiliation %} · {{ game.answer_affiliation }}{% endif %}</small>
     </div>
     {% if mode == 'daily' %}
     <div class="guess-result-actions">

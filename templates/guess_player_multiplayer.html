@@ -5,7 +5,7 @@
 {% endblock %}
 {% block layout_class %}no-side-layout guess-player-layout{% endblock %}
 {% block main %}
-<div class="guess-game guess-multiplayer" data-i18n-ignore>
+<div class="guess-game guess-multiplayer">
   <nav class="guess-mode-tabs" aria-label="游戏模式">
     <a href="{{ url_for('guess_player_page') }}">每日挑战</a>
     <a href="{{ url_for('guess_player_practice_page') }}">自由游玩</a>
@@ -14,7 +14,7 @@
 
   <header class="guess-heading h-panel">
     <div>
-      <span class="guess-kicker">MULTIPLAYER</span>
+      <span class="guess-kicker" data-i18n-ignore>MULTIPLAYER</span>
       <h1>在线猜选手</h1>
       <p>两名玩家使用同一道题，先猜中者获胜</p>
     </div>
@@ -30,11 +30,11 @@
           <legend>题库</legend>
           <label>
             <input type="radio" name="pool_mode" value="noob" checked>
-            <span><strong>Noob</strong><small>年度 Top 20 与世界前 5 战队阵容</small></span>
+            <span><strong data-i18n-ignore>Noob</strong><small>年度 Top 20 与世界前 5 战队阵容</small></span>
           </label>
           <label>
             <input type="radio" name="pool_mode" value="pro">
-            <span><strong>Pro</strong><small>完整选手数据库</small></span>
+            <span><strong data-i18n-ignore>Pro</strong><small>完整选手数据库</small></span>
           </label>
         </fieldset>
         <button type="submit" class="guess-primary-action">创建对战</button>
