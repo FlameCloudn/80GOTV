@@ -3697,15 +3697,6 @@ body{background:var(--h-page)}
 }
 
 /* ==================== 前台通用页面整理 ==================== */
-.page-head{
-  display:flex;
-  align-items:flex-end;
-  justify-content:space-between;
-  gap:12px;
-  margin-bottom:10px;
-  padding:8px 0 6px;
-  border-bottom:1px solid var(--h-panel-line);
-}
 .page-head-main{min-width:0}
 .page-title{
   margin:0;
@@ -3854,7 +3845,6 @@ body{background:var(--h-page)}
 
 @media(max-width:900px){
   
-  .page-head{align-items:flex-start;flex-direction:column}
   
   .dashboard-summary{grid-template-columns:1fr}
 }
@@ -10351,7 +10341,7 @@ body .layout.match-detail-layout .detail-tab.active{
   .h-result-mini{
     min-height:38px!important;
     padding:8px 10px!important;
-    background:#fff!important;
+    background:var(--bg-card)!important;
     border-bottom:1px solid var(--h-panel-line,#c2cad4)!important;
   }
   #fbBtn{

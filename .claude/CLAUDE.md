@@ -23,6 +23,8 @@ Flask + SQLite/Turso CS2电竞赛事网站 80GOTV
 - 数据库: `from models import query_db, execute_db` 或 `with db() as conn:`
 - 模板: Jinja2, 继承 base.html, 过滤器 |cn_time |rating_class
 - 服务层: services/
+- 前端样式: 颜色/字号只用 templates/_design_tokens.html 里的变量；页面用 .page-head / .h-panel / .ui-btn 等统一组件，不写行内 style（模板见 PATTERNS.md）
+- 翻译: 新界面文字要在 static/js/i18n.js 加词条；用户内容加 data-i18n-ignore；不要整页忽略（见 PATTERNS.md）
 - Edit 易失败 → 用 Write 整篇重写
 
 \# 核心脚本 (.claude/scripts/)

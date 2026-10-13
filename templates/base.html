@@ -23,13 +23,18 @@
   <link rel="stylesheet" href="{{ versioned_url('static/css/hltv_refresh.css') }}">
   <link rel="stylesheet" href="{{ versioned_url('static/css/mobile_hltv.css') }}">
 <script>
-// 图片加载失败 → 显示默认占位图
+// 图片加载失败 → 显示默认占位图（每张图只换一次，避免占位图也失败时无限重试）
 window.addEventListener('error',function(e){
-  if(e.target.tagName==='IMG'&&e.target.src){
-    e.target.src='/resources/placeholders/ImageNotFound.jpg';
-    e.target.style.objectFit='cover';
-    e.target.onerror=null;
+  var img=e.target;
+  if(!img||img.tagName!=='IMG'||!img.src||img.dataset.fallbackApplied)return;
+  img.dataset.fallbackApplied='1';
+  img.onerror=null;
+  // <picture> 里的 <source> 会盖过 img.src，要先去掉才能换成占位图
+  if(img.parentNode&&img.parentNode.tagName==='PICTURE'){
+    img.parentNode.querySelectorAll('source').forEach(function(s){s.remove();});
   }
+  img.src='/resources/placeholders/ImageNotFound.jpg';
+  img.style.objectFit='cover';
 },true);
 </script>
 </head>

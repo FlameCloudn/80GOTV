@@ -1313,10 +1313,7 @@
     [' 支队伍', ' teams'], [' 个赛事', ' events'],
     [' 对 ', ' vs '], [' 数据 - ', ' stats - '],
     [' 选图', ' pick'],
-    ['（线上）', ' (Online)'], ['线上', 'Online'],
-    ['荒漠迷城', 'Mirage'], ['炼狱小镇', 'Inferno'], ['核子危机', 'Nuke'], ['炙热沙城 II', 'Dust2'],
-    ['远古遗迹', 'Ancient'], ['阿努比斯', 'Anubis'], ['死亡游乐园', 'Overpass'], ['殒命大厦', 'Vertigo'],
-    ['列车停放站', 'Train'], ['死城之谜', 'Cache']
+    ['（线上）', ' (Online)'], ['线上', 'Online']
   ];
   var extraPartialTranslations = [
     ['回复 @', 'Reply @'],
@@ -1540,7 +1537,14 @@
     [/，网站运行时只读取本地副本。/g, '. The site only reads its local copy.'],
     [/(MVP|EVP)\s*数据图/g, '$1 stat card']
   ];
-  var pairsZhToEn = partialTranslations.concat(extraPartialTranslations);
+  // 只用于中文 → 英文的替换。不能放进上面的表里：那张表会被反过来用于英文 → 中文，
+  // 否则中文模式下正文里的 Train、Cache 这类普通英文词也会被换成地图中文名。
+  var zhOnlyPairs = [
+    ['荒漠迷城', 'Mirage'], ['炼狱小镇', 'Inferno'], ['核子危机', 'Nuke'], ['炙热沙城 II', 'Dust2'],
+    ['远古遗迹', 'Ancient'], ['阿努比斯', 'Anubis'], ['死亡游乐园', 'Overpass'], ['殒命大厦', 'Vertigo'],
+    ['列车停放站', 'Train'], ['死城之谜', 'Cache']
+  ];
+  var pairsZhToEn = partialTranslations.concat(extraPartialTranslations, zhOnlyPairs);
 
   function formatDatesForLanguage(value) {
     if (!value) return value;

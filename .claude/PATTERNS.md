@@ -118,3 +118,61 @@ def api_example():
 </div>
 {% endblock %}
 ```
+
+---
+
+## 前台页面样式模板
+
+写新页面时照这个骨架来，全站风格才会一致。不要写行内 `style="..."`，不要自己发明颜色。
+
+```html
+{% extends 'base.html' %}
+{% block title %}页面名 - 80GOTV{% endblock %}
+{% block layout_class %}no-side-layout{% endblock %}
+{% block main %}
+{# 页面标题条：小字英文标签 + 中文标题 #}
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>SECTION</span><h1>页面名</h1></div>
+  <p class="page-head-meta">右侧的补充说明（可不写）</p>
+</header>
+
+{# 带标题栏的面板 #}
+<section class="h-panel">
+  <div class="h-panel-title">面板标题</div>
+  <form method="post" class="ui-panel-body ui-form ui-form--narrow">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label class="ui-field">
+      <span class="ui-label">输入框名字</span>
+      <input type="text" name="example">
+      <span class="ui-hint">输入框下面的小提示</span>
+    </label>
+    <button type="submit" class="ui-btn ui-btn--primary">主要按钮</button>
+    <a href="/" class="ui-btn">次要按钮</a>
+  </form>
+</section>
+
+<div class="empty-state">暂无数据</div>
+{% endblock %}
+{% block side %}{% endblock %}
+```
+
+规矩：
+
+- **颜色、字号、间距**只用 `templates/_design_tokens.html` 里的变量，例如
+  `var(--bg-card)` 面板底色、`var(--text-muted)` 次要文字、`var(--accent)` 强调蓝、
+  `var(--color-green)` / `var(--color-red)` 胜负、`var(--font-sm)` 小字号。
+- 通用组件都在 `static/css/hltv_refresh.css` 最后的"全站统一层"里，先找现成的再写新的。
+- 全站老样式里有一条"所有元素 13px、不加粗"的强制规则，所以**改字号、加粗必须写 `!important`** 才生效。
+- 不带导航栏的独立页面（登录、改密码）开头引入 `{% include "_standalone_head.html" %}`，样式放 `static/css/auth.css`。
+
+## 翻译（中英文）约定
+
+网站文字写中文，英文由 `static/js/i18n.js` 里的词典自动替换。
+
+- 新加了界面文字 → 在 `i18n.js` 的 `laterPageTranslations` 里加一行 `'中文': 'English'`。
+- 带数字的句子（如"第 3 回合"）→ 在 `zhToEnPatterns` 里加一条句式。
+- 选手名、队名、新闻标题这类**用户自己写的内容**，标签上加 `data-i18n-ignore`，不要翻译。
+- 不要给整个页面加 `data-i18n-ignore`（那样英文模式下整页都是中文）。
+  如果一大块区域确实不能翻译，里面需要翻译的小标签可以单独加 `data-i18n-translate`。
+- JS 里生成的提示文字用 `window.siteTranslate('中文')` 取翻译。
+- 改完跑一下检查：`$env:PLAYWRIGHT_CHANNEL='msedge'; npx playwright test`（会检查英文模式下有没有漏翻）。
