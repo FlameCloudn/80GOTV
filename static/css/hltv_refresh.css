@@ -790,25 +790,6 @@ body .home-right-col {
   line-height: 1.5 !important;
 }
 
-.news-tags,
-.tag-cloud {
-  gap: 6px !important;
-}
-
-.tag-chip {
-  min-height: 26px;
-  padding: 5px 8px !important;
-  color: var(--text-secondary) !important;
-  background: var(--surface-soft) !important;
-  border: 1px solid var(--border-color) !important;
-}
-
-.tag-chip.active,
-.tag-chip:hover {
-  color: #fff !important;
-  background: var(--accent) !important;
-  border-color: var(--accent) !important;
-}
 
 .news-detail {
   padding: 20px 22px !important;
@@ -1092,10 +1073,6 @@ body .home-right-col {
   border-bottom: 0 !important;
 }
 
-.avatar-sm {
-  width: 28px !important;
-  height: 28px !important;
-}
 
 /* Stats and dashboard */
 .hltv-tabs,
@@ -1410,9 +1387,6 @@ body .home-right-col {
   line-height: 1;
 }
 
-.player-origin-marker-inverse {
-  color: #fff;
-}
 
 .player-directory-avatar {
   position: absolute;
@@ -1462,20 +1436,6 @@ body .home-right-col {
   transform-origin: center;
 }
 
-.player-profile-media {
-  position: relative;
-}
-
-.player-profile-media .player-profile-pac-overlay {
-  position: absolute !important;
-  z-index: 4;
-  top: 50%;
-  left: 50%;
-  width: 154px !important;
-  height: 154px !important;
-  margin: 0 !important;
-  transform: translate(-50%, -50%) !important;
-}
 
 .profile-avatar-overlay-wrap {
   position: relative;
@@ -1530,10 +1490,7 @@ body .home-right-col {
     font-size: 20px;
   }
 
-  .player-profile-media .player-profile-pac-overlay {
-    width: 78px !important;
-    height: 78px !important;
-  }
+  
 }
 
 /* Keyboard navigation for desktop dropdowns. */
@@ -2223,23 +2180,6 @@ body .layout.match-detail-layout {
   grid-template-columns: minmax(0, 1fr) !important;
 }
 
-.match-header {
-  min-height: 190px !important;
-}
-
-.match-teams {
-  min-height: 145px !important;
-}
-
-.team-info h3,
-.match-team-name {
-  font-size: 16px !important;
-}
-
-.match-score .score,
-.match-score-value {
-  font-size: 28px !important;
-}
 
 .map-strip,
 .map-score-card {
@@ -2320,16 +2260,6 @@ body .layout.match-detail-layout {
   border-bottom-color: var(--accent) !important;
 }
 
-.profile-panel > h2 {
-  min-height: 34px;
-  display: flex;
-  align-items: center;
-  margin: -1px -1px 0 !important;
-  padding: 8px 10px !important;
-  background: var(--h-panel-head) !important;
-  border: 1px solid var(--h-panel-line) !important;
-  font-size: 13px !important;
-}
 
 .profile-stat-list > div,
 .profile-info-list > div,
@@ -3034,23 +2964,13 @@ body .layout.match-detail-layout {
     font-size: 19px !important;
   }
 
-  .match-header {
-    min-height: 172px !important;
-  }
+  
 
-  .match-teams {
-    min-height: 126px !important;
-  }
+  
 
-  .team-info h3,
-  .match-team-name {
-    font-size: 14px !important;
-  }
+  
 
-  .match-score .score,
-  .match-score-value {
-    font-size: 24px !important;
-  }
+  
 
   .player-header {
     min-height: 132px;
