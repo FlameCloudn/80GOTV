@@ -4867,20 +4867,3 @@ body .comments .reply-textarea {
 .vote-login-hint {
   gap: .3em;
 }
-
-/* ---------- 19. 手机导航：数据页、对比页的菜单按钮也放在最右边，和其他页面一致 ---------- */
-@media (max-width: 760px) {
-  body.page-stats-page .navbar .nav-inner,
-  body.page-stats-detail .navbar .nav-inner,
-  body.page-stats-overview-detail .navbar .nav-inner,
-  body.page-player-compare .navbar .nav-inner {
-    grid-template-columns: 42px minmax(0, 1fr) 46px !important;
-  }
-
-  body.page-stats-page .navbar .hamburger,
-  body.page-stats-detail .navbar .hamburger,
-  body.page-stats-overview-detail .navbar .hamburger,
-  body.page-player-compare .navbar .hamburger {
-    grid-column: 3;
-  }
-}

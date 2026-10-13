@@ -520,28 +520,431 @@
   }
 }
 
-/* Statistics pages use the existing hamburger drawer on phones.  Keeping the
-   closed navigation out of the header prevents it from squeezing beside the logo. */
 @media (max-width: 760px) {
-  body.page-stats-page .navbar .nav-links:not(.open),
-  body.page-stats-detail .navbar .nav-links:not(.open),
-  body.page-stats-overview-detail .navbar .nav-links:not(.open),
-  body.page-player-compare .navbar .nav-links:not(.open) {
-    display: none !important;
-  }
-
-  body.page-stats-page .navbar .hamburger,
-  body.page-stats-detail .navbar .hamburger,
-  body.page-stats-overview-detail .navbar .hamburger,
-  body.page-player-compare .navbar .hamburger {
-    display: inline-flex !important;
-    flex: 0 0 48px !important;
-    margin-left: auto !important;
-  }
-
-  /* The flash table deliberately scrolls inside its own frame, so every
+/* The flash table deliberately scrolls inside its own frame, so every
      English heading stays on one readable line instead of being clipped. */
   body .stats-flash-table table {
     min-width: 880px !important;
+  }
+}
+
+/* ==========================================================================
+   手机端 HLTV 版式
+   --------------------------------------------------------------------------
+   数值对照 HLTV 手机版实测（2026-10）：
+     · 导航高 46px，logo 占 46px 方格，入口字号 14px 不加粗，入口之间一条细竖线
+     · 内容左右各留 10px
+     · 小标题直接写在页面底色上：13px 加粗，上 10px 下 6px
+     · 卡片没有边框，只有一道细阴影
+     · 新闻行：内边距 6px 10px，标题 13px 加粗，右侧时间/评论 11px 两行
+     · 动态行：高 30px，左侧 2px 彩色竖条
+     · "更多"按钮：通栏、高 33px、文字居中
+   配色仍用本站设计变量，所以明暗两种主题都适用。
+   ========================================================================== */
+@media (max-width: 760px) {
+  :root {
+    --m-gutter: 10px;
+    --m-shadow: 0 1px 2px rgba(50, 50, 50, .4);
+  }
+
+  :root[data-theme='dark'] {
+    --m-shadow: 0 1px 2px rgba(0, 0, 0, .6);
+  }
+
+  /* ---------- 顶部导航 ---------- */
+  body .navbar {
+    min-height: 46px !important;
+    background: var(--bg-card) !important;
+    border-bottom: 0 !important;
+    box-shadow: var(--m-shadow) !important;
+  }
+
+  body .navbar .nav-inner {
+    height: 46px !important;
+    min-height: 46px !important;
+    background: var(--bg-card) !important;
+  }
+
+  body .navbar .nav-inner:not(:has(.nav-links.open)) {
+    grid-template-columns: 46px minmax(0, 1fr) 46px !important;
+  }
+
+  body .navbar .logo {
+    width: 46px !important;
+    min-width: 46px !important;
+    height: 46px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    justify-content: center;
+    background: var(--bg-card) !important;
+  }
+
+  body .navbar .site-logo-mark {
+    width: 46px !important;
+    height: 46px !important;
+    object-fit: cover;
+  }
+
+  body .navbar .nav-links:not(.open) > a,
+  body .navbar .nav-links:not(.open) > .nav-dropdown > .nav-dropdown-toggle {
+    height: 46px !important;
+    min-height: 46px !important;
+    color: var(--text-primary) !important;
+    background: var(--bg-card) !important;
+    border-left: 1px solid var(--border-color) !important;
+    font-size: 14px !important;
+    font-weight: 400 !important;
+  }
+
+  /* 当前所在栏目只换文字颜色，不再铺底色 */
+  body[class*='page-'] .navbar .nav-links:not(.open) > a.active,
+  body.page-index .navbar .nav-links:not(.open) > .nav-news,
+  body.page-news-list .navbar .nav-links:not(.open) > .nav-news,
+  body.page-news-detail .navbar .nav-links:not(.open) > .nav-news,
+  body.page-matches-list .navbar .nav-links:not(.open) > .nav-matches,
+  body.page-match-detail .navbar .nav-links:not(.open) > .nav-matches,
+  body.page-match-detailed .navbar .nav-links:not(.open) > .nav-matches,
+  body.page-match-live .navbar .nav-links:not(.open) > .nav-matches,
+  body.page-match-report .navbar .nav-links:not(.open) > .nav-matches,
+  body.page-results-list .navbar .nav-links:not(.open) > .nav-results,
+  body.page-events-list .navbar .nav-links:not(.open) > .nav-events > .nav-dropdown-toggle,
+  body.page-event-detail .navbar .nav-links:not(.open) > .nav-events > .nav-dropdown-toggle,
+  body.page-event-stats .navbar .nav-links:not(.open) > .nav-events > .nav-dropdown-toggle {
+    color: var(--accent) !important;
+    background: var(--bg-card) !important;
+    box-shadow: inset 0 -2px 0 var(--accent) !important;
+  }
+
+  body .navbar .hamburger {
+    width: 46px !important;
+    height: 46px !important;
+    background: var(--bg-card) !important;
+    border-left: 1px solid var(--border-color) !important;
+  }
+
+  /* ---------- 页面边距 ---------- */
+  /* 选择器写得这么重，是为了压过各页面自己设的 6px / 8px 边距，让所有页面左右都是 10px */
+  html body main.layout.layout.layout {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 10px 0 18px !important;
+    padding: 0 var(--m-gutter) !important;
+    gap: 10px !important;
+  }
+
+  /* 页面内部的大容器不再自带左右边距，统一交给上面的 10px */
+  html body main.layout .main-col,
+  html body main.layout .side-col {
+    margin-right: 0 !important;
+    margin-left: 0 !important;
+    padding-right: 0 !important;
+    padding-left: 0 !important;
+  }
+
+  /* ---------- 卡片：去掉边框，只留细阴影 ---------- */
+  body .h-panel,
+  body .card-list.h-compact-list,
+  body .home-feature,
+  body .event-header,
+  body .player-header,
+  body .news-detail,
+  body .thread-header,
+  body .thread-body,
+  body .thread-list,
+  body .post-list,
+  body .reply-form-section,
+  body .forum-toolbar,
+  body .forum-category-nav,
+  body .dashboard-summary,
+  body .award-event-card,
+  body .tab-nav,
+  body .empty-state,
+  body .h-empty,
+  body .match-calendar,
+  body .match-schedule-list,
+  body .result-list,
+  body .mobile-result-event-filter,
+  body .stats-local-rail,
+  body .stats-control-bar,
+  body .stats-side-tabs,
+  body .main-col .stats-table,
+  body .overview-quick-panel,
+  body .overview-rank-row,
+  body .player-initial-filter,
+  body .player-directory-card,
+  body .pp-hero,
+  body .pp-honors,
+  body .pp-tabs,
+  body .pp-panel,
+  body .pd-tabs,
+  body .pd-filters,
+  body .pd-summary,
+  body .pd-category,
+  body .compare-card,
+  body .game-card,
+  body .game-mode-tabs,
+  body .guess-mode-tabs,
+  body .mh-banner,
+  body .mh-note,
+  body .mh-veto,
+  body .mh-watch-row,
+  body .map-strip,
+  body .match-stats-hero-card,
+  body .match-detailed-summary,
+  body .match-detailed-performance,
+  body .match-detailed-team-table,
+  body .match-detailed-map-card,
+  body .match-detailed-highlight,
+  body .match-detailed-side-tabs,
+  body .match-stat-summary-card,
+  body .match-stat-performance,
+  body .match-stat-rounds,
+  body .match-stat-highlight,
+  body .vote-section,
+  body .comment-section,
+  body .comments.news-comments,
+  body .data-live .scoreboard,
+  body .data-live .radar-panel,
+  body .event-award-poster-wrap,
+  body .card-list > .card.match-card {
+    border: 0 !important;
+    box-shadow: var(--m-shadow) !important;
+  }
+
+  /* 评论区在手机上是一张白卡片 */
+  body .comment-section,
+  body .comments.news-comments {
+    padding: 10px !important;
+    background: var(--bg-card) !important;
+  }
+
+  /* 带标题的面板：标题写在页面底色上，下面的内容才是卡片 */
+  body .h-panel:has(> .h-panel-title),
+  body .matches-list-panel:has(> .hltv-list-head),
+  body .results-list-panel:has(> .hltv-list-head) {
+    overflow: visible !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+
+  body .h-panel:has(> .h-panel-title) > :not(.h-panel-title),
+  body .layout .side-col .h-panel:has(> .h-panel-title) > .card.small,
+  body .matches-list-panel:has(> .hltv-list-head) > :not(.hltv-list-head),
+  body .results-list-panel:has(> .hltv-list-head) > :not(.hltv-list-head) {
+    background-color: var(--bg-card) !important;
+    box-shadow: var(--m-shadow) !important;
+  }
+
+  body .h-panel > .h-panel-title,
+  body .h-panel > .h-panel-title.h-panel-title-blue,
+  body main .section-title,
+  body .hltv-list-head,
+  body .detail-section-title {
+    min-height: 0 !important;
+    margin: 0 0 6px !important;
+    padding: 0 !important;
+    color: var(--text-primary) !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    line-height: 21px !important;
+  }
+
+  body main .section-title:not(:first-child) {
+    margin-top: 10px !important;
+  }
+
+  body .h-panel > .h-panel-title .h-panel-link,
+  body .hltv-list-head span {
+    font-weight: 400 !important;
+  }
+
+  /* 面板里的内容自己不再画边框，避免和阴影叠成双线 */
+  body .h-panel > .card-list.h-compact-list,
+  body .h-panel > .stats-table,
+  body .h-panel > .empty-state,
+  body .h-panel > .h-empty,
+  body .side-col .h-panel > .card.small {
+    border: 0 !important;
+  }
+
+  /* ---------- 首页 ---------- */
+  body .home-feature {
+    padding: 10px !important;
+  }
+
+  body .h-news-row {
+    min-height: 32px !important;
+    padding: 6px 10px !important;
+    gap: 10px !important;
+  }
+
+  body .h-news-row .h-news-title {
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    line-height: 18px !important;
+  }
+
+  body .h-news-row .h-news-meta,
+  body .h-news-row .h-news-meta > span {
+    color: var(--text-muted) !important;
+    font-size: 11px !important;
+    line-height: 13px !important;
+    text-align: right;
+  }
+
+  body .h-news-row .h-news-meta {
+    flex: 0 0 auto;
+    min-width: 80px;
+  }
+
+  body .h-activity-row,
+  body .h-result-mini,
+  body .h-match-mini {
+    min-height: 30px !important;
+    padding: 0 10px !important;
+    font-size: 13px !important;
+  }
+
+  /* 论坛动态：左侧一条橙色竖线 */
+  body .h-activity-row {
+    padding-left: 9px !important;
+    box-shadow: inset 2px 0 0 #ffae00 !important;
+  }
+
+  /* ---------- 通栏"更多 / 返回"按钮 ---------- */
+  body .main-col > .btn-back,
+  body .main-col > a.ui-btn.ui-btn--more {
+    display: flex;
+    width: 100%;
+    min-height: 33px;
+    margin: 10px 0 0 !important;
+    color: var(--text-link) !important;
+    background: var(--bg-card) !important;
+    border: 0 !important;
+    box-shadow: var(--m-shadow) !important;
+    font-size: 14px !important;
+  }
+
+  /* ---------- 赛事列表：名称一行，状态和日期在下面一行靠左 ---------- */
+  body .events-list-layout .event-list-row {
+    row-gap: 4px !important;
+    padding: 8px 10px !important;
+  }
+
+  body .events-list-layout .event-list-row h3 {
+    font-size: 13px !important;
+    line-height: 18px !important;
+  }
+
+  body .events-list-layout .event-list-row .event-info {
+    width: 100% !important;
+    display: flex !important;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 4px 8px;
+  }
+
+  body .events-list-layout .event-list-date {
+    white-space: normal;
+    font-size: 12px !important;
+  }
+
+  /* ---------- 页面标题条 ---------- */
+  body .page-head {
+    min-height: 0;
+    margin-bottom: 8px !important;
+    padding-bottom: 6px !important;
+  }
+
+  /* ---------- 页脚 ---------- */
+  body .footer {
+    min-height: 0 !important;
+    padding: 12px var(--m-gutter) 16px !important;
+    font-size: 11px !important;
+  }
+  /* ---------- 侧边菜单 ---------- */
+  /* "更多"是给中等宽度电脑屏幕用的折叠入口，手机菜单里各项已经单独列出，不重复显示 */
+  html body:has(.nav-links.open) .nav-links.open > .nav-dropdown.nav-more-compact {
+    display: none !important;
+  }
+
+  /* 语言切换放在菜单底部（之前手机上没有地方切换语言） */
+  html body:has(.nav-links.open) #languageSelect.language-select {
+    position: fixed !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    z-index: 1103 !important;
+    display: block !important;
+    width: var(--mobile-menu-width, 312px) !important;
+    max-width: none !important;
+    height: 46px !important;
+    padding: 0 18px !important;
+    color: var(--text-primary) !important;
+    background: var(--bg-card) !important;
+    border: 0 !important;
+    border-top: 1px solid var(--border-color) !important;
+    font-size: 14px !important;
+  }
+
+  body .nav-links.open {
+    padding-bottom: 46px !important;
+  }
+
+  /* ---------- 比赛详情：地图卡片和其他卡片一样通栏 ---------- */
+  html body main.layout.match-detail-layout .map-strips,
+  html body main.layout.match-detail-layout .map-strip {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  /* 地图卡片里的队名、比分原来只有 6–10px，看不清；放大到正常字号，去掉重复的一行比分 */
+  html body main.layout.layout.layout .map-strip .ms-bottom {
+    min-height: 60px;
+    padding: 6px 0;
+  }
+
+  html body main.layout.layout.layout .map-strip .ms-row {
+    min-height: 20px !important;
+    height: auto !important;
+  }
+
+  html body main.layout.layout.layout .map-strip .ms-name {
+    max-width: none !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    line-height: 18px !important;
+  }
+
+  html body main.layout.layout.layout .map-strip .ms-score {
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    line-height: 20px !important;
+  }
+
+  html body main.layout.layout.layout .map-strip .ms-pick {
+    padding: 1px 4px !important;
+    font-size: 10px !important;
+    line-height: 12px !important;
+  }
+
+  html body main.layout.layout.layout .map-strip .ms-stats-btn {
+    min-height: 20px;
+    padding: 2px 8px !important;
+    font-size: 11px !important;
+    line-height: 14px !important;
+  }
+
+  html body main.layout.layout.layout .map-strip .ms-icon {
+    width: 24px !important;
+    height: 24px !important;
+    font-size: 10px !important;
+  }
+
+  html body main.layout.layout.layout .map-strip .ms-mobile-line {
+    display: none !important;
   }
 }
