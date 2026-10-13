@@ -164,6 +164,9 @@ def api_example():
 - 通用组件都在 `static/css/hltv_refresh.css` 最后的"全站统一层"里，先找现成的再写新的。
 - 全站老样式里有一条"所有元素 13px、不加粗"的强制规则，所以**改字号、加粗必须写 `!important`** 才生效。
 - 不带导航栏的独立页面（登录、改密码）开头引入 `{% include "_standalone_head.html" %}`，样式放 `static/css/auth.css`。
+- **手机端**的版式规则集中在 `static/css/mobile_hltv.css` 最后的"手机端 HLTV 版式"一段，数值是对照 HLTV 手机版量出来的
+  （导航 46px、左右边距 10px、标题 13px 粗体写在页面底色上、卡片无边框细阴影）。新页面只要用上面的统一组件，手机上会自动套用。
+- 需要再对照 HLTV 时：官网有人机验证打不开，用公开存档 `https://web.archive.org/web/2025/https://www.hltv.org/`（手机宽度打开）。
 
 ## 翻译（中英文）约定
 
