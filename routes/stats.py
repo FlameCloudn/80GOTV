@@ -10,10 +10,10 @@ from flask import abort, render_template, request
 
 from models import get_db
 from services.home_service import load_home_feed
-from services.match_service import score_predictions
+from services.match_service import score_predictions, supplement_temp_teams
 from services.performance_service import weighted_average_sql
 from utils.demo_parser import normalize_map_name
-from utils.match_utils import get_sql_match_completed
+from utils.match_utils import get_sql_effective_status, get_sql_match_completed
 from web_app import app, logger
 
 TIME_FILTERS = [
@@ -1451,3 +1451,52 @@ def teams_list():
     teams = conn.execute("SELECT * FROM teams ORDER BY name").fetchall()
     conn.close()
     return render_template("teams_public.html", teams=teams)
+
+
+@app.route("/teams/<int:team_id>")
+def team_detail(team_id):
+    """展示指定队伍、当前阵容和实际以该队伍身份参加的比赛。"""
+    conn = get_db()
+    try:
+        team = conn.execute("SELECT * FROM teams WHERE id=?", (team_id,)).fetchone()
+        if team is None:
+            abort(404)
+        players = conn.execute(
+            "SELECT id, nickname, avatar FROM players WHERE team_id=? ORDER BY nickname, id",
+            (team_id,),
+        ).fetchall()
+        rows = conn.execute(
+            f"""SELECT m.*, t1.name AS team1_name, t2.name AS team2_name,
+                       t1.short_name AS t1s, t2.short_name AS t2s,
+                       e.name AS event_name, {get_sql_effective_status()}
+                FROM matches m
+                LEFT JOIN teams t1 ON t1.id=m.team1_id
+                LEFT JOIN teams t2 ON t2.id=m.team2_id
+                LEFT JOIN events e ON e.id=m.event_id
+                WHERE m.team1_id=? OR m.team2_id=?
+                ORDER BY m.match_time DESC, m.id DESC""",
+            (team_id, team_id),
+        ).fetchall()
+        matches = [supplement_temp_teams(row, conn) for row in rows]
+        record = {"wins": 0, "losses": 0, "draws": 0, "finished": 0}
+        for match in matches:
+            first, second = match["team1_score"], match["team2_score"]
+            if (
+                match["effective_status"] != "completed"
+                or first is None
+                or second is None
+                or first == second == 0
+            ):
+                continue
+            record["finished"] += 1
+            if first == second:
+                record["draws"] += 1
+            elif (first > second) == (match["team1_id"] == team_id):
+                record["wins"] += 1
+            else:
+                record["losses"] += 1
+    finally:
+        conn.close()
+    return render_template(
+        "team_detail.html", team=team, players=players, matches=matches, record=record
+    )

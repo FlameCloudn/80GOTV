@@ -1088,6 +1088,11 @@
   });
   // 2026-10 补充：小游戏、战报、报名、个人主页、错误页等后来新增页面的词条
   var laterPageTranslations = {
+    '当前阵容': 'Current roster',
+    '暂无队员': 'No players',
+    '胜': 'Wins',
+    '负': 'Losses',
+    '平': 'Draws',
     // 通用
     '是': 'Yes', '不是': 'No', '你': 'You', '一般': 'Average', '刷新': 'Refresh',
     '个人主页': 'Profile', '比赛战报': 'Match report', '预测排行': 'Prediction rankings',

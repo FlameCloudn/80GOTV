@@ -149,11 +149,6 @@ def dashboard():
         """).fetchall()
         ]
 
-        for event_row in event_matches:
-            if event_row["slug"] == "2026-spring-80-major":
-                # This event has three known historical matches that were not recorded.
-                event_row["cnt"] = max(event_row["cnt"], 3)
-
         event_matches = sorted(
             event_matches,
             key=lambda event_row: (-event_row["cnt"], event_row["event"]),

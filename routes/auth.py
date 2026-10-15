@@ -12,6 +12,7 @@ import time
 import urllib.parse
 import urllib.request
 import uuid
+from contextlib import closing
 from email.message import EmailMessage
 
 from flask import Response, flash, jsonify, redirect, render_template, request, session, url_for
@@ -528,48 +529,44 @@ def user_login():
             _generate_captcha()
             return render_template("login.html", next_target=next_target)
 
-        conn = get_db()
-        user = conn.execute("SELECT * FROM users WHERE username=?", (username,)).fetchone()
-        admin = conn.execute("SELECT * FROM admins WHERE username=?", (username,)).fetchone()
+        with closing(get_db()) as conn:
+            admin = conn.execute("SELECT * FROM admins WHERE username=?", (username,)).fetchone()
+            if admin:
+                if not rate_limit("admin_login_ip", 20, 300, by_ip=True):
+                    flash("登录尝试次数过多，请 5 分钟后再试", "error")
+                    _generate_captcha()
+                    return render_template("login.html", next_target=next_target), 429
+                # 只有密码已验证的管理员可跳过验证码，不能只检查用户名。
+                if check_password_hash(admin["password_hash"], password):
+                    user = conn.execute(
+                        "SELECT * FROM users WHERE username=?", (username,)
+                    ).fetchone()
+                    if user and (user["approval_status"] or "approved") != "approved":
+                        user = None
+                    _start_login_session(user=user, admin=admin)
+                    flash("登录成功", "success")
+                    return redirect(_login_destination(next_target))
 
-        # 验证码必须先于任何密码比对。原先 admin 分支排在验证码检查之前并直接
-        # return，等于管理员账号完全没有验证码保护——而管理员一旦被登入即可
-        # 下载整库备份、改任意选手密码，且系统没有管理员自助改密入口。
-        if not _check_captcha(captcha_input):
-            conn.close()
-            flash("验证码错误", "error")
-            _generate_captcha()
-            return render_template("login.html", next_target=next_target)
-
-        if admin and check_password_hash(admin["password_hash"], password):
-            _start_login_session(user=user, admin=admin)
-            conn.close()
-            flash("登录成功", "success")
-            return redirect(_login_destination(next_target))
-
-        if user and check_password_hash(user["password_hash"], password):
-            status = user["approval_status"] or "approved"
-            if status == "pending":
-                conn.close()
-                flash("账号正在等待管理员审核，审核通过后才能登录", "error")
+            if not _check_captcha(captcha_input):
+                flash("验证码错误", "error")
                 _generate_captcha()
                 return render_template("login.html", next_target=next_target)
-            if status == "rejected":
-                conn.close()
-                flash("账号申请未通过，请联系管理员", "error")
-                _generate_captcha()
-                return render_template("login.html", next_target=next_target)
-            if status != "approved":
-                conn.close()
-                flash("账号当前不可登录，请联系管理员", "error")
-                _generate_captcha()
-                return render_template("login.html", next_target=next_target)
-            _start_login_session(user=user)
-            conn.close()
-            flash("登录成功", "success")
-            return redirect(_login_destination(next_target))
 
-        conn.close()
+            user = conn.execute("SELECT * FROM users WHERE username=?", (username,)).fetchone()
+            if user and check_password_hash(user["password_hash"], password):
+                status = user["approval_status"] or "approved"
+                if status != "approved":
+                    message = {
+                        "pending": "账号正在等待管理员审核，审核通过后才能登录",
+                        "rejected": "账号申请未通过，请联系管理员",
+                    }.get(status, "账号当前不可登录，请联系管理员")
+                    flash(message, "error")
+                    _generate_captcha()
+                    return render_template("login.html", next_target=next_target)
+                _start_login_session(user=user)
+                flash("登录成功", "success")
+                return redirect(_login_destination(next_target))
+
         flash("用户名或密码错误", "error")
         _generate_captcha()
     else:

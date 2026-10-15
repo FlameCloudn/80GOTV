@@ -48,22 +48,18 @@ def db():
     conn = get_db()
     try:
         yield conn
+        conn.commit()
     except Exception:
         try:
             conn.rollback()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("回退数据库操作失败：%s", type(exc).__name__)
         raise
-    else:
-        try:
-            conn.commit()
-        except Exception:
-            pass
     finally:
         try:
             conn.close()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("关闭数据库连接失败：%s", type(exc).__name__)
 
 
 def _execute_sql_script(conn, script):

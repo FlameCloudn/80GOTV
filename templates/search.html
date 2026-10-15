@@ -47,7 +47,7 @@
   <div class="h-panel-title">队伍</div>
   <div class="card-list h-compact-list">
     {% for t in results.teams %}
-    <a class="card result-card" href="/teams">
+    <a class="card result-card" href="{{ url_for('team_detail', team_id=t.id) }}">
       <span class="result-name" data-i18n-ignore>{{ t.name }}</span>
       {% if t.short_name %}<span class="result-sub" data-i18n-ignore>{{ t.short_name }}</span>{% endif %}
     </a>

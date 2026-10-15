@@ -20,7 +20,7 @@ from flask import (
     session,
     url_for,
 )
-from werkzeug.exceptions import HTTPException
+from werkzeug.exceptions import HTTPException, SecurityError
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from config import Config
@@ -148,6 +148,7 @@ _PUBLIC_READ_ENDPOINTS = {
     "predictions_page",
     "awards_page",
     "teams_list",
+    "team_detail",
     "dashboard",
     "forum_index",
     "forum_thread",
@@ -564,6 +565,9 @@ def robots_txt():
 @app.errorhandler(Exception)
 def _handle_exception(e):
     """统一错误处理：页面隐藏细节，日志保留完整异常信息。"""
+    if isinstance(e, SecurityError):
+        # 不受信任的 Host 没有可用的地址构建器，不能渲染含 url_for 的模板。
+        return e.get_response()
     raw_code = getattr(e, "code", None)
     code = int(raw_code) if isinstance(e, HTTPException) and raw_code is not None else 500
     if code >= 500:

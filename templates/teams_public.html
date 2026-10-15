@@ -9,7 +9,7 @@
 {% if teams %}
 <div class="card-list h-compact-list team-list">
   {% for t in teams %}
-  <div class="card team-list-row">
+  <a class="card team-list-row" href="{{ url_for('team_detail', team_id=t.id) }}">
     {% if t.logo %}
     <img src="{% if t.logo.startswith('http') or t.logo.startswith('/') %}{{ t.logo }}{% else %}{{ url_for('static', filename='uploads/' ~ t.logo) }}{% endif %}" alt="" class="avatar-lg team-list-logo" loading="lazy">
     {% else %}
@@ -20,7 +20,7 @@
       {% if t.short_name %}<span class="team-list-tag" data-i18n-ignore>{{ t.short_name }}</span>{% endif %}
       {% if t.description %}<small data-i18n-ignore>{{ t.description[:100] }}</small>{% endif %}
     </div>
-  </div>
+  </a>
   {% endfor %}
 </div>
 {% else %}

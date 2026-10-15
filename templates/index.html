@@ -7,7 +7,7 @@
       <div class="h-panel-title">排行</div>
       <div class="h-rank-list">
         {% for t in team_ranking %}
-        <a class="h-rank-row" href="/teams">
+        <a class="h-rank-row" href="{{ url_for('team_detail', team_id=t.id) }}">
           <span class="h-rank-num">{{ loop.index }}.</span>
           <span class="h-rank-name" data-i18n-ignore>{{ t.short_name or t.name }}</span>
           <span class="h-rank-score">{{ t.wins or 0 }}胜</span>

@@ -68,6 +68,18 @@ def main():
             finally:
                 conn.close()
 
+        @app.get("/__e2e__/public-backend-fixture")
+        def _e2e_public_backend_fixture():
+            conn = get_db()
+            try:
+                team = conn.execute("SELECT id FROM teams WHERE name='E2E Dot Alpha'").fetchone()
+                player = conn.execute(
+                    "SELECT id FROM players WHERE nickname='E2E Dot Player'"
+                ).fetchone()
+                return {"team_id": team["id"], "player_id": player["id"]}
+            finally:
+                conn.close()
+
         @app.get("/testing/incomplete-user-session")
         def _e2e_incomplete_user_session():
             conn = get_db()
@@ -219,6 +231,38 @@ def main():
                ) VALUES(?, ?, 0, 'approved')""",
             ("e2e-incomplete", generate_password_hash("password123")),
         )
+        conn.execute(
+            "INSERT INTO admins(username,password_hash) VALUES(?,?)",
+            ("e2e-dot-admin", generate_password_hash("e2e-only-admin-password")),
+        )
+        first_team = conn.execute(
+            "INSERT INTO teams(name,short_name) VALUES('E2E Dot Alpha','EDA')"
+        ).lastrowid
+        second_team = conn.execute(
+            "INSERT INTO teams(name,short_name) VALUES('E2E Dot Beta','EDB')"
+        ).lastrowid
+        player = conn.execute(
+            "INSERT INTO players(nickname,team_id) VALUES('E2E Dot Player',?)", (first_team,)
+        ).lastrowid
+        event = conn.execute(
+            "INSERT INTO events(name,slug,start_date) VALUES('E2E Dot Cup','e2e-dot-cup','2026-10-01')"
+        ).lastrowid
+        for index in range(3):
+            match = conn.execute(
+                "INSERT INTO matches(event_id,team1_id,team2_id,status,team1_score,team2_score,match_time,slug,map1) VALUES(?,?,?,'completed',2,0,?,?,'de_mirage')",
+                (
+                    event,
+                    first_team,
+                    second_team,
+                    f"2026-10-0{index + 1} 12:00:00",
+                    f"e2e-dot-{index}",
+                ),
+            ).lastrowid
+            for map_name in ["de_mirage", "de_nuke"] if index == 0 else ["de_mirage"]:
+                conn.execute(
+                    "INSERT INTO match_stats(match_id,player_id,team_id,map_name,kills,deaths,rating,rounds_played) VALUES(?,?,?,?,18,12,1.2,20)",
+                    (match, player, first_team, map_name),
+                )
         conn.commit()
         conn.close()
         app.run(host="127.0.0.1", port=5010, debug=False, use_reloader=False)

@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% block title %}{{ team.name }} - 80GOTV{% endblock %}
+{% block layout_class %}no-side-layout{% endblock %}
+{% block main %}
+<header class="page-head">
+  <div>
+    <span class="page-head-kicker" data-i18n-ignore>TEAM{% if team.short_name %} / {{ team.short_name }}{% endif %}</span>
+    <h1 data-i18n-ignore>{{ team.name }}</h1>
+  </div>
+  <a class="page-head-link" href="{{ url_for('teams_list') }}">全部队伍</a>
+</header>
+
+{% if team.logo or team.description %}
+<div class="team-list-row ui-panel-body">
+  {% if team.logo %}<img class="avatar-lg team-list-logo" src="{% if team.logo.startswith('http') or team.logo.startswith('/') %}{{ team.logo }}{% else %}{{ url_for('static', filename='uploads/' ~ team.logo) }}{% endif %}" alt="{{ team.name }}">{% endif %}
+  {% if team.description %}<p data-i18n-ignore>{{ team.description }}</p>{% endif %}
+</div>
+{% endif %}
+
+<section class="h-panel">
+  <div class="h-panel-title"><span>当前阵容</span> <span>{{ players|length }}</span></div>
+  <div class="card-list h-compact-list">
+    {% for player in players %}
+    {% set player_name = private_name_for_player(player.id, player.nickname) %}
+    <a class="card team-list-row" href="{{ url_for('player_detail', player_id=player.id) }}">
+      {% if player.avatar %}<img class="avatar-lg team-list-logo" src="{{ url_for('static', filename='avatars/' ~ player.avatar) }}" alt="" loading="lazy">{% else %}<span class="avatar-lg" data-i18n-ignore>{{ player_name[:1] }}</span>{% endif %}
+      <strong data-i18n-ignore>{{ player_name }}</strong>
+    </a>
+    {% else %}<div class="empty-state">暂无队员</div>{% endfor %}
+  </div>
+</section>
+
+<section class="h-panel">
+  <div class="h-panel-title"><span>比赛</span> <span>{{ matches|length }}</span></div>
+  <div class="ui-panel-body">
+    <span>已结束</span> {{ record.finished }} · <span>胜</span> {{ record.wins }} · <span>负</span> {{ record.losses }} · <span>平</span> {{ record.draws }}
+  </div>
+  <div class="card-list h-compact-list">
+    {% for match in matches %}
+    <a class="card match-card" href="{{ url_for('match_detail', slug=match.slug or match.id) }}">
+      <span class="team" data-i18n-ignore>{{ match.team1_name or match.t1s or 'TBD' }}</span>
+      <span class="vs">{% if match.effective_status == 'completed' and match.team1_score == 0 and match.team2_score == 0 %}<b>- : -</b>{% elif match.effective_status in ['completed', 'live'] %}<b>{{ match.team1_score if match.team1_score is not none else '-' }} : {{ match.team2_score if match.team2_score is not none else '-' }}</b>{% else %}VS{% endif %}</span>
+      <span class="team right" data-i18n-ignore>{{ match.team2_name or match.t2s or 'TBD' }}</span>
+      <div class="meta"><span data-i18n-ignore>{{ match.event_name or '-' }}</span> · {{ match.match_time|date_display }} · <span>{{ {'completed': '已结束', 'live': '直播中', 'cancelled': '已取消', 'upcoming': '未开始'}[match.effective_status] }}</span></div>
+    </a>
+    {% else %}<div class="empty-state">暂无比赛</div>{% endfor %}
+  </div>
+</section>
+{% endblock %}
+{% block side %}{% endblock %}

@@ -13,6 +13,7 @@ from services.player_remark_service import validate_player_remark
 from services.steam_profile_service import enrich_player_from_steam
 from utils.demo_parser import normalize_map_name
 from utils.filters import date_display_filter
+from utils.match_utils import get_sql_match_completed
 from utils.rate_limiter import rate_limit
 from utils.web_helpers import csrf_required, safe_redirect_target, user_required
 from web_app import app
@@ -160,6 +161,7 @@ def _build_player_blocks(overall):
         rating_label = "Bad"
         rating_label_cn = "较差"
     player_summary = {
+        "matches": int(overall["matches"] or 0),
         "maps": maps,
         "rounds": int(rounds),
         "rating": rating_val,
@@ -852,11 +854,15 @@ def player_detail(player_id):
     record_rows = conn.execute(
         f"""
         SELECT m.id, m.team1_id, m.team2_id, m.team1_score, m.team2_score,
-               MAX(CASE WHEN ms.team_id=m.team1_id THEN 1 ELSE 0 END) AS on_team1,
-               MAX(CASE WHEN ms.team_id=m.team2_id THEN 1 ELSE 0 END) AS on_team2
+               MAX(CASE WHEN LOWER(TRIM(ms.match_team_side)) IN ('t1', 't2')
+                        THEN LOWER(TRIM(ms.match_team_side))='t1'
+                        ELSE ms.team_id=COALESCE(m.team1_id, -1) END) AS on_team1,
+               MAX(CASE WHEN LOWER(TRIM(ms.match_team_side)) IN ('t1', 't2')
+                        THEN LOWER(TRIM(ms.match_team_side))='t2'
+                        ELSE ms.team_id=COALESCE(m.team2_id, -2) END) AS on_team2
         FROM match_stats ms
         JOIN matches m ON ms.match_id=m.id
-        WHERE ms.player_id=? {stat_filter}
+        WHERE ms.player_id=? {stat_filter} AND {get_sql_match_completed()}
         GROUP BY m.id
     """,
         (player_id, *stat_params),
@@ -874,10 +880,7 @@ def player_detail(player_id):
             continue
         on_team1 = bool(row["on_team1"])
         on_team2 = bool(row["on_team2"])
-        if not on_team1 and not on_team2 and player["team_id"]:
-            on_team1 = player["team_id"] == row["team1_id"]
-            on_team2 = player["team_id"] == row["team2_id"]
-        if not on_team1 and not on_team2:
+        if on_team1 == on_team2:
             continue
         won = (on_team1 and team1_score > team2_score) or (on_team2 and team2_score > team1_score)
         match_record["finished"] += 1
