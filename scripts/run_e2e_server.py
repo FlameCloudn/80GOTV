@@ -4,6 +4,7 @@ import json
 import os
 import sys
 import tempfile
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -76,7 +77,100 @@ def main():
                 player = conn.execute(
                     "SELECT id FROM players WHERE nickname='E2E Dot Player'"
                 ).fetchone()
-                return {"team_id": team["id"], "player_id": player["id"]}
+                other = conn.execute(
+                    "SELECT id FROM players WHERE nickname='E2E Compare Other'"
+                ).fetchone()
+                event = conn.execute("SELECT id FROM events WHERE slug='e2e-dot-cup'").fetchone()
+                return {
+                    "team_id": team["id"],
+                    "player_id": player["id"],
+                    "other_player_id": other["id"],
+                    "event_id": event["id"],
+                }
+            finally:
+                conn.close()
+
+        @app.get("/__e2e__/review-fixture")
+        def _e2e_review_fixture():
+            from services.bracket_service import build_event_bracket
+
+            conn = get_db()
+            try:
+                size = 8 if request.args.get("size") == "8" else 4
+                name = "E2E Review " + uuid.uuid4().hex[:10]
+                event_id = conn.execute(
+                    "INSERT INTO events(name,short_name,start_date,end_date) "
+                    "VALUES(?,?,'2027-11-17T10:00','2027-11-18T20:00')",
+                    (name, name.replace(" ", "_")),
+                ).lastrowid
+                teams = []
+                for number in range(1, size + 1):
+                    name = f"E2E Review {event_id} Team {number}"
+                    team_id = conn.execute(
+                        "INSERT INTO teams(name,short_name) VALUES(?,?)", (name, f"R{number}")
+                    ).lastrowid
+                    teams.append({"id": f"t{number}", "db_id": team_id, "name": name})
+                if request.args.get("legacy") == "1":
+                    data = build_event_bracket(
+                        conn,
+                        event_id,
+                        {
+                            "tournament": {
+                                "format_key": "4de",
+                                "teams": teams,
+                                "sections": [
+                                    {
+                                        "label": "胜者组",
+                                        "rounds": [
+                                            {
+                                                "name": "UB 第一轮",
+                                                "matches": [
+                                                    {
+                                                        "id": "UB_R1_M1",
+                                                        "team1": "t1",
+                                                        "team2": "t4",
+                                                    },
+                                                    {
+                                                        "id": "UB_R1_M2",
+                                                        "team1": "t2",
+                                                        "team2": "t3",
+                                                    },
+                                                ],
+                                            }
+                                        ],
+                                    }
+                                ],
+                            }
+                        },
+                    )
+                    tour = data["tournament"]
+                    tour.pop("format_key", None)
+                    tour.pop("sections", None)
+                    conn.execute(
+                        "UPDATE events SET bracket_data=? WHERE id=?", (json.dumps(data), event_id)
+                    )
+                conn.commit()
+                test_match_id = None
+                if request.args.get("test_match") == "1":
+                    test_match_id = conn.execute(
+                        "INSERT INTO matches(event_id,status,is_test_mode,match_time) "
+                        "VALUES(?,'upcoming',1,'2027-11-17T14:00')",
+                        (event_id,),
+                    ).lastrowid
+                    conn.commit()
+                return {"event_id": event_id, "teams": teams, "test_match_id": test_match_id}
+            finally:
+                conn.close()
+
+        @app.get("/__e2e__/review-state/<int:event_id>")
+        def _e2e_review_state(event_id):
+            conn = get_db()
+            try:
+                event = conn.execute("SELECT * FROM events WHERE id=?", (event_id,)).fetchone()
+                rows = conn.execute(
+                    "SELECT * FROM matches WHERE event_id=? ORDER BY id", (event_id,)
+                ).fetchall()
+                return {"event": dict(event), "matches": [dict(row) for row in rows]}
             finally:
                 conn.close()
 
@@ -235,6 +329,10 @@ def main():
             "INSERT INTO admins(username,password_hash) VALUES(?,?)",
             ("e2e-dot-admin", generate_password_hash("e2e-only-admin-password")),
         )
+        conn.execute(
+            "INSERT INTO admins(username,password_hash) VALUES(?,?)",
+            ("e2e-review-admin", generate_password_hash("e2e-only-review-password")),
+        )
         first_team = conn.execute(
             "INSERT INTO teams(name,short_name) VALUES('E2E Dot Alpha','EDA')"
         ).lastrowid
@@ -243,6 +341,9 @@ def main():
         ).lastrowid
         player = conn.execute(
             "INSERT INTO players(nickname,team_id) VALUES('E2E Dot Player',?)", (first_team,)
+        ).lastrowid
+        other_player = conn.execute(
+            "INSERT INTO players(nickname,team_id) VALUES('E2E Compare Other',?)", (second_team,)
         ).lastrowid
         event = conn.execute(
             "INSERT INTO events(name,slug,start_date) VALUES('E2E Dot Cup','e2e-dot-cup','2026-10-01')"
@@ -263,6 +364,18 @@ def main():
                     "INSERT INTO match_stats(match_id,player_id,team_id,map_name,kills,deaths,rating,rounds_played) VALUES(?,?,?,?,18,12,1.2,20)",
                     (match, player, first_team, map_name),
                 )
+            if index == 0:
+                conn.execute(
+                    "INSERT INTO match_stats(match_id,player_id,team_id,map_name,rating,rounds_played,t_rating,ct_rating) "
+                    "VALUES(?,?,?,'de_mirage',1.1,20,0.8,1.4)",
+                    (match, other_player, second_team),
+                )
+        conn.execute(
+            "UPDATE match_stats SET t_rating=1.6,ct_rating=0.8 WHERE player_id=?", (player,)
+        )
+        from services.performance_service import refresh_player_performance
+
+        refresh_player_performance(conn)
         conn.commit()
         conn.close()
         app.run(host="127.0.0.1", port=5010, debug=False, use_reloader=False)

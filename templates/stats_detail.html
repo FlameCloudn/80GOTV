@@ -133,7 +133,7 @@
         <th><span class="stats-lang-zh" data-i18n-ignore>敌方致盲</span><span class="stats-lang-en" data-i18n-ignore>Opp. flash</span></th>
         <th><span class="stats-lang-zh" data-i18n-ignore>差值</span><span class="stats-lang-en" data-i18n-ignore>Diff</span></th>
         <th><span class="stats-lang-zh" data-i18n-ignore>闪光助攻</span><span class="stats-lang-en" data-i18n-ignore>Flash assists</span></th>
-        <th><span class="stats-lang-zh" data-i18n-ignore>成功率</span><span class="stats-lang-en" data-i18n-ignore>Success</span></th>
+        <th title="在有投掷记录且投掷大于零的地图中，闪到过对手的地图占比；不是每颗闪光弹的成功率"><span class="stats-lang-zh" data-i18n-ignore>有效地图占比</span><span class="stats-lang-en" data-i18n-ignore>Effective maps</span></th>
       </tr>
     </thead>
     <tbody>
@@ -147,7 +147,7 @@
         <td>{{ "%.2f"|format(r.opp_flashed or 0) }}s</td>
         <td class="{% if r.diff and r.diff > 0 %}stat-pos{% elif r.diff and r.diff < 0 %}stat-neg{% endif %}">{{ "%+.2f"|format(r.diff or 0) }}</td>
         <td>{{ "%.2f"|format(r.fa or 0) }}</td>
-        <td>{% if r.thrown is none %}<span class="stat-missing">暂无数据</span>{% elif r.success is none %}-{% else %}{{ "%.2f"|format(r.success) }}{% endif %}</td>
+        <td>{% if r.thrown is none %}<span class="stat-missing">暂无数据</span>{% elif r.success is none %}-{% else %}{{ "%.1f"|format(r.success * 100) }}%{% endif %}</td>
       </tr>
       {% endfor %}
     </tbody>

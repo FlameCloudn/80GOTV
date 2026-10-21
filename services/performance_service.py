@@ -230,11 +230,21 @@ def _count_flash_throws(match_data, flash_metrics):
     """
     if "flashbangsExplode" not in match_data:
         return
+    events = match_data.get("flashbangsExplode")
+    if events is not None and not isinstance(events, list):
+        raise ValueError("Demo 的闪光弹事件格式无效，未保存统计数据")
+    for steam_id, player in (match_data.get("players") or {}).items():
+        steam_id = _steam_id(steam_id)
+        if not steam_id or not isinstance(player, dict):
+            continue
+        item = flash_metrics[steam_id]
+        item["steam_id"] = steam_id
+        item["name"] = item["name"] or str(player.get("name") or "").strip()
     for item in flash_metrics.values():
         item["flash_count"] = 0
-    for event in match_data.get("flashbangsExplode") or []:
+    for event in events or []:
         if not isinstance(event, dict):
-            continue
+            raise ValueError("Demo 的闪光弹事件格式无效，未保存统计数据")
         thrower_steam_id = _steam_id(event.get("throwerSteamId"))
         if not thrower_steam_id:
             continue
@@ -503,13 +513,16 @@ def persist_demo_performance_payload(conn, match_id, map_name, payload):
                 flash_enemy_seconds=?,
                 flash_assists=?,
                 flash_count=COALESCE(?, flash_count),
+                flash_count_recorded=CASE WHEN ? IS NOT NULL THEN 1 ELSE flash_count_recorded END,
                 enemies_flashed=COALESCE(?, enemies_flashed)
             WHERE match_id=? AND map_name=? AND player_id=?
+              AND COALESCE(data_status, 'final') <> 'superseded'
             """,
             (
                 float(metric.get("blinded_seconds", 0) or 0),
                 float(metric.get("enemy_seconds", 0) or 0),
                 int(metric.get("flash_assists", 0) or 0),
+                _optional_int(metric.get("flash_count")),
                 _optional_int(metric.get("flash_count")),
                 _optional_int(metric.get("enemies_flashed")),
                 match_id,

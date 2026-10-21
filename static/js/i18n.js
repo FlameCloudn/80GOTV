@@ -1312,6 +1312,8 @@
     '该选手尚未关联网站账号，暂时不能设置备注': 'This player has no site account yet, so a note cannot be set',
     '不能给自己设置私人备注': 'You cannot set a private note for yourself',
     // —— 2026-10-20 实测修复：赛期提示、对阵图编辑器 ——
+    '在有投掷记录且投掷大于零的地图中，闪到过对手的地图占比；不是每颗闪光弹的成功率':
+      'Share of recorded maps with throws that blinded an opponent; not a per-grenade success rate',
     '快捷赛期按自然日计算：开始当天算第 1 天，最后一天 20:00 结束（例如 1 天＝当天结束，2 天＝第二天结束）。':
       'Quick durations count calendar days: the start day is day 1 and the event ends at 20:00 on the last day (1 day = same day, 2 days = next day).',
     '已有比赛': 'Linked match', '保存后生成': 'Created on save', '自动匹配或保存时创建': 'Auto-match or create on save',

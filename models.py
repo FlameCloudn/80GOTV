@@ -211,6 +211,14 @@ def _ensure_match_stats_data_version_columns(cursor):
             cursor.execute(f"ALTER TABLE match_stats ADD COLUMN {name} {definition}")
 
 
+def _ensure_match_stats_flash_recorded_column(cursor):
+    columns = {row[1] for row in cursor.execute("PRAGMA table_info(match_stats)").fetchall()}
+    if columns and "flash_count_recorded" not in columns:
+        cursor.execute(
+            "ALTER TABLE match_stats ADD COLUMN flash_count_recorded INTEGER NOT NULL DEFAULT 0"
+        )
+
+
 def _ensure_match_stats_unique_result_index(cursor):
     """Prevent duplicate player/map rows while retaining older rows as history."""
     columns = {row[1] for row in cursor.execute("PRAGMA table_info(match_stats)").fetchall()}
@@ -363,6 +371,7 @@ def _init_tables(conn):
         _ensure_match_decider_columns(c)
         _ensure_match_stats_team_side_column(c)
         _ensure_match_stats_data_version_columns(c)
+        _ensure_match_stats_flash_recorded_column(c)
         _ensure_match_stats_unique_result_index(c)
         _ensure_school_profile_columns(c)
         _ensure_yearly_top10_table(c)
@@ -530,6 +539,7 @@ def _init_tables(conn):
         utility_damage REAL DEFAULT 0,
         enemies_flashed INTEGER DEFAULT 0,
         flash_count INTEGER DEFAULT 0,
+        flash_count_recorded INTEGER NOT NULL DEFAULT 0,
         he_count INTEGER DEFAULT 0,
         smoke_count INTEGER DEFAULT 0,
         molotov_count INTEGER DEFAULT 0,
@@ -1117,6 +1127,7 @@ def _init_tables(conn):
         "ALTER TABLE match_stats ADD COLUMN utility_damage REAL DEFAULT 0",
         "ALTER TABLE match_stats ADD COLUMN enemies_flashed INTEGER DEFAULT 0",
         "ALTER TABLE match_stats ADD COLUMN flash_count INTEGER DEFAULT 0",
+        "ALTER TABLE match_stats ADD COLUMN flash_count_recorded INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE match_stats ADD COLUMN he_count INTEGER DEFAULT 0",
         "ALTER TABLE match_stats ADD COLUMN smoke_count INTEGER DEFAULT 0",
         "ALTER TABLE match_stats ADD COLUMN molotov_count INTEGER DEFAULT 0",

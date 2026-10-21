@@ -11,7 +11,7 @@
 .events-list-layout .event-list-row .event-info {
   width: 250px;
   display: grid;
-  grid-template-columns: 56px 184px;
+  grid-template-columns: max-content minmax(0, 1fr);
   column-gap: 10px;
   align-items: center;
   justify-self: stretch;
@@ -25,6 +25,9 @@
 
 .events-list-layout .event-list-date {
   color: var(--text-muted);
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .events-list-layout .event-list-row .meta {
@@ -40,7 +43,7 @@
 
   .events-list-layout .event-list-row .event-info {
     width: min(100%, 250px);
-    grid-template-columns: 56px minmax(0, 184px);
+    grid-template-columns: max-content minmax(0, 1fr);
     justify-self: start;
   }
 
@@ -52,7 +55,7 @@
 @media (max-width: 340px) {
   .events-list-layout .event-list-row .event-info {
     width: 100%;
-    grid-template-columns: 56px minmax(0, 1fr);
+    grid-template-columns: max-content minmax(0, 1fr);
   }
 
   .events-list-layout .event-list-date {

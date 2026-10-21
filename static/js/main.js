@@ -291,23 +291,7 @@ if(hamburger && navLinks){
 
   // 点击菜单项后关闭菜单
   navLinks.querySelectorAll('a').forEach(link => {
-    link.addEventListener('click', function(e){
-      if (link.classList.contains('nav-dropdown-toggle') &&
-          window.matchMedia('(max-width:760px)').matches &&
-          navLinks.classList.contains('open')) {
-        e.preventDefault();
-        var dropdown = link.closest('.nav-dropdown');
-        var willOpen = !dropdown.classList.contains('expanded');
-        navLinks.querySelectorAll('.nav-dropdown.expanded').forEach(function(item){
-          item.classList.remove('expanded');
-        });
-        navLinks.querySelectorAll('.nav-dropdown-toggle').forEach(function(toggle){
-          toggle.setAttribute('aria-expanded', 'false');
-        });
-        dropdown.classList.toggle('expanded', willOpen);
-        link.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
-        return;
-      }
+    link.addEventListener('click', function(){
       closeMenu();
     });
   });
