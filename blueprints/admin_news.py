@@ -7,18 +7,22 @@ from flask import flash, redirect, render_template, request, url_for
 
 from blueprints.admin import admin_bp
 from models import get_db
+from services.match_service import supplement_temp_teams
 from utils.helpers import normalize_internal_path, sanitize_html
 from utils.web_helpers import admin_required as login_required
 from utils.web_helpers import csrf_required
 
-RECENT_MATCHES_SQL = """SELECT m.id, m.match_time, t1.short_name as t1s, t2.short_name as t2s,
-    COALESCE(t1.name,'TBD') as t1n, COALESCE(t2.name,'TBD') as t2n, m.team1_score, m.team2_score, e.name as event_name
+RECENT_MATCHES_SQL = """SELECT m.id, m.event_id, m.match_time, m.team1_id, m.team2_id,
+    m.team1_players, m.team2_players, m.team1_score, m.team2_score,
+    t1.name AS team1_name, t2.name AS team2_name, t1.short_name AS t1s, t2.short_name AS t2s,
+    e.name AS event_name
     FROM matches m LEFT JOIN teams t1 ON m.team1_id=t1.id LEFT JOIN teams t2 ON m.team2_id=t2.id
     LEFT JOIN events e ON m.event_id=e.id ORDER BY m.match_time DESC LIMIT 100"""
 
 
 def _recent_matches(conn):
-    return conn.execute(RECENT_MATCHES_SQL).fetchall()
+    """关联比赛下拉框：自选选手组成的临时队伍用和比赛列表相同的名称（如 TEAM 1 / TEAM 2）。"""
+    return [supplement_temp_teams(row, conn) for row in conn.execute(RECENT_MATCHES_SQL).fetchall()]
 
 
 def _news_form_values():

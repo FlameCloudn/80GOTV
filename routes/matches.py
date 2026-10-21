@@ -101,15 +101,18 @@ def matches_list():
     events = conn.execute("SELECT * FROM events ORDER BY start_date DESC").fetchall()
     completed_on_selected_date = 0
     if date_filter:
-        completed_on_selected_date = conn.execute(
-            f"""
+        # 与列表同一组条件：选了赛事时只看该赛事当天有没有已结束的比赛
+        completed_sql = f"""
             SELECT COUNT(*)
             FROM matches m
             WHERE {_SQL_MATCH_COMPLETED}
               AND substr(COALESCE(m.match_time, ''), 1, 10)=?
-            """,
-            (date_filter,),
-        ).fetchone()[0]
+        """
+        completed_params = [date_filter]
+        if event_filter:
+            completed_sql += " AND m.event_id=?"
+            completed_params.append(event_filter)
+        completed_on_selected_date = conn.execute(completed_sql, completed_params).fetchone()[0]
     conn.close()
 
     today = datetime.now().date()

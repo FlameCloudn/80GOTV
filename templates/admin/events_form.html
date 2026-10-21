@@ -81,6 +81,7 @@
           <button type="button" class="time-chip" onclick="setEventDuration(14)">14天 (2周)</button>
           <button type="button" class="time-chip" onclick="setEventDuration(30)">30天 (月赛)</button>
         </div>
+        <div class="field-hint">快捷赛期按自然日计算：开始当天算第 1 天，最后一天 20:00 结束（例如 1 天＝当天结束，2 天＝第二天结束）。</div>
       </div>
 
       <div class="form-row">
@@ -194,9 +195,14 @@ function setEventDuration(days) {
     startInput.value = formatDT(startDate);
   }
   
+  // 按自然日计算：开始当天算第 1 天，最后一天 20:00 结束
   var endDate = new Date(startDate.getTime());
-  endDate.setDate(endDate.getDate() + days);
+  endDate.setDate(endDate.getDate() + days - 1);
   endDate.setHours(20, 0, 0, 0);
+  // 开始时间已经晚于最后一天 20:00（如单日赛 21:00 开赛），就改为当天 23:59 结束
+  if (endDate.getTime() <= startDate.getTime()) {
+    endDate.setHours(23, 59, 0, 0);
+  }
   endInput.value = formatDT(endDate);
 }
 </script>

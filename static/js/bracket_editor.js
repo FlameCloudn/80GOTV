@@ -176,7 +176,20 @@ function loadTeams() {
   });
 }
 
+// 数据库里存的是 JSON 文本，模板原样传过来时是字符串，这里统一转成对象
+function parseBracketData(data) {
+  if (typeof data !== 'string') return data;
+  try {
+    return JSON.parse(data);
+  } catch (err) {
+    console.error('对阵图数据无法解析:', err);
+    return null;
+  }
+}
+
 function loadBracketData(data) {
+  data = parseBracketData(data);
+  if (!data || typeof data !== 'object') return;
   var tour = data.tournament || data;
   if (!tour) return;
 
@@ -572,20 +585,7 @@ function renderBracket() {
         html += '<div class="swiss-record-title">' + escHtml(round.name) + '</div>';
         html += '<div class="swiss-record-matches">';
         round.matches.forEach(function(matchDef) {
-          var m = _state.matches[matchDef.id] || { team1: null, team2: null, score1: '', score2: '', match_id: '', match_time: '', bo_format: '', maps: [] };
-          var filled = (m.team1 || m.team2);
-          html += '<div class="bracket-slot' + (filled ? ' filled' : '') + '" data-match-id="' + matchDef.id + '">';
-          html += '<div class="slot-header"><span class="slot-label">' + escHtml(matchDef.id) + '</span>';
-          html += '<div class="slot-actions">';
-          html += renderMatchAction(m);
-          html += '</div>';
-          html += renderMatchSettings(matchDef.id, m.match_time, m.bo_format, m.match_id);
-          html += '</div>';
-          html += '<div class="slot-teams">';
-          html += renderTeamSlot(matchDef.id, 0, m.team1, m.score1, m.team2, m.score2);
-          html += '<div class="slot-vs">VS</div>';
-          html += renderTeamSlot(matchDef.id, 1, m.team2, m.score2, m.team1, m.score1);
-          html += '</div></div>';
+          html += renderBracketSlot(matchDef);
         });
         html += '</div></div>';
       });
@@ -593,23 +593,10 @@ function renderBracket() {
       // 淘汰赛：每个 round 一列
       html += '<div class="section-rounds-row">';
       section.rounds.forEach(function(round) {
-        html += '<div class="round-col" style="flex:1">';
+        html += '<div class="round-col">';
         html += '<div class="round-title">' + escHtml(round.name) + '</div>';
         round.matches.forEach(function(matchDef) {
-          var m = _state.matches[matchDef.id] || { team1: null, team2: null, score1: '', score2: '', match_id: '', match_time: '', bo_format: '', maps: [] };
-          var filled = (m.team1 || m.team2);
-          html += '<div class="bracket-slot' + (filled ? ' filled' : '') + '" data-match-id="' + matchDef.id + '">';
-          html += '<div class="slot-header"><span class="slot-label">' + escHtml(matchDef.id) + '</span>';
-          html += '<div class="slot-actions">';
-          html += renderMatchAction(m);
-          html += '</div>';
-          html += renderMatchSettings(matchDef.id, m.match_time, m.bo_format, m.match_id);
-          html += '</div>';
-          html += '<div class="slot-teams">';
-          html += renderTeamSlot(matchDef.id, 0, m.team1, m.score1, m.team2, m.score2);
-          html += '<div class="slot-vs">VS</div>';
-          html += renderTeamSlot(matchDef.id, 1, m.team2, m.score2, m.team1, m.score1);
-          html += '</div></div>';
+          html += renderBracketSlot(matchDef);
         });
         html += '</div>';
       });
@@ -619,6 +606,24 @@ function renderBracket() {
 
   container.innerHTML = html || '<div class="empty-bracket-hint">选择赛制后将显示对阵图编辑区域</div>';
   setupDragDelegate();
+}
+
+// 一个对阵卡片：标题行（编号 + 操作）、双方队伍、比赛设置，三块上下排列
+function renderBracketSlot(matchDef) {
+  var m = _state.matches[matchDef.id] || { team1: null, team2: null, score1: '', score2: '', match_id: '', match_time: '', bo_format: '', maps: [] };
+  var filled = (m.team1 || m.team2);
+  var html = '<div class="bracket-slot' + (filled ? ' filled' : '') + '" data-match-id="' + matchDef.id + '">';
+  html += '<div class="slot-header"><span class="slot-label">' + escHtml(matchDef.id) + '</span>';
+  html += '<div class="slot-actions">' + renderMatchAction(m) + '</div>';
+  html += '</div>';
+  html += '<div class="slot-teams">';
+  html += renderTeamSlot(matchDef.id, 0, m.team1, m.score1, m.team2, m.score2);
+  html += '<div class="slot-vs">VS</div>';
+  html += renderTeamSlot(matchDef.id, 1, m.team2, m.score2, m.team1, m.score1);
+  html += '</div>';
+  html += renderMatchSettings(matchDef.id, m.match_time, m.bo_format, m.match_id);
+  html += '</div>';
+  return html;
 }
 
 function renderMatchAction(match) {
@@ -814,26 +819,45 @@ function saveBracket() {
     },
     body: JSON.stringify(data)
   })
-  .then(function(r) { return r.json(); })
-  .then(function(res) {
+  .then(readSaveResponse)
+  .then(function(result) {
     btn.disabled = false;
     btn.textContent = origText;
-    if (res.success) {
-      if (res.bracket) {
-        loadBracketData(res.bracket);
-        renderAll();
-      }
-      showToast('对阵图和全部比赛已生成！', 'success');
-    } else {
-      showToast('保存失败：' + (res.error || '未知错误'), 'error');
-    }
-  })
-  .catch(function(err) {
+    handleSaveResult(result);
+  }, function(err) {
+    // 只有请求根本没发出去或没收到回复才算网络错误
     btn.disabled = false;
     btn.textContent = origText;
-    showToast('网络错误，请重试', 'error');
+    showToast('网络错误，没有收到服务器回复，请检查网络后重试', 'error');
     console.error(err);
   });
+}
+
+// 把服务器回复读成 { status, body }；回复不是 JSON（例如登录过期跳到登录页）时 body 为 null
+function readSaveResponse(response) {
+  return response.text().then(function(text) {
+    var body = null;
+    try { body = JSON.parse(text); } catch (err) { body = null; }
+    return { status: response.status, body: body };
+  });
+}
+
+function handleSaveResult(result) {
+  var res = result.body;
+  if (!res) {
+    console.warn('对阵图保存：服务器回复不是 JSON，状态码', result.status);
+    showToast('保存失败：服务器回复无法识别，可能是登录已过期，请刷新页面后重试', 'error');
+    return;
+  }
+  if (!res.success) {
+    showToast('保存失败：' + (res.error || '未知错误'), 'error');
+    return;
+  }
+  if (res.bracket) {
+    loadBracketData(res.bracket);
+    renderAll();
+  }
+  showToast(res.message || '对阵图和全部比赛已生成', 'success');
 }
 
 function resetBracket() {

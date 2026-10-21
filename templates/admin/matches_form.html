@@ -540,8 +540,14 @@ function updateMapFields() {
   }
 }
 
-function toggleSide(num) {
+// 是否测试比赛：新建页看“测试模式”勾选框，编辑页看隐藏的 is_test_mode 标记
+function isTestMatch() {
   var testMode = document.getElementById('testMode');
+  if (testMode) return testMode.checked;
+  return !!document.querySelector('input[type="hidden"][name="is_test_mode"][value="1"]');
+}
+
+function toggleSide(num) {
   var checked = document.querySelector('input[name="side'+num+'_type"]:checked');
   if (!checked) return;
   var isTeam = checked.value === 'team';
@@ -550,7 +556,7 @@ function toggleSide(num) {
   if (teamEl) teamEl.style.display = isTeam ? 'block' : 'none';
   if (playersEl) playersEl.style.display = isTeam ? 'none' : 'block';
   var sel = document.querySelector('select[name="side'+num+'_id"]');
-  if (sel) sel.required = isTeam && !(testMode && testMode.checked);
+  if (sel) sel.required = isTeam && !isTestMatch();
 }
 
 function toggleTestMode() {

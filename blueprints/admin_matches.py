@@ -716,24 +716,21 @@ def admin_matches_edit(match_id):
             flash(error, "error")
             return _match_form_response(conn, _match_form_state(current_match, f), 400)
         existing = current_match
-        team1_id = existing["team1_id"] if existing else None
-        team2_id = existing["team2_id"] if existing else None
-        team1_players = existing["team1_players"] if existing else None
-        team2_players = existing["team2_players"] if existing else None
+        # 是否测试比赛以数据库为准（创建时决定），和创建时用同一套“参赛方可留空”的规则
+        f["is_test_mode"] = int(existing["is_test_mode"] or 0)
+        is_test = bool(f["is_test_mode"])
+        team1_id = existing["team1_id"]
+        team2_id = existing["team2_id"]
+        team1_players = existing["team1_players"]
+        team2_players = existing["team2_players"]
         if (existing["status"] or "upcoming") == "upcoming":
             if "side1_type" in request.form:
                 team1_id, team1_players, err = _parse_side(
-                    conn,
-                    "side1",
-                    allow_partial=bool(f["is_test_mode"]),
-                    allow_empty=bool(f["is_test_mode"]),
+                    conn, "side1", allow_partial=is_test, allow_empty=is_test
                 )
                 if not err and "side2_type" in request.form:
                     team2_id, team2_players, err = _parse_side(
-                        conn,
-                        "side2",
-                        allow_partial=bool(f["is_test_mode"]),
-                        allow_empty=bool(f["is_test_mode"]),
+                        conn, "side2", allow_partial=is_test, allow_empty=is_test
                     )
                 if err:
                     flash(err, "error")
@@ -761,7 +758,6 @@ def admin_matches_edit(match_id):
                         ),
                         400,
                     )
-        f["is_test_mode"] = int(existing["is_test_mode"] or 0) if existing else 0
         if team1_id and team2_id and team1_id == team2_id:
             flash("两支队伍不能相同", "error")
             return _match_form_response(

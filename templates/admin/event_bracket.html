@@ -86,7 +86,8 @@
     }
 
     .round-row{display:flex;gap:40px;margin-bottom:30px;align-items:stretch}
-    .round-col{flex:1;min-width:0}
+    /* 每轮一列：列宽有下限，放不下时整个对阵区横向滚动，而不是把卡片挤扁 */
+    .round-col{flex:1 1 0;min-width:230px}
     .round-title{
       font-size:13px;font-weight:700;color:var(--accent);margin-bottom:12px;
       text-transform:uppercase;letter-spacing:0.5px;
@@ -95,17 +96,17 @@
 
     .bracket-slot{
       background:var(--bg-secondary);border:2px dashed var(--border-color);
-      padding:12px;margin-bottom:12px;min-height:100px;
+      padding:12px;margin-bottom:12px;min-height:100px;max-width:460px;
       transition:all 0.2s;position:relative;
     }
     .bracket-slot.drag-over{border-color:var(--accent);background:var(--bg-hover)}
     .bracket-slot.filled{border-style:solid;border-color:var(--border-color);background:var(--bg-card)}
 
     .slot-header{
-      display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;
+      display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;
     }
-    .slot-label{font-size:11px;font-weight:600;color:var(--text-muted)}
-    .slot-actions{display:flex;gap:4px}
+    .slot-label{font-size:11px;font-weight:600;color:var(--text-muted);white-space:nowrap}
+    .slot-actions{display:flex;gap:4px;flex-shrink:0;white-space:nowrap}
 
     .slot-teams{display:flex;flex-direction:column;gap:6px}
     .slot-team{
@@ -132,26 +133,26 @@
     .slot-team .remove-team-btn:hover{color:#dc2626}
 
     .slot-vs{text-align:center;font-size:11px;color:var(--text-muted);padding:2px 0}
+    /* 比赛设置：每项“小标题在上、控件在下”，控件占满卡片宽度，窄卡片也不会互相挤压 */
     .slot-match-settings{
-      display:grid;grid-template-columns:minmax(190px,1fr) 104px;gap:10px;
+      display:grid;grid-template-columns:minmax(0,1fr);gap:8px;
       margin-top:10px;padding-top:9px;border-top:1px solid var(--border-color);
     }
     .slot-binding-row,.slot-time-row,.slot-bo-row{
-      display:flex;align-items:center;gap:8px;color:var(--text-secondary);font-size:12px;font-weight:600;
+      display:flex;flex-direction:column;align-items:stretch;gap:4px;min-width:0;
+      color:var(--text-secondary);font-size:12px;font-weight:600;
     }
-    .slot-binding-row{grid-column:1/-1}
-    .slot-binding-row select{
-      min-width:0;flex:1;padding:6px 8px;border:1px solid var(--border-color);background:var(--bg-card);
-      color:var(--text-primary);font:inherit;
+    .slot-binding-row > span,.slot-time-row > span,.slot-bo-row > span{white-space:nowrap}
+    .slot-binding-row select,.slot-time-row input,.slot-bo-row select{
+      width:100%;min-width:0;padding:6px 8px;border:1px solid var(--border-color);background:var(--bg-card);
+      color:var(--text-primary);font:inherit;font-weight:400;text-overflow:ellipsis;
     }
-    .slot-time-row input{
-      min-width:0;flex:1;padding:6px 8px;border:1px solid var(--border-color);background:var(--bg-card);
-      color:var(--text-primary);font:inherit;
+    /* 卡片够宽时，比赛时间和赛制并排 */
+    @container slot (min-width: 330px){
+      .slot-match-settings{grid-template-columns:minmax(0,1fr) 96px}
+      .slot-binding-row{grid-column:1/-1}
     }
-    .slot-bo-row select{
-      min-width:0;flex:1;padding:6px;border:1px solid var(--border-color);background:var(--bg-card);
-      color:var(--text-primary);font:inherit;
-    }
+    .bracket-slot{container:slot / inline-size}
     .slot-binding-row select:focus,.slot-time-row input:focus,.slot-bo-row select:focus{outline:none;border-color:var(--accent)}
 
     .bracket-section-label{
@@ -211,7 +212,7 @@
 
     /* Section rounds row (elimination editor) */
     .section-rounds-row{
-      display:flex;gap:40px;margin-bottom:30px;align-items:stretch;
+      display:flex;gap:20px;margin-bottom:30px;align-items:stretch;
     }
 
     /* Custom team input */
@@ -311,6 +312,7 @@
   window._bracketData = {{ bracket_data|tojson if bracket_data else 'null' }};
   window._eventMatches = {{ event_matches|tojson }};
 </script>
+<script src="{{ versioned_url('static/js/site_dialogs.js') }}"></script>
 <script src="{{ versioned_url('static/js/bracket_editor.js') }}"></script>
 <script src="{{ versioned_url('static/js/i18n.js') }}"></script>
 <script src="{{ url_for('static', filename='js/svg_icons.js') }}?v=20260620-svg1"></script>

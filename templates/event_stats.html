@@ -20,7 +20,7 @@
   <table>
     <thead>
       <tr>
-        <th>#</th><th>选手</th><th>队伍</th><th>场次</th>
+        <th>#</th><th>选手</th><th>队伍</th><th>比赛数</th><th>地图数</th>
         <th class="sortable sort-desc" data-sort="rating" aria-sort="descending">RATING</th>
         <th class="sortable" data-sort="kd" aria-sort="none">K/D</th>
         <th class="sortable" data-sort="adr" aria-sort="none">ADR</th>
@@ -36,6 +36,7 @@
         <td><a href="/players/{{ r.id }}" data-i18n-ignore>{{ private_name_for_player(r.id, r.nickname) }}</a></td>
         <td data-i18n-ignore>{{ r.team or '-' }}</td>
         <td>{{ r.matches }}</td>
+        <td>{{ r.maps }}</td>
         <td class="rt-cell" data-val="{{ r.rating }}"><b>{{ "%.2f"|format(r.rating) }}</b></td>
         <td data-val="{{ r.kd }}">{{ "%.2f"|format(r.kd) if r.kd else '-' }}</td>
         <td data-val="{{ r.adr }}">{{ "%.1f"|format(r.adr) }}</td>
@@ -120,7 +121,7 @@
 <div class="h-panel-title">赛事信息</div>
 <div class="card small h-side-card">
   <div><b>赛制：</b>{{ event.format }}</div>
-  <div><b>队伍数：</b>{{ event.total_teams or '-' }}</div>
+  <div><b>队伍数：</b>{{ team_count or '-' }}</div>
 </div>
 </section>
 {% endblock %}

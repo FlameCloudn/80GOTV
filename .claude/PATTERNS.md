@@ -167,6 +167,14 @@ def api_example():
 - **手机端**的版式规则集中在 `static/css/mobile_hltv.css` 最后的"手机端 HLTV 版式"一段，数值是对照 HLTV 手机版量出来的
   （导航 46px、左右边距 10px、标题 13px 粗体写在页面底色上、卡片无边框细阴影）。新页面只要用上面的统一组件，手机上会自动套用。
 - 需要再对照 HLTV 时：官网有人机验证打不开，用公开存档 `https://web.archive.org/web/2025/https://www.hltv.org/`（手机宽度打开）。
+- **手机 / 电脑分界线是 760px**：≤760 用手机版式，≥761 用电脑版式。新写的媒体查询也用 760，不要再用 768（以前 761–768 两套样式叠在一起出过错位）。
+- **顶部导航放不下时**不用改断点：`main.js` 会按实际宽度给 `.navbar` 逐级加 `nav-fit-1/2/3`，把次要入口收进“更多”。
+  导航里新加入口时，在 `hltv_refresh.css` 的“顶部导航自动收纳”一段决定它在第几级被收起，并在“更多”菜单里补一个同名链接。
+- **筛选链接只改自己那一项**：日历、赛事、阵营这类筛选，链接里要带上其他已选条件（参考 `matches.html` 顶部的 `filter_url`），
+  不然点一下就把别的筛选清掉了。
+- **提示条 / 确认框**用 `showToast('文字', 'success'|'error')`、`showConfirm('文字')`，定义在 `static/js/site_dialogs.js`。
+  前台页面已自动引入；后台那种不继承 `base.html` 的独立页面要自己加 `<script src="{{ versioned_url('static/js/site_dialogs.js') }}">`。
+- **数据缺失不要显示成 0**：旧 Demo 没有的字段（比如闪光弹投掷次数）显示“暂无数据”（`<span class="stat-missing">暂无数据</span>`）。
 
 ## 翻译（中英文）约定
 

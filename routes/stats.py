@@ -392,6 +392,37 @@ def _csda_flash_stats(filters, limit=100):
     return rows[:limit]
 
 
+def _pistol_match_teams(conn, match_ids):
+    """取比赛双方名称和队标；自选选手组成的临时队伍沿用比赛列表的回退名称（如 TEAM 1 / TEAM 2）。"""
+    placeholders = ",".join("?" * len(match_ids))
+    rows = conn.execute(
+        f"""
+        SELECT m.id, m.event_id, m.team1_id, m.team2_id, m.team1_players, m.team2_players,
+               COALESCE(t1.name, t1.short_name) AS team1_name,
+               COALESCE(t2.name, t2.short_name) AS team2_name,
+               t1.short_name AS t1s, t2.short_name AS t2s,
+               t1.logo AS t1_logo, t2.logo AS t2_logo
+        FROM matches m
+        LEFT JOIN teams t1 ON m.team1_id=t1.id
+        LEFT JOIN teams t2 ON m.team2_id=t2.id
+        WHERE m.id IN ({placeholders})
+        """,
+        tuple(sorted(match_ids)),
+    ).fetchall()
+    match_teams = {}
+    for row in rows:
+        full = supplement_temp_teams(row, conn)
+        match_teams[row["id"]] = {
+            "team1_id": row["team1_id"],
+            "team2_id": row["team2_id"],
+            "t1_name": full["team1_name"],
+            "t2_name": full["team2_name"],
+            "t1_logo": full.get("t1_logo") or "",
+            "t2_logo": full.get("t2_logo") or "",
+        }
+    return match_teams
+
+
 def _pistol_rounds(filters, limit=100):
     """从 CSDA 缓存 JSON 提取手枪局数据（按队伍统计）。
 
@@ -415,23 +446,10 @@ def _pistol_rounds(filters, limit=100):
             params,
         ).fetchall()
         valid_match_ids = {int(r["match_id"]) for r in match_rows}
-
-        # 获取队伍信息
-        teams_by_id = {}
-        for t in conn.execute("SELECT id, name, short_name, logo FROM teams").fetchall():
-            teams_by_id[t["id"]] = dict(t)
-        # 获取 match 的 team1/team2 映射
-        match_teams = {}
-        for mrow in conn.execute("""
-            SELECT m.id, m.team1_id, m.team2_id,
-                   COALESCE(t1.name, t1.short_name, 'TBD') AS t1_name,
-                   COALESCE(t2.name, t2.short_name, 'TBD') AS t2_name,
-                   t1.logo AS t1_logo, t2.logo AS t2_logo
-            FROM matches m
-            LEFT JOIN teams t1 ON m.team1_id=t1.id
-            LEFT JOIN teams t2 ON m.team2_id=t2.id
-        """).fetchall():
-            match_teams[mrow["id"]] = dict(mrow)
+        # 筛选条件下没有任何比赛时直接返回空，不能退回成“统计全部比赛”
+        if not valid_match_ids:
+            return []
+        match_teams = _pistol_match_teams(conn, valid_match_ids)
     finally:
         try:
             conn.close()
@@ -753,50 +771,43 @@ def _player_rankings(conn, filters, order="rating", limit=50):
     ).fetchall()
 
 
-def _flash_rankings(conn, filters, limit=50):
-    """Read persisted flash metrics without opening multi-megabyte cache files."""
-    if _is_unfiltered(filters):
-        return conn.execute(
-            """
-            SELECT p.nickname, p.id, p.avatar,
-                   s.maps, s.rounds_played AS rounds,
-                   (s.flash_count * 1.0 / NULLIF(s.maps, 0)) AS thrown,
-                   (s.flash_blinded_seconds / NULLIF(s.maps, 0)) AS blinded,
-                   (s.flash_enemy_seconds / NULLIF(s.maps, 0)) AS opp_flashed,
-                   ((s.flash_enemy_seconds - s.flash_blinded_seconds) /
-                    NULLIF(s.maps, 0)) AS diff,
-                   (s.flash_assists * 1.0 / NULLIF(s.maps, 0)) AS fa,
-                   (s.opponent_flash_maps * 1.0 /
-                    NULLIF(s.flash_maps, 0)) AS success
-            FROM player_performance_summary s
-            JOIN players p ON s.player_id=p.id
-            WHERE s.maps > 0
-            ORDER BY success DESC, diff DESC, s.maps DESC
-            LIMIT ?
-            """,
-            (limit,),
-        ).fetchall()
+# 有投掷次数记录的地图：同一张图上至少有一人记到了闪光弹投掷。
+# 旧版解析从没写过投掷次数（全是默认 0），这些图的投掷数据视为缺失，而不是“真的扔了 0 颗”。
+_FLASH_KNOWN_MAPS_SQL = """
+    SELECT match_id, COALESCE(map_name, '') AS map_key
+    FROM match_stats
+    WHERE COALESCE(data_status, 'final') <> 'superseded'
+    GROUP BY match_id, COALESCE(map_name, '')
+    HAVING SUM(COALESCE(flash_count, 0)) > 0
+"""
 
+
+def _flash_rankings(conn, filters, limit=50):
+    """闪光弹榜：投掷和成功率只按有投掷记录的地图计算，全部缺失时返回 None（页面显示“暂无数据”）。"""
     where_sql, params = _stats_where(filters)
     return conn.execute(
         f"""
         SELECT p.nickname, p.id, p.avatar,
                COUNT(ms.id) AS maps,
                SUM(COALESCE(ms.rounds_played, 0)) AS rounds,
-               AVG(ms.flash_count) AS thrown,
+               AVG(CASE WHEN fk.match_id IS NOT NULL THEN ms.flash_count END) AS thrown,
                AVG(ms.flash_blinded_seconds) AS blinded,
                AVG(ms.flash_enemy_seconds) AS opp_flashed,
                AVG(ms.flash_enemy_seconds - ms.flash_blinded_seconds) AS diff,
                AVG(ms.flash_assists) AS fa,
-               (SUM(CASE WHEN ms.flash_enemy_seconds > 0 THEN 1 ELSE 0 END) * 1.0 /
-                NULLIF(SUM(CASE WHEN ms.flash_count > 0 THEN 1 ELSE 0 END), 0)) AS success
+               (SUM(CASE WHEN fk.match_id IS NOT NULL AND ms.flash_count > 0
+                         AND ms.flash_enemy_seconds > 0 THEN 1 ELSE 0 END) * 1.0 /
+                NULLIF(SUM(CASE WHEN fk.match_id IS NOT NULL AND ms.flash_count > 0
+                                THEN 1 ELSE 0 END), 0)) AS success
         FROM match_stats ms
         JOIN players p ON ms.player_id=p.id
         JOIN matches m ON ms.match_id=m.id
+        LEFT JOIN ({_FLASH_KNOWN_MAPS_SQL}) fk
+          ON fk.match_id=ms.match_id AND fk.map_key=COALESCE(ms.map_name, '')
         {where_sql}
         GROUP BY p.id
         HAVING maps > 0
-        ORDER BY success DESC, diff DESC, maps DESC
+        ORDER BY success IS NULL, success DESC, diff DESC, maps DESC
         LIMIT ?
     """,
         (*params, limit),

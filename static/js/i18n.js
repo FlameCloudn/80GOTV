@@ -1310,9 +1310,26 @@
     // —— 选手备注 ——
     '备注修改过于频繁，请稍后再试': 'Too many note changes. Please try again later.',
     '该选手尚未关联网站账号，暂时不能设置备注': 'This player has no site account yet, so a note cannot be set',
-    '不能给自己设置私人备注': 'You cannot set a private note for yourself'
+    '不能给自己设置私人备注': 'You cannot set a private note for yourself',
+    // —— 2026-10-20 实测修复：赛期提示、对阵图编辑器 ——
+    '快捷赛期按自然日计算：开始当天算第 1 天，最后一天 20:00 结束（例如 1 天＝当天结束，2 天＝第二天结束）。':
+      'Quick durations count calendar days: the start day is day 1 and the event ends at 20:00 on the last day (1 day = same day, 2 days = next day).',
+    '已有比赛': 'Linked match', '保存后生成': 'Created on save', '自动匹配或保存时创建': 'Auto-match or create on save',
+    '拖入队伍': 'Drop a team here', 'TBD · 由赛果决定': 'TBD · decided by results', '比赛设置': 'Match settings',
+    '对阵图与全部比赛已生成': 'Bracket and all matches have been generated',
+    '这场比赛已经绑定到其他槽位': 'This match is already linked to another slot',
+    '网络错误，没有收到服务器回复，请检查网络后重试': 'Network error: no reply from the server. Check your connection and try again.'
   };
   var partialTranslations = [
+    // 对阵图保存失败的原因（前面会带“保存失败：”）
+    ['保存失败：', 'Save failed: '],
+    ['服务器回复无法识别，可能是登录已过期，请刷新页面后重试', 'unrecognised server reply. Your login may have expired; refresh the page and try again.'],
+    ['同一支队伍不能重复出现在首轮', 'the same team cannot appear twice in the first round'],
+    ['首轮包含已删除或不存在的队伍', 'the first round contains a deleted or missing team'],
+    ['首轮包含无效队伍', 'the first round contains an invalid team'],
+    ['同一场比赛不能绑定到多个对阵槽位', 'one match cannot be linked to more than one slot'],
+    ['该赛制暂不支持自动生成比赛', 'this format cannot generate matches automatically yet'],
+    ['比赛时间格式无效', 'invalid match time'],
     ['地图与赛制', 'Maps and format'],
     ['赛果 - ', 'Results - '], [' 场比赛', ' matches'],
     [' 支队伍', ' teams'], [' 个赛事', ' events'],
@@ -1438,6 +1455,7 @@
   // 带数字或名字的句式：先于"零散词替换"执行，避免翻出"Page 1 次"这类半中半英的结果
   var zhToEnPatterns = [
     // —— 整句优先：必须排在下面的通用句式之前 ——
+    [/请先把\s*(\d+)\s*支队伍全部放入首轮/g, 'place all $1 teams in the first round first'],
     [/在\s*(\d+)\s*次机会内猜出今天的职业选手/g, 'Guess today’s pro player within $1 attempts'],
     [/在\s*(\d+)\s*次机会内猜出本局的职业选手/g, 'Guess this round’s pro player within $1 attempts'],
     [/看截图，猜出地图和具体位置。每局有\s*(\d+)\s*次机会。/g, 'Look at the screenshot and guess the map and the exact spot. You get $1 attempts per round.'],

@@ -91,7 +91,7 @@
 {% if section == 'top-events' %}
 <div class="stats-table stats-dense-table">
   <table>
-    <thead><tr><th>冠军选手</th><th>赛事</th><th>比赛数</th></tr></thead>
+    <thead><tr><th>冠军队伍</th><th>赛事</th><th>比赛数</th></tr></thead>
     <tbody>
       {% for r in rows %}
       <tr>
@@ -142,12 +142,12 @@
         <td><a href="/players/{{ r.id }}" class="dense-player">{% set display_name = private_name_for_player(r.id, r.nickname) %}{% if r.avatar %}<img src="{{ avatar_thumbnail_url(r.avatar) }}" alt="{{ display_name }}" loading="lazy">{% else %}<span>{{ display_name[:1] }}</span>{% endif %}<b data-i18n-ignore>{{ display_name }}</b></a></td>
         <td>{{ r.maps or 0 }}</td>
         <td>{{ r.rounds or 0 }}</td>
-        <td>{{ "%.2f"|format(r.thrown or 0) }}</td>
+        <td>{% if r.thrown is none %}<span class="stat-missing">暂无数据</span>{% else %}{{ "%.2f"|format(r.thrown) }}{% endif %}</td>
         <td>{{ "%.2f"|format(r.blinded or 0) }}s</td>
         <td>{{ "%.2f"|format(r.opp_flashed or 0) }}s</td>
         <td class="{% if r.diff and r.diff > 0 %}stat-pos{% elif r.diff and r.diff < 0 %}stat-neg{% endif %}">{{ "%+.2f"|format(r.diff or 0) }}</td>
         <td>{{ "%.2f"|format(r.fa or 0) }}</td>
-        <td>{{ "%.2f"|format(r.success or 0) }}</td>
+        <td>{% if r.thrown is none %}<span class="stat-missing">暂无数据</span>{% elif r.success is none %}-{% else %}{{ "%.2f"|format(r.success) }}{% endif %}</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -163,9 +163,9 @@
       {% for r in rows %}
       <tr>
         <td class="team-cell" data-i18n-ignore>
-          {% if r.logo %}<img src="{{ url_for('static', filename=('logos/' + r.logo) if not r.logo.startswith('http') else r.logo) }}" alt="" loading="lazy" class="team-logo-sm">{% endif %}
+          {% if r.logo %}<img src="{{ r.logo if r.logo.startswith('http') else url_for('static', filename='uploads/' + r.logo) }}" alt="" loading="lazy" class="team-logo-sm">{% endif %}
           {% if r.team_id %}
-          <a href="/teams">{{ r.team_name }}</a>
+          <a href="{{ url_for('team_detail', team_id=r.team_id) }}">{{ r.team_name }}</a>
           {% else %}
           <span>{{ r.team_name }}</span>
           {% endif %}

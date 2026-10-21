@@ -18,7 +18,7 @@
       {% for c in group.champions %}
       <div class="award-champ-row">
         <span class="award-icon">👑</span>
-        <a href="/teams" class="award-champ-team">{{ c.team_name }}</a>
+        <a href="{{ url_for('team_detail', team_id=c.team_id) }}" class="award-champ-team" data-i18n-ignore>{{ c.team_name }}</a>
         <span class="award-badge champ-badge">冠军</span>
       </div>
       {% endfor %}

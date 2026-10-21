@@ -1769,7 +1769,8 @@ def event_stats(event_id):
                AVG(ms.impact) AS impact,
                AVG(ms.headshot_percentage) AS hs,
                SUM(ms.clutches_won) AS clutch,
-               COUNT(ms.id) AS matches
+               COUNT(DISTINCT ms.match_id) AS matches,
+               COUNT(ms.id) AS maps
         FROM match_stats ms
         JOIN players p ON ms.player_id=p.id
         LEFT JOIN teams t ON p.team_id=t.id
@@ -1818,6 +1819,7 @@ def event_stats(event_id):
         (event_id,),
     ).fetchall()
 
+    team_count = _event_team_count(conn, event_id) or event["total_teams"]
     conn.close()
     return render_template(
         "event_stats.html",
@@ -1825,4 +1827,28 @@ def event_stats(event_id):
         rankings=rankings,
         map_stats=map_stats,
         team_rankings=team_rankings,
+        team_count=team_count,
     )
+
+
+def _event_team_count(conn, event_id):
+    """和赛事主页同一口径：统计该赛事未取消比赛里出现过的参赛方（正式队伍 + 自选选手组成的临时队伍）。"""
+    rows = conn.execute(
+        """SELECT team1_id, team2_id, team1_players, team2_players
+           FROM matches
+           WHERE event_id=? AND COALESCE(status, '') != 'cancelled'""",
+        (event_id,),
+    ).fetchall()
+    sides = set()
+    for row in rows:
+        for team_key, players_key in (("team1_id", "team1_players"), ("team2_id", "team2_players")):
+            if row[team_key]:
+                sides.add(("team", int(row[team_key])))
+                continue
+            try:
+                player_ids = json.loads(row[players_key] or "[]")
+            except (TypeError, ValueError):
+                player_ids = []
+            if isinstance(player_ids, list) and player_ids:
+                sides.add(("temp", frozenset(str(pid) for pid in player_ids)))
+    return len(sides)

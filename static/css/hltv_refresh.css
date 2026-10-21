@@ -62,6 +62,51 @@ body .navbar .nav-inner {
   display: none !important;
 }
 
+/* 顶部导航自动收纳：类名由 main.js 按实际宽度逐级加上（可叠加）。
+   nav-fit-1 次要入口收进“更多”；nav-fit-2 隐藏群昵称、压缩用户名和搜索框；
+   nav-fit-3 把赛果 / 赛事 / 论坛也收进“更多”。 */
+.nav-more-compact .nav-more-extra {
+  display: none !important;
+}
+
+@media (min-width: 761px) {
+  .navbar.nav-fit-1 .nav-players,
+  .navbar.nav-fit-1 .nav-stats,
+  .navbar.nav-fit-1 .nav-fantasy,
+  .navbar.nav-fit-1 .nav-games,
+  .navbar.nav-fit-1 .nav-dashboard {
+    display: none !important;
+  }
+
+  .navbar.nav-fit-1 .nav-more-compact {
+    display: flex !important;
+  }
+
+  .navbar.nav-fit-2 .user-nav .username-handle {
+    display: none !important;
+  }
+
+  .navbar.nav-fit-2 .user-nav .username {
+    max-width: 150px;
+    overflow: hidden;
+  }
+
+  .navbar.nav-fit-2 .search-form input,
+  .navbar.nav-fit-2 .search-form input:focus {
+    width: 112px !important;
+  }
+
+  .navbar.nav-fit-3 .nav-results,
+  .navbar.nav-fit-3 .nav-events,
+  .navbar.nav-fit-3 .nav-forum-desktop {
+    display: none !important;
+  }
+
+  .navbar.nav-fit-3 .nav-more-compact .nav-more-extra {
+    display: block !important;
+  }
+}
+
 .logo {
   align-self: stretch;
   display: flex;
@@ -4867,3 +4912,6 @@ body .comments .reply-textarea {
 .vote-login-hint {
   gap: .3em;
 }
+
+/* 数据缺失（不是 0）时的占位文字 */
+.stat-missing { color: var(--text-muted); }

@@ -78,6 +78,11 @@
         </select>
       </label>
       <input type="hidden" name="side" value="{{ filters.side }}">
+      {% if tab == 'compare' %}
+      {# 切换赛事/时间/地图时保留已选的两名选手 #}
+      {% if comparison.id1 %}<input type="hidden" name="id1" value="{{ comparison.id1 }}">{% endif %}
+      {% if comparison.id2 %}<input type="hidden" name="id2" value="{{ comparison.id2 }}">{% endif %}
+      {% endif %}
       <div class="stats-version-control" aria-label="游戏版本">
         <span><span class="stats-lang-zh" data-i18n-ignore>版本</span><span class="stats-lang-en" data-i18n-ignore>Version</span></span>
         <b>CS2</b>
@@ -87,7 +92,7 @@
     {% if tab in ('players', 'compare') %}
     <nav class="stats-side-tabs stats-side-tabs-compact" aria-label="阵营">
       {% for side in side_options %}
-      <a href="/stats?tab={{ tab }}&time={{ filters.time }}&map={{ filters.map|urlencode }}&event={{ event_value }}&ranking={{ filters.ranking }}&side={{ side.value }}"
+      <a href="/stats?tab={{ tab }}&time={{ filters.time }}&map={{ filters.map|urlencode }}&event={{ event_value }}&ranking={{ filters.ranking }}&side={{ side.value }}{% if tab == 'compare' %}{% if comparison.id1 %}&id1={{ comparison.id1 }}{% endif %}{% if comparison.id2 %}&id2={{ comparison.id2 }}{% endif %}{% endif %}"
          class="{% if filters.side == side.value %}active{% endif %}">{{ side.label }}</a>
       {% endfor %}
     </nav>
@@ -159,7 +164,7 @@
         <h3 class="overview-section-title">最佳队伍</h3>
         <div class="overview-rank-list">
           {% for team in overview.top_teams %}
-          <a href="/teams" class="overview-rank-row">
+          <a href="{{ url_for('team_detail', team_id=team.id) if team.id else url_for('teams_list') }}" class="overview-rank-row">
             {% if team.logo %}
             <img src="{{ url_for('static', filename='uploads/' + team.logo) }}" class="overview-team-mark overview-team-logo" alt="{{ team.short_name or team.name }}" loading="lazy">
             {% else %}

@@ -200,6 +200,16 @@ def _steam_id(value):
     return "" if value == "0" else value
 
 
+def _optional_int(value):
+    """None 保持 None（表示没有这项数据），其余转成整数。"""
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _side(value):
     try:
         value = int(value)
@@ -212,6 +222,28 @@ def _side(value):
     return ""
 
 
+def _count_flash_throws(match_data, flash_metrics):
+    """按“闪光弹爆炸”事件统计每名选手的投掷次数。
+
+    CSDA 的选手汇总里没有投掷次数字段，只能从事件里数。Demo 里没有这类事件时
+    不写次数（保持 None），页面会显示“暂无数据”而不是把缺失当成 0。
+    """
+    if "flashbangsExplode" not in match_data:
+        return
+    for item in flash_metrics.values():
+        item["flash_count"] = 0
+    for event in match_data.get("flashbangsExplode") or []:
+        if not isinstance(event, dict):
+            continue
+        thrower_steam_id = _steam_id(event.get("throwerSteamId"))
+        if not thrower_steam_id:
+            continue
+        item = flash_metrics[thrower_steam_id]
+        item["steam_id"] = thrower_steam_id
+        item["name"] = item["name"] or str(event.get("throwerName") or "").strip()
+        item["flash_count"] = (item.get("flash_count") or 0) + 1
+
+
 def build_demo_performance_payload(match_data):
     """Reduce a multi-megabyte parser result to the fields pages actually need."""
     kill_events = []
@@ -222,6 +254,9 @@ def build_demo_performance_payload(match_data):
             "blinded_seconds": 0.0,
             "enemy_seconds": 0.0,
             "flash_assists": 0,
+            # 下面两项只有 Demo 里有对应事件时才会被填上数字
+            "flash_count": None,
+            "enemies_flashed": None,
         }
     )
 
@@ -273,12 +308,14 @@ def build_demo_performance_payload(match_data):
             item["name"] = str(event.get("flasherName") or "").strip()
             if flasher_side and flashed_side and flasher_side != flashed_side:
                 item["enemy_seconds"] += duration
+                item["enemies_flashed"] = (item.get("enemies_flashed") or 0) + 1
         if flashed_steam_id:
             item = flash_metrics[flashed_steam_id]
             item["steam_id"] = flashed_steam_id
             item["name"] = str(event.get("flashedName") or "").strip()
             item["blinded_seconds"] += duration
 
+    _count_flash_throws(match_data, flash_metrics)
     return {
         "kill_events": kill_events,
         "flash_metrics": [
@@ -464,13 +501,17 @@ def persist_demo_performance_payload(conn, match_id, map_name, payload):
             UPDATE match_stats
             SET flash_blinded_seconds=?,
                 flash_enemy_seconds=?,
-                flash_assists=?
+                flash_assists=?,
+                flash_count=COALESCE(?, flash_count),
+                enemies_flashed=COALESCE(?, enemies_flashed)
             WHERE match_id=? AND map_name=? AND player_id=?
             """,
             (
                 float(metric.get("blinded_seconds", 0) or 0),
                 float(metric.get("enemy_seconds", 0) or 0),
                 int(metric.get("flash_assists", 0) or 0),
+                _optional_int(metric.get("flash_count")),
+                _optional_int(metric.get("enemies_flashed")),
                 match_id,
                 map_name,
                 player_id,

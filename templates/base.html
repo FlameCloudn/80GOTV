@@ -90,11 +90,14 @@ window.addEventListener('error',function(e){
       <div class="nav-dropdown nav-more-compact">
         <a href="/players" class="nav-dropdown-toggle">更多</a>
         <div class="nav-dropdown-menu">
+          <a href="/results" class="nav-more-extra">赛果</a>
+          <a href="/events" class="nav-more-extra">赛事</a>
           <a href="/players">选手</a>
           <a href="/stats">数据</a>
           <a href="/predictions">预测</a>
           <a href="/games">游戏</a>
           <a href="/dashboard">数据看板</a>
+          <a href="/forum" class="nav-more-extra">论坛</a>
         </div>
       </div>
       <a href="/forum" class="mobile-drawer-only nav-forum-mobile" data-mobile-label-zh="论坛" data-mobile-label-en="Forum">论坛</a>
@@ -248,6 +251,7 @@ window.addEventListener('error',function(e){
   window._curIsAdmin = {{ ('admin_id' in session)|tojson }};
   window._curUsername = {{ session.get('user_username')|tojson }};
 </script>
+<script src="{{ versioned_url('static/js/site_dialogs.js') }}"></script>
 <script src="{{ versioned_url('static/js/main.js') }}"></script>
 <script src="{{ versioned_url('static/js/i18n.js') }}"></script>
 <script src="{{ versioned_url('static/js/svg_icons.js') }}"></script>

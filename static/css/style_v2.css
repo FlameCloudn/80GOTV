@@ -1536,7 +1536,7 @@ canvas{max-width:100%}
   
 }
 
-@media(max-width:768px){
+@media(max-width:760px){
   .hamburger{display:inline-block}
   .search-toggle{display:inline-block}
   .nav-links{
@@ -1555,7 +1555,6 @@ canvas{max-width:100%}
   .nav-dropdown-menu{position:static;transform:none;box-shadow:none;border:none;padding:0 0 0 16px;min-width:0}
   .nav-dropdown-menu::before,.nav-dropdown-menu::after{content:none}
   .nav-dropdown-menu a{padding:6px 0;font-size:13px}
-  .nav-dropdown-toggle{pointer-events:none}
   .nav-dropdown-toggle::after{content:none}
   .search-form{display:none}
   .search-form.open{
@@ -3145,7 +3144,7 @@ canvas{max-width:100%}
   flex-shrink:0;
 }
 
-@media(max-width:768px){
+@media(max-width:760px){
   .nav-links,.search-form.open{
     top:58px;
     background:var(--nav-bg);

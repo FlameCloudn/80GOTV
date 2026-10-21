@@ -873,108 +873,58 @@ document.addEventListener('click', function(e) {
   }
 });
 
-// ==================== 自定义 Toast / 模态框（替代浏览器 alert/confirm） ====================
+// ==================== 顶部导航按实际宽度自动收纳 ====================
+// 登录后右侧多了通知、用户名、后台入口，英文菜单也更长，固定断点挡不住重叠。
+// 这里按真实宽度逐级收纳：1 级把次要入口收进“更多”，2 级压缩用户名和搜索框，
+// 3 级把赛果/赛事/论坛也收进“更多”。手机端（≤760px）用抽屉菜单，不参与。
 (function() {
-  var toastContainer = null;
-  function ensureContainer() {
-    if (!toastContainer || !document.body.contains(toastContainer)) {
-      toastContainer = document.createElement('div');
-      toastContainer.className = 'site-toast-container';
-      document.body.appendChild(toastContainer);
-    }
-    return toastContainer;
+  var navbar = document.querySelector('.navbar');
+  var navLinks = document.getElementById('navLinks');
+  var navInner = navbar && navbar.querySelector('.nav-inner');
+  if (!navbar || !navLinks || !navInner) return;
+  var LEVEL_CLASSES = ['nav-fit-1', 'nav-fit-2', 'nav-fit-3'];
+  var pending = false;
+
+  function navOverflows() {
+    return navLinks.scrollWidth > navLinks.clientWidth + 1 ||
+      navInner.scrollWidth > navInner.clientWidth + 1;
   }
 
-  window.showToast = function(msg, type) {
-    type = type || 'info';
-    var iconMap = { error: '✕', success: '✓', info: 'ℹ' };
-    var el = document.createElement('div');
-    el.className = 'site-toast toast-' + type;
-    var icon = document.createElement('span');
-    icon.className = 'site-toast-icon';
-    icon.textContent = iconMap[type] || 'ℹ';
-    var message = document.createElement('span');
-    message.className = 'site-toast-msg';
-    message.textContent = String(msg || '');
-    el.appendChild(icon);
-    el.appendChild(message);
-    ensureContainer().appendChild(el);
-    setTimeout(function() {
-      el.classList.add('toast-out');
-      el.addEventListener('animationend', function() { if (el.parentNode) el.remove(); });
-    }, type === 'error' ? 5500 : 3500);
-  };
-
-  window.showModal = function(msg, title) {
-    return new Promise(function(resolve) {
-      var overlay = document.createElement('div');
-      overlay.className = 'site-modal-overlay';
-      overlay.innerHTML = '<div class="site-modal">' +
-        (title ? '<div class="site-modal-title">' + title + '</div>' : '') +
-        '<div class="site-modal-body">' + msg + '</div>' +
-        '<div class="site-modal-actions">' +
-          '<button class="site-modal-btn site-modal-btn-primary site-modal-ok">确定</button>' +
-        '</div></div>';
-      overlay.addEventListener('click', function(e) {
-        if (e.target === overlay) { overlay.remove(); resolve(); }
-      });
-      overlay.querySelector('.site-modal-ok').addEventListener('click', function() {
-        overlay.remove(); resolve();
-      });
-      document.body.appendChild(overlay);
+  function applyLevel(level) {
+    LEVEL_CLASSES.forEach(function(name, index) {
+      navbar.classList.toggle(name, index < level);
     });
-  };
+  }
 
-  window.showConfirm = function(msg, title) {
-    return new Promise(function(resolve) {
-      var overlay = document.createElement('div');
-      overlay.className = 'site-modal-overlay';
-      overlay.innerHTML = '<div class="site-modal">' +
-        (title ? '<div class="site-modal-title">' + title + '</div>' : '') +
-        '<div class="site-modal-body">' + msg + '</div>' +
-        '<div class="site-modal-actions">' +
-          '<button class="site-modal-btn site-modal-btn-secondary site-modal-cancel">取消</button>' +
-          '<button class="site-modal-btn site-modal-btn-primary site-modal-ok">确定</button>' +
-        '</div></div>';
-      overlay.addEventListener('click', function(e) {
-        if (e.target === overlay) { overlay.remove(); resolve(false); }
-      });
-      overlay.querySelector('.site-modal-cancel').addEventListener('click', function() {
-        overlay.remove(); resolve(false);
-      });
-      overlay.querySelector('.site-modal-ok').addEventListener('click', function() {
-        overlay.remove(); resolve(true);
-      });
-      document.body.appendChild(overlay);
+  function fitNav() {
+    pending = false;
+    if (window.innerWidth <= 760) {
+      applyLevel(0);
+      return;
+    }
+    var level = 0;
+    applyLevel(level);
+    while (navOverflows() && level < LEVEL_CLASSES.length) {
+      level += 1;
+      applyLevel(level);
+    }
+  }
+
+  function scheduleFit() {
+    if (pending) return;
+    pending = true;
+    window.requestAnimationFrame(fitNav);
+  }
+
+  fitNav();
+  window.addEventListener('resize', scheduleFit);
+  window.addEventListener('load', scheduleFit);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(scheduleFit);
+  // 切换语言时菜单文字会变长或变短，文字一变就重新量
+  if (window.MutationObserver) {
+    var observer = new MutationObserver(scheduleFit);
+    [navLinks, navbar.querySelector('.user-nav')].forEach(function(node) {
+      if (node) observer.observe(node, { childList: true, characterData: true, subtree: true });
     });
-  };
-
-  // 用于替换 HTML 内联 onsubmit="return confirm(...)" → onsubmit="return window._confirmThen(event, '...')"
-  window._confirmThen = function(e, msg) {
-    e.preventDefault();
-    var target = e.currentTarget || e.target;
-    var form = target && target.tagName === 'FORM' ? target : (target ? target.closest('form') : null);
-    showConfirm(msg).then(function(yes) {
-      if (!yes || !form) return;
-      fetch(form.action, {
-        method: 'POST',
-        body: new FormData(form),
-        credentials: 'same-origin'
-      }).then(function(resp) {
-        if (resp.ok) window.location.href = resp.url;
-        else window.location.reload();
-      }).catch(function() {
-        window.location.reload();
-      });
-    });
-    return false;
-  };
-
-  // 用于替换 HTML 内联 onclick="return confirm(...)" 在链接上
-  window._confirmLink = function(e, msg) {
-    e.preventDefault();
-    var href = e.currentTarget.getAttribute('href');
-    showConfirm(msg).then(function(yes) { if (yes) window.location.href = href; });
-    return false;
-  };
+  }
 })();

@@ -70,7 +70,7 @@
           <option value="">-- 不关联 --</option>
           {% for m in recent_matches %}
           <option value="{{ m.id }}" {% if news and news.related_match_id == m.id %}selected{% endif %}>
-            {{ m.event_name or '' }} | {{ m.t1s or m.t1n }} {{ m.team1_score }}:{{ m.team2_score }} {{ m.t2s or m.t2n }} | {{ m.match_time|date_display if m.match_time else '' }}
+            {{ m.event_name or '' }} | {{ m.team1_name }} {{ m.team1_score }}:{{ m.team2_score }} {{ m.team2_name }} | {{ m.match_time|date_display if m.match_time else '' }}
           </option>
           {% endfor %}
         </select>

@@ -1,4 +1,11 @@
 {% extends 'base.html' %}
+{# 比赛页筛选链接：只改传入的那一项，赛事 / 日期 / 月份里其他已选条件原样保留；传空字符串表示去掉该条件 #}
+{% macro filter_url(event=none, date=none, month=none) -%}
+{%- set new_event = event_filter if event is none else event -%}
+{%- set new_date = date_filter if date is none else date -%}
+{%- set new_month = calendar_month.strftime('%Y-%m') if month is none else month -%}
+{{ url_for('matches_list', event=new_event or none, date=new_date or none, month=new_month or none) }}
+{%- endmacro %}
 {% block title %}比赛 - 80GOTV{% endblock %}
 {% block layout_class %}matches-layout-shell{% endblock %}
 {% block main %}
@@ -6,10 +13,10 @@
   <aside class="matches-date-sidebar">
     <div class="match-calendar">
       <div class="match-calendar-head">
-        <a href="{{ url_for('matches_list') }}?month={{ prev_month.strftime('%Y-%m') }}" aria-label="上一月">‹</a>
+        <a href="{{ filter_url(month=prev_month.strftime('%Y-%m')) }}" aria-label="上一月">‹</a>
         {% set month_names = ['一月','二月','三月','四月','五月','六月','七月','八月','九月','十月','十一月','十二月'] %}
         <strong>{{ month_names[calendar_month.month - 1] }}</strong>
-        <a href="{{ url_for('matches_list') }}?month={{ next_month.strftime('%Y-%m') }}" aria-label="下一月">›</a>
+        <a href="{{ filter_url(month=next_month.strftime('%Y-%m')) }}" aria-label="下一月">›</a>
       </div>
       <div class="match-calendar-weekdays">
         <span>周一</span><span>周二</span><span>周三</span><span>周四</span><span>周五</span><span>周六</span><span>周日</span>
@@ -20,14 +27,14 @@
         <div class="match-calendar-week{% if calendar_focus_date in week %} is-current{% endif %}">
         {% for day in week %}
         <a
-          href="{{ url_for('matches_list') }}?date={{ day.isoformat() }}&month={{ day.strftime('%Y-%m') }}"
+          href="{{ filter_url(date=day.isoformat(), month=day.strftime('%Y-%m')) }}"
           class="{% if day.month != calendar_month.month %}muted{% endif %}{% if selected_date and day == selected_date %} active{% endif %}{% if day == today %} today{% endif %}"
         >{{ day.day }}</a>
         {% endfor %}
         </div>
         {% endfor %}
       </div>
-      <a class="match-calendar-clear" href="{{ url_for('matches_list') }}?month={{ calendar_month.strftime('%Y-%m') }}">全部日期</a>
+      <a class="match-calendar-clear" href="{{ filter_url(date='') }}">全部日期</a>
       <form class="mobile-match-event-filter" method="get" action="{{ url_for('matches_list') }}">
         <input type="hidden" name="month" value="{{ calendar_month.strftime('%Y-%m') }}">
         {% if date_filter %}<input type="hidden" name="date" value="{{ date_filter }}">{% endif %}
@@ -45,11 +52,11 @@
       <nav class="match-side-filter" aria-label="比赛筛选">
         <div class="match-filter-group">
           <div class="match-filter-label">赛事</div>
-          <a href="{{ url_for('matches_list') }}{% if date_filter %}?date={{ date_filter }}&month={{ calendar_month.strftime('%Y-%m') }}{% endif %}" class="{% if not event_filter %}active{% endif %}">
+          <a href="{{ filter_url(event='') }}" class="{% if not event_filter %}active{% endif %}">
             <span class="match-filter-name">全部赛事</span>
           </a>
           {% for e in events[:8] %}
-          <a href="{{ url_for('matches_list') }}?event={{ e.id }}{% if date_filter %}&date={{ date_filter }}&month={{ calendar_month.strftime('%Y-%m') }}{% endif %}" class="{% if event_filter==e.id|string %}active{% endif %}" data-i18n-ignore>
+          <a href="{{ filter_url(event=e.id|string) }}" class="{% if event_filter==e.id|string %}active{% endif %}" data-i18n-ignore>
             <span class="match-filter-name">{{ e.name }}</span>
             {% if e.start_date %}<span class="match-filter-date">{{ e.start_date|date_display }}</span>{% endif %}
           </a>
@@ -116,7 +123,7 @@
     {% if not matches %}
     <div class="card empty-state" data-front-empty>
       {% if completed_on_selected_date %}
-      这天的比赛已结束，请到 <a href="{{ url_for('results_list') }}">赛果</a> 查看。
+      这天的比赛已结束，请到 <a href="{{ url_for('results_list', event=event_filter or none) }}">赛果</a> 查看。
       {% else %}
       暂无比赛
       {% endif %}

@@ -254,3 +254,6 @@ body{margin:0;background:var(--bg-primary,#f4f6f8)}
     -webkit-overflow-scrolling:touch;
   }
 }
+
+/* 表单项下方的说明文字 */
+.field-hint{margin-top:6px;font-size:12px;line-height:1.5;color:var(--text-muted,#72808e)}

@@ -72,6 +72,10 @@
     if (nextSide && curSide) curSide.innerHTML = nextSide.innerHTML;
     if (nextLayout && curLayout) curLayout.className = nextLayout.className;
     if (doc.title) document.title = doc.title;
+    // 地址栏同步成当前筛选，刷新页面或分享链接时阵营和已选选手都不会丢
+    if (window.history && window.history.replaceState) {
+      window.history.replaceState(null, '', url);
+    }
 
     await runScripts(curMain);
     if (curSide) await runScripts(curSide);
