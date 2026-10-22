@@ -19,7 +19,7 @@
 
 <section class="h-panel">
   <div class="h-panel-title"><span>当前阵容</span> <span>{{ players|length }}</span></div>
-  <div class="card-list h-compact-list">
+  <div class="card-list h-compact-list team-roster">
     {% for player in players %}
     {% set player_name = private_name_for_player(player.id, player.nickname) %}
     <a class="card team-list-row" href="{{ url_for('player_detail', player_id=player.id) }}">

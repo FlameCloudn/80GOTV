@@ -1,5 +1,6 @@
+/* 右侧状态+起止日期按内容宽度排，电脑上日期一行放下（原来固定 250px，长日期会被拆成两行） */
 .events-list-layout .event-list-row {
-  grid-template-columns: minmax(0, 1fr) 250px !important;
+  grid-template-columns: minmax(0, 1fr) max-content !important;
   column-gap: 18px !important;
 }
 
@@ -9,7 +10,7 @@
 }
 
 .events-list-layout .event-list-row .event-info {
-  width: 250px;
+  width: auto;
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
   column-gap: 10px;
@@ -33,6 +34,12 @@
 .events-list-layout .event-list-row .meta {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+@media (min-width: 701px) {
+  .events-list-layout .event-list-date {
+    white-space: nowrap;
+  }
 }
 
 @media (max-width: 700px) {

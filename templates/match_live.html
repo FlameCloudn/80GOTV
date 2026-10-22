@@ -20,34 +20,37 @@
   .team-section{border-radius:0;overflow:hidden;margin-bottom:4px}
   .team-header{display:flex;align-items:center;padding:6px 12px;height:36px;gap:8px}
   .team-header.t1{background:var(--t1-header)}.team-header.t2{background:var(--t2-header)}
-  .team-header .logo{width:26px;height:26px;border-radius:0;object-fit:contain;background:rgba(255,255,255,0.1)}
+  /* 队标用自己的尺寸：全站导航的 .logo 规则（电脑最小宽 116px、手机 42×48 且带 !important）不能作用到这里 */
+  .team-header .logo{flex:0 0 26px!important;width:26px!important;min-width:0!important;height:26px!important;margin:0!important;padding:0!important;align-self:center;border-radius:0;object-fit:contain;background:rgba(255,255,255,0.1)}
   .team-header .logo-fallback{width:26px;height:26px;display:flex;align-items:center;justify-content:center;
     background:rgba(255,255,255,0.12);font-size:10px;font-weight:800;color:#fff;flex:0 0 26px}
   .team-header .name{font-size:15px;font-weight:700;flex:1}
-  .team-header .stat-icons{display:flex;gap:0;width:340px;justify-content:space-around}
-  .team-header .stat-icons span{width:40px;text-align:center;font-size:11px;color:rgba(255,255,255,0.7)}
+  /* 表头每一格和下面数据列同宽（共用 .p-* 列宽），名字列吃掉剩余宽度，表头和数据上下对齐 */
+  .team-header .stat-icons{display:flex;align-items:center;gap:4px}
+  .team-header .stat-icons span{flex:0 0 auto;font-size:11px;color:rgba(255,255,255,0.7)}
   /* ── 选手行 ── */
   .player-row{display:flex;align-items:center;padding:4px 12px;height:38px;gap:4px;font-size:13px}
   .player-row.t1{background:var(--t1-row)}.player-row.t2{background:var(--t2-row)}
   .player-row.dead{opacity:0.5}
   .player-row.dead .hp-bar,.player-row.dead .armor-icon{opacity:0.2}
-  .player-row .p-name{width:110px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .player-row .p-icon{width:32px;text-align:center}
+  .player-row .p-name{flex:1 1 110px;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .player-row > span:not(.p-name){flex:0 0 auto}
+  :is(.player-row,.stat-icons) .p-icon{width:32px;text-align:center}
   .player-row .p-icon img{width:20px;height:16px;object-fit:contain}
-  .player-row .p-weapon{width:56px;text-align:center}
+  :is(.player-row,.stat-icons) .p-weapon{width:56px;text-align:center}
   .player-row .p-weapon img{width:40px;height:16px;object-fit:contain}
   .player-row img{display:inline-block;visibility:visible}
   .player-row img[hidden]{display:none}
-  .player-row .p-hp{width:80px}
+  :is(.player-row,.stat-icons) .p-hp{width:80px;text-align:center}
   .hp-bar{height:10px;border-radius:0;background:#333;overflow:hidden}
   .hp-bar .fill{height:100%;background:#4caf50;transition:width 0.5s}
   .hp-bar .fill.low{background:#ff9800}.hp-bar .fill.crit{background:#f44336}
   .hp-text{font-size:11px;text-align:center;color:#ccc}
-  .player-row .p-armor{width:36px;text-align:center}
+  :is(.player-row,.stat-icons) .p-armor{width:36px;text-align:center}
   .player-row .p-armor img{width:18px;height:18px;opacity:0.8}
-  .player-row .p-money{width:60px;text-align:right;font-size:12px;color:#aaa}
-  .player-row .p-stat{width:32px;text-align:center;font-weight:600}
-  .player-row .p-stat.k{color:#4caf50}.player-row .p-stat.d{color:#f44336}.player-row .p-adr{width:44px;text-align:right}
+  :is(.player-row,.stat-icons) .p-money{width:60px;text-align:right;font-size:12px;color:#aaa}
+  :is(.player-row,.stat-icons) .p-stat{width:32px;text-align:center;font-weight:600}
+  .player-row .p-stat.k{color:#4caf50}.player-row .p-stat.d{color:#f44336}:is(.player-row,.stat-icons) .p-adr{width:44px;text-align:right}
   .live-score,.live-timer,.hp-text,.p-money,.p-stat,.p-adr,.live-footer{font-variant-numeric:tabular-nums}
   /* ── 回合历史条 ── */
   .round-bar{display:grid;grid-template-rows:repeat(2,21px);height:48px;gap:2px;padding:2px 12px;background:rgba(0,0,0,0.3);border-radius:0;margin:4px 0;overflow:hidden}
@@ -75,20 +78,19 @@
   /* ── 响应式 ── */
   @media(max-width:768px){
     .live-score{font-size:28px;gap:8px}
-    .player-row .p-name{width:70px;font-size:11px}
-    .player-row .p-weapon{width:36px}.player-row .p-weapon img{width:28px}
-    .player-row .p-hp{width:50px}.player-row .p-money{display:none}
-    .player-row .p-stat{width:22px;font-size:11px}.player-row .p-adr{width:34px;font-size:11px}
-    .team-header .stat-icons{width:240px}
+    .player-row .p-name{flex-basis:70px;font-size:11px}
+    :is(.player-row,.stat-icons) .p-weapon{width:36px}.player-row .p-weapon img{width:28px}
+    :is(.player-row,.stat-icons) .p-hp{width:50px}:is(.player-row,.stat-icons) .p-money{display:none}
+    :is(.player-row,.stat-icons) .p-stat{width:22px;font-size:11px}:is(.player-row,.stat-icons) .p-adr{width:34px;font-size:11px}
   }
   @media(max-width:480px){
     .live-container{padding:4px}
     .live-topbar{padding:0 8px;height:40px}
     .live-score{font-size:24px}
     .player-row{gap:2px;padding:3px 6px;height:32px}
-    .player-row .p-name{width:50px;font-size:10px}
-    .player-row .p-armor{display:none}.player-row .p-adr{display:none}
-    .team-header .stat-icons{width:150px}
+    .player-row .p-name{flex-basis:50px;font-size:10px}
+    :is(.player-row,.stat-icons) .p-armor{display:none}:is(.player-row,.stat-icons) .p-adr{display:none}
+    .team-header .stat-icons{gap:2px}
   }
 </style>
 {% endblock %}
@@ -120,7 +122,7 @@
       <span class="logo-fallback" aria-hidden="true">{{ (match.t1s or 'TBD')[:3] }}</span>
       {% endif %}
       <span class="name" id="t1name">{{ match.team1_name or 'TBD' }}</span>
-      <div class="stat-icons" data-i18n-translate><span>装备</span><span>武器</span><span>血量</span><span>K</span><span>A</span><span>D</span><span>ADR</span></div>
+      <div class="stat-icons" data-i18n-translate><span class="p-icon"></span><span class="p-weapon">武器</span><span class="p-hp">血量</span><span class="p-armor">装备</span><span class="p-money"></span><span class="p-stat">K</span><span class="p-stat">A</span><span class="p-stat">D</span><span class="p-adr">ADR</span></div>
     </div>
     <div id="team1Players"></div>
   </div>
@@ -137,7 +139,7 @@
       <span class="logo-fallback" aria-hidden="true">{{ (match.t2s or 'TBD')[:3] }}</span>
       {% endif %}
       <span class="name" id="t2name">{{ match.team2_name or 'TBD' }}</span>
-      <div class="stat-icons" data-i18n-translate><span>装备</span><span>武器</span><span>血量</span><span>K</span><span>A</span><span>D</span><span>ADR</span></div>
+      <div class="stat-icons" data-i18n-translate><span class="p-icon"></span><span class="p-weapon">武器</span><span class="p-hp">血量</span><span class="p-armor">装备</span><span class="p-money"></span><span class="p-stat">K</span><span class="p-stat">A</span><span class="p-stat">D</span><span class="p-adr">ADR</span></div>
     </div>
     <div id="team2Players"></div>
   </div>

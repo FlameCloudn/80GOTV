@@ -948,3 +948,67 @@
     display: none !important;
   }
 }
+
+/* 比赛条（赛事页 / 队伍页 / 搜索页）：手机上压成两行——“队伍1 比分 队伍2”一行，赛事信息一行
+   （原来四行竖排，一条比赛要占 120px 以上） */
+@media (max-width: 760px) {
+  body .card-list > .card.match-card,
+  body .event-match-flex > .card.match-card {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) !important;
+    row-gap: 4px !important;
+    min-height: 0 !important;
+    padding: 8px 10px !important;
+  }
+
+  body .card.match-card .team {
+    text-align: right !important;
+  }
+
+  body .card.match-card .team.right {
+    text-align: left !important;
+  }
+
+  body .card.match-card .meta {
+    grid-column: 1 / -1 !important;
+    text-align: center !important;
+  }
+}
+
+@media (max-width: 760px) {
+  /* 闪光弹榜在手机上左右滑动；最后一列表头“有效地图占比”需要更宽的列，不然会压到隔壁 */
+  body .stats-flash-table .stats-flash-player-col { width: 24%; }
+  body .stats-flash-table .stats-flash-maps-col { width: 6%; }
+  body .stats-flash-table .stats-flash-rounds-col { width: 8%; }
+  body .stats-flash-table .stats-flash-thrown-col { width: 10%; }
+  body .stats-flash-table .stats-flash-blinded-col { width: 10%; }
+  body .stats-flash-table .stats-flash-opponent-col { width: 11%; }
+  body .stats-flash-table .stats-flash-diff-col { width: 8%; }
+  body .stats-flash-table .stats-flash-fa-col { width: 11%; }
+  body .stats-flash-table .stats-flash-success-col { width: 12%; }
+
+  /* 论坛工具栏：排序独占一行，“我的帖子 / 发新帖”平分下一行，不再超出屏幕 */
+  body .forum-actions {
+    flex-wrap: wrap;
+  }
+
+  body .forum-actions > .forum-sort {
+    flex: 1 1 100%;
+  }
+
+  body .forum-actions > a {
+    flex: 1 1 0;
+  }
+}
+
+@media (max-width: 760px) {
+  /* 比赛数据页的两张队伍数据表：手机上一张一行，表格放不下时在自己的框里左右滑（原来右边几列被直接裁掉） */
+  body .match-stat-team-tables {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  body .match-stat-team-tables > section {
+    min-width: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}

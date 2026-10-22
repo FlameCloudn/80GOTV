@@ -175,6 +175,12 @@ def api_example():
 - **提示条 / 确认框**用 `showToast('文字', 'success'|'error')`、`showConfirm('文字')`，定义在 `static/js/site_dialogs.js`。
   前台页面已自动引入；后台那种不继承 `base.html` 的独立页面要自己加 `<script src="{{ versioned_url('static/js/site_dialogs.js') }}">`。
 - **数据缺失不要显示成 0**：旧 Demo 没有的字段（比如闪光弹投掷次数）显示“暂无数据”（`<span class="stat-missing">暂无数据</span>`）。
+- **列表尺寸对照 HLTV**（规则集中在 `hltv_refresh.css` 第 19 节“容器尺寸与布局”）：
+  - 列表里的队标、头像一律写死尺寸（赛果 20px、比赛列表 22px），用 `object-fit: contain`；上传的原图可能是 512px，不写尺寸就会把整行撑高。
+  - 比赛条 `.card.match-card`：电脑上一行“队伍1 | 比分 | 队伍2 | 赛事信息”，队名贴着比分；手机上两行。
+  - 只有“头像 + 名字”的列表（队伍列表、阵容）在电脑上排成多列网格，不要一行占满整个版心。
+  - 普通数据表格按内容分配列宽、数字不换行，放不下时表格自己左右滑；只有 `.stats-dense-table` 用固定列宽。
+  - 正文类页面（新闻详情）用窄版宽度 `var(--narrow-width)`，不要让一行字拉到 1100px。
 
 ## 翻译（中英文）约定
 

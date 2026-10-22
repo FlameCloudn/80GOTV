@@ -2273,9 +2273,9 @@ body .layout.match-detail-layout {
   border-bottom: 0 !important;
 }
 
-/* Forum */
+/* Forum：原来的右侧栏已经去掉，帖子列表和上面的工具栏同宽 */
 .forum-layout {
-  grid-template-columns: minmax(0, 1fr) 230px !important;
+  grid-template-columns: minmax(0, 1fr) !important;
   gap: 10px !important;
 }
 
@@ -4915,3 +4915,238 @@ body .comments .reply-textarea {
 
 /* 数据缺失（不是 0）时的占位文字 */
 .stat-missing { color: var(--text-muted); }
+
+/* ---------- 19. 容器尺寸与布局（对照 HLTV 电脑版） ----------
+   HLTV 的列表都是“一行一条、内容靠拢”：赛果一行约 37px、队标 20px，队名紧挨比分。
+   这里只调容器大小和排布，不改页面结构。 */
+
+/* 赛果：队标固定 20px，名字和队标同一行，比分两边的队伍向中间靠拢 */
+body .result-team-cell {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+body .result-team-cell.team-left {
+  justify-content: flex-end;
+}
+
+body .result-team-cell.team-right {
+  justify-content: flex-start;
+}
+
+body .result-team-cell .result-team-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body .result-team-logo,
+body .result-team-logo-fallback {
+  flex: 0 0 20px;
+  width: 20px !important;
+  height: 20px !important;
+  max-width: none;
+  object-fit: contain;
+}
+
+body .result-team-logo-fallback {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  background: var(--surface-soft);
+  border: 1px solid var(--border-color);
+  font-size: var(--font-xs) !important;
+  font-weight: 700 !important;
+  line-height: 1;
+}
+
+@media (min-width: 761px) {
+  body .result-list .result-row {
+    padding-top: 5px !important;
+    padding-bottom: 5px !important;
+  }
+}
+
+/* 赛事页 / 队伍页 / 搜索页的比赛条：电脑上一行排完——队伍1 | 比分 | 队伍2 | 赛事信息 */
+@media (min-width: 761px) {
+  body .card-list > .card.match-card,
+  body .event-match-flex > .card.match-card {
+    grid-template-columns: minmax(0, 1fr) 72px minmax(0, 1fr) minmax(0, 1fr) !important;
+    align-items: center;
+    row-gap: 0 !important;
+    min-height: 0 !important;
+    padding: 7px 12px !important;
+  }
+
+  body .card.match-card .team {
+    text-align: right !important;
+  }
+
+  body .card.match-card .team.right {
+    text-align: left !important;
+  }
+
+  body .card.match-card .vs {
+    justify-self: center;
+    min-height: 26px !important;
+    padding: 2px 8px !important;
+  }
+
+  body .card.match-card .meta {
+    grid-column: auto !important;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--text-muted);
+    text-align: right !important;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* 赛事页的“进入 BP”放在这一行的右端、上下居中，信息列给它留位置 */
+  body .event-match-flex:has(.event-bp-link, .event-bp-state) > .card.match-card .meta {
+    padding-right: 84px;
+  }
+
+  body .event-match-flex > .event-bp-link,
+  body .event-match-flex > .event-bp-state {
+    top: 50%;
+    bottom: auto;
+    transform: translateY(-50%);
+  }
+}
+
+/* 队伍列表、队伍阵容：内容只有“头像 + 名字”，电脑上排成多列，不再一行占满整个版心 */
+@media (min-width: 761px) {
+  body .card-list.h-compact-list.team-list,
+  body .card-list.h-compact-list.team-roster {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  }
+
+  body .card-list.h-compact-list.team-roster {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+
+  /* 格子之间用向右、向下的细线分隔，外框由列表自己的边框负责 */
+  body .card-list.h-compact-list.team-list > .card,
+  body .card-list.h-compact-list.team-roster > .card {
+    border-bottom: 0 !important;
+    box-shadow: 1px 0 0 var(--h-panel-line), 0 1px 0 var(--h-panel-line) !important;
+  }
+}
+
+/* 队标不能裁切；选手头像仍然铺满 */
+.team-list .team-list-logo,
+body.page-team-detail .main-col > .team-list-row .team-list-logo {
+  object-fit: contain;
+}
+
+/* 闪光弹榜：电脑上九列压进主栏，表头太长就换行，不再需要左右拖动 */
+@media (min-width: 761px) {
+  body .stats-hltv-shell .stats-flash-table table {
+    min-width: 640px;
+  }
+
+  body .stats-hltv-shell .stats-flash-table th {
+    height: auto;
+    line-height: 1.2;
+    white-space: normal;
+  }
+
+  body .stats-flash-table .stats-flash-player-col { width: 18%; }
+  body .stats-flash-table .stats-flash-maps-col { width: 6%; }
+  body .stats-flash-table .stats-flash-rounds-col { width: 8%; }
+  body .stats-flash-table .stats-flash-thrown-col { width: 11%; }
+  body .stats-flash-table .stats-flash-blinded-col { width: 10%; }
+  body .stats-flash-table .stats-flash-opponent-col { width: 11%; }
+  body .stats-flash-table .stats-flash-diff-col { width: 9%; }
+  body .stats-flash-table .stats-flash-fa-col { width: 11%; }
+  body .stats-flash-table .stats-flash-success-col { width: 16%; }
+
+  /* 数据格保持一行（“暂无数据”不拆成两行把整行撑高） */
+  body .stats-hltv-shell .stats-flash-table td:not(:first-child) {
+    white-space: nowrap;
+  }
+}
+
+/* 地图数据：地图名列收窄，“最佳选手”列放宽，名字不拆行 */
+body .stats-table.stats-maps-table table {
+  table-layout: fixed;
+}
+
+body .stats-maps-table th:nth-child(1) { width: 25%; }
+body .stats-maps-table th:nth-child(2) { width: 9%; }
+body .stats-maps-table th:nth-child(3),
+body .stats-maps-table th:nth-child(4),
+body .stats-maps-table th:nth-child(5) { width: 11%; }
+body .stats-maps-table th:nth-child(6) { width: 21%; }
+body .stats-maps-table th:nth-child(7) { width: 12%; }
+
+body .stats-maps-table td:nth-child(6) a {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 预测排行：名字列吃掉剩余宽度，数字列收紧居中（不再把六列平均摊满整个版心） */
+body.page-predictions-page .stats-table th:first-child {
+  width: 48px;
+}
+
+body.page-predictions-page .stats-table th:nth-child(n+3) {
+  width: 120px;
+}
+
+body.page-predictions-page .stats-table th:nth-child(n+3),
+body.page-predictions-page .stats-table td:nth-child(n+3) {
+  text-align: center;
+}
+
+/* 新闻正文：控制在阅读宽度内（HLTV 正文栏约 640px，这里用全站的窄版宽度） */
+body.page-news-detail .main-col {
+  justify-self: center;
+  width: min(100%, var(--narrow-width));
+}
+
+/* 赛事图池的地图条：宽度被拉满时按比例裁切，不把地图图片压扁 */
+body .event-map-pool .ms-top-img {
+  object-fit: cover;
+}
+
+/* 普通数据表格：列宽按内容自动分配，数字不拆行；放不下时整张表在自己的框里左右滑，
+   而不是把 1.74 拆成“1.7 / 4”或让文字压到隔壁格子。
+   （排行榜那种紧凑表 .stats-dense-table 有自己设计好的列宽，不动） */
+.stats-table:not(.stats-dense-table) table,
+.h-table-panel table {
+  table-layout: auto;
+}
+
+.stats-table:not(.stats-dense-table) td,
+.h-table-panel td {
+  white-space: nowrap;
+}
+
+/* 数据中心自带左侧导航，再加右侧栏时，版心不满 1100px 的屏幕上主栏太挤：
+   这种宽度下把右侧栏挪到主栏下面 */
+@media (min-width: 761px) and (max-width: 1119px) {
+  body:has(.stats-hltv-shell) main.layout {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  /* 挪到下面的侧栏三个小面板并排，不再每个都拉满整行 */
+  body:has(.stats-hltv-shell) main.layout > .side-col {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    align-items: start;
+    gap: var(--site-gap);
+  }
+
+  body:has(.stats-hltv-shell) main.layout > .side-col > * {
+    margin: 0 !important;
+  }
+}

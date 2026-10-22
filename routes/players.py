@@ -621,7 +621,7 @@ def player_compare():
                 {"label": "影响力", "value": round(r1["i"] or 0, 2)},
                 {"label": "HS%", "value": str(round(r1["h"] or 0, 1)) + "%"},
                 {"label": "KPR", "value": round(r1["kpr"] or 0, 2)},
-                {"label": "场次", "value": r1["m"] or 0},
+                {"label": "地图数", "value": r1["m"] or 0},  # 这里的数字是地图数，不是比赛场次
             ]
             stats2 = [
                 {"label": "RATING", "value": round(r2["r"] or 0, 2)},
@@ -631,7 +631,7 @@ def player_compare():
                 {"label": "影响力", "value": round(r2["i"] or 0, 2)},
                 {"label": "HS%", "value": str(round(r2["h"] or 0, 1)) + "%"},
                 {"label": "KPR", "value": round(r2["kpr"] or 0, 2)},
-                {"label": "场次", "value": r2["m"] or 0},
+                {"label": "地图数", "value": r2["m"] or 0},  # 这里的数字是地图数，不是比赛场次
             ]
 
             # 水平对比条（百分比相对）

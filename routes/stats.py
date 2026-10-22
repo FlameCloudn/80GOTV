@@ -1128,12 +1128,13 @@ def _match_statistics(conn, filters, limit=100):
         )
         params.append(filters["map"])
     where_sql = " WHERE " + " AND ".join(extra)
-    return conn.execute(
+    rows = conn.execute(
         f"""
         SELECT m.id, m.slug, m.match_time, m.bo_format, m.stage,
                m.team1_score, m.team2_score,
-               COALESCE(t1.short_name, t1.name, 'TBD') AS team1_name,
-               COALESCE(t2.short_name, t2.name, 'TBD') AS team2_name,
+               m.team1_id, m.team2_id, m.team1_players, m.team2_players,
+               COALESCE(t1.short_name, t1.name) AS team1_name,
+               COALESCE(t2.short_name, t2.name) AS team2_name,
                t1.logo AS team1_logo, t2.logo AS team2_logo,
                e.id AS event_id, e.slug AS event_slug, e.name AS event_name,
                (SELECT COUNT(DISTINCT counted_ms.map_name)
@@ -1151,6 +1152,8 @@ def _match_statistics(conn, filters, limit=100):
         """,
         (*params, limit),
     ).fetchall()
+    # 自选选手组成的临时队伍沿用比赛列表的名称（TEAM 1 / TEAM 2），不显示成 TBD
+    return [supplement_temp_teams(row, conn) for row in rows]
 
 
 def _comparison_players(conn):
