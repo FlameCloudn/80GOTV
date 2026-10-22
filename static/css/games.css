@@ -512,6 +512,8 @@
 .bingo-preview {
   grid-template-columns: repeat(3, 38px);
   grid-template-rows: repeat(3, 38px);
+  place-content: center;
+  place-items: stretch;
   gap: 3px;
   background: var(--h-panel-head);
 }

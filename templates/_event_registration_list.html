@@ -12,7 +12,7 @@
       <div class="event-reg-team-logo-wrap">
         {% if reg.info.team_logo %}
         <img class="event-reg-team-logo"
-             src="{{ url_for('static', filename='uploads/team_logos/' + reg.info.team_logo) }}"
+             src="{{ reg.info.team_logo|team_logo_url }}"
              alt="{{ reg.info.team_name }} 队标">
         {% else %}
         <span class="event-reg-team-logo event-reg-team-logo-fallback" aria-hidden="true">{{ reg.info.team_name|registration_team_abbr }}</span>

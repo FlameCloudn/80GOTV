@@ -19,6 +19,7 @@ from services.player_remark_service import (
     private_player_identity,
     private_user_identity,
 )
+from services.team_logo_service import team_logo_url
 from utils.db_helpers import avatar_static_filename
 from utils.filters import date_display_filter, datetime_display_filter, time_display_filter
 from utils.helpers import event_path, news_path
@@ -175,7 +176,7 @@ def _avatar_url(filename):
 
 
 def _logo_url(filename):
-    return url_for("static", filename="uploads/" + filename) if filename else ""
+    return team_logo_url(filename, app.root_path)
 
 
 def _match_url(match):
@@ -281,7 +282,7 @@ def _player_payload(row):
 def _team_payload(row):
     return {
         "id": row["id"],
-        "url": url_for("teams_list"),
+        "url": url_for("team_detail", team_id=row["id"]),
         "name": _text(row["name"]),
         "short_name": _text(_get(row, "short_name", "")),
         "description": _text(_get(row, "description", "")),

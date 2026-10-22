@@ -43,7 +43,7 @@
           <span class="result-team-cell team-left">
             <span class="result-team-name {% if m.team1_score is not none and m.team2_score is not none and m.team1_score > m.team2_score %}won{% elif m.team1_score is not none and m.team2_score is not none and m.team1_score < m.team2_score %}lost{% endif %}" data-i18n-ignore>{{ m.team1_name }}</span>
             {% if m.team1_logo %}
-            <img class="result-team-logo" src="{{ url_for('static', filename='uploads/' ~ m.team1_logo) }}" alt="" loading="lazy">
+            <img class="result-team-logo" src="{{ m.team1_logo|team_logo_url }}" alt="" loading="lazy">
             {% else %}
             <span class="result-team-logo-fallback" data-i18n-ignore>{{ (m.t1s or m.team1_name or 'T1')[:2]|upper }}</span>
             {% endif %}
@@ -57,7 +57,7 @@
 
           <span class="result-team-cell team-right">
             {% if m.team2_logo %}
-            <img class="result-team-logo" src="{{ url_for('static', filename='uploads/' ~ m.team2_logo) }}" alt="" loading="lazy">
+            <img class="result-team-logo" src="{{ m.team2_logo|team_logo_url }}" alt="" loading="lazy">
             {% else %}
             <span class="result-team-logo-fallback" data-i18n-ignore>{{ (m.t2s or m.team2_name or 'T2')[:2]|upper }}</span>
             {% endif %}

@@ -2,12 +2,14 @@
 {% block title %}{{ match.team1_name or '队伍 1' }} 对 {{ match.team2_name or '队伍 2' }} — 直播{% endblock %}
 {% block head %}
 <style>
-  :root{--t1-bg:rgba(20,40,70,0.95);--t1-header:#1e4a7a;--t1-accent:#4a9eff;--t1-row:rgba(0,10,30,0.6);
-         --t2-bg:rgba(60,40,15,0.95);--t2-header:#5c4a1f;--t2-accent:#ffc107;--t2-row:rgba(30,15,5,0.6);}
+  /* 直播面板是固定的深色“转播”风格：底色都用实心颜色，浅色主题下也不会被页面底色冲淡 */
+  :root{--t1-bg:rgba(20,40,70,0.95);--t1-header:#1e4a7a;--t1-accent:#4a9eff;--t1-row:#0a1220;
+         --t2-bg:rgba(60,40,15,0.95);--t2-header:#5c4a1f;--t2-accent:#ffc107;--t2-row:#1b1511;
+         --live-panel:#0c0f12;--live-strip:#10141a}
   .live-container{max-width:1100px;margin:0 auto;padding:8px 12px;font-family:'Segoe UI',sans-serif;color:#fff}
   /* ── 顶部信息栏 ── */
   .live-topbar{display:flex;align-items:center;justify-content:space-between;height:48px;
-    background:rgba(0,0,0,0.5);border-radius:0;padding:0 16px;margin-bottom:6px}
+    background:var(--live-panel);border-radius:0;padding:0 16px;margin-bottom:6px}
   .live-info{font-size:12px;color:#aaa;min-width:140px}
   .live-info .rnd{color:#fff;font-weight:600}
   .live-score{display:flex;align-items:center;gap:12px;font-size:40px;font-weight:800}
@@ -53,7 +55,7 @@
   .player-row .p-stat.k{color:#4caf50}.player-row .p-stat.d{color:#f44336}:is(.player-row,.stat-icons) .p-adr{width:44px;text-align:right}
   .live-score,.live-timer,.hp-text,.p-money,.p-stat,.p-adr,.live-footer{font-variant-numeric:tabular-nums}
   /* ── 回合历史条 ── */
-  .round-bar{display:grid;grid-template-rows:repeat(2,21px);height:48px;gap:2px;padding:2px 12px;background:rgba(0,0,0,0.3);border-radius:0;margin:4px 0;overflow:hidden}
+  .round-bar{display:grid;grid-template-rows:repeat(2,21px);height:48px;gap:2px;padding:2px 12px;background:var(--live-strip);border-radius:0;margin:4px 0;overflow:hidden}
   .round-lane{width:100%;min-width:0;height:21px;display:grid;grid-template-columns:28px minmax(0,1fr);align-items:center;gap:4px;overflow:hidden}
   .round-lane.ct{border-bottom:1px solid rgba(255,255,255,0.1)}
   .round-side-label{font-size:9px;font-weight:800;line-height:18px;text-align:center;color:#9ca3af;background:#11141b}
@@ -65,7 +67,7 @@
   .round-dot.t1{border-bottom-color:var(--t1-accent)}.round-dot.t2{border-bottom-color:var(--t2-accent)}
   .round-dot img{width:13px;height:13px;object-fit:contain;display:block}
   /* ── 底部信息 ── */
-  .live-footer{display:flex;justify-content:space-between;align-items:center;padding:6px 12px;font-size:11px;color:#666;margin-top:4px}
+  .live-footer{display:flex;justify-content:space-between;align-items:center;padding:6px 12px;font-size:11px;color:#8b98a5;margin-top:4px;background:var(--live-panel)}
   .live-footer .refresh{color:var(--accent);cursor:pointer}
   .no-gsi-badge{background:rgba(255,152,0,0.2);color:#ff9800;padding:2px 8px;border-radius:0;font-size:11px}
   .gsi-ok-badge{background:rgba(76,175,80,0.2);color:#4caf50;padding:2px 8px;border-radius:0;font-size:11px}
@@ -117,7 +119,7 @@
   <div class="team-section" style="background:var(--t1-bg)">
     <div class="team-header t1">
       {% if match.t1_logo %}
-      <img class="logo" src="{{ url_for('static', filename='uploads/' + match.t1_logo) }}" alt="{{ match.team1_name or 'TBD' }}">
+      <img class="logo" src="{{ match.t1_logo|team_logo_url }}" alt="{{ match.team1_name or 'TBD' }}">
       {% else %}
       <span class="logo-fallback" aria-hidden="true">{{ (match.t1s or 'TBD')[:3] }}</span>
       {% endif %}
@@ -134,7 +136,7 @@
   <div class="team-section" style="background:var(--t2-bg)">
     <div class="team-header t2">
       {% if match.t2_logo %}
-      <img class="logo" src="{{ url_for('static', filename='uploads/' + match.t2_logo) }}" alt="{{ match.team2_name or 'TBD' }}">
+      <img class="logo" src="{{ match.t2_logo|team_logo_url }}" alt="{{ match.team2_name or 'TBD' }}">
       {% else %}
       <span class="logo-fallback" aria-hidden="true">{{ (match.t2s or 'TBD')[:3] }}</span>
       {% endif %}

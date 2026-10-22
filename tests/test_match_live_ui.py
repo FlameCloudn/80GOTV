@@ -26,7 +26,7 @@ class MatchLiveUiTests(unittest.TestCase):
                VALUES('Live UI Test', 'LIVE', '2026-07-01', '2026-08-01', 'ongoing')"""
         ).lastrowid
         team1_id = conn.execute(
-            "INSERT INTO teams(name, short_name, logo) VALUES('Team One', 'T1', 'team-one.png')"
+            "INSERT INTO teams(name, short_name, logo) VALUES('Team One', 'T1', 'team_logos/team-one.png')"
         ).lastrowid
         team2_id = conn.execute(
             "INSERT INTO teams(name, short_name) VALUES('Team Two', 'T2')"
@@ -65,7 +65,7 @@ class MatchLiveUiTests(unittest.TestCase):
         response = self.client.get(f"/matches/{self.match_id}/live")
         html = response.get_data(as_text=True)
 
-        self.assertIn("/static/uploads/team-one.png", html)
+        self.assertIn("/static/uploads/team_logos/team-one.png", html)
         self.assertIn('class="logo-fallback"', html)
         self.assertIn("WEAPON_ICON_FILES", html)
 

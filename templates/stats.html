@@ -166,7 +166,7 @@
           {% for team in overview.top_teams %}
           <a href="{{ url_for('team_detail', team_id=team.id) if team.id else url_for('teams_list') }}" class="overview-rank-row">
             {% if team.logo %}
-            <img src="{{ url_for('static', filename='uploads/' + team.logo) }}" class="overview-team-mark overview-team-logo" alt="{{ team.short_name or team.name }}" loading="lazy">
+            <img src="{{ team.logo|team_logo_url }}" class="overview-team-mark overview-team-logo" alt="{{ team.short_name or team.name }}" loading="lazy">
             {% else %}
             <span class="overview-team-mark" data-i18n-ignore>{{ (team.short_name or team.name or 'T')[:3] }}</span>
             {% endif %}

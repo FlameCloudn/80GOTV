@@ -1411,7 +1411,6 @@ body .home-right-col {
   pointer-events: none;
   user-select: none;
   object-fit: contain !important;
-  mix-blend-mode: multiply;
   opacity: 0.94;
 }
 
@@ -3665,6 +3664,8 @@ body .layout.match-detail-layout {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  color: var(--text-secondary);
+  font-weight: 700 !important;
 }
 
 .team-badge-name {
@@ -4198,6 +4199,10 @@ body main .stats-overview-filter select {
   max-width: 420px;
 }
 
+.ui-form > .ui-btn {
+  justify-self: start;
+}
+
 .ui-form-row {
   display: flex;
   align-items: flex-end;
@@ -4346,11 +4351,12 @@ body .guess-empty {
 }
 
 .rank-num-top {
-  color: #fff;
+  color: var(--text-primary);
   background: var(--border-strong);
 }
 
 .rank-num-1 {
+  color: var(--color-dark);
   background: var(--color-gold);
 }
 
@@ -5045,7 +5051,9 @@ body.page-team-detail .main-col > .team-list-row .team-list-logo {
   object-fit: contain;
 }
 
-/* 闪光弹榜：电脑上九列压进主栏，表头太长就换行，不再需要左右拖动 */
+/* 闪光弹榜：电脑上九列压进主栏，不再需要左右拖动。
+   数字列按内容给固定宽度，剩下的宽度都给选手名；
+   表头只在空格处换行（英文 FLASH ASSISTS 这种），中文表头不会被拆成一字一行 */
 @media (min-width: 761px) {
   body .stats-hltv-shell .stats-flash-table table {
     min-width: 640px;
@@ -5055,17 +5063,30 @@ body.page-team-detail .main-col > .team-list-row .team-list-logo {
     height: auto;
     line-height: 1.2;
     white-space: normal;
+    word-break: keep-all;
   }
 
-  body .stats-flash-table .stats-flash-player-col { width: 18%; }
-  body .stats-flash-table .stats-flash-maps-col { width: 6%; }
-  body .stats-flash-table .stats-flash-rounds-col { width: 8%; }
-  body .stats-flash-table .stats-flash-thrown-col { width: 11%; }
-  body .stats-flash-table .stats-flash-blinded-col { width: 10%; }
-  body .stats-flash-table .stats-flash-opponent-col { width: 11%; }
-  body .stats-flash-table .stats-flash-diff-col { width: 9%; }
-  body .stats-flash-table .stats-flash-fa-col { width: 11%; }
-  body .stats-flash-table .stats-flash-success-col { width: 16%; }
+  body .stats-hltv-shell .stats-flash-table th:not(:first-child),
+  body .stats-hltv-shell .stats-flash-table td:not(:first-child) {
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+  }
+
+  /* 选手列拿剩下的宽度（老样式给所有表格第一列写死了 220px，这里放开） */
+  body .stats-hltv-shell .stats-flash-table th:first-child,
+  body .stats-hltv-shell .stats-flash-table td:first-child {
+    width: auto;
+  }
+
+  body .stats-flash-table .stats-flash-player-col { width: auto; }
+  body .stats-flash-table .stats-flash-maps-col { width: 48px; }
+  body .stats-flash-table .stats-flash-rounds-col { width: 66px; }
+  body .stats-flash-table .stats-flash-thrown-col { width: 70px; }
+  body .stats-flash-table .stats-flash-blinded-col { width: 66px; }
+  body .stats-flash-table .stats-flash-opponent-col { width: 66px; }
+  body .stats-flash-table .stats-flash-diff-col { width: 54px; }
+  body .stats-flash-table .stats-flash-fa-col { width: 66px; }
+  body .stats-flash-table .stats-flash-success-col { width: 94px; }
 
   /* 数据格保持一行（“暂无数据”不拆成两行把整行撑高） */
   body .stats-hltv-shell .stats-flash-table td:not(:first-child) {
@@ -5148,5 +5169,93 @@ body .event-map-pool .ms-top-img {
 
   body:has(.stats-hltv-shell) main.layout > .side-col > * {
     margin: 0 !important;
+  }
+}
+
+/* ---------- 20. 视觉细节修正 ---------- */
+
+/* 比赛数据页“全部地图”那一格没有地图图片：用主题蓝到深灰的渐变垫底，不再像一张没加载出来的图，
+   和旁边压了暗色遮罩的地图图片一样，白字在深浅两种模式下都看得清 */
+body .match-detailed-all-card .match-detailed-map-cover {
+  background: linear-gradient(135deg, var(--accent), var(--color-dark));
+}
+
+/* 荣誉堂：整行都能点，点了进选手页（原来鼠标移上去整行变色，但只有名字能点） */
+.award-medal-row .award-medal-player::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+/* 深色模式：深色队标（比如深蓝色的盾牌）会和背景混在一起，给队标描一圈很淡的亮边 */
+:root[data-theme='dark'] img[src*='/uploads/team_logos/'] {
+  filter: drop-shadow(0 0 1px var(--logo-outline));
+}
+
+/* 对阵图：画布始终按设计好的比例显示，最窄 720px，不再把卡片挤成一团、把队名切掉。
+   框放得下时和原来一样；放不下时（平板、手机）在自己的框里左右滑，并出现“左右滑动查看”提示。
+   可滑动的框会把点开的比赛浮层切掉，这时由 main.js 把浮层挪到屏幕中间显示 */
+.bracket-scroll-wrapper {
+  container-type: inline-size;
+}
+
+body .bracket-canvas {
+  min-width: 720px;
+  aspect-ratio: 920 / 580;
+}
+
+body .bracket-canvas .bracket-card {
+  height: 18%;
+}
+
+.bracket-mobile-hint {
+  display: none;
+}
+
+@container (max-width: 719px) {
+  .bracket-scroll-wrapper .bracket-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .bracket-mobile-hint {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 8px;
+    padding: 6px 10px;
+    color: var(--text-muted);
+    background: var(--surface-soft);
+    border: 1px dashed var(--border-color);
+    font-size: var(--font-xs) !important;
+  }
+}
+
+/* 窄屏上点开的比赛浮层：固定显示在屏幕中间 */
+.bracket-match-popup.bracket-match-popup--floating {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 1000;
+  max-height: calc(100vh - 32px);
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translate(-50%, -50%);
+}
+
+/* 手机上个人主页顶部的“昵称 · 队伍 / Steam64 / 修改群昵称”一行太长：
+   允许分成几行居中排开，不再左右两头都被切掉 */
+@media (max-width: 760px) {
+  body .player-header .player-info {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  body .player-header .meta {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px 10px !important;
+    white-space: normal;
   }
 }

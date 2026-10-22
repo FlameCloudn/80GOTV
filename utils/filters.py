@@ -121,6 +121,20 @@ def map_display_cn_filter(name):
     return map_display_name_cn(name)
 
 
+def map_pool_label_filter(name):
+    """图池里的地图统一显示成“英文 (中文)”。
+
+    比赛设置里可能存 “de_mirage”，默认图池存的是 “Mirage (荒漠迷城)”，这里先取括号前的英文名再换算。
+    """
+    raw = str(name or "").strip()
+    base = re.split(r"[（(]", raw, maxsplit=1)[0].strip()
+    english = map_display_name(base)
+    if not english:
+        return raw
+    chinese = map_display_name_cn(base)
+    return f"{english} ({chinese})" if chinese and chinese != english else english
+
+
 def rating_class_filter(value):
     """RATING 统一分色：>=1.05 绿，0.95~1.05 常规，<0.95 红。"""
     try:

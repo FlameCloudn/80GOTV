@@ -235,15 +235,15 @@ body .layout.player-detail-layout {
 }
 
 .pp-honor-evp b {
-  color: #168c62;
+  color: var(--color-green);
 }
 
 .pp-honor-title {
-  border-left-color: #7c5aa7;
+  border-left-color: var(--color-purple);
 }
 
 .pp-honor-title b {
-  color: #7c5aa7;
+  color: var(--color-purple);
 }
 
 .page-player-detail .pp-tabs {

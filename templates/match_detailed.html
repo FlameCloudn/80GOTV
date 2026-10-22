@@ -4,7 +4,7 @@
 
 {% macro team_logo(logo, name, short_name, class_name) %}
   {% if logo %}
-  <img class="{{ class_name }}" src="{{ url_for('static', filename='uploads/' + logo) }}" alt="{{ name }}" loading="lazy">
+  <img class="{{ class_name }}" src="{{ logo|team_logo_url }}" alt="{{ name }}" loading="lazy">
   {% else %}
   <span class="{{ class_name }} match-detailed-fallback" data-i18n-ignore>{{ short_name[:2] }}</span>
   {% endif %}

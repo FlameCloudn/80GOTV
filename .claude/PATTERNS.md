@@ -182,6 +182,18 @@ def api_example():
   - 普通数据表格按内容分配列宽、数字不换行，放不下时表格自己左右滑；只有 `.stats-dense-table` 用固定列宽。
   - 正文类页面（新闻详情）用窄版宽度 `var(--narrow-width)`，不要让一行字拉到 1100px。
 
+## 队标（显示、上传、批量处理）
+
+- **显示**：模板里队标地址一律写 `{{ 队标字段|team_logo_url }}`，不要再自己拼 `url_for('static', filename='uploads/' ~ ...)`。
+  数据库里两种存法（队伍资料存 `team_logos/文件名`，赛事报名只存 `文件名`）这个过滤器都认得，
+  地址后面还会带上文件修改时间，换了队标浏览器马上显示新的。
+  Python 里用 `services/team_logo_service.py` 的 `team_logo_url()`；直播 HUD 接口要的 `/static/...` 路径用 `team_logo_static_path()`。
+- **上传**：后台“队伍”和赛事报名都走 `utils/db_helpers.py` 的 `save_uploaded_team_logo()`：
+  自动去掉纯色背景、裁掉空白、居中成 256×256 的透明 PNG；原图备份在 `instance/team_logo_originals/`（不对外公开）。
+- **已有队标批量处理**：先运行 `python scripts/process_team_logos.py` 看报告（不改任何东西），确认后加 `--apply`。
+  重复运行也安全（总是从原图备份重新处理）；还会把“队伍资料没有队标或文件丢了、但同名报名队伍有队标”的补上。
+- 深色模式下队标外圈有一圈很淡的亮边（变量 `--logo-outline`），防止深色队标和背景混在一起，新页面不用另外处理。
+
 ## 翻译（中英文）约定
 
 网站文字写中文，英文由 `static/js/i18n.js` 里的词典自动替换。

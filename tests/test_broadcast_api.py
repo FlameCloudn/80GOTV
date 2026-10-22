@@ -26,7 +26,7 @@ class BroadcastApiTests(unittest.TestCase):
                VALUES('2026 Summer 80 Major', '80 MAJOR', '2026-07-01', '2026-08-01', 'ongoing')"""
         ).lastrowid
         team1_id = conn.execute(
-            "INSERT INTO teams(name, short_name, logo) VALUES('Team Eighty', '80', 'team80.png')"
+            "INSERT INTO teams(name, short_name, logo) VALUES('Team Eighty', '80', 'team_logos/team80.png')"
         ).lastrowid
         team2_id = conn.execute(
             "INSERT INTO teams(name, short_name) VALUES('Summer Five', 'SF')"
@@ -119,7 +119,7 @@ class BroadcastApiTests(unittest.TestCase):
         self.assertEqual(payload["match"]["event"]["short_name"], "80 MAJOR")
         self.assertEqual(payload["match"]["team1"]["short_name"], "80")
         self.assertEqual(payload["match"]["maps"][0]["name"], "de_mirage")
-        self.assertEqual(payload["match"]["team1"]["logo"], "/static/uploads/team80.png")
+        self.assertEqual(payload["match"]["team1"]["logo"], "/static/uploads/team_logos/team80.png")
         self.assertEqual(payload["match"]["team1"]["players"][0]["nickname"], "FlameCloud_")
         self.assertEqual(
             payload["match"]["team1"]["players"][0]["avatar"], "/static/avatars/flame.png"

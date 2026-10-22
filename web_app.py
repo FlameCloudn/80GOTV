@@ -31,6 +31,7 @@ from services.player_remark_service import (
     private_remark_for_player,
     private_remark_for_user,
 )
+from services.team_logo_service import team_logo_url
 from utils.db_helpers import avatar_static_filename
 from utils.helpers import event_path, news_path, normalize_map_key
 
@@ -60,6 +61,7 @@ from utils.filters import (  # noqa: E402
     map_display_cn_filter,
     map_display_filter,
     map_image_filter,
+    map_pool_label_filter,
     rating_class_filter,
     registration_team_abbr_filter,
     relative_date_display_filter,
@@ -77,6 +79,7 @@ app.template_filter("map_image")(map_image_filter)
 app.template_filter("map_background")(map_background_filter)
 app.template_filter("map_display")(map_display_filter)
 app.template_filter("map_display_cn")(map_display_cn_filter)
+app.template_filter("map_pool_label")(map_pool_label_filter)
 app.template_filter("rating_class")(rating_class_filter)
 app.template_filter("registration_team_abbr")(registration_team_abbr_filter)
 app.template_filter("bilibili_embed")(bilibili_embed_filter)
@@ -480,6 +483,12 @@ def versioned_url(path):
     return path
 
 
+@app.template_filter("team_logo_url")
+def team_logo_url_filter(value):
+    """队标地址：数据库里各种写法的队标都换成统一地址。用法: {{ team.logo|team_logo_url }}"""
+    return team_logo_url(value, app.root_path)
+
+
 @app.template_global()
 def avatar_thumbnail_url(filename):
     """列表优先使用小头像；没有小图时自动退回原头像。"""
@@ -581,6 +590,14 @@ def _handle_exception(e):
 
 
 # ── 静态资源路由 ────────────────────────────────────────────
+
+
+@app.route("/favicon.ico")
+def favicon():
+    """浏览器标签页上的网站小图标（浏览器和后台页面默认都会来这个地址找）。"""
+    return send_from_directory(
+        os.path.join(app.root_path, "static"), "favicon.ico", mimetype="image/vnd.microsoft.icon"
+    )
 
 
 @app.route("/resources/maps/<path:filename>")

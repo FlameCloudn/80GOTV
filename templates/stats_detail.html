@@ -163,7 +163,7 @@
       {% for r in rows %}
       <tr>
         <td class="team-cell" data-i18n-ignore>
-          {% if r.logo %}<img src="{{ r.logo if r.logo.startswith('http') else url_for('static', filename='uploads/' + r.logo) }}" alt="" loading="lazy" class="team-logo-sm">{% endif %}
+          {% if r.logo %}<img src="{{ r.logo|team_logo_url }}" alt="" loading="lazy" class="team-logo-sm">{% endif %}
           {% if r.team_id %}
           <a href="{{ url_for('team_detail', team_id=r.team_id) }}">{{ r.team_name }}</a>
           {% else %}

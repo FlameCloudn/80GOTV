@@ -8,6 +8,7 @@
   <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#151b22" media="(prefers-color-scheme: dark)">
   <title>{% block title %}80GOTV{% endblock %}</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="16x16 32x32 48x48">
   <script>
     // 提前应用主题，避免页面闪烁（必须在CSS之前执行）
     (function(){

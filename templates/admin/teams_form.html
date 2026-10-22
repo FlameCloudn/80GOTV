@@ -49,12 +49,13 @@
         <label>队标图片</label>
         {% if team and team.logo %}
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
-          <img src="{% if team.logo.startswith('http') or team.logo.startswith('/') %}{{ team.logo }}{% else %}{{ url_for('static', filename='uploads/' ~ team.logo) }}{% endif %}" alt="{{ team.name }}" style="width:48px;height:48px;object-fit:cover;border:1px solid var(--border-color,#d4d9e2);background:var(--bg-secondary,#f4f5f7);">
+          <img src="{{ team.logo|team_logo_url }}" alt="{{ team.name }}" style="width:48px;height:48px;object-fit:contain;border:1px solid var(--border-color,#d4d9e2);background:var(--bg-secondary,#f4f5f7);">
           <span style="font-size:13px;color:var(--text-muted,#77818d);">已有队标，如无需更换请勿选择新文件</span>
         </div>
         {% endif %}
         <input type="file" name="logo" accept="image/png,image/jpeg,image/webp,image/gif">
         <small class="field-note">支持 PNG、JPG、WebP、GIF 图片格式（最大 2MB）</small>
+        <small class="field-note">上传后会自动去掉纯色背景、裁掉多余空白并居中；原图另外备份，不会丢失</small>
       </div>
 
       <div class="form-group">

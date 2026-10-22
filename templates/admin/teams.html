@@ -94,7 +94,7 @@
         <td>{{ t.id }}</td>
         <td>
           {% if t.logo %}
-          <img src="{% if t.logo.startswith('http') or t.logo.startswith('/') %}{{ t.logo }}{% else %}{{ url_for('static', filename='uploads/' ~ t.logo) }}{% endif %}" alt="" style="width:24px;height:24px;object-fit:cover;vertical-align:middle;margin-right:8px;border:1px solid var(--border-color);background:var(--bg-secondary);" loading="lazy">
+          <img src="{{ t.logo|team_logo_url }}" alt="" style="width:24px;height:24px;object-fit:contain;vertical-align:middle;margin-right:8px;border:1px solid var(--border-color);background:var(--bg-secondary);" loading="lazy">
           {% endif %}
           <b>{{ t.name }}</b>
         </td>

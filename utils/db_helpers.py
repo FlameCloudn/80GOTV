@@ -17,7 +17,6 @@ IMAGE_SIGNATURES = {
 }
 IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif"}
 MAX_IMAGE_UPLOAD_BYTES = 5 * 1024 * 1024
-TEAM_LOGO_MAX_DIMENSION = 512
 AVATAR_THUMBNAIL_DIMENSION = 160
 Image.MAX_IMAGE_PIXELS = 25_000_000
 
@@ -175,48 +174,24 @@ def save_uploaded_avatar(file, app_root_path, old_avatar=None):
 
 
 def remove_uploaded_team_logo(app_root_path, filename):
-    """删除报名队伍的旧队标，只接受本站生成的纯文件名。"""
-    if not filename or os.path.basename(filename) != filename:
-        return
-    logo_path = os.path.join(app_root_path, "static", "uploads", "team_logos", filename)
-    if os.path.isfile(logo_path):
-        try:
-            os.remove(logo_path)
-        except OSError:
-            pass
+    """删除队标（连同原图备份），只接受本站生成的纯文件名。"""
+    from services.team_logo_service import remove_logo_files
+
+    remove_logo_files(app_root_path, filename)
 
 
 def save_uploaded_team_logo(file, app_root_path):
-    """验证并压缩队标，统一保存为不带动画和元数据的 PNG。"""
+    """验证上传的队标，自动去背景、裁边、居中后保存为统一规格的 PNG。返回文件名，失败返回 None。
+
+    后台“队伍”表单和赛事报名上传队标都走这里，处理规则见 services/team_logo_service.py。
+    """
+    from services.team_logo_service import save_uploaded_logo_file
+
     if not file or not file.filename or not allowed_image_file(file.filename):
         return None
     if not validate_image_content(file.stream):
         return None
-
-    logo_dir = os.path.join(app_root_path, "static", "uploads", "team_logos")
-    os.makedirs(logo_dir, exist_ok=True)
-    filename = f"{uuid.uuid4().hex}.png"
-    logo_path = os.path.join(logo_dir, filename)
-    try:
-        with Image.open(file.stream) as source:
-            if getattr(source, "is_animated", False):
-                source.seek(0)
-            source.load()
-            image = ImageOps.exif_transpose(source).convert("RGBA")
-            image.thumbnail(
-                (TEAM_LOGO_MAX_DIMENSION, TEAM_LOGO_MAX_DIMENSION),
-                Image.Resampling.LANCZOS,
-            )
-            image.save(logo_path, format="PNG", optimize=True)
-    except (OSError, ValueError, UnidentifiedImageError):
-        try:
-            os.remove(logo_path)
-        except OSError:
-            pass
-        file.stream.seek(0)
-        return None
-    file.stream.seek(0)
-    return filename
+    return save_uploaded_logo_file(file, app_root_path)
 
 
 def save_news_image(file, app_root_path):

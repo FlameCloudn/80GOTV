@@ -601,8 +601,8 @@ a.card:hover{
 .ms-vs{font-size:20px;font-weight:800;color:var(--text-muted);line-height:1}
 .ms-half-detail{font-size:10px;font-weight:500;line-height:1.4;white-space:nowrap;margin-top:3px}
 
-.t-side{color:#f0a030}
-.ct-side{color:#5881bc}
+.t-side{color:var(--color-t)}
+.ct-side{color:var(--color-ct)}
 
 /* 图标 */
 .ms-icon{
@@ -787,7 +787,7 @@ a.card:hover{
 .award-medal-player{font-weight:600;font-size:14px;color:var(--text-primary);display:block}
 .award-medal-team{font-size:12px;color:var(--text-muted)}
 .award-badge{font-size:11px;font-weight:800;padding:3px 10px;border-radius:0;flex-shrink:0}
-.champ-badge{background:rgba(255,215,0,0.2);color:#ca8a04}
+.champ-badge{background:var(--color-gold);color:var(--color-dark)}
 .mvp-badge{background:rgba(45,136,216,0.15);color:#2d88d8}
 .evp-badge{background:rgba(139,92,246,0.15);color:#8b5cf6}
 
@@ -810,7 +810,7 @@ a.card:hover{
   overflow:hidden;
   border:1px solid var(--border-color);
   border-radius:0;
-  background:#1e2128;
+  background:var(--bg-card);
 }
 .event-award-poster-wrap img{display:block;width:100%;height:auto}
 .event-award-poster-wrap figcaption{padding:7px 10px;color:var(--text-secondary);font-size:12px}
@@ -2084,19 +2084,19 @@ canvas{max-width:100%}
   background:linear-gradient(90deg,rgba(201,162,39,0.12) 0%,transparent 55%);
 }
 .bracket-team.winner .bracket-seed{
-  background:#c9a227;border-color:#b8941f;color:var(--color-white);
+  background:var(--color-gold);border-color:var(--color-gold);color:var(--color-dark);
 }
 .bracket-team.winner .bracket-short{
-  background:#c9a227;color:var(--color-white);
+  background:var(--color-gold);color:var(--color-dark);
 }
 
 /* Loser faded */
 .bracket-team.loser{opacity:0.45}
 .bracket-team.loser .bracket-seed{
-  background:var(--color-white);border-color:#ddd;color:#999;
+  background:var(--surface-soft);border-color:var(--border-color);color:var(--text-muted);
 }
 .bracket-team.loser .bracket-short{
-  background:var(--color-white);color:#999;
+  background:var(--surface-soft);color:var(--text-muted);
 }
 
 /* ---- Match link ---- */
@@ -3039,14 +3039,6 @@ canvas{max-width:100%}
   position:relative;
   overflow:hidden;
   padding:14px 16px;
-}
-.event-card::after{
-  content:'';
-  position:absolute;
-  right:0;top:0;bottom:0;
-  width:4px;
-  background:var(--accent);
-  opacity:.36;
 }
 .event-card h3{font-weight:700}
 
@@ -9940,7 +9932,7 @@ body .layout.match-detail-layout .detail-tab.active{
 .match-detailed-rating-row em{display:block;height:100%;background:#4fa6df}.match-detailed-rating-row em.t2{background:#f39b16}
 .match-detailed-rating-row b{color:var(--text-primary,#202832);font-size:11px;font-variant-numeric:tabular-nums}
 .match-detailed-rating-scale,.match-detailed-rating-labels{display:grid;grid-template-columns:repeat(4,1fr);padding:0 56px 0 138px;background:var(--h-row,var(--color-white));color:var(--text-muted,#7a8490);font-size:10px}
-.match-detailed-rating-labels{grid-template-columns:repeat(3,1fr);padding-bottom:8px}.match-detailed-rating-labels span:nth-child(1){color:#d26b21}.match-detailed-rating-labels span:nth-child(2){color:#b79b00;text-align:center}.match-detailed-rating-labels span:nth-child(3){color:#4c8c22;text-align:right}
+.match-detailed-rating-labels{grid-template-columns:repeat(3,1fr);padding-bottom:8px}.match-detailed-rating-labels span:nth-child(1){color:var(--color-t)}.match-detailed-rating-labels span:nth-child(2){color:var(--color-gold);text-align:center}.match-detailed-rating-labels span:nth-child(3){color:var(--color-green);text-align:right}
 .match-detailed-player-card-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px 12px;padding:0;align-items:stretch}
 .match-detailed-player-column-head{min-height:50px;display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:0;padding:8px 10px;border:1px solid var(--h-panel-line,#c8d0d8);background:var(--h-panel,var(--color-white));color:var(--text-primary,#202832);box-shadow:var(--front-soft-shadow,0 1px 4px rgba(28,39,49,.12));font-size:13px}
 .match-detailed-player-column-head span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

@@ -86,8 +86,8 @@ class StatsUiRegressionTests(unittest.TestCase):
 
         popup_template = (ROOT / "templates/event_detail_card.html").read_text(encoding="utf-8")
         self.assertIn('class="bmp-team-mark"', popup_template)
-        self.assertIn("'uploads/' ~ t1_logo", popup_template)
-        self.assertIn("'uploads/' ~ t2_logo", popup_template)
+        self.assertIn("t1_logo|team_logo_url", popup_template)
+        self.assertIn("t2_logo|team_logo_url", popup_template)
         self.assertIn('class="bmp-versus"', popup_template)
         self.assertIn("data-i18n-ignore>Lineups</div>", popup_template)
 

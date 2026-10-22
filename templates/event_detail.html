@@ -117,7 +117,7 @@ function selectSlot(n){
   {% for t in teams %}
   <div class="team-badge" data-tooltip>
     {% if t.logo %}
-    <img class="event-team-logo" src="{{ url_for('static', filename='uploads/' ~ t.logo) }}"
+    <img class="event-team-logo" src="{{ t.logo|team_logo_url }}"
          alt="{{ t.name }}" loading="lazy">
     {% else %}
     <div class="avatar event-team-logo-fallback" data-i18n-ignore>{{ (t.short_name or t.name)[0] }}</div>
@@ -194,10 +194,7 @@ function selectSlot(n){
 {% endfor %}
 {% endif %}
 
-<div class="event-section-head">
-  <h3 class="section-title">对阵图</h3>
-  <a href="{{ event_path(event) }}/stats" class="event-stats-link">赛事数据 →</a>
-</div>
+<h3 class="section-title">对阵图<a href="{{ event_path(event) }}/stats" class="h-panel-link">赛事数据 →</a></h3>
 {% if tour.name or tour.type or tour.total_teams %}
 <div class="bracket-subtitle">
   {% if tour.name %}{{ tour.name }}{% endif %}
@@ -467,8 +464,8 @@ function selectSlot(n){
   <div class="map-strip">
     <div class="ms-top">
       <span class="ms-top-wrap">
-        <img class="ms-top-img" src="{{ map_name|map_image }}" alt="{{ map_name }}" loading="lazy">
-        <span class="ms-map-name">{{ map_name }}</span>
+        <img class="ms-top-img" src="{{ map_name|map_image }}" alt="{{ map_name|map_pool_label }}" loading="lazy">
+        <span class="ms-map-name">{{ map_name|map_pool_label }}</span>
       </span>
     </div>
   </div>

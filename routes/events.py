@@ -29,6 +29,7 @@ from services.steam_playtime_service import (
     build_balanced_roster_plan,
     refresh_registration_playtimes,
 )
+from services.team_logo_service import logo_relative_path
 from utils.db_helpers import remove_uploaded_team_logo, save_uploaded_team_logo
 from utils.helpers import event_path, resolve_event_ref
 from utils.match_utils import get_sql_effective_status
@@ -393,9 +394,9 @@ def event_detail(event_id):
                     }
                 )
         registration_rosters[team_key] = roster
-        registration_logo = str(info.get("team_logo") or "").strip()
+        registration_logo = logo_relative_path(info.get("team_logo"))
         if registration_logo:
-            registration_logos[team_key] = f"team_logos/{registration_logo}"
+            registration_logos[team_key] = registration_logo
 
     # 从比赛列表自动提取参赛队伍（含临时队伍）
     import json as _json

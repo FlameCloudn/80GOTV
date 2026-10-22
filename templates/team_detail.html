@@ -12,7 +12,7 @@
 
 {% if team.logo or team.description %}
 <div class="team-list-row ui-panel-body">
-  {% if team.logo %}<img class="avatar-lg team-list-logo" src="{% if team.logo.startswith('http') or team.logo.startswith('/') %}{{ team.logo }}{% else %}{{ url_for('static', filename='uploads/' ~ team.logo) }}{% endif %}" alt="{{ team.name }}">{% endif %}
+  {% if team.logo %}<img class="avatar-lg team-list-logo" src="{{ team.logo|team_logo_url }}" alt="{{ team.name }}">{% endif %}
   {% if team.description %}<p data-i18n-ignore>{{ team.description }}</p>{% endif %}
 </div>
 {% endif %}

@@ -6,6 +6,8 @@ import json
 import sqlite3
 from datetime import datetime
 
+from services.team_logo_service import logo_relative_path
+
 
 def _has_temp_players(value):
     """Return whether a temporary match side contains an actual roster."""
@@ -60,15 +62,9 @@ def _event_registration_logo(conn, event_id, team_name):
         return ""
     if not row:
         return ""
-    value = str(row["team_logo"] or "").strip().replace("\\", "/").lstrip("/")
-    if value.startswith("static/uploads/"):
-        value = value[len("static/uploads/") :]
-    elif value.startswith("uploads/"):
-        value = value[len("uploads/") :]
-    if value.startswith(("http://", "https://")):
+    value = logo_relative_path(row["team_logo"])
+    if value.startswith(("http://", "https://", "/")):
         return ""
-    if "/" not in value:
-        value = f"team_logos/{value}"
     return value
 
 

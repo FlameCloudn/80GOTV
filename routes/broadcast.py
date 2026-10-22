@@ -9,6 +9,7 @@ from flask import jsonify
 
 from models import get_db
 from services.match_service import supplement_temp_teams
+from services.team_logo_service import team_logo_static_path
 from utils.bp_manager import ensure_bp_started
 from utils.match_utils import (
     get_bo_max_maps,
@@ -184,12 +185,7 @@ def _registration_short_name(name):
 
 
 def _registration_logo_path(value):
-    value = str(value or "").strip().replace("\\", "/")
-    if not value or value.startswith(("http://", "https://", "/")):
-        return value
-    if "/" in value:
-        return _asset_path("uploads", value)
-    return _asset_path("uploads/team_logos", value)
+    return team_logo_static_path(value)
 
 
 def _registration_players(conn, registration_id, creator_user_id):
@@ -375,7 +371,7 @@ def _match_payload(row, conn):
             "id": match.get("team1_id"),
             "name": match.get("team1_name") or "TBD",
             "short_name": match.get("t1s") or "TBD",
-            "logo": _asset_path("uploads", match.get("team1_logo")),
+            "logo": team_logo_static_path(match.get("team1_logo")),
             "series_score": match.get("team1_score") or 0,
             "players": selected_players[1],
         },
@@ -383,7 +379,7 @@ def _match_payload(row, conn):
             "id": match.get("team2_id"),
             "name": match.get("team2_name") or "TBD",
             "short_name": match.get("t2s") or "TBD",
-            "logo": _asset_path("uploads", match.get("team2_logo")),
+            "logo": team_logo_static_path(match.get("team2_logo")),
             "series_score": match.get("team2_score") or 0,
             "players": selected_players[2],
         },

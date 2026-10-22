@@ -11,7 +11,7 @@
   {% for t in teams %}
   <a class="card team-list-row" href="{{ url_for('team_detail', team_id=t.id) }}">
     {% if t.logo %}
-    <img src="{% if t.logo.startswith('http') or t.logo.startswith('/') %}{{ t.logo }}{% else %}{{ url_for('static', filename='uploads/' ~ t.logo) }}{% endif %}" alt="" class="avatar-lg team-list-logo" loading="lazy">
+    <img src="{{ t.logo|team_logo_url }}" alt="" class="avatar-lg team-list-logo" loading="lazy">
     {% else %}
     <div class="avatar-lg" data-i18n-ignore>{{ t.name[0] }}</div>
     {% endif %}

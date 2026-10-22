@@ -1320,7 +1320,13 @@
     '拖入队伍': 'Drop a team here', 'TBD · 由赛果决定': 'TBD · decided by results', '比赛设置': 'Match settings',
     '对阵图与全部比赛已生成': 'Bracket and all matches have been generated',
     '这场比赛已经绑定到其他槽位': 'This match is already linked to another slot',
-    '网络错误，没有收到服务器回复，请检查网络后重试': 'Network error: no reply from the server. Check your connection and try again.'
+    '网络错误，没有收到服务器回复，请检查网络后重试': 'Network error: no reply from the server. Check your connection and try again.',
+    // —— 2026-10-23 队标自动处理、图池地图名 ——
+    'Dust2 (炙热沙城Ⅱ)': 'Dust2',
+    '已有队标，如无需更换请勿选择新文件': 'A logo is already set. Leave this empty to keep it.',
+    '支持 PNG、JPG、WebP、GIF 图片格式（最大 2MB）': 'PNG, JPG, WebP or GIF (max 2 MB)',
+    '上传后会自动去掉纯色背景、裁掉多余空白并居中；原图另外备份，不会丢失':
+      'Uploads are cleaned up automatically: solid backgrounds removed, extra margins trimmed and the logo centred. The original is kept as a backup.'
   };
   var partialTranslations = [
     // 对阵图保存失败的原因（前面会带“保存失败：”）
