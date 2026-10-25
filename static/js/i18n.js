@@ -131,7 +131,7 @@
     '暂无新闻': 'No news', '暂无赛事': 'No events', '暂无选手': 'No players',
     '数据概览': 'Stats overview', '地图数据': 'Map stats',
     '返回数据概览': 'Back to stats overview', '返回选手资料': 'Back to player profile',
-    '选手信息': 'Player information', '当前队伍': 'Current team', '地图数': 'Maps',
+    '选手信息': 'Player information', '当前队伍': 'Current team', '地图数': 'Maps played',
     '无队伍': 'No team', '无': 'None', '昵称': 'Nickname', '真名': 'Real name',
     '历史昵称': 'Previous nicknames', '查看': 'View', '的完整数据': 'complete stats',
     '选手荣誉': 'Player achievements', '胜负': 'Win - Loss',
@@ -247,7 +247,7 @@
     '差': 'Bad',
     '条记录': 'records',
     '自由选手': 'Free agent',
-    '选手对比': 'Player comparison',
+    '选手对比': 'Compare players',
     '选择选手 A...': 'Select player A...',
     '选择选手 B...': 'Select player B...',
     '对比': 'Compare',
@@ -1096,7 +1096,7 @@
     // 通用
     '是': 'Yes', '不是': 'No', '你': 'You', '一般': 'Average', '刷新': 'Refresh',
     '个人主页': 'Profile', '比赛战报': 'Match report', '预测排行': 'Prediction rankings',
-    '数据看板': 'Dashboard', '荣誉堂': 'Hall of fame', '队伍': 'Teams', '选手对比': 'Player comparison',
+    '数据看板': 'Dashboard', '荣誉堂': 'Hall of fame', '队伍': 'Teams', '选手对比': 'Compare players',
     '← 返回比赛': '← Back to match', '← 返回登录': '← Back to login',
     '作弊封禁': 'Banned for cheating', '验证码': 'Captcha',
     '甲+盔': 'Armor + helmet', '阵营': 'Side', '数据统计导航': 'Stats navigation', '游戏版本': 'Game version',
@@ -1363,7 +1363,9 @@
     '生涯': 'Career',
     '能力雷达图': 'Skill radar',
     '我的备注': 'My note',
-    '仅你可见': 'Only you can see this'
+    '仅你可见': 'Only you can see this',
+    '选手 A': 'Player A',
+    '选手 B': 'Player B'
   };
   var partialTranslations = [
     // 对阵图保存失败的原因（前面会带“保存失败：”）

@@ -582,11 +582,11 @@ def player_compare():
 
     if id1 and id2:
         p1 = conn.execute(
-            "SELECT p.*, t.name AS team_name FROM players p LEFT JOIN teams t ON p.team_id=t.id WHERE p.id=?",
+            "SELECT p.*, t.name AS team_name, t.logo AS team_logo FROM players p LEFT JOIN teams t ON p.team_id=t.id WHERE p.id=?",
             (id1,),
         ).fetchone()
         p2 = conn.execute(
-            "SELECT p.*, t.name AS team_name FROM players p LEFT JOIN teams t ON p.team_id=t.id WHERE p.id=?",
+            "SELECT p.*, t.name AS team_name, t.logo AS team_logo FROM players p LEFT JOIN teams t ON p.team_id=t.id WHERE p.id=?",
             (id2,),
         ).fetchone()
         if p1 and p2:
@@ -614,23 +614,23 @@ def player_compare():
 
             r1, r2 = _get_stats(id1), _get_stats(id2)
             stats1 = [
-                {"label": "RATING", "value": round(r1["r"] or 0, 2)},
-                {"label": "K/D", "value": round(r1["kd"] or 0, 2)},
-                {"label": "ADR", "value": round(r1["a"] or 0, 1)},
-                {"label": "KAST%", "value": str(round(r1["k"] or 0, 1)) + "%"},
-                {"label": "影响力", "value": round(r1["i"] or 0, 2)},
-                {"label": "HS%", "value": str(round(r1["h"] or 0, 1)) + "%"},
-                {"label": "KPR", "value": round(r1["kpr"] or 0, 2)},
+                {"label": "RATING", "value": f"{r1['r'] or 0:.2f}"},
+                {"label": "K/D", "value": f"{r1['kd'] or 0:.2f}"},
+                {"label": "ADR", "value": f"{r1['a'] or 0:.1f}"},
+                {"label": "KAST%", "value": f"{r1['k'] or 0:.1f}%"},
+                {"label": "影响力", "value": f"{r1['i'] or 0:.2f}"},
+                {"label": "HS%", "value": f"{r1['h'] or 0:.1f}%"},
+                {"label": "KPR", "value": f"{r1['kpr'] or 0:.2f}"},
                 {"label": "地图数", "value": r1["m"] or 0},  # 这里的数字是地图数，不是比赛场次
             ]
             stats2 = [
-                {"label": "RATING", "value": round(r2["r"] or 0, 2)},
-                {"label": "K/D", "value": round(r2["kd"] or 0, 2)},
-                {"label": "ADR", "value": round(r2["a"] or 0, 1)},
-                {"label": "KAST%", "value": str(round(r2["k"] or 0, 1)) + "%"},
-                {"label": "影响力", "value": round(r2["i"] or 0, 2)},
-                {"label": "HS%", "value": str(round(r2["h"] or 0, 1)) + "%"},
-                {"label": "KPR", "value": round(r2["kpr"] or 0, 2)},
+                {"label": "RATING", "value": f"{r2['r'] or 0:.2f}"},
+                {"label": "K/D", "value": f"{r2['kd'] or 0:.2f}"},
+                {"label": "ADR", "value": f"{r2['a'] or 0:.1f}"},
+                {"label": "KAST%", "value": f"{r2['k'] or 0:.1f}%"},
+                {"label": "影响力", "value": f"{r2['i'] or 0:.2f}"},
+                {"label": "HS%", "value": f"{r2['h'] or 0:.1f}%"},
+                {"label": "KPR", "value": f"{r2['kpr'] or 0:.2f}"},
                 {"label": "地图数", "value": r2["m"] or 0},  # 这里的数字是地图数，不是比赛场次
             ]
 

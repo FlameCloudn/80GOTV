@@ -1,75 +1,68 @@
 {% extends "base.html" %}
 {% block title %}选手对比 - 80GOTV{% endblock %}
-{% block head %}
-<link rel="stylesheet" href="{{ versioned_url('static/css/player_compare.css') }}">
-{% endblock %}
-{% block layout_class %}no-side-layout{% endblock %}
-{% block main %}
-<div class="compare-container">
-  <header class="page-head">
-    <div><span class="page-head-kicker" data-i18n-ignore>COMPARE</span><h1>选手对比</h1></div>
-  </header>
-  <form class="compare-selector" method="get" action="/players/compare">
-    <select name="id1" required aria-label="选手 A">
-      <option value="">选择选手 A...</option>
-      {% for p in all_players %}
-      <option value="{{ p.id }}" {% if p1 and p.id==p1.id %}selected{% endif %} data-i18n-ignore>{{ private_name_for_player(p.id, p.nickname) }}{% if p.team_name %} ({{ p.team_name }}){% endif %}</option>
-      {% endfor %}
-    </select>
-    <span class="compare-vs" data-i18n-ignore>VS</span>
-    <select name="id2" required aria-label="选手 B">
-      <option value="">选择选手 B...</option>
-      {% for p in all_players %}
-      <option value="{{ p.id }}" {% if p2 and p.id==p2.id %}selected{% endif %} data-i18n-ignore>{{ private_name_for_player(p.id, p.nickname) }}{% if p.team_name %} ({{ p.team_name }}){% endif %}</option>
-      {% endfor %}
-    </select>
-    <button type="submit" class="compare-submit ui-btn ui-btn--primary">对比</button>
-  </form>
+{% block head %}<link rel="stylesheet" href="{{ versioned_url('static/css/pages/player.css') }}">{% endblock %}
+{% block layout_class %}no-side-layout narrow-layout{% endblock %}
 
-  {% if p1 and p2 %}
-  <div class="compare-grid">
-    {# 选手 A #}
-    <div class="compare-card is-a">
-      <h3 data-i18n-ignore>{{ private_name_for_player(p1.id, p1.nickname) }}</h3>
-      <div class="team">{% if p1.team_name %}<span data-i18n-ignore>{{ p1.team_name }}</span>{% else %}自由选手{% endif %}</div>
-      {% for s in stats1|default([]) %}
-      <div class="compare-stat-row">
-        <span class="label">{{ s.label }}</span>
-        <span class="value">{{ s.value }}</span>
-      </div>
-      {% endfor %}
-    </div>
-    {# 选手 B #}
-    <div class="compare-card is-b">
-      <h3 data-i18n-ignore>{{ private_name_for_player(p2.id, p2.nickname) }}</h3>
-      <div class="team">{% if p2.team_name %}<span data-i18n-ignore>{{ p2.team_name }}</span>{% else %}自由选手{% endif %}</div>
-      {% for s in stats2|default([]) %}
-      <div class="compare-stat-row">
-        <span class="label">{{ s.label }}</span>
-        <span class="value">{{ s.value }}</span>
-      </div>
-      {% endfor %}
-    </div>
+{% macro compare_player(p, side) %}
+{% set name = private_name_for_player(p.id, p.nickname) %}
+<a class="compare-player is-{{ side }}" href="/players/{{ p.id }}">
+  {% if p.avatar %}<img class="compare-avatar" src="{{ url_for('static', filename='avatars/' + p.avatar) }}" alt="" loading="lazy">{% else %}<span class="compare-avatar" aria-hidden="true">{{ name[:1] }}</span>{% endif %}
+  <span class="compare-player-text">
+    <b data-i18n-ignore>{{ name }}</b>
+    <span class="team">{% if p.team_logo %}<img class="team-logo sm" src="{{ p.team_logo|team_logo_url }}" alt="" loading="lazy">{% endif %}{% if p.team_name %}<span data-i18n-ignore>{{ p.team_name }}</span>{% else %}自由选手{% endif %}</span>
+  </span>
+</a>
+{% endmacro %}
+
+{% block main %}
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>COMPARE</span><h1>选手对比</h1></div>
+</header>
+
+<form class="panel compare-selector" method="get" action="/players/compare">
+  <select name="id1" required aria-label="选手 A">
+    <option value="">选择选手 A...</option>
+    {% for p in all_players %}
+    <option value="{{ p.id }}" {% if p1 and p.id==p1.id %}selected{% endif %} data-i18n-ignore>{{ private_name_for_player(p.id, p.nickname) }}{% if p.team_name %} ({{ p.team_name }}){% endif %}</option>
+    {% endfor %}
+  </select>
+  <span class="compare-vs" data-i18n-ignore>VS</span>
+  <select name="id2" required aria-label="选手 B">
+    <option value="">选择选手 B...</option>
+    {% for p in all_players %}
+    <option value="{{ p.id }}" {% if p2 and p.id==p2.id %}selected{% endif %} data-i18n-ignore>{{ private_name_for_player(p.id, p.nickname) }}{% if p.team_name %} ({{ p.team_name }}){% endif %}</option>
+    {% endfor %}
+  </select>
+  <button type="submit" class="btn btn-primary compare-submit">对比</button>
+</form>
+
+{% if p1 and p2 %}
+<section class="panel compare-board">
+  <div class="compare-heads">
+    {{ compare_player(p1, 'a') }}
+    <span class="compare-vs-big" data-i18n-ignore>VS</span>
+    {{ compare_player(p2, 'b') }}
   </div>
 
-  {# 对比条 #}
-  <div class="compare-bars">
-    {% for item in compare_bars|default([]) %}
-    <div class="compare-bars-item">
-      <div class="compare-bars-label">
-        <span>{{ item.s1.val }}</span><span>{{ item.label }}</span><span>{{ item.s2.val }}</span>
-      </div>
-      <div class="compare-bar">
-        <div class="fill-a" style="width:{{ item.s1.pct }}%"></div>
-        <div class="gap" style="width:{{ 100 - item.s1.pct - item.s2.pct }}%"></div>
-        <div class="fill-b" style="width:{{ item.s2.pct }}%"></div>
-      </div>
+  {# 每一项一行：左右是两人的数值（数值大的一方高亮），中间是名称，下面一根左右两色的对比条 #}
+  <div class="compare-rows">
+    {% for s1 in stats1|default([]) %}
+    {% set s2 = stats2[loop.index0] %}
+    {% set v1 = (s1.value|string|replace('%', ''))|float %}
+    {% set v2 = (s2.value|string|replace('%', ''))|float %}
+    {% set total = v1 + v2 %}
+    {% set pct1 = (v1 / total * 100) if total else 50 %}
+    <div class="compare-row">
+      <span class="compare-val a{% if v1 > v2 %} is-better{% endif %}">{{ s1.value }}</span>
+      <span class="compare-label">{{ s1.label }}</span>
+      <span class="compare-val b{% if v2 > v1 %} is-better{% endif %}">{{ s2.value }}</span>
+      <div class="compare-track" aria-hidden="true"><i class="a" style="width:{{ '%.1f'|format(pct1) }}%"></i><i class="b" style="width:{{ '%.1f'|format(100 - pct1) }}%"></i></div>
     </div>
     {% endfor %}
   </div>
-  {% else %}
-  <div class="empty-state">请选择两名选手进行对比</div>
-  {% endif %}
-</div>
+</section>
+{% else %}
+<div class="panel empty-state">请选择两名选手进行对比</div>
+{% endif %}
 {% endblock %}
 {% block side %}{% endblock %}
