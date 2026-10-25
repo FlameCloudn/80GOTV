@@ -1337,7 +1337,8 @@
     '决胜图': 'DECIDER',
     '选边': 'Sides',
     '上半场 / 下半场（蓝色 CT、橙色 T）': 'First half / second half (blue = CT, orange = T)',
-    '详细数据 →': 'Detailed stats →'
+    '详细数据 →': 'Detailed stats →',
+    '加时': 'Overtime'
   };
   var partialTranslations = [
     // 对阵图保存失败的原因（前面会带“保存失败：”）

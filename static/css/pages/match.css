@@ -166,7 +166,7 @@
 /* ---------- 2. 地图比分卡 ---------- */
 .mh-columns {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 260px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--site-gap);
   align-items: start;
 }
@@ -274,108 +274,90 @@
 
 .ms-map-name {
   color: var(--color-white);
-  font-size: var(--font-md);
+  font-size: var(--font-lg);
   font-weight: 700;
   text-shadow: var(--on-image-shadow);
 }
 
-/* 结果行：队伍 | 比分 | 队伍 */
+/* 结果区（照 HLTV）：两行对齐
+   第一行：队标 · 队名 · 数据 · 队名 · 队标
+   第二行：选图 · 比分 · 半场比分 · 比分 · 选图 */
 .ms-bottom {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "logo1 name1 stats name2 logo2"
+    "pick1 score1 halves score2 pick2";
   align-items: center;
-  gap: var(--space-md);
-  min-height: 56px;
-  padding: var(--space-sm) var(--space-md);
+  column-gap: var(--space-md);
+  row-gap: 3px;
+  padding: var(--space-sm) var(--space-md) var(--space-md);
 }
 
-.ms-team {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  min-width: 0;
-  font-weight: 600;
-}
+.ms-logo-left { grid-area: logo1; }
+.ms-logo-right { grid-area: logo2; }
+.ms-name-left { grid-area: name1; }
+.ms-name-right { grid-area: name2; justify-self: end; text-align: right; }
+.ms-pick-left { grid-area: pick1; }
+.ms-pick-right { grid-area: pick2; }
+.ms-score-left { grid-area: score1; }
+.ms-score-right { grid-area: score2; justify-self: end; }
+.ms-stats-cell { grid-area: stats; justify-self: center; }
+.ms-half-cell { grid-area: halves; justify-self: center; display: flex; gap: 6px; white-space: nowrap; }
+.ms-logo, .ms-pick-cell { display: flex; justify-content: center; min-width: 30px; }
+.ms-icon { width: 30px; height: 30px; object-fit: contain; }
 
-/* 左队反着排：队标在最右边，挨着比分 */
-.ms-team-left { flex-direction: row-reverse; text-align: right; }
-.ms-team.lost { color: var(--text-muted); font-weight: 500; }
-.ms-team.lost .ms-icon { opacity: .55; }
-.ms-icon { flex: 0 0 auto; width: 30px; height: 30px; object-fit: contain; }
-
-/* 赢下这张图的一方：从它那一侧淡淡地透出一点绿色 */
-.map-strip.t1-won .ms-bottom { background: linear-gradient(90deg, var(--green-soft), transparent 45%); }
-.map-strip.t2-won .ms-bottom { background: linear-gradient(270deg, var(--green-soft), transparent 45%); }
-.ms-name, .ms-short { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ms-name { min-width: 0; overflow: hidden; color: var(--text-primary); font-size: var(--font-md); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.ms-name.won { font-weight: 700; }
+.ms-name.lost { color: var(--text-secondary); font-weight: 500; }
 .ms-short { display: none; }
 
-.ms-pick {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  height: 18px;
-  padding: 0 6px;
-  color: var(--accent);
-  background: var(--accent-soft);
-  border-radius: var(--radius-sm);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .04em;
-}
-
-.ms-result { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 92px; }
-
-.ms-scoreline {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  font-size: var(--font-xl);
-  font-weight: 800;
-  line-height: 1.15;
-  font-variant-numeric: tabular-nums;
-}
-
+.ms-score { font-size: var(--font-lg); font-weight: 800; line-height: 1.2; font-variant-numeric: tabular-nums; }
 .ms-score.win { color: var(--color-green); }
 .ms-score.lose { color: var(--color-red); }
-.ms-colon { color: var(--text-muted); font-weight: 400; }
-.ms-result-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 6px; }
+
+/* 选图：队标下面的小蓝标签 */
+.ms-pick {
+  display: inline-flex;
+  align-items: center;
+  height: 16px;
+  padding: 0 5px;
+  color: var(--accent-contrast);
+  background: var(--accent);
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .03em;
+}
+
+/* “数据”方框按钮（对应 HLTV 的 STATS） */
 .ms-stats-placeholder { display: none; }
 
-/* 比分下面的“数据”小按钮（对应 HLTV 的 STATS） */
 .ms-stats-btn {
   display: inline-flex;
   align-items: center;
-  height: 20px;
+  height: 22px;
   padding: 0 8px;
   color: var(--text-secondary);
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   font-size: var(--font-xs);
-  font-weight: 600;
+  font-weight: 700;
   transition: color var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
 }
 
 .ms-stats-btn:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
-/* 上下半场比分：两个小块，数字颜色表示当时在 CT（蓝）还是 T（橙） */
-.ms-half-detail { display: inline-flex; gap: 4px; color: var(--text-muted); font-size: var(--font-xs); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
-.ms-half {
-  display: inline-flex;
-  align-items: center;
-  height: 20px;
-  padding: 0 6px;
-  background: var(--surface-soft);
-  border-radius: var(--radius-sm);
-  font-weight: 600;
-}
+/* 上下半场比分（加时另起一个括号）：数字颜色表示当时在 CT（蓝）还是 T（橙） */
+.ms-half-detail, .ms-ot-detail { color: var(--text-secondary); font-size: var(--font-sm); font-variant-numeric: tabular-nums; }
 .ms-half-detail .ct-side { color: var(--color-ct); }
 .ms-half-detail .t-side { color: var(--color-t); }
 
 /* 还没打的图：地图图变灰，比分显示 -，队名变淡 */
 .map-strip.is-pending .ms-top,
 .map-strip-tbd .ms-top { filter: grayscale(1); opacity: .75; }
-.map-strip.is-pending .ms-scoreline { color: var(--text-muted); }
-.map-strip.is-pending .ms-team { color: var(--text-secondary); font-weight: 500; }
+.map-strip.is-pending .ms-score { color: var(--text-muted); }
+.map-strip.is-pending .ms-name { color: var(--text-secondary); font-weight: 500; }
 
 /* ---------- 3. 直播与回放、直播画面 ---------- */
 .mh-watch-row { font-size: var(--font-sm); }
@@ -774,13 +756,10 @@
   .match-team-pop.right:hover .match-team-players-popup, .match-team-pop.right:focus-within .match-team-players-popup { transform: none; }
 
   .map-strips { padding: var(--space-sm); }
-  .ms-bottom { gap: var(--space-sm); padding: var(--space-sm); }
-  .ms-icon { width: 24px; height: 24px; }
-  .ms-half { padding: 0 4px; }
-  .ms-name { display: none; }
-  .ms-short { display: block; }
-  .ms-result { min-width: 72px; }
-  .ms-scoreline { font-size: var(--font-lg); }
+  .ms-bottom { column-gap: var(--space-sm); padding: var(--space-sm) var(--space-sm) var(--space-md); }
+  .ms-icon { width: 26px; height: 26px; }
+  .ms-full { display: none; }
+  .ms-short { display: inline; }
 
   .mh-h2h-row { grid-template-columns: auto minmax(0, 1fr); row-gap: 0; }
   .mh-h2h-score { text-align: right; }

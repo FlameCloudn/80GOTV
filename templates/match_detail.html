@@ -367,52 +367,45 @@
       {% for ms in map_scores %}
       {% set t1_won_map = ms.played and ms.t1 > ms.t2 %}
       {% set t2_won_map = ms.played and ms.t2 > ms.t1 %}
-      <div class="map-strip{% if not ms.played %} is-pending{% elif t1_won_map %} t1-won{% elif t2_won_map %} t2-won{% endif %}">
+      <div class="map-strip{% if not ms.played %} is-pending{% endif %}">
         <div class="ms-top" style="background-image:url('{{ ms.name|map_image }}')">
           <span class="ms-map-name">{{ ms.name|map_display_cn }}</span>
         </div>
+        {# 和 HLTV 一样分两行对齐：队标 · 队名 · 数据 · 队名 · 队标 / 选图 · 比分 · 半场比分 · 比分 · 选图 #}
         <div class="ms-bottom">
-          <div class="ms-team ms-team-left{% if t1_won_map %} won{% elif t2_won_map %} lost{% endif %}">
-            {% if match.t1_logo %}
-            <img class="ms-icon ms-icon-img" src="{{ match.t1_logo|team_logo_url }}" alt="{{ match.t1s }}" loading="lazy">
-            {% else %}
-            <span class="ms-icon logo-fallback md" data-i18n-ignore>{{ match.t1s[:2] }}</span>
-            {% endif %}
-            <span class="ms-name" data-i18n-ignore>{{ match.team1_name }}</span>
-            <span class="ms-short" data-i18n-ignore>{{ match.t1s }}</span>
-            {% if ms.picked_by == 't1' %}<span class="ms-pick">PICK</span>{% endif %}
-          </div>
-          <div class="ms-result">
-            <div class="ms-scoreline">
-              <span class="ms-score{% if t1_won_map %} win{% elif t2_won_map %} lose{% endif %}">{% if ms.played %}{{ ms.t1 }}{% else %}-{% endif %}</span>
-              <span class="ms-colon">:</span>
-              <span class="ms-score{% if t2_won_map %} win{% elif t1_won_map %} lose{% endif %}">{% if ms.played %}{{ ms.t2 }}{% else %}-{% endif %}</span>
-            </div>
-            <div class="ms-result-meta">
-            {% if ms.played and ms.halves %}
-            {% set t1_h1_side = 'CT' if ms.halves.opening_ct_team == 't1' else ('T' if ms.halves.opening_ct_team == 't2' else '?') %}
-            {% set t2_h1_side = 'CT' if ms.halves.opening_ct_team == 't2' else ('T' if ms.halves.opening_ct_team == 't1' else '?') %}
-            {% set t1_h2_side = 'T' if t1_h1_side == 'CT' else ('CT' if t1_h1_side == 'T' else '?') %}
-            {% set t2_h2_side = 'T' if t2_h1_side == 'CT' else ('CT' if t2_h1_side == 'T' else '?') %}
-            <span class="ms-half-detail" title="上半场 / 下半场（蓝色 CT、橙色 T）"><span class="ms-half"><span class="{{ 'ct-side' if t1_h1_side == 'CT' else 't-side' if t1_h1_side == 'T' else '' }}">{{ ms.halves.h1_t1 }}</span>:<span class="{{ 'ct-side' if t2_h1_side == 'CT' else 't-side' if t2_h1_side == 'T' else '' }}">{{ ms.halves.h1_t2 }}</span></span><span class="ms-half"><span class="{{ 'ct-side' if t1_h2_side == 'CT' else 't-side' if t1_h2_side == 'T' else '' }}">{{ ms.halves.h2_t1 }}</span>:<span class="{{ 'ct-side' if t2_h2_side == 'CT' else 't-side' if t2_h2_side == 'T' else '' }}">{{ ms.halves.h2_t2 }}</span></span></span>
-            {% endif %}
+          {% for side in ('t1', 't2') %}
+          {% set is_t1 = side == 't1' %}
+          {% set pos = 'left' if is_t1 else 'right' %}
+          {% set won = t1_won_map if is_t1 else t2_won_map %}
+          {% set lost = t2_won_map if is_t1 else t1_won_map %}
+          {% set logo = match.t1_logo if is_t1 else match.t2_logo %}
+          {% set short = match.t1s if is_t1 else match.t2s %}
+          <span class="ms-logo ms-logo-{{ pos }}">
+            {% if logo %}<img class="ms-icon" src="{{ logo|team_logo_url }}" alt="{{ short }}" loading="lazy">{% else %}<span class="ms-icon logo-fallback md" data-i18n-ignore>{{ short[:2] }}</span>{% endif %}
+          </span>
+          <span class="ms-name ms-name-{{ pos }}{% if won %} won{% elif lost %} lost{% endif %}" data-i18n-ignore><span class="ms-full">{{ match.team1_name if is_t1 else match.team2_name }}</span><span class="ms-short">{{ short }}</span></span>
+          <span class="ms-pick-cell ms-pick-{{ pos }}">{% if ms.picked_by == side %}<span class="ms-pick">选图</span>{% endif %}</span>
+          <span class="ms-score ms-score-{{ pos }}{% if won %} win{% elif lost %} lose{% endif %}">{% if ms.played %}{{ ms.t1 if is_t1 else ms.t2 }}{% else %}-{% endif %}</span>
+          {% endfor %}
+          <span class="ms-stats-cell">
             {% if ms.has_stats %}
             <a href="/matches/{{ match.slug or match.id }}/detailed?map={{ ms.index }}" class="ms-stats-btn">数据</a>
             {% else %}
             <span class="ms-stats-placeholder" aria-hidden="true"></span>
             {% endif %}
-            </div>
-          </div>
-          <div class="ms-team ms-team-right{% if t2_won_map %} won{% elif t1_won_map %} lost{% endif %}">
-            {% if match.t2_logo %}
-            <img class="ms-icon ms-icon-img" src="{{ match.t2_logo|team_logo_url }}" alt="{{ match.t2s }}" loading="lazy">
-            {% else %}
-            <span class="ms-icon logo-fallback md" data-i18n-ignore>{{ match.t2s[:2] }}</span>
+          </span>
+          <span class="ms-half-cell">
+            {% if ms.played and ms.halves %}
+            {% set t1_h1_side = 'CT' if ms.halves.opening_ct_team == 't1' else ('T' if ms.halves.opening_ct_team == 't2' else '?') %}
+            {% set t2_h1_side = 'CT' if ms.halves.opening_ct_team == 't2' else ('T' if ms.halves.opening_ct_team == 't1' else '?') %}
+            {% set t1_h2_side = 'T' if t1_h1_side == 'CT' else ('CT' if t1_h1_side == 'T' else '?') %}
+            {% set t2_h2_side = 'T' if t2_h1_side == 'CT' else ('CT' if t2_h1_side == 'T' else '?') %}
+            {% set ot1 = (ms.t1|int) - (ms.halves.h1_t1|int) - (ms.halves.h2_t1|int) %}
+            {% set ot2 = (ms.t2|int) - (ms.halves.h1_t2|int) - (ms.halves.h2_t2|int) %}
+            <span class="ms-half-detail" title="上半场 / 下半场（蓝色 CT、橙色 T）">(<span class="{{ 'ct-side' if t1_h1_side == 'CT' else 't-side' if t1_h1_side == 'T' else '' }}">{{ ms.halves.h1_t1 }}</span>:<span class="{{ 'ct-side' if t2_h1_side == 'CT' else 't-side' if t2_h1_side == 'T' else '' }}">{{ ms.halves.h1_t2 }}</span>; <span class="{{ 'ct-side' if t1_h2_side == 'CT' else 't-side' if t1_h2_side == 'T' else '' }}">{{ ms.halves.h2_t1 }}</span>:<span class="{{ 'ct-side' if t2_h2_side == 'CT' else 't-side' if t2_h2_side == 'T' else '' }}">{{ ms.halves.h2_t2 }}</span>)</span>
+            {% if ot1 >= 0 and ot2 >= 0 and (ot1 + ot2) > 0 %}<span class="ms-ot-detail" title="加时">({{ ot1 }}:{{ ot2 }})</span>{% endif %}
             {% endif %}
-            <span class="ms-name" data-i18n-ignore>{{ match.team2_name }}</span>
-            <span class="ms-short" data-i18n-ignore>{{ match.t2s }}</span>
-            {% if ms.picked_by == 't2' %}<span class="ms-pick">PICK</span>{% endif %}
-          </div>
+          </span>
         </div>
       </div>
       {% endfor %}
