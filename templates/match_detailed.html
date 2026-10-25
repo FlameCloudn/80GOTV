@@ -1,77 +1,79 @@
 {% extends 'base.html' %}
 {% block title %}{{ match.team1_name }} vs {{ match.team2_name }} 数据 - 80GOTV{% endblock %}
-{% block layout_class %}match-detail-layout match-detailed-layout{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ versioned_url('static/css/pages/match.css') }}">{% endblock %}
+{% block layout_class %}match-detail-layout match-detailed-layout no-side-layout{% endblock %}
 
-{% macro team_logo(logo, name, short_name, class_name) %}
+{% macro team_logo(logo, name, short_name, size='sm') %}
   {% if logo %}
-  <img class="{{ class_name }}" src="{{ logo|team_logo_url }}" alt="{{ name }}" loading="lazy">
+  <img class="team-logo {{ size }}" src="{{ logo|team_logo_url }}" alt="{{ name }}" loading="lazy">
   {% else %}
-  <span class="{{ class_name }} match-detailed-fallback" data-i18n-ignore>{{ short_name[:2] }}</span>
+  <span class="logo-fallback {{ size }}" data-i18n-ignore>{{ short_name[:2] }}</span>
   {% endif %}
 {% endmacro %}
 
-{% macro player_avatar(player) %}
+{% macro player_avatar(player, size='xs') %}
   {% set display_name = private_name_for_player(player.player_id, player.nickname) %}
   {% if player.avatar %}
-  <img src="{{ url_for('static', filename='avatars/' + player.avatar) }}" alt="{{ display_name }}" loading="lazy">
+  <img class="avatar {{ size }}" src="{{ url_for('static', filename='avatars/' + player.avatar) }}" alt="{{ display_name }}" loading="lazy">
   {% else %}
-  <span data-i18n-ignore>{{ display_name[:1] }}</span>
+  <span class="avatar {{ size }}" data-i18n-ignore>{{ display_name[:1] }}</span>
   {% endif %}
 {% endmacro %}
 
+{#- 一支队伍的详细数据表（双方 / T / CT 三套列，靠页面根节点上的类切换） -#}
 {% macro team_table(title, logo, short_name, rows) %}
 <section class="match-detailed-team-table">
-  <h3>
-    {{ team_logo(logo, title, short_name, 'match-detailed-team-mark') }}
+  <h3 class="match-detailed-team-title">
+    {{ team_logo(logo, title, short_name, 'md') }}
     <span data-i18n-ignore>{{ title }}</span>
   </h3>
-  <div class="stats-table stats-dense-table match-detailed-table-wrap">
-    <table>
+  <div class="table-wrap match-detailed-table-wrap">
+    <table class="table">
       <thead>
         <tr>
           <th>选手</th>
-          <th class="sortable" data-sort="opening" aria-sort="none">首杀-首死</th>
-          <th class="sortable" data-sort="maps" aria-sort="none">地图</th>
-          <th class="sortable" data-sort="kast" aria-sort="none">KAST</th>
-          <th class="sortable" data-sort="clutches" aria-sort="none">1vX</th>
-          <th class="sortable" data-sort="kills" aria-sort="none">击杀(爆头)</th>
-          <th class="sortable" data-sort="assists" aria-sort="none">助攻(闪白)</th>
-          <th class="sortable" data-sort="deaths" aria-sort="none">死亡(被补)</th>
-          <th class="sortable md-col-overall" data-sort="adr" aria-sort="none">ADR</th>
-          <th class="sortable md-col-t" data-sort="t-adr" aria-sort="none">T ADR</th>
-          <th class="sortable md-col-ct" data-sort="ct-adr" aria-sort="none">CT ADR</th>
-          <th class="sortable" data-sort="rws" aria-sort="none">RWS</th>
-          <th class="sortable sort-desc md-col-overall" data-sort="rating" aria-sort="descending">Rating</th>
-          <th class="sortable md-col-t" data-sort="t-rating" aria-sort="none">T Rating</th>
-          <th class="sortable md-col-ct" data-sort="ct-rating" aria-sort="none">CT Rating</th>
+          <th class="num sortable" data-sort="opening" aria-sort="none">首杀-首死</th>
+          <th class="num sortable" data-sort="maps" aria-sort="none">地图</th>
+          <th class="num sortable" data-sort="kast" aria-sort="none">KAST</th>
+          <th class="num sortable" data-sort="clutches" aria-sort="none">1vX</th>
+          <th class="num sortable" data-sort="kills" aria-sort="none">击杀(爆头)</th>
+          <th class="num sortable" data-sort="assists" aria-sort="none">助攻(闪白)</th>
+          <th class="num sortable" data-sort="deaths" aria-sort="none">死亡(被补)</th>
+          <th class="num sortable md-col-overall" data-sort="adr" aria-sort="none">ADR</th>
+          <th class="num sortable md-col-t" data-sort="t-adr" aria-sort="none">T ADR</th>
+          <th class="num sortable md-col-ct" data-sort="ct-adr" aria-sort="none">CT ADR</th>
+          <th class="num sortable" data-sort="rws" aria-sort="none">RWS</th>
+          <th class="num sortable sort-desc md-col-overall" data-sort="rating" aria-sort="descending">Rating</th>
+          <th class="num sortable md-col-t" data-sort="t-rating" aria-sort="none">T Rating</th>
+          <th class="num sortable md-col-ct" data-sort="ct-rating" aria-sort="none">CT Rating</th>
         </tr>
       </thead>
       <tbody>
         {% for p in rows %}
         <tr>
           <td>
-            <a class="dense-player" href="/players/{{ p.player_id }}">
+            <a class="cell-entity dense-player" href="/players/{{ p.player_id }}">
               {{ player_avatar(p) }}
               <b data-i18n-ignore>{{ private_name_for_player(p.player_id, p.nickname) }}</b>
             </a>
           </td>
-          <td data-val="{{ p.first_kills - p.first_deaths }}">{{ p.first_kills }} : {{ p.first_deaths }}</td>
-          <td data-val="{{ p.maps }}">{{ p.maps }}</td>
-          <td data-val="{{ p.kast }}">{{ "%.1f"|format(p.kast) }}%</td>
-          <td data-val="{{ p.clutches_won }}">{{ p.clutches_won }}</td>
-          <td data-val="{{ p.kills }}">{{ p.kills }} ({{ p.headshot_kills }})</td>
-          <td data-val="{{ p.assists }}">{{ p.assists }} ({{ p.enemies_flashed }})</td>
-          <td data-val="{{ p.deaths }}">{{ p.deaths }} ({{ p.trade_deaths }})</td>
-          <td class="md-col-overall" data-val="{{ p.adr }}">{{ "%.1f"|format(p.adr) }}</td>
-          <td class="md-col-t" data-val="{{ p.t_adr }}">{{ "%.1f"|format(p.t_adr) }}</td>
-          <td class="md-col-ct" data-val="{{ p.ct_adr }}">{{ "%.1f"|format(p.ct_adr) }}</td>
-          <td data-val="{{ p.rws }}">{{ "%.2f"|format(p.rws) }}</td>
-          <td class="rt-cell md-col-overall" data-val="{{ p.rating }}"><b>{{ "%.2f"|format(p.rating) }}</b></td>
-          <td class="rt-cell md-col-t" data-val="{{ p.t_rating }}"><b>{{ "%.2f"|format(p.t_rating) }}</b></td>
-          <td class="rt-cell md-col-ct" data-val="{{ p.ct_rating }}"><b>{{ "%.2f"|format(p.ct_rating) }}</b></td>
+          <td class="num" data-val="{{ p.first_kills - p.first_deaths }}">{{ p.first_kills }} : {{ p.first_deaths }}</td>
+          <td class="num" data-val="{{ p.maps }}">{{ p.maps }}</td>
+          <td class="num" data-val="{{ p.kast }}">{{ "%.1f"|format(p.kast) }}%</td>
+          <td class="num" data-val="{{ p.clutches_won }}">{{ p.clutches_won }}</td>
+          <td class="num" data-val="{{ p.kills }}">{{ p.kills }} <small>({{ p.headshot_kills }})</small></td>
+          <td class="num" data-val="{{ p.assists }}">{{ p.assists }} <small>({{ p.enemies_flashed }})</small></td>
+          <td class="num" data-val="{{ p.deaths }}">{{ p.deaths }} <small>({{ p.trade_deaths }})</small></td>
+          <td class="num md-col-overall" data-val="{{ p.adr }}">{{ "%.1f"|format(p.adr) }}</td>
+          <td class="num md-col-t" data-val="{{ p.t_adr }}">{{ "%.1f"|format(p.t_adr) }}</td>
+          <td class="num md-col-ct" data-val="{{ p.ct_adr }}">{{ "%.1f"|format(p.ct_adr) }}</td>
+          <td class="num" data-val="{{ p.rws }}">{{ "%.2f"|format(p.rws) }}</td>
+          <td class="num rt-cell md-col-overall" data-val="{{ p.rating }}"><b>{{ "%.2f"|format(p.rating) }}</b></td>
+          <td class="num rt-cell md-col-t" data-val="{{ p.t_rating }}"><b>{{ "%.2f"|format(p.t_rating) }}</b></td>
+          <td class="num rt-cell md-col-ct" data-val="{{ p.ct_rating }}"><b>{{ "%.2f"|format(p.ct_rating) }}</b></td>
         </tr>
         {% else %}
-        <tr><td colspan="15" class="match-detailed-empty-cell">暂无数据</td></tr>
+        <tr><td colspan="15" class="empty-state match-detailed-empty-cell">暂无数据</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -79,6 +81,7 @@
 </section>
 {% endmacro %}
 
+{#- 两队对比条：左边队伍 1，右边队伍 2 -#}
 {% macro compare_bar(label, left, right) %}
 {% set total = left + right %}
 {% set left_pct = (left / total * 100) if total else 50 %}
@@ -89,29 +92,30 @@
   <div class="match-detailed-compare-track">
     <i class="t1" style="width:{{ left_pct }}%"></i>
     <i class="t2" style="width:{{ right_pct }}%"></i>
-    <em></em>
   </div>
   <span class="match-detailed-compare-right">{{ right }}</span>
 </div>
 {% endmacro %}
 
+{#- 选手卡片里的一项指标：名称 | 条 | 数值 -#}
 {% macro perf_metric(label, value, width, class_name='') %}
 <div class="match-detailed-card-metric {{ class_name }}">
   <span>{{ label }}</span>
-  <i><em style="width:{{ width }}%"><b>{{ value }}</b></em></i>
+  <i><em style="width:{{ width }}%"></em></i>
+  <b>{{ value }}</b>
 </div>
 {% endmacro %}
 
 {% macro player_performance_card(player) %}
 <article class="match-detailed-player-card {{ player.team_side }}">
-  <h4>
-    <span class="match-detailed-player-team" data-i18n-ignore>{{ player.team_short }}</span>
-    <a href="/players/{{ player.player_id }}" data-i18n-ignore>{{ private_name_for_player(player.player_id, player.nickname) }}</a>
-  </h4>
+  <a class="match-detailed-player-portrait" href="/players/{{ player.player_id }}">
+    {{ player_avatar(player, 'lg') }}
+  </a>
   <div class="match-detailed-player-card-body">
-    <a class="match-detailed-player-portrait" href="/players/{{ player.player_id }}">
-      {{ player_avatar(player) }}
-    </a>
+    <h4>
+      <a href="/players/{{ player.player_id }}" data-i18n-ignore>{{ private_name_for_player(player.player_id, player.nickname) }}</a>
+      <span class="match-detailed-player-team" data-i18n-ignore>{{ player.team_short }}</span>
+    </h4>
     <div class="match-detailed-card-metrics">
       {{ perf_metric('KPR', "%.2f"|format(player.kpr), player.kpr_bar, player.kpr_tier) }}
       {{ perf_metric('DPR', "%.2f"|format(player.dpr), player.dpr_bar, player.dpr_tier) }}
@@ -120,39 +124,64 @@
       {{ perf_metric('RWS', "%.2f"|format(player.rws), player.rws_bar, player.rws_tier) }}
       {{ perf_metric('ADR', "%.1f"|format(player.adr), player.adr_bar, player.adr_tier) }}
       {{ perf_metric('Rating', "%.2f"|format(player.rating), player.rating_bar, player.rating_tier) }}
-      <small>平均</small>
     </div>
+    <small class="match-detailed-card-note">平均</small>
   </div>
 </article>
 {% endmacro %}
 
+{#- 评分条：条宽 = 评分 ÷ 1.6，竖线是 1.00；颜色区分两队 -#}
+{% macro rating_chart(rows) %}
+<div class="match-detailed-rating-area">
+  {% for p in rows %}
+  <a class="match-detailed-rating-row" href="/players/{{ p.player_id }}">
+    <span data-i18n-ignore>{{ private_name_for_player(p.player_id, p.nickname) }}</span>
+    <i><em class="{{ p.team_side }}" style="width:{{ p.rating_bar }}%"></em></i>
+    <b class="rt-cell">{{ "%.2f"|format(p.rating) }}</b>
+  </a>
+  {% else %}
+  <p class="empty-state">暂无表现数据</p>
+  {% endfor %}
+</div>
+{% if rows %}
+<div class="match-detailed-rating-scale" aria-hidden="true"><span>0.00</span><span>0.50</span><span>1.00</span><span>1.60</span></div>
+<div class="match-detailed-rating-labels"><span>偏低</span><span>平均</span><span>优秀</span></div>
+{% endif %}
+{% endmacro %}
+
+{% macro team_legend() %}
+<span class="match-detailed-legend">
+  <span class="t1" data-i18n-ignore>{{ match.t1s }}</span>
+  <span class="t2" data-i18n-ignore>{{ match.t2s }}</span>
+</span>
+{% endmacro %}
+
 {% block main %}
-<section class="match-detailed-page match-stats-page" data-current-tab="{{ selected_tab }}">
-  <div class="match-stats-tabs" role="tablist" aria-label="比赛数据">
-    <button class="match-stats-tab{% if selected_tab == 'overview' %} active{% endif %}" type="button" role="tab" aria-selected="{{ 'true' if selected_tab == 'overview' else 'false' }}" data-detailed-tab="overview" onclick="switchDetailedStatsTab('overview')">总览</button>
-    <button class="match-stats-tab{% if selected_tab == 'performance' %} active{% endif %}" type="button" role="tab" aria-selected="{{ 'true' if selected_tab == 'performance' else 'false' }}" data-detailed-tab="performance" onclick="switchDetailedStatsTab('performance')">表现</button>
+<section class="panel match-detailed-page match-stats-page" data-current-tab="{{ selected_tab }}">
+  <div class="tabs match-stats-tabs" role="tablist" aria-label="比赛数据">
+    <button class="tab match-stats-tab{% if selected_tab == 'overview' %} active{% endif %}" type="button" role="tab" aria-selected="{{ 'true' if selected_tab == 'overview' else 'false' }}" data-detailed-tab="overview" onclick="switchDetailedStatsTab('overview')">总览</button>
+    <button class="tab match-stats-tab{% if selected_tab == 'performance' %} active{% endif %}" type="button" role="tab" aria-selected="{{ 'true' if selected_tab == 'performance' else 'false' }}" data-detailed-tab="performance" onclick="switchDetailedStatsTab('performance')">表现</button>
   </div>
 
-  <div class="match-detailed-map-strip" aria-label="地图选择">
+  {# 地图选择：HLTV 地图图原样，地图名居中；比分和选图写在图下面 #}
+  <nav class="match-detailed-map-strip" aria-label="地图选择">
     <a class="match-detailed-map-card match-detailed-all-card{% if selected_map_index == 0 %} active{% endif %}" href="/matches/{{ match.slug or match.id }}/detailed?map=all&tab={{ selected_tab }}" data-map-href="/matches/{{ match.slug or match.id }}/detailed?map=all">
-      <span class="match-detailed-map-cover">
+      <span class="match-detailed-map-cover"><span>全部地图</span></span>
+      <span class="match-detailed-map-info">
         <b>{{ match.team1_score if match.team1_score is not none else '-' }} - {{ match.team2_score if match.team2_score is not none else '-' }}</b>
-        <span>全部地图</span>
+        <small>{{ match.bo_format or 'BO1' }}</small>
       </span>
-      <strong>全部地图</strong>
-      <small>{{ match.bo_format or 'BO1' }}</small>
     </a>
     {% for ms in map_cards %}
     <a class="match-detailed-map-card{% if selected_map_index == ms.index %} active{% endif %}{% if not ms.has_stats %} muted{% endif %}" href="/matches/{{ match.slug or match.id }}/detailed?map={{ ms.index }}&tab={{ selected_tab }}" data-map-href="/matches/{{ match.slug or match.id }}/detailed?map={{ ms.index }}">
-      <span class="match-detailed-map-cover" style="background-image:linear-gradient(180deg,rgba(0,0,0,.18),rgba(0,0,0,.38)),url('{{ ms.name|map_image }}')">
+      <span class="match-detailed-map-cover" style="background-image:url('{{ ms.name|map_image }}')"><span>{{ ms.name|map_display_cn }}</span></span>
+      <span class="match-detailed-map-info">
         <b>{{ ms.t1 }} - {{ ms.t2 }}</b>
-        <span>{{ ms.name|map_display_cn }}</span>
+        <small>{% if ms.picked_by == 't1' %}{{ match.t1s }} 选图{% elif ms.picked_by == 't2' %}{{ match.t2s }} 选图{% else %}图 {{ ms.index }}{% endif %}</small>
       </span>
-      <strong>{{ ms.name|map_display_cn }}</strong>
-      <small>{% if ms.picked_by == 't1' %}{{ match.t1s }} 选图{% elif ms.picked_by == 't2' %}{{ match.t2s }} 选图{% else %}图 {{ ms.index }}{% endif %}</small>
     </a>
     {% endfor %}
-  </div>
+  </nav>
 
   {% if not has_any_stats %}
   <div class="empty-state">这场比赛还没有录入选手数据</div>
@@ -165,33 +194,36 @@
         <div class="match-detailed-date">{{ match.match_time|datetime_display if match.match_time else 'TBD' }}</div>
         <div class="match-detailed-score-card">
           <div class="match-detailed-score-team">
-            {{ team_logo(match.t1_logo, match.team1_name, match.t1s, 'match-detailed-logo') }}
+            {{ team_logo(match.t1_logo, match.team1_name, match.t1s, 'lg') }}
             <span data-i18n-ignore>{{ match.team1_name }}</span>
-            <b class="{% if score_t1 > score_t2 %}score-win{% elif score_t1 < score_t2 %}score-lose{% endif %}">{{ score_t1 }}</b>
           </div>
           <div class="match-detailed-score-mid">
+            <div class="match-detailed-score-nums">
+              <b class="{% if score_t1 > score_t2 %}score-win{% elif score_t1 < score_t2 %}score-lose{% endif %}">{{ score_t1 }}</b>
+              <span>:</span>
+              <b class="{% if score_t2 > score_t1 %}score-win{% elif score_t2 < score_t1 %}score-lose{% endif %}">{{ score_t2 }}</b>
+            </div>
             <small>地图</small>
             <strong>{{ selected_label|map_display_cn if selected_label != 'All' else '全部' }}</strong>
           </div>
-          <div class="match-detailed-score-team right">
-            {{ team_logo(match.t2_logo, match.team2_name, match.t2s, 'match-detailed-logo') }}
+          <div class="match-detailed-score-team">
+            {{ team_logo(match.t2_logo, match.team2_name, match.t2s, 'lg') }}
             <span data-i18n-ignore>{{ match.team2_name }}</span>
-            <b class="{% if score_t2 > score_t1 %}score-win{% elif score_t2 < score_t1 %}score-lose{% endif %}">{{ score_t2 }}</b>
           </div>
         </div>
-        <dl class="match-detailed-breakdown">
+        <dl class="facts match-detailed-breakdown">
           <div><dt>队伍 Rating</dt><dd>{{ "%.2f"|format(summary.t1.rating) }} : {{ "%.2f"|format(summary.t2.rating) }}</dd></div>
           <div><dt>首杀</dt><dd>{{ summary.t1.first_kills }} : {{ summary.t2.first_kills }}</dd></div>
           <div><dt>1vX 残局</dt><dd>{{ summary.t1.clutches }} : {{ summary.t2.clutches }}</dd></div>
         </dl>
-        <a class="match-detailed-more" href="/matches/{{ match.slug or match.id }}">返回比赛详情</a>
+        <a class="btn btn-block match-detailed-more" href="/matches/{{ match.slug or match.id }}">返回比赛详情</a>
       </article>
 
       <div class="match-detailed-highlights">
         {% for h in highlights %}
         {% if h.player %}
         <a class="match-detailed-highlight" href="/players/{{ h.player.player_id }}">
-          <span class="match-detailed-highlight-avatar">{{ player_avatar(h.player) }}</span>
+          <span class="match-detailed-highlight-avatar">{{ player_avatar(h.player, 'md') }}</span>
           <span class="match-detailed-highlight-main">
             <b data-i18n-ignore>{{ private_name_for_player(h.player.player_id, h.player.nickname) }}</b>
             <small>{{ h.label }}</small>
@@ -203,45 +235,34 @@
       </div>
     </div>
 
-    <section class="match-detailed-performance">
-      <h3>表现 - Rating</h3>
-      <div class="match-detailed-rating-area">
-        {% for p in performance_rows %}
-        <a class="match-detailed-rating-row" href="/players/{{ p.player_id }}">
-          <span data-i18n-ignore>{{ private_name_for_player(p.player_id, p.nickname) }}</span>
-          <i><em class="{{ p.team_side }}" style="width:{{ p.rating_bar }}%"></em></i>
-          <b class="rt-cell">{{ "%.2f"|format(p.rating) }}</b>
-        </a>
-        {% else %}
-        <p class="empty-state">暂无表现数据</p>
-        {% endfor %}
-      </div>
-      <div class="match-detailed-rating-scale"><span>0.00</span><span>0.50</span><span>1.00</span><span>1.60</span></div>
-      <div class="match-detailed-rating-labels"><span>偏低</span><span>平均</span><span>优秀</span></div>
+    <section class="match-detailed-section match-detailed-performance">
+      <div class="match-detailed-section-head"><h3>表现 - Rating</h3>{{ team_legend() }}</div>
+      {{ rating_chart(performance_rows) }}
     </section>
 
-    <div class="match-detailed-players-head">
-      <h3>选手</h3>
-      <div class="match-detailed-side-tabs" role="tablist" aria-label="阵营切换">
-        <button class="active" type="button" data-side="overall" onclick="switchDetailedSide('overall')">双方</button>
-        <button type="button" data-side="t" onclick="switchDetailedSide('t')">T 方</button>
-        <button type="button" data-side="ct" onclick="switchDetailedSide('ct')">CT 方</button>
+    <section class="match-detailed-section">
+      <div class="match-detailed-section-head match-detailed-players-head">
+        <h3>选手</h3>
+        <div class="segmented match-detailed-side-tabs" role="tablist" aria-label="阵营切换">
+          <button class="active" type="button" role="tab" aria-selected="true" data-side="overall" onclick="switchDetailedSide('overall')">双方</button>
+          <button type="button" role="tab" aria-selected="false" data-side="t" onclick="switchDetailedSide('t')">T 方</button>
+          <button type="button" role="tab" aria-selected="false" data-side="ct" onclick="switchDetailedSide('ct')">CT 方</button>
+        </div>
       </div>
-    </div>
-
-    <div class="match-detailed-team-tables">
-      {{ team_table(match.team1_name, match.t1_logo, match.t1s, team1_rows) }}
-      {{ team_table(match.team2_name, match.t2_logo, match.t2s, team2_rows) }}
-    </div>
+      <div class="match-detailed-team-tables">
+        {{ team_table(match.team1_name, match.t1_logo, match.t1s, team1_rows) }}
+        {{ team_table(match.team2_name, match.t2_logo, match.t2s, team2_rows) }}
+      </div>
+    </section>
   </div>
 
   <div class="match-detailed-content{% if selected_tab == 'performance' %} active{% endif %}" id="detailed-tab-performance" role="tabpanel">
-    <section class="match-detailed-performance-overview">
-      <h3>表现总览</h3>
+    <section class="match-detailed-section match-detailed-performance-overview">
+      <div class="match-detailed-section-head"><h3>表现总览</h3></div>
       <div class="match-detailed-compare-panel">
         <div class="match-detailed-compare-teams">
-          {{ team_logo(match.t1_logo, match.team1_name, match.t1s, 'match-detailed-team-mark') }}
-          {{ team_logo(match.t2_logo, match.team2_name, match.t2s, 'match-detailed-team-mark') }}
+          <span>{{ team_logo(match.t1_logo, match.team1_name, match.t1s, 'md') }}<b data-i18n-ignore>{{ match.t1s }}</b></span>
+          <span><b data-i18n-ignore>{{ match.t2s }}</b>{{ team_logo(match.t2_logo, match.team2_name, match.t2s, 'md') }}</span>
         </div>
         {{ compare_bar('击杀', summary.t1.kills, summary.t2.kills) }}
         {{ compare_bar('死亡', summary.t1.deaths, summary.t2.deaths) }}
@@ -249,27 +270,30 @@
       </div>
     </section>
 
-    <section class="match-detailed-kill-matrix">
-      <h3>
-        <span>对位击杀</span>
+    <section class="match-detailed-section match-detailed-kill-matrix">
+      <div class="match-detailed-section-head">
+        <h3>对位击杀</h3>
         <small>{% if kill_matrix.matched_events %}来自 Demo{% else %}暂无可匹配击杀{% endif %}</small>
-      </h3>
-      {% if kill_matrix.rows and kill_matrix.cols and kill_matrix.matched_events %}
-      <div class="match-detailed-matrix-tabs" role="tablist" aria-label="对位击杀类型">
-        {% for mode in kill_matrix.modes %}
-        <button class="{% if loop.first %}active{% endif %}" type="button" role="tab" aria-selected="{{ 'true' if loop.first else 'false' }}" data-matrix-tab="{{ mode.id }}" data-matrix-status="{{ mode.label }} · {{ mode.matched_events }} 条记录" onclick="switchKillMatrixMode('{{ mode.id }}')">
-          <span>{{ mode.label }}</span>
-          <small>{{ mode.matched_events }}</small>
-        </button>
-        {% endfor %}
       </div>
-      <div class="match-detailed-matrix-wrap">
-        <table>
+      {% if kill_matrix.rows and kill_matrix.cols and kill_matrix.matched_events %}
+      <div class="match-detailed-matrix-bar">
+        <div class="segmented match-detailed-matrix-tabs" role="tablist" aria-label="对位击杀类型">
+          {% for mode in kill_matrix.modes %}
+          <button class="{% if loop.first %}active{% endif %}" type="button" role="tab" aria-selected="{{ 'true' if loop.first else 'false' }}" data-matrix-tab="{{ mode.id }}" data-matrix-status="{{ mode.label }} · {{ mode.matched_events }} 条记录" onclick="switchKillMatrixMode('{{ mode.id }}')">
+            <span>{{ mode.label }}</span>
+            <small>{{ mode.matched_events }}</small>
+          </button>
+          {% endfor %}
+        </div>
+        {{ team_legend() }}
+      </div>
+      <div class="table-wrap match-detailed-matrix-wrap">
+        <table class="table match-detailed-matrix">
           <thead>
             <tr>
               <th></th>
               {% for col in kill_matrix.cols %}
-              <th><span data-i18n-ignore>{{ private_name_for_player(col.player_id, col.nickname) }}</span></th>
+              <th class="center"><span data-i18n-ignore>{{ private_name_for_player(col.player_id, col.nickname) }}</span></th>
               {% endfor %}
             </tr>
           </thead>
@@ -281,7 +305,7 @@
               <th><span data-i18n-ignore>{{ private_name_for_player(row.player_id, row.nickname) }}</span></th>
               {% for col in kill_matrix.cols %}
               {% set cell = row_cells.get(col.player_id, {'t1': 0, 't2': 0}) %}
-              <td class="kill-cell"><span class="t1">{{ cell.t1 }}</span><span class="t2">{{ cell.t2 }}</span></td>
+              <td class="kill-cell{% if cell.t1 > cell.t2 %} t1-ahead{% elif cell.t2 > cell.t1 %} t2-ahead{% endif %}"><span class="t1">{{ cell.t1 }}</span><span class="kill-sep">:</span><span class="t2">{{ cell.t2 }}</span></td>
               {% endfor %}
             </tr>
             {% endfor %}
@@ -294,30 +318,20 @@
       {% endif %}
     </section>
 
-    <section class="match-detailed-performance solo">
-      <h3>表现 - Rating</h3>
-      <div class="match-detailed-rating-area">
-        {% for p in performance_rows %}
-        <a class="match-detailed-rating-row" href="/players/{{ p.player_id }}">
-          <span data-i18n-ignore>{{ private_name_for_player(p.player_id, p.nickname) }}</span>
-          <i><em class="{{ p.team_side }}" style="width:{{ p.rating_bar }}%"></em></i>
-          <b class="rt-cell">{{ "%.2f"|format(p.rating) }}</b>
-        </a>
-        {% else %}
-        <p class="empty-state">暂无表现数据</p>
-        {% endfor %}
-      </div>
+    <section class="match-detailed-section match-detailed-performance solo">
+      <div class="match-detailed-section-head"><h3>表现 - Rating</h3>{{ team_legend() }}</div>
+      {{ rating_chart(performance_rows) }}
     </section>
 
-    <section class="match-detailed-player-overview">
-      <h3>选手表现总览</h3>
+    <section class="match-detailed-section match-detailed-player-overview">
+      <div class="match-detailed-section-head"><h3>选手表现总览</h3></div>
       <div class="match-detailed-player-card-grid">
         <div class="match-detailed-player-column-head">
-          {{ team_logo(match.t1_logo, match.team1_name, match.t1s, 'match-detailed-team-mark') }}
+          {{ team_logo(match.t1_logo, match.team1_name, match.t1s, 'md') }}
           <span data-i18n-ignore>{{ match.team1_name }}</span>
         </div>
         <div class="match-detailed-player-column-head">
-          {{ team_logo(match.t2_logo, match.team2_name, match.t2s, 'match-detailed-team-mark') }}
+          {{ team_logo(match.t2_logo, match.team2_name, match.t2s, 'md') }}
           <span data-i18n-ignore>{{ match.team2_name }}</span>
         </div>
         {% set team1_count = team1_rows|length %}
@@ -325,21 +339,19 @@
         {% set player_count = team1_count if team1_count > team2_count else team2_count %}
         {% if player_count %}
           {% for idx in range(player_count) %}
-          <div class="match-detailed-player-pair">
-            <div class="match-detailed-player-slot">
-              {% if idx < team1_count %}
-              {{ player_performance_card(team1_rows[idx]) }}
-              {% else %}
-              <p class="empty-state match-detailed-player-empty">暂无队伍 1 选手数据</p>
-              {% endif %}
-            </div>
-            <div class="match-detailed-player-slot">
-              {% if idx < team2_count %}
-              {{ player_performance_card(team2_rows[idx]) }}
-              {% else %}
-              <p class="empty-state match-detailed-player-empty">暂无队伍 2 选手数据</p>
-              {% endif %}
-            </div>
+          <div class="match-detailed-player-slot">
+            {% if idx < team1_count %}
+            {{ player_performance_card(team1_rows[idx]) }}
+            {% else %}
+            <p class="empty-state match-detailed-player-empty">暂无队伍 1 选手数据</p>
+            {% endif %}
+          </div>
+          <div class="match-detailed-player-slot">
+            {% if idx < team2_count %}
+            {{ player_performance_card(team2_rows[idx]) }}
+            {% else %}
+            <p class="empty-state match-detailed-player-empty">暂无队伍 2 选手数据</p>
+            {% endif %}
           </div>
           {% endfor %}
         {% else %}
@@ -365,12 +377,14 @@ function switchDetailedStatsTab(name) {
   syncDetailedMapLinks(name);
 }
 
+// 切换标签后，地图卡片的链接带上当前标签，换地图时停在同一个标签
 function syncDetailedMapLinks(name) {
   document.querySelectorAll('.match-detailed-map-card[data-map-href]').forEach(function(link) {
     link.setAttribute('href', link.getAttribute('data-map-href') + '&tab=' + encodeURIComponent(name));
   });
 }
 
+// 双方 / T / CT：切换显示的列，并按当前视图的 Rating 重新排序
 function switchDetailedSide(side) {
   var root = document.querySelector('.match-detailed-page');
   if (!root) return;
@@ -424,13 +438,13 @@ function switchKillMatrixMode(mode) {
   });
 }
 
+// Rating 上色：≥1.05 绿、0.95~1.05 常规、<0.95 红（和全站一致）
 function applyDetailedRatingColors() {
   document.querySelectorAll('.match-detailed-page .rt-cell').forEach(function(cell) {
     var val = parseFloat(cell.textContent.trim());
     if (isNaN(val) || val === 0) return;
     cell.classList.remove('rt-1','rt-2','rt-3','rt-4','rt-5');
-    if (val >= 1.20) cell.classList.add('rt-5');
-    else if (val >= 1.05) cell.classList.add('rt-4');
+    if (val >= 1.05) cell.classList.add('rt-4');
     else if (val >= 0.95) cell.classList.add('rt-3');
     else cell.classList.add('rt-1');
   });
