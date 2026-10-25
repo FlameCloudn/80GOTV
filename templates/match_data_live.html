@@ -2,7 +2,7 @@
     数据每秒从 /api/live/<id> 取一次（页面在后台时 3 秒一次），只改有变化的格子，行和图片都不重建。
     样式在 static/css/pages/match.css 第 11 节。 -#}
 {% macro live_logo(logo, name, short_name, size='md') %}
-{% if logo %}<img class="team-logo {{ size }}" src="{{ logo|team_logo_url }}" alt="">{% else %}<span class="logo-fallback {{ size }}">{{ (short_name or name or 'T')[:2]|upper }}</span>{% endif %}
+{% if logo %}<img class="team-logo {{ size }}" src="{{ logo|team_logo_url }}" alt="">{% else %}<span class="logo-fallback {{ size }}">{{ name|team_abbr(short_name) }}</span>{% endif %}
 {% endmacro %}
 
 {#- 一行选手：头像+名字 | 血量 | 护甲 | 手枪 | 主武器 | 金钱 | K | A | D | ADR。

@@ -7,7 +7,7 @@
   {% if logo %}
   <img class="team-logo {{ size }}" src="{{ logo|team_logo_url }}" alt="{{ name }}" loading="lazy">
   {% else %}
-  <span class="logo-fallback {{ size }}" data-i18n-ignore>{{ short_name[:2] }}</span>
+  <span class="logo-fallback {{ size }}" data-i18n-ignore>{{ name|team_abbr(short_name) }}</span>
   {% endif %}
 {% endmacro %}
 

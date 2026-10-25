@@ -8,7 +8,7 @@ import sqlite3
 from datetime import datetime
 
 from services.team_logo_service import logo_relative_path
-from utils.helpers import normalize_map_key
+from utils.helpers import normalize_map_key, team_abbr
 
 
 def _has_temp_players(value):
@@ -90,11 +90,11 @@ def supplement_temp_teams(match_row, conn=None):
         m["team1_name"] = "TBD"
     if not m.get("team2_name"):
         m["team2_name"] = "TBD"
-    # 为注册队伍补充空 short_name。
+    # 为注册队伍补充空 short_name（和队标占位缩写同一套规则）。
     if not m.get("t1s"):
-        m["t1s"] = "TBD" if m["team1_name"] == "TBD" else m["team1_name"][:2]
+        m["t1s"] = "TBD" if m["team1_name"] == "TBD" else team_abbr(m["team1_name"])
     if not m.get("t2s"):
-        m["t2s"] = "TBD" if m["team2_name"] == "TBD" else m["team2_name"][:2]
+        m["t2s"] = "TBD" if m["team2_name"] == "TBD" else team_abbr(m["team2_name"])
     # A registered event team is the source of truth for that event. Prefer its
     # uploaded logo everywhere so a newer event logo cannot be hidden by an old
     # permanent team logo.

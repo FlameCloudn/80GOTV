@@ -195,7 +195,7 @@
   <h2>队伍</h2>
   {% if player.team_name %}
   <a class="pp-team-current" href="{{ url_for('team_detail', team_id=player.team_id) }}">
-    {% if player.team_logo %}<img class="team-logo lg" src="{{ player.team_logo|team_logo_url }}" alt="" loading="lazy">{% else %}<span class="logo-fallback lg" data-i18n-ignore>{{ (player.team_short or player.team_name)[:2] }}</span>{% endif %}
+    {% if player.team_logo %}<img class="team-logo lg" src="{{ player.team_logo|team_logo_url }}" alt="" loading="lazy">{% else %}<span class="logo-fallback lg" data-i18n-ignore>{{ player.team_name|team_abbr(player.team_short) }}</span>{% endif %}
     <span class="pp-team-current-text">
       <b data-i18n-ignore>{{ player.team_name }}</b>
       {% if player.team_short %}<span data-i18n-ignore>{{ player.team_short }}</span>{% endif %}
@@ -205,6 +205,7 @@
   <div class="empty-state">无队伍</div>
   {% endif %}
   {% if teammates %}
+  <h3 class="pp-subhead">队友</h3>
   <div class="pp-teammates">
     {% for p in teammates %}
     {% set teammate_name = private_name_for_player(p.id, p.nickname) %}

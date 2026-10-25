@@ -231,7 +231,9 @@
 .pp-team-current-text { display: grid; }
 .pp-team-current-text b { font-size: var(--font-lg); }
 .pp-team-current-text span { color: var(--text-muted); font-size: var(--font-xs); }
-.pp-teammates { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: var(--space-sm); margin-top: var(--space-lg); }
+/* 队友：卡片上面一行小标题 */
+.pp-subhead { margin: var(--space-lg) 0 var(--space-sm); color: var(--text-secondary); font-size: var(--font-sm); font-weight: 600; }
+.pp-teammates { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: var(--space-sm); }
 
 .pp-teammates a {
   display: flex;

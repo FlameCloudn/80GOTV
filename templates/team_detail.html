@@ -47,7 +47,7 @@
   {% if team.logo %}
   <img class="team-hero-logo" src="{{ team.logo|team_logo_url }}" alt="{{ team.name }}">
   {% else %}
-  <span class="team-hero-logo is-fallback" data-i18n-ignore>{{ (team.short_name or team.name)[:2]|upper }}</span>
+  <span class="team-hero-logo is-fallback" data-i18n-ignore>{{ team.name|team_abbr(team.short_name) }}</span>
   {% endif %}
   <div class="team-hero-text">
     {% if team.short_name %}<span class="team-hero-tag" data-i18n-ignore>{{ team.short_name }}</span>{% endif %}

@@ -970,7 +970,8 @@ a.list-row:hover { color: var(--text-primary); background: var(--bg-hover); }
 .table tbody tr { transition: background var(--transition-fast); }
 .table tbody tr:hover { background: var(--bg-hover); }
 .table .num, .num { font-variant-numeric: tabular-nums; }
-.table th.num, .table td.num { text-align: right; }
+/* 数字列：表头和数字都居中（全站表格统一，照 HLTV 的数据表） */
+.table th.num, .table td.num { text-align: center; }
 .table th.center, .table td.center { text-align: center; }
 .table .rank { width: 44px; color: var(--text-muted); text-align: center; font-variant-numeric: tabular-nums; }
 .table a { color: var(--text-primary); }

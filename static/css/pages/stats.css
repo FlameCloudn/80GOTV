@@ -83,10 +83,14 @@
 .stats-map-thumb { flex: 0 0 auto; width: 48px; height: 24px; background-color: var(--surface-soft); background-position: center; background-size: cover; border-radius: var(--radius-sm); }
 
 /* ---------- 4. 比赛数据：日期 | 队伍 比分 队伍 | 赛事 · 赛制 · 地图数 ---------- */
-.stats-match-row { display: grid; grid-template-columns: 110px minmax(0, 1fr) auto; }
+/* 每行三列共用一套列宽（列表定列宽，行用 subgrid 跟着）：右边赛事信息长短不一，中间的比分也上下对齐 */
+.stats-match-list { display: grid; grid-template-columns: 110px minmax(0, 1fr) auto; }
+.stats-match-row { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; }
 .stats-match-date { color: var(--text-muted); font-size: var(--font-xs); white-space: nowrap; }
-.stats-match-teams { display: flex; align-items: center; gap: var(--space-sm); min-width: 0; }
+/* 队名 | 比分 | 队名：两边等宽，比分固定在中间一列，每行的比分上下对齐（左边队名靠右贴着比分） */
+.stats-match-teams { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: var(--space-sm); min-width: 0; }
 .stats-match-teams > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stats-match-teams > span:first-child { text-align: right; }
 .stats-match-teams b { padding: 1px var(--space-sm); background: var(--surface-soft); border-radius: var(--radius-sm); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 /* ---------- 5. 选手对比：两个选择框 → 结果（左右数值，中间名称；大的一方绿色加粗） ---------- */
@@ -117,9 +121,11 @@
 .side-mini-teams { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .side-mini-teams b { overflow: hidden; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .side-mini-vs { color: var(--text-muted); font-size: var(--font-xs); }
-.side-mini-result .grow { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 近期赛果：两边队名等宽，比分固定在正中间，每行的比分上下对齐 */
+.side-mini-result { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+.side-mini-result .grow { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .side-mini-result .grow.right { text-align: right; }
-.side-mini-result b { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+.side-mini-result b { font-variant-numeric: tabular-nums; text-align: center; }
 
 @media (max-width: 1100px) {
   .overview-quick { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -140,6 +146,7 @@
   .overview-rank-row { gap: var(--space-sm); padding: 6px var(--space-md); }
   .overview-weapon-card { grid-template-columns: minmax(0, 1fr); justify-items: center; padding: var(--space-md); }
   .weapon-legend { width: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stats-match-list { grid-template-columns: minmax(0, 1fr); }
   .stats-match-row { grid-template-columns: minmax(0, 1fr); gap: 2px; }
   .stats-compare-picker { grid-template-columns: minmax(0, 1fr); }
   .stats-comparison-row { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); padding: 0 var(--space-md); }

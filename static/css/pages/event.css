@@ -342,12 +342,37 @@ a.team-player-link:hover { color: var(--text-primary); background: var(--bg-hove
   font-weight: 700;
 }
 
-/* ---------- 比赛列表（行样式在 app.css 的 .match-card） ---------- */
-.event-match-flex { display: flex; align-items: center; gap: var(--space-md); border-top: 1px solid var(--border-color); }
-.event-match-list > .event-match-flex:first-child { border-top: 0; }
-.event-match-flex > .match-card { flex: 1 1 auto; min-width: 0; border-top: 0; }
-.event-bp-link { flex: 0 0 auto; margin-right: var(--space-lg); }
-.event-bp-state { flex: 0 0 auto; margin-right: var(--space-lg); color: var(--text-muted); font-size: var(--font-xs); }
+/* ---------- 比赛列表：时间 | 队名 比分 队名 | 赛制 + BP ----------
+   五列左右对称（两边两列各自等宽），比分永远在每行正中间；有没有 BP 按钮都不影响对齐 */
+.event-match-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) auto minmax(0, 1.6fr) minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--space-md);
+  min-height: 46px;
+  padding: 6px var(--space-lg);
+  border-top: 1px solid var(--border-color);
+  transition: background var(--transition-fast);
+}
+
+.event-match-list > .event-match-row:first-child { border-top: 0; }
+.event-match-list > .event-match-row:last-child { border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+.event-match-row:hover { background: var(--bg-hover); }
+.event-match-time { grid-column: 1; overflow: hidden; color: var(--text-muted); font-size: var(--font-xs); text-overflow: ellipsis; white-space: nowrap; }
+/* 队名、比分这三格跟着整行的列走（subgrid）；链接的点击范围铺满整行 */
+.event-match-main { grid-column: 2 / 5; display: grid; grid-template-columns: subgrid; align-items: center; color: var(--text-primary); }
+.event-match-main:hover { color: var(--text-primary); }
+.event-match-main::after { content: ''; position: absolute; inset: 0; border-radius: inherit; }
+.event-match-main .team { overflow: hidden; font-weight: 500; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+.event-match-main .team.right { text-align: left; }
+.event-match-main .team.won { font-weight: 700; }
+.event-match-main .team.lost { color: var(--text-muted); }
+.event-match-main .vs { min-width: 64px; padding: 3px 10px; color: var(--text-muted); background: var(--surface-soft); border-radius: var(--radius-md); font-size: var(--font-xs); text-align: center; white-space: nowrap; }
+.event-match-main .vs b { color: var(--text-primary); font-size: var(--font-md); font-variant-numeric: tabular-nums; }
+.event-match-side { grid-column: 5; display: flex; align-items: center; justify-content: flex-end; gap: var(--space-sm); min-width: 0; color: var(--text-muted); font-size: var(--font-xs); white-space: nowrap; }
+.event-bp-link { position: relative; z-index: 1; flex: 0 0 auto; }   /* 盖在整行链接上面，单独能点 */
+.event-bp-state { color: var(--text-muted); font-size: var(--font-xs); }
 
 /* ---------- 对阵图 ---------- */
 .event-bracket-panel { padding-bottom: var(--space-lg); }
@@ -614,23 +639,23 @@ a.team-player-link:hover { color: var(--text-primary); background: var(--bg-hove
 .bracket-dynamic .bracket-team, .bracket-swiss-matches .bracket-team { gap: 8px; padding: 6px 10px; font-size: var(--font-sm); }
 .bracket-dynamic .bracket-seed, .bracket-swiss-matches .bracket-seed { width: 20px; height: 20px; font-size: 10px; }
 
-/* ---------- 赛事图池 ---------- */
-.event-map-pool { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: var(--space-sm); padding: var(--space-lg); }
-.event-map-pool .map-strip, .event-map-pool .ms-top, .event-map-pool .ms-top-wrap { position: relative; display: block; }
-.event-map-pool .ms-top-img { display: block; width: 100%; aspect-ratio: 16 / 7; object-fit: cover; border-radius: var(--radius-md); }
+/* ---------- 参赛队伍 + 赛事图池（照 HLTV：图池在右边约 330px 的窄框里） ---------- */
+.event-overview-row { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: var(--site-gap); }
 
-.event-map-pool .ms-map-name {
+/* 一张地图一条：HLTV 的地图条图片按原比例（582×60）铺满宽度，中间那条色带上写地图名 */
+.event-map-pool { display: grid; gap: 5px; padding: var(--space-md); }
+.event-map-strip { position: relative; overflow: hidden; border-radius: var(--radius-sm); }
+.event-map-strip img { display: block; width: 100%; height: auto; aspect-ratio: 582 / 60; object-fit: cover; }
+
+.event-map-strip span {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  padding: 18px 10px 7px;
+  inset: 0;
+  display: grid;
+  place-items: center;
   color: var(--color-white);
-  background: linear-gradient(transparent, var(--overlay));
-  border-radius: 0 0 var(--radius-md) var(--radius-md);
   font-size: var(--font-sm);
-  font-weight: 600;
-  text-shadow: 0 1px 2px var(--shadow);
+  font-weight: 700;
+  text-shadow: var(--on-image-shadow);
 }
 
 /* ---------- MVP / EVP 数据图 ---------- */
@@ -654,8 +679,12 @@ a.team-player-link:hover { color: var(--text-primary); background: var(--bg-hove
   .event-reg-slots { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .event-individual-head { flex-direction: column; gap: var(--space-sm); }
   .teams-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: var(--space-md); }
-  .event-bp-link, .event-bp-state { margin-right: var(--space-md); }
+  /* 手机：第一行 队名 比分 队名，第二行 左边时间、右边赛制和 BP */
+  .event-match-row { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); row-gap: 4px; padding: 8px var(--space-md); }
+  .event-match-main { grid-column: 1 / -1; grid-row: 1; }
+  .event-match-time { grid-column: 1 / 3; grid-row: 2; }
+  .event-match-side { grid-column: 3; grid-row: 2; }
   .bracket-scroll-wrapper { padding: var(--space-sm) var(--space-md) 0; }
-  .event-map-pool { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: var(--space-md); }
+  .event-overview-row { grid-template-columns: minmax(0, 1fr); }
   .event-award-poster-grid { grid-template-columns: minmax(0, 1fr); padding: var(--space-md); }
 }

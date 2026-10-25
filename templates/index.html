@@ -11,7 +11,7 @@
         {% for t in team_ranking %}
         <a class="list-row h-rank-row" href="{{ url_for('team_detail', team_id=t.id) }}">
           <span class="h-rank-num{% if loop.index <= 3 %} top{% endif %}">{{ loop.index }}</span>
-          {% if t.logo %}<img class="team-logo sm" src="{{ t.logo|team_logo_url }}" alt="" loading="lazy">{% else %}<span class="logo-fallback sm" aria-hidden="true">{{ (t.short_name or t.name)[:1] }}</span>{% endif %}
+          {% if t.logo %}<img class="team-logo sm" src="{{ t.logo|team_logo_url }}" alt="" loading="lazy">{% else %}<span class="logo-fallback sm" aria-hidden="true">{{ t.name|team_abbr(t.short_name) }}</span>{% endif %}
           <span class="grow truncate h-rank-name" data-i18n-ignore>{{ t.short_name or t.name }}</span>
           <span class="meta h-rank-score">{{ t.wins or 0 }}胜</span>
         </a>

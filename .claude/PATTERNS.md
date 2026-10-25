@@ -216,6 +216,9 @@ def api_example():
 ## 队标（显示、上传、批量处理）
 
 - **显示**：模板里队标地址一律写 `{{ 队标字段|team_logo_url }}`，不要再自己拼 `url_for('static', filename='uploads/' ~ ...)`。
+- **没有队标时圆圈里的字**：一律写 `{{ 队名|team_abbr(简称) }}`（赛事用 `event_abbr`），不要自己切 `[:2]`。
+  规则（utils/helpers.py）：有 4 个字以内的简称就用简称；临时队伍 TEAM X → TX；赛事取第一个词前两个字母 + 年份后两位或届数（SU26、SP26、CH1）。
+  搜索弹窗等脚本里的缩写由接口的 `abbr` 字段给出，同一套规则。
   数据库里两种存法（队伍资料存 `team_logos/文件名`，赛事报名只存 `文件名`）这个过滤器都认得，
   地址后面还会带上文件修改时间，换了队标浏览器马上显示新的。
   Python 里用 `services/team_logo_service.py` 的 `team_logo_url()`；直播 HUD 接口要的 `/static/...` 路径用 `team_logo_static_path()`。

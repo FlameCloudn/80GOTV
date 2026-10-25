@@ -4,7 +4,7 @@
 {% block layout_class %}no-side-layout narrow-layout{% endblock %}
 
 {% macro report_logo(logo, short_name) %}
-  {% if logo %}<img class="team-logo lg" src="{{ logo|team_logo_url }}" alt="{{ short_name }}" loading="lazy">{% else %}<span class="logo-fallback lg" data-i18n-ignore>{{ (short_name or '?')[:2] }}</span>{% endif %}
+  {% if logo %}<img class="team-logo lg" src="{{ logo|team_logo_url }}" alt="{{ short_name }}" loading="lazy">{% else %}<span class="logo-fallback lg" data-i18n-ignore>{{ short_name|team_abbr(short_name) }}</span>{% endif %}
 {% endmacro %}
 
 {#- 两队对比一行：数值在两端，名称在中间上方，下面一根两色条 -#}

@@ -31,7 +31,8 @@ function mobileSearchCard(item, type) {
   var label = item.nickname || item.name || '未命名';
   var meta = '';
   var image = '';
-  var initials = label.trim().slice(0, 2).toUpperCase();
+  // 队伍、赛事的占位缩写由后台统一算好（规则见 utils/helpers.py 的 team_abbr / event_abbr）
+  var initials = item.abbr || label.trim().slice(0, 2).toUpperCase();
   if (type === 'players') {
     if (item.group_username) label += ' @' + item.group_username;
     meta = item.team || '选手';
@@ -463,7 +464,9 @@ function escapeHtml(str) {
 }
 
 // ==================== 评论 AJAX 提交 ====================
-function buildCommentHTML(c) {
+// actionUrl：这条评论所在的提交地址（/comment/类型/编号）；新评论下面的回复框也要发到这里，
+// 不写的话浏览器会发到当前页面地址，服务器拒收（405），页面就只会提示“网络错误”
+function buildCommentHTML(c, actionUrl) {
   var avatarHtml;
   if (c.avatar) {
     avatarHtml = '<img src="/static/avatars/' + c.avatar + '" class="comment-avatar-img" alt="">';
@@ -485,7 +488,7 @@ function buildCommentHTML(c) {
   var adminBadge = ((c.username || '').toLowerCase() == 'flamecloud_') ? '<span class="admin-badge-small">ADMIN</span> ' : '';
   var cheaterBadge = c.is_cheater ? '<span class="cheater-badge" title="该用户已被标记为作弊者">作弊者</span>' : '';
   var replyForm = window._curUserId ?
-    '<form class="reply-form" id="reply-form-' + c.id + '" style="display:none">' +
+    '<form method="post" action="' + escapeHtml(actionUrl || '') + '" class="reply-form" id="reply-form-' + c.id + '" style="display:none">' +
     '<input type="hidden" name="csrf_token" value="' + (window._csrfToken || '') + '">' +
     '<input type="hidden" name="parent_id" value="' + c.id + '">' +
     '<textarea name="content" rows="2" class="reply-textarea" placeholder="回复 @' + escapeHtml(c.username) + '..."></textarea>' +
@@ -524,7 +527,7 @@ function submitComment(form) {
       showToast(res.error, 'error');
       return;
     }
-    var html = buildCommentHTML(res.comment);
+    var html = buildCommentHTML(res.comment, form.getAttribute('action'));
     var isReply = res.comment.parent_id != null && res.comment.parent_id > 0;
     if (isReply) {
       // 回复：插入到父评论下方
@@ -561,6 +564,9 @@ function submitComment(form) {
       var tmp = document.createElement('div');
       tmp.innerHTML = html;
       list.insertBefore(tmp.firstElementChild, list.firstChild);
+      // 有了第一条评论，“暂无评论”就去掉
+      var emptyHint = list.parentNode.querySelector(':scope > .empty-state');
+      if (emptyHint) emptyHint.remove();
     }
     // 清空输入
     form.querySelector('textarea').value = '';

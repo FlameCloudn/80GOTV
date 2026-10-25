@@ -443,6 +443,13 @@ a {
   padding-right: 56px;
 }
 
+/* Edge 自带的“看密码”小眼睛：只在刚打字时出现、点别处又消失（时隐时现），
+   和右边我们自己的“显示”按钮重复，藏掉 */
+.password-wrap .text-input::-ms-reveal,
+.password-wrap .text-input::-ms-clear {
+  display: none;
+}
+
 .password-toggle {
   position: absolute;
   top: 1px;

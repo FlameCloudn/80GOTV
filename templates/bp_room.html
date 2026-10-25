@@ -5,7 +5,7 @@
 
 {% macro bp_team(side, name, logo, short_name) %}
 <div class="bp-team{% if my_team == side %} my-team{% endif %}">
-  {% if logo %}<img class="team-logo lg" src="{{ logo|team_logo_url }}" alt="{{ name }}" loading="lazy">{% else %}<span class="logo-fallback lg" data-i18n-ignore>{{ (short_name or name or '?')[:2] }}</span>{% endif %}
+  {% if logo %}<img class="team-logo lg" src="{{ logo|team_logo_url }}" alt="{{ name }}" loading="lazy">{% else %}<span class="logo-fallback lg" data-i18n-ignore>{{ name|team_abbr(short_name) }}</span>{% endif %}
   <span class="bp-team-name" data-i18n-ignore>{{ name }}</span>
   {% if my_team == side %}<span class="badge badge-accent">你的队伍</span>{% endif %}
 </div>

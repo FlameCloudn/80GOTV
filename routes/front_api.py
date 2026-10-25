@@ -22,7 +22,7 @@ from services.player_remark_service import (
 from services.team_logo_service import team_logo_url
 from utils.db_helpers import avatar_static_filename
 from utils.filters import date_display_filter, datetime_display_filter, time_display_filter
-from utils.helpers import event_path, news_path
+from utils.helpers import event_abbr, event_path, news_path, team_abbr
 from utils.match_utils import (
     get_sql_effective_status,
     get_sql_match_completed,
@@ -238,6 +238,7 @@ def _event_payload(row):
         "url": event_path(row),
         "name": _text(row["name"]),
         "short_name": _text(_get(row, "short_name", "")),
+        "abbr": event_abbr(row["name"], _get(row, "short_name", "")),
         "description": _text(_get(row, "description", "")),
         "format": _text(_get(row, "format", "")),
         "status": _text(status),
@@ -287,6 +288,7 @@ def _team_payload(row):
         "url": url_for("team_detail", team_id=row["id"]),
         "name": _text(row["name"]),
         "short_name": _text(_get(row, "short_name", "")),
+        "abbr": team_abbr(row["name"], _get(row, "short_name", "")),
         "description": _text(_get(row, "description", "")),
         "logo": _logo_url(_get(row, "logo", "")),
         "players": _get(row, "players", 0),

@@ -109,7 +109,7 @@
             {% if team1_is_assigned and m.team1_logo %}
             <img class="team-logo match-team-logo" src="{{ m.team1_logo|team_logo_url }}" alt="" loading="lazy">
             {% else %}
-            <span class="logo-fallback match-team-mark" data-i18n-ignore>{{ (m.t1s or m.team1_name or 'T1')[:2]|upper if team1_is_assigned else '?' }}</span>
+            <span class="logo-fallback match-team-mark" data-i18n-ignore>{{ m.team1_name|team_abbr(m.t1s) if team1_is_assigned else '?' }}</span>
             {% endif %}
             <span class="team-name" data-i18n-ignore>{{ m.team1_name if team1_is_assigned else 'TBD' }}</span>
           </div>
@@ -117,7 +117,7 @@
             {% if team2_is_assigned and m.team2_logo %}
             <img class="team-logo match-team-logo" src="{{ m.team2_logo|team_logo_url }}" alt="" loading="lazy">
             {% else %}
-            <span class="logo-fallback match-team-mark" data-i18n-ignore>{{ (m.t2s or m.team2_name or 'T2')[:2]|upper if team2_is_assigned else '?' }}</span>
+            <span class="logo-fallback match-team-mark" data-i18n-ignore>{{ m.team2_name|team_abbr(m.t2s) if team2_is_assigned else '?' }}</span>
             {% endif %}
             <span class="team-name" data-i18n-ignore>{{ m.team2_name if team2_is_assigned else 'TBD' }}</span>
           </div>

@@ -1397,7 +1397,8 @@
     '场均 Rating': 'Avg. Rating',
     '选手对比结果': 'Comparison result',
     '暂无参赛队伍': 'No teams yet',
-    '↔ 左右滑动查看完整淘汰赛对阵': '↔ Swipe to see the whole bracket'
+    '↔ 左右滑动查看完整淘汰赛对阵': '↔ Swipe to see the whole bracket',
+    '队友': 'Teammates'
   };
   var partialTranslations = [
     // 对阵图保存失败的原因（前面会带“保存失败：”）

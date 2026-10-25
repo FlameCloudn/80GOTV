@@ -129,6 +129,8 @@ function selectSlot(n){
 </script>
 {% endif %}
 
+{# 参赛队伍 + 赛事图池：照 HLTV 赛事页，图池放在右边一个窄框里，一张地图一条（原图比例，地图名在正中间） #}
+<div class="event-overview-row">
 <section class="panel">
   <div class="panel-head"><h2 class="panel-title">参赛队伍 <span class="panel-count">{{ teams|length }}</span></h2></div>
   <div class="teams-grid">
@@ -138,7 +140,7 @@ function selectSlot(n){
       <img class="event-team-logo" src="{{ t.logo|team_logo_url }}"
            alt="{{ t.name }}" loading="lazy">
       {% else %}
-      <div class="logo-fallback lg event-team-logo-fallback" data-i18n-ignore>{{ (t.short_name or t.name)[0] }}</div>
+      <div class="logo-fallback lg event-team-logo-fallback" data-i18n-ignore>{{ t.name|team_abbr(t.short_name) }}</div>
       {% endif %}
       <span class="team-badge-name" data-i18n-ignore>{{ t.name }}</span>
       {% if t.players %}
@@ -163,6 +165,21 @@ function selectSlot(n){
   {% if not teams %}<div class="empty-state">暂无参赛队伍</div>{% endif %}
 </section>
 
+{% if event_map_pool %}
+<section class="panel event-map-pool-panel">
+  <div class="panel-head"><h2 class="panel-title">赛事图池 <span class="panel-count">{{ event_map_pool|length }}</span></h2></div>
+  <div class="event-map-pool">
+    {% for map_name in event_map_pool %}
+    <div class="event-map-strip">
+      <img src="{{ map_name|map_image }}" alt="" loading="lazy">
+      <span>{{ map_name|map_display }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+</div>
+
 <section class="panel">
   <div class="panel-head"><h2 class="panel-title">比赛列表 <span class="panel-count">{{ matches|length }}</span></h2></div>
   <div class="card-list event-match-list">
@@ -173,24 +190,24 @@ function selectSlot(n){
     {% set scored = done and m.team1_score is not none and m.team2_score is not none %}
     {% set t1_won = scored and m.team1_score > m.team2_score %}
     {% set t2_won = scored and m.team2_score > m.team1_score %}
-    <div class="event-match-flex">
-      <a class="card match-card" href="/matches/{{ m.slug or m.id }}">
+    {# 一行：时间 | 队名 比分 队名 | 赛制 + BP。左右两列等宽，比分在每行正中间；整行都能点进比赛 #}
+    <div class="event-match-row">
+      <span class="event-match-time">{{ m.match_time|datetime_display if m.match_time else 'TBD' }}</span>
+      <a class="event-match-main" href="/matches/{{ m.slug or m.id }}">
         <span class="team{% if t1_won %} won{% elif t2_won %} lost{% endif %}" data-i18n-ignore>{{ m.team1_name if team1_is_assigned else 'TBD' }}</span>
-        <span class="vs">
-          {% if done %}
-            <b>{{ m.team1_score }} : {{ m.team2_score }}</b>
-          {% else %} 对阵 {% endif %}
-        </span>
+        <span class="vs">{% if done %}<b>{{ m.team1_score }} : {{ m.team2_score }}</b>{% else %}对阵{% endif %}</span>
         <span class="team right{% if t2_won %} won{% elif t1_won %} lost{% endif %}" data-i18n-ignore>{{ m.team2_name if team2_is_assigned else 'TBD' }}</span>
-        <div class="meta">{{ m.bo_format or 'BO1' }} · {{ m.match_time|datetime_display if m.match_time else 'TBD' }}</div>
       </a>
-      {% if m.effective_status not in ('completed', 'cancelled') %}
-        {% if session.get('user_id') %}
-        <a href="/bp/{{ m.id }}" class="btn btn-sm event-bp-link">进入 BP</a>
-        {% else %}
-        <span class="event-bp-state">登录后进入 BP</span>
+      <span class="event-match-side">
+        <span data-i18n-ignore>{{ m.bo_format or 'BO1' }}</span>
+        {% if m.effective_status not in ('completed', 'cancelled') %}
+          {% if session.get('user_id') %}
+          <a href="/bp/{{ m.id }}" class="btn btn-sm event-bp-link">进入 BP</a>
+          {% else %}
+          <span class="event-bp-state">登录后进入 BP</span>
+          {% endif %}
         {% endif %}
-      {% endif %}
+      </span>
     </div>
     {% endfor %}
   </div>
@@ -484,24 +501,6 @@ function selectSlot(n){
 </section>
 
 {% endif %}
-{% endif %}
-
-{% if event_map_pool %}
-<section class="panel">
-  <div class="panel-head"><h2 class="panel-title">赛事图池 <span class="panel-count">{{ event_map_pool|length }}</span></h2></div>
-  <div class="map-strips event-map-pool">
-    {% for map_name in event_map_pool %}
-    <div class="map-strip">
-      <div class="ms-top">
-        <span class="ms-top-wrap">
-          <img class="ms-top-img" src="{{ map_name|map_image }}" alt="{{ map_name|map_display }}" loading="lazy">
-          <span class="ms-map-name">{{ map_name|map_display }}</span>
-        </span>
-      </div>
-    </div>
-    {% endfor %}
-  </div>
-</section>
 {% endif %}
 
 {% if award_players %}

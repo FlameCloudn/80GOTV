@@ -10,7 +10,7 @@
   <table class="table">
     <thead>
       <tr>
-        <th class="stats-team-head"><span class="stats-team-label">{% if logo %}<img class="team-logo sm" loading="lazy" src="{{ logo|team_logo_url }}" alt="">{% else %}<span class="logo-fallback sm" data-i18n-ignore>{{ short_name[:2] }}</span>{% endif %}<span data-i18n-ignore>{{ team_name }}</span></span></th>
+        <th class="stats-team-head"><span class="stats-team-label">{% if logo %}<img class="team-logo sm" loading="lazy" src="{{ logo|team_logo_url }}" alt="">{% else %}<span class="logo-fallback sm" data-i18n-ignore>{{ team_name|team_abbr(short_name) }}</span>{% endif %}<span data-i18n-ignore>{{ team_name }}</span></span></th>
         <th class="col-overall">K-D</th><th class="col-t">T K-D</th><th class="col-ct">CT K-D</th>
         <th class="col-overall sortable" data-sort="kd">K/D</th><th class="col-t">T K/D</th><th class="col-ct">CT K/D</th>
         <th class="col-overall sortable" data-sort="adr">ADR</th><th class="col-t">T ADR</th><th class="col-ct">CT ADR</th>
@@ -104,7 +104,7 @@
     {% if match.t1_logo %}
     <img class="team-logo xl match-stats-hero-logo" src="{{ match.t1_logo|team_logo_url }}" alt="{{ match.team1_name }}" loading="lazy">
     {% else %}
-    <span class="logo-fallback xl match-stats-hero-logo match-stats-hero-fallback" data-i18n-ignore>{{ match.t1s[:2] }}</span>
+    <span class="logo-fallback xl match-stats-hero-logo match-stats-hero-fallback" data-i18n-ignore>{{ match.team1_name|team_abbr(match.t1s) }}</span>
     {% endif %}
     <strong data-i18n-ignore>{{ match.team1_name }}</strong>
   </div>
@@ -126,7 +126,7 @@
     {% if match.t2_logo %}
     <img class="team-logo xl match-stats-hero-logo" src="{{ match.t2_logo|team_logo_url }}" alt="{{ match.team2_name }}" loading="lazy">
     {% else %}
-    <span class="logo-fallback xl match-stats-hero-logo match-stats-hero-fallback" data-i18n-ignore>{{ match.t2s[:2] }}</span>
+    <span class="logo-fallback xl match-stats-hero-logo match-stats-hero-fallback" data-i18n-ignore>{{ match.team2_name|team_abbr(match.t2s) }}</span>
     {% endif %}
     <strong data-i18n-ignore>{{ match.team2_name }}</strong>
   </div>
@@ -280,7 +280,7 @@
     {% if match.t1_logo %}
     <img class="team-logo xl mh-logo" src="{{ match.t1_logo|team_logo_url }}" alt="{{ match.team1_name }}" loading="lazy">
     {% else %}
-    <span class="logo-fallback xl mh-logo mh-logo-fallback" data-i18n-ignore>{{ match.t1s[:2] }}</span>
+    <span class="logo-fallback xl mh-logo mh-logo-fallback" data-i18n-ignore>{{ match.team1_name|team_abbr(match.t1s) }}</span>
     {% endif %}
     {% if team1_roster %}
     <div class="match-team-players-popup">
@@ -321,7 +321,7 @@
     {% if match.t2_logo %}
     <img class="team-logo xl mh-logo" src="{{ match.t2_logo|team_logo_url }}" alt="{{ match.team2_name }}" loading="lazy">
     {% else %}
-    <span class="logo-fallback xl mh-logo mh-logo-fallback" data-i18n-ignore>{{ match.t2s[:2] }}</span>
+    <span class="logo-fallback xl mh-logo mh-logo-fallback" data-i18n-ignore>{{ match.team2_name|team_abbr(match.t2s) }}</span>
     {% endif %}
     {% if team2_roster %}
     <div class="match-team-players-popup">
@@ -380,7 +380,7 @@
           {% set logo = match.t1_logo if is_t1 else match.t2_logo %}
           {% set short = match.t1s if is_t1 else match.t2s %}
           <span class="ms-logo ms-logo-{{ pos }}">
-            {% if logo %}<img class="ms-icon" src="{{ logo|team_logo_url }}" alt="{{ short }}" loading="lazy">{% else %}<span class="ms-icon logo-fallback md" data-i18n-ignore>{{ short[:2] }}</span>{% endif %}
+            {% if logo %}<img class="ms-icon" src="{{ logo|team_logo_url }}" alt="{{ short }}" loading="lazy">{% else %}<span class="ms-icon logo-fallback md" data-i18n-ignore>{{ (match.team1_name if is_t1 else match.team2_name)|team_abbr(short) }}</span>{% endif %}
           </span>
           <span class="ms-name ms-name-{{ pos }}{% if won %} won{% elif lost %} lost{% endif %}" data-i18n-ignore><span class="ms-full">{{ match.team1_name if is_t1 else match.team2_name }}</span><span class="ms-short">{{ short }}</span></span>
           <span class="ms-pick-cell ms-pick-{{ pos }}">{% if ms.picked_by == side %}<span class="ms-pick">选图</span>{% endif %}</span>

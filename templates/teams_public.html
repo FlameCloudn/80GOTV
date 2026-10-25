@@ -18,7 +18,7 @@
       {% if t.logo %}
       <img class="team-card-logo" src="{{ t.logo|team_logo_url }}" alt="" loading="lazy">
       {% else %}
-      <span class="team-card-logo is-fallback" data-i18n-ignore>{{ (t.short_name or t.name)[:2]|upper }}</span>
+      <span class="team-card-logo is-fallback" data-i18n-ignore>{{ t.name|team_abbr(t.short_name) }}</span>
       {% endif %}
       <span class="team-card-title">
         <strong data-i18n-ignore>{{ t.name }}</strong>

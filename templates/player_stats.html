@@ -175,6 +175,7 @@
           fill: true,
           tension: .25,
           pointRadius: 2,
+          pointHitRadius: 10,   // 鼠标离点 12px 以内就显示数值（默认只有 3px，很难对准）
           pointBackgroundColor: accent
         }]
       },
@@ -205,7 +206,7 @@
   <h3>近期比赛</h3>
   <div class="table-wrap pp-table-wrap">
     <table class="table pp-table">
-      <thead><tr><th>日期</th><th>赛事</th><th>对阵</th><th>比分</th><th class="num">K-D-A</th><th class="num">ADR</th><th class="num">RATING</th></tr></thead>
+      <thead><tr><th>日期</th><th>赛事</th><th>对阵</th><th class="num">比分</th><th class="num">K-D-A</th><th class="num">ADR</th><th class="num">RATING</th></tr></thead>
       <tbody>
         {% for m in recent_matches %}
         <tr>

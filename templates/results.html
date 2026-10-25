@@ -60,7 +60,7 @@
               {% if m.team1_logo %}
               <img class="team-logo result-team-logo" src="{{ m.team1_logo|team_logo_url }}" alt="" loading="lazy">
               {% else %}
-              <span class="logo-fallback result-team-logo-fallback" data-i18n-ignore>{{ (m.t1s or m.team1_name or 'T1')[:2]|upper }}</span>
+              <span class="logo-fallback result-team-logo-fallback" data-i18n-ignore>{{ m.team1_name|team_abbr(m.t1s) }}</span>
               {% endif %}
             </span>
 
@@ -74,7 +74,7 @@
               {% if m.team2_logo %}
               <img class="team-logo result-team-logo" src="{{ m.team2_logo|team_logo_url }}" alt="" loading="lazy">
               {% else %}
-              <span class="logo-fallback result-team-logo-fallback" data-i18n-ignore>{{ (m.t2s or m.team2_name or 'T2')[:2]|upper }}</span>
+              <span class="logo-fallback result-team-logo-fallback" data-i18n-ignore>{{ m.team2_name|team_abbr(m.t2s) }}</span>
               {% endif %}
               <span class="result-team-name {% if t2_won %}won{% elif t1_won %}lost{% endif %}" data-i18n-ignore>{{ m.team2_name }}</span>
             </span>

@@ -8,7 +8,6 @@
 
 <header class="page-head">
   <div><span class="page-head-kicker" data-i18n-ignore>STATS</span><h1>数据统计</h1></div>
-  <p class="page-head-meta"><span>基于本站已记录的比赛与 Demo 数据</span> · <span>版本</span> <b data-i18n-ignore>CS2</b></p>
 </header>
 
 {#- 标签导航 + 筛选条：赛事 / 时间 /（选手页）排行 / 地图 /（选手、对比页）阵营 -#}
@@ -118,7 +117,7 @@
       {% for team in overview.top_teams %}
       <a href="{{ url_for('team_detail', team_id=team.id) if team.id else url_for('teams_list') }}" class="overview-rank-row">
         <span class="overview-rank-num">{{ loop.index }}</span>
-        {% if team.logo %}<img src="{{ team.logo|team_logo_url }}" class="team-logo md" alt="" loading="lazy">{% else %}<span class="logo-fallback md" data-i18n-ignore>{{ (team.short_name or team.name or 'T')[:2] }}</span>{% endif %}
+        {% if team.logo %}<img src="{{ team.logo|team_logo_url }}" class="team-logo md" alt="" loading="lazy">{% else %}<span class="logo-fallback md" data-i18n-ignore>{{ team.name|team_abbr(team.short_name) }}</span>{% endif %}
         <span class="overview-rank-identity"><span class="overview-rank-name" data-i18n-ignore>{{ team.short_name or team.name }}</span></span>
         <span class="overview-rank-metric"><b class="{{ team.rating|rating_class }}">{{ "%.2f"|format(team.rating) if team.rating is not none else '-' }}</b><small data-i18n-ignore>Rating</small></span>
         <span class="overview-rank-metric"><b>{{ team.maps }}</b><small>地图</small></span>

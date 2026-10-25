@@ -5,7 +5,13 @@ import re
 from datetime import date, datetime, timedelta, timezone
 from urllib.parse import urlsplit
 
-from utils.helpers import map_background_url, map_display_name, map_display_name_cn, map_image_url
+from utils.helpers import (
+    map_background_url,
+    map_display_name,
+    map_display_name_cn,
+    map_image_url,
+    team_abbr,
+)
 
 
 def _parse_display_datetime(value):
@@ -149,12 +155,8 @@ def rating_class_filter(value):
 
 
 def registration_team_abbr_filter(value):
-    """报名队伍名 -> 两字符缩写。"""
-    team_name = str(value or "").strip()
-    words = team_name.split()
-    if len(words) >= 2 and words[0].casefold() == "team":
-        return f"T{words[1][0]}".upper()
-    return team_name[:2].upper()
+    """报名队伍名 -> 缩写（和全站队伍占位缩写同一套规则，见 utils.helpers.team_abbr）。"""
+    return team_abbr(value)
 
 
 def _parse_bilibili_url(url):

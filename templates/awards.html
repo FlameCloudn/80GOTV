@@ -18,7 +18,7 @@
 
     {% for c in group.champions %}
     <a class="award-champion" href="{{ url_for('team_detail', team_id=c.team_id) }}">
-      {% if c.logo %}<img class="team-logo lg" src="{{ c.logo|team_logo_url }}" alt="" loading="lazy">{% else %}<span class="logo-fallback lg" data-i18n-ignore>{{ (c.team_short or c.team_name)[:2]|upper }}</span>{% endif %}
+      {% if c.logo %}<img class="team-logo lg" src="{{ c.logo|team_logo_url }}" alt="" loading="lazy">{% else %}<span class="logo-fallback lg" data-i18n-ignore>{{ c.team_name|team_abbr(c.team_short) }}</span>{% endif %}
       <span class="award-champion-name" data-i18n-ignore>{{ c.team_name }}</span>
       <span class="badge badge-gold">冠军</span>
     </a>

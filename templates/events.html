@@ -32,10 +32,10 @@
 </header>
 
 <nav class="segmented events-view-tabs" aria-label="赛事筛选">
-  <a href="/events"{% if not status_filter and view_mode != 'calendar' %} aria-current="page"{% endif %}>全部赛事</a>
+  <a href="/events?view=list"{% if not status_filter and view_mode != 'calendar' %} aria-current="page"{% endif %}>全部赛事</a>
   <a href="/events?status=ongoing"{% if status_filter == 'ongoing' %} aria-current="page"{% endif %}>进行中</a>
   <a href="/events?status=completed"{% if status_filter == 'completed' %} aria-current="page"{% endif %}>历史赛事</a>
-  <a href="/events?view=calendar"{% if view_mode == 'calendar' %} aria-current="page"{% endif %}>日历</a>
+  <a href="/events"{% if view_mode == 'calendar' %} aria-current="page"{% endif %}>日历</a>
 </nav>
 
 <div class="events-list-layout">
