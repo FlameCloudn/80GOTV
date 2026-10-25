@@ -1,209 +1,100 @@
-<style>
-  .data-live{--ct:#68a8e8;--ct-deep:#17395e;--t:#e9bb55;--t-deep:#58441b;--live-text:#f7f9fb;--live-muted:#aeb8c2;--live-bg:#111820;--live-panel:#10151b;--live-panel-2:#1b222a;--live-row:rgba(255,255,255,.018);--live-row-line:rgba(255,255,255,.05);--live-line:rgba(255,255,255,.1);--radar-bg:#3b4853;--radar-brightness:1.9;margin:0 0 10px;padding:9px;color:var(--live-text);background:var(--live-bg);letter-spacing:0}
-  .data-live .live-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:24px;margin-bottom:7px}
-  .data-live .live-heading h2{font-size:15px;line-height:1.2;margin:0;font-weight:700;color:var(--live-text);letter-spacing:0}
-  .data-live .source-badge{padding:3px 7px;background:#3b2d14;color:#ffd782;font-size:10px;line-height:1.4}
-  .data-live .source-badge.online{background:#153d2a;color:#7fe2a8}
-  .data-live .source-badge.offline{background:#4b2020;color:#ff9b9b}
-  .data-live .live-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:7px}
-  .data-live .scoreboard,.data-live .radar-panel{background:var(--live-panel);border:1px solid var(--live-line);overflow:hidden}
-  .data-live .score-top{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;min-height:66px;padding:0 12px;background:var(--live-panel);border-bottom:1px solid var(--live-line)}
-  .data-live .score-side{display:flex;align-items:center;gap:7px;min-width:0}
-  .data-live .score-side.right{justify-content:flex-end;text-align:right}
-  .data-live .side-tag{display:inline-flex;align-items:center;justify-content:center;width:25px;height:19px;font-size:10px;font-weight:800}
-  .data-live .side-tag.ct{background:var(--ct-deep);color:var(--ct)}
-  .data-live .side-tag.t{background:var(--t-deep);color:var(--t)}
-  .data-live .side-tag.unknown{background:#303840;color:#d2d8de}
-  .data-live .team-name{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .data-live .score-center{text-align:center;padding:0 12px}
-  .data-live .score{font-size:40px;font-weight:900;line-height:.92;font-variant-numeric:tabular-nums}
-  .data-live .side-score.ct{color:var(--ct)}
-  .data-live .side-score.t{color:var(--t)}
-  .data-live .match-meta{font-size:10px;color:var(--live-muted);margin-top:3px}
-  .data-live .timer{color:var(--live-text);font-weight:700}
-  .data-live .team-block+.team-block{border-top:1px solid var(--live-line)}
-  .data-live .team-bar,.data-live .player-row{display:grid;grid-template-columns:minmax(118px,1fr) 48px 54px 62px 38px 46px 30px 30px 30px 40px;align-items:center;column-gap:4px}
-  .data-live .team-bar{height:27px;padding:0 8px;background:var(--live-panel-2);color:var(--live-muted);font-size:9px;text-align:center}
-  .data-live .team-bar .team-label{text-align:left;font-size:11px;font-weight:800;color:var(--live-text)}
-  .data-live .player-row{height:36px;padding:0 8px;background:var(--live-row);border-top:1px solid var(--live-row-line);font-size:11px;text-align:center}
-  .data-live .team-block.side-ct .team-bar{background:rgba(23,57,94,.78)}
-  .data-live .team-block.side-ct .player-row{background:rgba(23,57,94,.34)}
-  .data-live .team-block.side-t .team-bar{background:rgba(88,68,27,.78)}
-  .data-live .team-block.side-t .player-row{background:rgba(88,68,27,.34)}
-  .data-live .player-row.dead{opacity:.47}
-  .data-live .player-main{display:flex;align-items:center;gap:6px;min-width:0;text-align:left}
-  .data-live .player-avatar{display:flex;align-items:center;justify-content:center;width:24px;height:24px;background:#27313c;color:#d7e1eb;font-size:10px;font-weight:800;overflow:hidden;flex:0 0 24px}
-  .data-live .player-avatar img{width:100%;height:100%;object-fit:cover}
-  .data-live .player-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}
-  .data-live .weapon-slot,.data-live .armor-slot{display:flex;align-items:center;justify-content:center;min-width:0}
-  .data-live .weapon-img{display:block;max-width:42px;max-height:15px;object-fit:contain}
-  .data-live .armor-img{width:16px;height:16px;object-fit:contain}
-  .data-live .money,.data-live .kills,.data-live .deaths,.data-live .adr{color:var(--live-text)}
-  .data-live .kills,.data-live .deaths,.data-live .adr{font-weight:700}
-  .data-live .hp-wrap{display:flex;align-items:center}
-  .data-live .hp-bar{position:relative;display:flex;align-items:center;width:52px;height:12px;background:#34404b;overflow:hidden}
-  .data-live .hp-fill{position:absolute;inset:0 auto 0 0;background:#43a91f}
-  .data-live .hp-fill.low{background:#d59a2f}
-  .data-live .hp-fill.crit{background:#c94747}
-  .data-live .hp-num{position:relative;z-index:1;padding-left:3px;font-size:9px;font-weight:700;color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.65)}
-  .data-live .round-board{position:relative;display:grid;grid-template-rows:26px 1px 26px;padding:4px 0;background:var(--live-bg);border-top:1px solid var(--live-line);border-bottom:1px solid var(--live-line)}
-  .data-live .round-board:after{content:"";position:absolute;z-index:2;top:3px;bottom:3px;left:50%;width:1px;background:rgba(255,255,255,.3);pointer-events:none}
-  .data-live .round-lane{display:block;min-width:0}
-  .data-live .round-divider{height:1px;margin:0 4px;background:rgba(255,255,255,.14)}
-  .data-live .round-lane-cells{display:grid;grid-template-columns:repeat(24,22px);justify-content:center;gap:2px;width:min(100%,574px);min-width:0;height:100%;margin:0 auto;overflow:hidden}
-  .data-live .round-lane.team1 .round-lane-cells{align-items:end}
-  .data-live .round-lane.team2 .round-lane-cells{align-items:start}
-  .data-live .round-cell{display:flex;align-items:center;justify-content:center;width:22px;height:22px;min-width:0}
-  .data-live .round-result{display:block;width:20px;height:20px;object-fit:contain}
-  .data-live .overtime-board{display:none;padding:4px 8px;background:var(--live-bg);border-bottom:1px solid var(--live-line)}
-  .data-live .overtime-board.active{display:block}
-  .data-live .overtime-title{color:var(--live-muted);font-size:9px;font-weight:800;margin:0 0 3px;text-align:center}
-  .data-live .overtime-strip{display:grid;grid-template-columns:repeat(6,22px);justify-content:center;gap:2px;min-height:22px}
-  .data-live .ot-round-cell{display:flex;align-items:center;justify-content:center;width:22px;height:22px}
-  .data-live .ot-round-result{display:block;width:20px;height:20px;object-fit:contain}
-  .data-live .round-empty{font-size:9px;color:#77818c}
-  .data-live .panel-footer{display:flex;align-items:center;justify-content:space-between;gap:7px;min-height:27px;padding:0 8px;color:var(--live-muted);font-size:10px}
-  .data-live .bomb{display:flex;align-items:center;gap:5px;color:#cfd7df}
-  .data-live .bomb.active{color:#ffca62;font-weight:700}
-  .data-live .bomb img{width:16px;height:16px;object-fit:contain}
-  .data-live .radar-head{display:flex;align-items:center;justify-content:space-between;gap:7px;min-height:29px;padding:0 9px;border-bottom:1px solid var(--live-line)}
-  .data-live .radar-title{font-size:12px;font-weight:800}
-  .data-live .radar-map{font-size:10px;color:var(--live-muted)}
-  .data-live .game-log-body{display:grid;grid-template-columns:minmax(0,1fr) 250px;height:250px;min-height:0;background:var(--live-panel);overflow:hidden}
-  .data-live .radar{position:relative;width:250px;height:250px;background:var(--radar-bg) center/cover no-repeat;border-left:1px solid var(--live-line);overflow:hidden;background-blend-mode:luminosity}
-  .data-live .radar:before{content:"";position:absolute;z-index:1;inset:0;background:rgba(4,9,14,.56)}
-  .data-live .radar-image{position:absolute;z-index:2;inset:0;width:100%;height:100%;object-fit:contain;opacity:1;filter:brightness(var(--radar-brightness)) contrast(1.22)}
-  .data-live #killMarkers{position:absolute;z-index:3;inset:0;pointer-events:none}
-  .data-live .kill-marker{position:absolute;width:16px;height:16px;opacity:.88;transform:translate(-50%,-50%);filter:drop-shadow(0 1px 2px rgba(0,0,0,.85))}
-  .data-live .kill-marker:before,.data-live .kill-marker:after{content:"";position:absolute;left:7px;top:0;width:2px;height:16px;background:currentColor}
-  .data-live .kill-marker:before{transform:rotate(45deg)}
-  .data-live .kill-marker:after{transform:rotate(-45deg)}
-  .data-live .kill-marker.ct{color:var(--ct)}
-  .data-live .kill-marker.t{color:var(--t)}
-  .data-live .kill-feed{min-width:0;min-height:0;height:100%;background:var(--live-panel);overflow:hidden}
-  .data-live .kill-feed-list{box-sizing:border-box;height:100%;min-height:0;max-height:100%;overflow-x:hidden;overflow-y:auto;padding:3px 6px 6px;scrollbar-color:#56616c var(--live-bg);scrollbar-width:thin;scrollbar-gutter:stable;overscroll-behavior:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch}
-  .data-live .kill-line{display:flex;align-items:center;justify-content:flex-start;gap:4px;width:max-content;max-width:100%;min-height:25px;margin-top:3px;padding:2px 6px;border:1px solid var(--live-line);background:var(--live-bg);font-size:12px;line-height:1.2}
-  .data-live .kill-line.round-over{border-color:var(--ct)}
-  .data-live .kill-line.round-over.t{border-color:var(--t)}
-  .data-live .kill-line.reason-bomb-exploded{border-color:#e24c38}
-  .data-live .kill-line.reason-bomb-defused{border-color:#4f9ee8}
-  .data-live .kill-line.reason-time-expired{border-color:#a48ac8}
-  .data-live .kill-line.bomb-planted{border-color:#d9a817;color:#f4cc45}
-  .data-live .plant-icon,.data-live .reason-icon{width:15px;height:15px;object-fit:contain;flex:0 0 15px}
-  .data-live .round-winner.ct{color:var(--ct);font-weight:800}
-  .data-live .round-winner.t{color:var(--t);font-weight:800}
-  .data-live .kill-name{max-width:105px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:800}
-  .data-live .kill-name.ct{color:var(--ct)}
-  .data-live .kill-name.t{color:var(--t)}
-  .data-live .kill-assist{max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:800}
-  .data-live .kill-assist.ct{color:var(--ct)}
-  .data-live .kill-assist.t{color:var(--t)}
-  .data-live .kill-plus{color:#6f7b86}
-  .data-live .kill-weapon{display:flex;align-items:center;justify-content:center;width:39px;height:17px;flex:0 0 39px}
-  .data-live .kill-weapon .weapon-img{max-width:38px;max-height:16px}
-  .data-live .kill-headshot{width:15px;height:15px;object-fit:contain}
-  .data-live .kill-round{color:#76828d;font-size:9px;white-space:nowrap}
-  .data-live .event-text{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  @media(max-width:980px){
-    .data-live .game-log-body{grid-template-columns:minmax(0,1fr) 220px;height:220px}
-    .data-live .radar{width:220px;height:220px}
-  }
-  @media(max-width:680px){
-    .data-live{padding:5px}
-    .data-live .live-heading{min-height:20px;margin-bottom:4px}
-    .data-live .live-heading h2{font-size:13px}
-    .data-live .source-badge{font-size:9px;padding:2px 5px}
-    .data-live .score-top{padding:0 6px;min-height:47px}
-    .data-live .score-center{padding:0 6px}
-    .data-live .score{font-size:30px}
-    .data-live .match-meta{font-size:8px;margin-top:2px}
-    .data-live .team-name{font-size:11px}
-    .data-live .side-tag{width:21px;height:17px;font-size:9px}
-    .data-live .team-bar,.data-live .player-row{grid-template-columns:minmax(84px,1fr) 38px 47px 39px 24px 31px}
-    .data-live .team-bar span:nth-child(3),.data-live .player-row>*:nth-child(3),
-    .data-live .team-bar span:nth-child(5),.data-live .player-row>*:nth-child(5),
-    .data-live .team-bar span:nth-child(8),.data-live .player-row>*:nth-child(8),
-    .data-live .team-bar span:nth-child(9),.data-live .player-row>*:nth-child(9){display:none}
-    .data-live .team-bar{height:23px;padding:0 5px;column-gap:2px;font-size:8px}
-    .data-live .team-bar .team-label{font-size:9px}
-    .data-live .player-row{height:29px;padding:0 5px;column-gap:2px;font-size:9px}
-    .data-live .player-main{gap:4px}
-    .data-live .player-avatar{width:20px;height:20px;flex-basis:20px;font-size:9px}
-    .data-live .weapon-img{max-width:34px;max-height:13px}
-    .data-live .hp-bar{width:37px;height:10px}
-    .data-live .hp-num{font-size:8px}
-    .data-live .money{font-size:8px}
-    .data-live .round-board{grid-template-rows:20px 1px 20px;padding:2px 0}
-    .data-live .round-lane-cells{grid-template-columns:repeat(24,minmax(0,1fr));gap:0;width:100%;padding:0 2px}
-    .data-live .round-cell{width:min(100%,16px);height:16px;justify-self:center}
-    .data-live .round-result{width:14px;height:14px}
-    .data-live .overtime-strip{grid-template-columns:repeat(6,minmax(0,1fr));gap:0}
-    .data-live .ot-round-cell{width:min(100%,16px);height:16px;justify-self:center}
-    .data-live .ot-round-result{width:14px;height:14px}
-    .data-live .panel-footer{min-height:23px;padding:0 5px;font-size:8px}
-    .data-live .bomb img{width:13px;height:13px}
-    .data-live .radar-head{min-height:25px;padding:0 6px}
-    .data-live .radar-title{font-size:10px}
-    .data-live .game-log-body{grid-template-columns:minmax(0,1fr) min(42vw,160px);height:170px}
-    .data-live .radar{align-self:center;width:100%;height:auto;aspect-ratio:1/1;border-left:1px solid var(--live-line)}
-    .data-live .kill-feed-list{padding:2px 4px 4px}
-    .data-live .kill-line{gap:3px;min-height:22px;margin-top:2px;padding:2px 4px;font-size:10px}
-    .data-live .kill-name{max-width:74px}
-    .data-live .kill-assist{max-width:52px}
-    .data-live .kill-weapon{width:31px;height:14px;flex-basis:31px}
-    .data-live .kill-weapon .weapon-img{max-width:30px;max-height:13px}
-    .data-live .kill-headshot,.data-live .plant-icon,.data-live .reason-icon{width:12px;height:12px;flex-basis:12px}
-    .data-live .kill-round{display:none}
-  }
-</style>
-<div class="data-live" id="data-live" data-i18n-ignore>
-  <div class="live-heading" data-i18n-translate>
-    <h2>比赛数据直播</h2>
-    <span class="source-badge" id="sourceBadge">等待观战账号连接</span>
-  </div>
-  <div class="live-grid">
-    <section class="scoreboard">
-      <header class="score-top">
-        <div class="score-side"><span class="side-tag unknown" id="team1SideTag" data-i18n-translate>待确认</span><span class="team-name" id="team1Name">{{ match.team1_name or '队伍 1' }}</span></div>
-        <div class="score-center">
-          <div class="score"><span class="side-score" id="liveScore1">-</span> : <span class="side-score" id="liveScore2">-</span></div>
-          <div class="match-meta">R<span id="roundNum">-</span> <span id="mapName">-</span> <span class="timer" id="timer">-</span></div>
-        </div>
-        <div class="score-side right"><span class="team-name" id="team2Name">{{ match.team2_name or '队伍 2' }}</span><span class="side-tag unknown" id="team2SideTag" data-i18n-translate>待确认</span></div>
-      </header>
-      <div class="team-block side-unknown" id="team1Block">
-        <div class="team-bar" data-i18n-translate><span class="team-label" id="team1RosterLabel">阵营待确认</span><span>手枪</span><span>主武器</span><span>血量</span><span>护甲</span><span>金钱</span><span>K</span><span>A</span><span>D</span><span>ADR</span></div>
-        <div id="team1Players"></div>
-      </div>
-      <div class="round-board" id="roundBoard">
-        <div class="round-lane team1"><div class="round-lane-cells" id="roundTeam1"></div></div>
-        <div class="round-divider" aria-hidden="true"></div>
-        <div class="round-lane team2"><div class="round-lane-cells" id="roundTeam2"></div></div>
-      </div>
-      <div class="overtime-board" id="overtimeBoard"></div>
-      <div class="team-block side-unknown" id="team2Block">
-        <div class="team-bar" data-i18n-translate><span class="team-label" id="team2RosterLabel">阵营待确认</span><span>手枪</span><span>主武器</span><span>血量</span><span>护甲</span><span>金钱</span><span>K</span><span>A</span><span>D</span><span>ADR</span></div>
-        <div id="team2Players"></div>
-      </div>
-      <footer class="panel-footer" data-i18n-translate>
-        <span id="updatedAt">尚未收到数据</span>
-        <span class="bomb" id="bombState"><img loading="lazy" id="bombStateIcon" src="/resources/icons/match/bomb.webp" alt=""><span id="bombStateText">炸弹状态：-</span></span>
-      </footer>
-    </section>
-    <aside class="radar-panel">
-      <div class="radar-head"><span class="radar-title" data-i18n-translate>比赛日志</span><span class="radar-map" id="radarMap">-</span></div>
-      <div class="game-log-body">
-        <div class="kill-feed">
-          <div class="kill-feed-list" id="killFeed" role="log" aria-label="比赛事件" tabindex="0"><div class="kill-line" data-feed-placeholder><span class="kill-round" data-i18n-translate>等待数据</span></div></div>
-        </div>
-        <div class="radar" id="radar">
-          <img loading="lazy" class="radar-image" id="radarImage" src="/resources/radars/mirage.svg" alt="">
-          <div id="killMarkers"></div>
-        </div>
-      </div>
-    </aside>
-  </div>
+{#- 比赛数据直播（照 HLTV 记分板）：比分条 → 队伍 1 选手表 → 回合记录 → 队伍 2 选手表 → 比赛日志 + 小地图。
+    数据每秒从 /api/live/<id> 取一次（页面在后台时 3 秒一次），只改有变化的格子，行和图片都不重建。
+    样式在 static/css/pages/match.css 第 11 节。 -#}
+{% macro live_logo(logo, name, short_name, size='md') %}
+{% if logo %}<img class="team-logo {{ size }}" src="{{ logo|team_logo_url }}" alt="">{% else %}<span class="logo-fallback {{ size }}">{{ (short_name or name or 'T')[:2]|upper }}</span>{% endif %}
+{% endmacro %}
+
+{#- 一行选手：头像+名字 | 血量 | 护甲 | 手枪 | 主武器 | 金钱 | K | A | D | ADR。
+    还没收到数据时先填上报名阵容的名字和头像；JS 新建行时用下面 <template> 里同一份结构 -#}
+{% macro live_player_row(p=none) %}
+{% set name = private_name_for_player(p.id, p.nickname) if p else '-' %}
+<div class="player-row dead">
+  <span class="p-name">
+    <span class="p-avatar">{% if p and p.avatar %}<img src="{{ p.avatar }}" data-src="{{ p.avatar }}" alt="" loading="lazy">{% else %}<img hidden alt="">{% endif %}<span data-avatar-fallback{% if p and p.avatar %} hidden{% endif %}>{{ name[:1] }}</span></span>
+    <span class="p-nick">{{ name }}</span>
+  </span>
+  <span class="p-hp"><span class="hp-num">-</span><span class="hp-bar"><i class="hp-fill"></i></span></span>
+  <span class="p-armor"><img class="sb-mono" hidden alt=""></span>
+  <span class="p-pistol"><img class="sb-mono" hidden alt=""></span>
+  <span class="p-weapon"><img class="sb-mono" hidden alt=""></span>
+  <span class="p-money">-</span>
+  <span class="p-stat k">0</span><span class="p-stat a">0</span><span class="p-stat d">0</span><span class="p-adr">0</span>
 </div>
+{% endmacro %}
+
+{#- 一队的选手表：表头 = 队标 + 队名 + 各列名称（阵营靠表头底色和左边色条区分），下面固定 5 行 -#}
+{% macro live_team_block(number, name, roster, logo, short_name) %}
+<div class="sb-team-block side-unknown" id="team{{ number }}Block">
+  <div class="sb-thead">
+    <span class="sb-thead-team">{{ live_logo(logo, name, short_name, '') }}<span id="team{{ number }}RosterLabel">{{ name }}</span></span>
+    <span class="p-hp" data-i18n-translate>血量</span>
+    <span class="p-armor" data-i18n-translate>护甲</span>
+    <span class="p-pistol" data-i18n-translate>手枪</span>
+    <span class="p-weapon" data-i18n-translate>主武器</span>
+    <span class="p-money" data-i18n-translate>金钱</span>
+    <span class="p-stat">K</span><span class="p-stat a">A</span><span class="p-stat">D</span><span class="p-adr">ADR</span>
+  </div>
+  <div class="sb-rows" id="team{{ number }}Players">{% for index in range(5) %}{{ live_player_row(roster[index] if index < roster|length else none) }}{% endfor %}</div>
+</div>
+{% endmacro %}
+
+{% set live_team1 = match.team1_name or '队伍 1' %}
+{% set live_team2 = match.team2_name or '队伍 2' %}
+<section class="panel scorebot" id="data-live" data-i18n-ignore>
+  <div class="panel-head">
+    <h2 class="panel-title" data-i18n-translate>比赛数据直播</h2>
+    <span class="sb-status" id="sourceBadge" data-i18n-translate>等待观战账号连接</span>
+  </div>
+
+  <header class="sb-head">
+    <div class="sb-head-team">
+      {{ live_logo(match.t1_logo, match.team1_name, match.t1s) }}
+      <span class="sb-head-name" id="team1Name">{{ live_team1 }}</span>
+    </div>
+    <div class="sb-head-center">
+      <div class="sb-score"><span class="side-score" id="liveScore1">-</span><span class="sb-colon">:</span><span class="side-score" id="liveScore2">-</span></div>
+      <div class="sb-meta">
+        <span id="roundNum" data-i18n-translate>等待回合数据</span>
+        <span class="sb-dot">·</span><span id="mapName">-</span>
+        <span class="sb-dot">·</span><span class="sb-timer"><img src="/resources/icons/match/stopwatch.svg" alt=""><span id="timer">-</span></span>
+      </div>
+    </div>
+    <div class="sb-head-team right">
+      <span class="sb-head-name" id="team2Name">{{ live_team2 }}</span>
+      {{ live_logo(match.t2_logo, match.team2_name, match.t2s) }}
+    </div>
+  </header>
+
+  {{ live_team_block(1, live_team1, team1_roster|default([]), match.t1_logo, match.t1s) }}
+
+  {#- 回合记录：上面一排是队伍 1 赢的回合，下面一排是队伍 2；固定 24 格，中间竖线是半场 -#}
+  <div class="round-board" id="roundBoard">
+    <div class="round-lane team1"><span class="round-team">{{ live_logo(match.t1_logo, match.team1_name, match.t1s) }}</span><div class="round-lane-cells" id="roundTeam1"></div></div>
+    <div class="round-divider" aria-hidden="true"></div>
+    <div class="round-lane team2"><span class="round-team">{{ live_logo(match.t2_logo, match.team2_name, match.t2s) }}</span><div class="round-lane-cells" id="roundTeam2"></div></div>
+  </div>
+  <div class="overtime-board" id="overtimeBoard"></div>
+
+  {{ live_team_block(2, live_team2, team2_roster|default([]), match.t2_logo, match.t2s) }}
+
+  <div class="sb-lower">
+    <div class="sb-log">
+      <div class="sb-sub-head"><span data-i18n-translate>比赛日志</span><span id="radarMap">-</span></div>
+      <div class="kill-feed-list" id="killFeed" role="log" aria-label="比赛事件" tabindex="0"><div class="kill-line" data-feed-placeholder><span class="kill-round" data-i18n-translate>等待数据</span></div></div>
+    </div>
+    <div class="radar" id="radar">
+      <img loading="lazy" class="radar-image" id="radarImage" src="/resources/radars/mirage.svg" alt="">
+      <div id="killMarkers"></div>
+    </div>
+  </div>
+
+  <footer class="sb-foot">
+    <span id="updatedAt" data-i18n-translate>尚未收到数据</span>
+    <span class="bomb" id="bombState"><img class="sb-mono" loading="lazy" id="bombStateIcon" src="/resources/icons/match/bombplant.webp" alt=""><span id="bombStateText" data-i18n-translate>炸弹状态：-</span></span>
+  </footer>
+  <template id="livePlayerRowTemplate">{{ live_player_row() }}</template>
+</section>
 <script>
 const MATCH_ID = {{ match.id }};
 const ICON_BASE = '/resources/icons/match/';
@@ -216,13 +107,35 @@ const MAP_METADATA = {
   overpass:{resolution:5.18,x:4830,y:3540},train:{resolution:4.74,x:2730,y:2360},
   vertigo:{resolution:4.96,x:3890,y:3800,floors:[['upper',11680,14000],['lower',0,11679]]}
 };
-const SVG_WEAPONS = new Set(['aug','bizon','cz75a','decoy','g3sg1','incgrenade','m249','mag7','molotov','mp5sd','negev','nova','p90','revolver','sawedoff','scar20','sg556','smokegrenade','ssg08','taser','ump45','xm1014']);
-const WEAPON_ALIASES = {m4a1silencer:'m4a1_silencer',uspsilencer:'usp_silencer',hkp2000:'hkp2000'};
+{% raw %}
+// 武器图标：游戏里的武器名 → 图标文件（白色图标，浅色主题下由样式变深）
+const WEAPON_ICON_FILES = {
+  ak47:'ak47.webp', aug:'aug.svg', awp:'awp.webp', bizon:'bizon.svg', cz75a:'cz75a.svg',
+  deagle:'deagle.webp', elite:'elite.webp', famas:'famas.webp', fiveseven:'fiveseven.webp',
+  g3sg1:'g3sg1.svg', galilar:'galilar.webp', glock:'glock.webp', hkp2000:'hkp2000.png',
+  m249:'m249.svg', m4a1:'m4a1.webp', m4a1_silencer:'m4a1_silencer.webp', mag7:'mag7.svg',
+  mac10:'mac10.webp', mp5sd:'mp5sd.svg', mp7:'mp7.webp', mp9:'mp9.webp', negev:'negev.svg',
+  nova:'nova.svg', p90:'p90.svg', p250:'p250.webp', revolver:'revolver.svg', sawedoff:'sawedoff.svg',
+  scar20:'scar20.svg', sg556:'sg556.svg', ssg08:'ssg08.svg', tec9:'tec9.webp', ump45:'ump45.svg',
+  usp_silencer:'usp_silencer.webp', xm1014:'xm1014.svg', knife:'knife.webp', taser:'taser.svg',
+  flashbang:'flashbang.webp', hegrenade:'hegrenade.webp', smokegrenade:'smokegrenade.svg',
+  molotov:'molotov.svg', incgrenade:'incgrenade.svg', decoy:'decoy.svg'
+};
+const WEAPON_ALIASES = {
+  ak_47:'ak47', desert_eagle:'deagle', dual_berettas:'elite', five_seven:'fiveseven',
+  galil_ar:'galilar', glock_18:'glock', m4a4:'m4a1', m4a1_s:'m4a1_silencer', m4a1silencer:'m4a1_silencer',
+  m4a1_silencer_off:'m4a1_silencer', usp_s:'usp_silencer', uspsilencer:'usp_silencer', usp_silencer_off:'usp_silencer',
+  cz75_auto:'cz75a', pp_bizon:'bizon', r8_revolver:'revolver',
+  high_explosive_grenade:'hegrenade', he_grenade:'hegrenade',
+  smoke_grenade:'smokegrenade', incendiary_grenade:'incgrenade', incendiary:'incgrenade'
+};
+{% endraw %}
 const feedNodes = new Map();
 let roundSignature = '';
 let markerSignature = '';
 let currentRadarKey = '';
 let initialFeedRendered = false;
+let lastScores = null;
 let fetchTimer = 0;
 let fetching = false;
 
@@ -230,7 +143,7 @@ let fetching = false;
 function tr(text){return window.siteTranslate?window.siteTranslate(String(text)):String(text)}
 function liveLocale(){return document.documentElement.lang==='en'?'en-US':'zh-CN'}
 function setText(id,value){
-  const el=document.getElementById(id),text=String(value??'');
+  const el=typeof id==='string'?document.getElementById(id):id,text=String(value??'');
   if(el&&el.textContent!==text)el.textContent=text;
 }
 function mapKey(name){return String(name||'').toLowerCase().replace('de_','').replace(/[^a-z0-9]/g,'')}
@@ -239,13 +152,17 @@ function sideClass(value){
   const side=String(value||'').toLowerCase();
   return side==='ct'||side==='t1'||side==='team1'?'ct':'t';
 }
+function weaponKey(name){
+  let key=String(name||'').trim().toLowerCase().replace(/^weapon_/,'').replace(/[\s-]+/g,'_').replace(/[^a-z0-9_]/g,'');
+  if(key.startsWith('knife'))return 'knife';
+  return WEAPON_ALIASES[key]||key;
+}
 function weaponAsset(name){
   if(!name||name==='-')return '';
-  let key=String(name).toLowerCase().replace('weapon_','').replace(/[^a-z0-9_]/g,'');
-  key=WEAPON_ALIASES[key]||key;
-  const extension=key==='hkp2000'?'png':(SVG_WEAPONS.has(key)?'svg':'webp');
-  return ICON_BASE+key+'.'+extension;
+  const file=WEAPON_ICON_FILES[weaponKey(name)];
+  return file?ICON_BASE+file:'';
 }
+// 换图片：地址没变就不动（避免每秒重新请求）；加载失败就藏起来
 function setImage(img,src){
   if(!img)return;
   if(!src){img.hidden=true;img.removeAttribute('src');img.dataset.src='';return}
@@ -256,11 +173,9 @@ function setImage(img,src){
   img.src=src;
 }
 function createPlayerRow(){
-  const row=document.createElement('div');
-  row.className='player-row dead';
-  row.innerHTML='<span class="player-main"><span class="player-avatar"><img loading="lazy" hidden alt=""><span data-avatar-fallback>-</span></span><span class="player-name">-</span></span><span class="weapon-slot" data-field="secondary"><img loading="lazy" class="weapon-img" hidden alt=""></span><span class="weapon-slot" data-field="primary"><img loading="lazy" class="weapon-img" hidden alt=""></span><span class="hp-wrap"><span class="hp-bar" hidden><span class="hp-fill"></span><span class="hp-num">-</span></span><span data-hp-empty>-</span></span><span class="armor-slot"><img loading="lazy" class="armor-img" hidden alt=""><span data-armor-empty>-</span></span><span class="money">-</span><span class="kills">0</span><span data-field="assists">0</span><span class="deaths">0</span><span class="adr">0</span>';
-  return row;
+  return document.getElementById('livePlayerRowTemplate').content.firstElementChild.cloneNode(true);
 }
+// 每队固定 5 行：页面上已经有 5 行（报名阵容）就直接用，不重建
 function ensurePlayerRows(target){
   const container=document.getElementById(target);
   if(container.children.length===5)return Array.from(container.children);
@@ -270,51 +185,47 @@ function ensurePlayerRows(target){
   return Array.from(container.children);
 }
 function updateWeapon(slot,name){
-  const img=slot.querySelector('img');
-  const src=weaponAsset(name);
-  setImage(img,src);
+  setImage(slot.querySelector('img'),weaponAsset(name));
   slot.title=name&&name!=='-'?String(name).replace('weapon_',''):'';
+}
+function updatePlayerName(row,player){
+  const empty=!player;
+  const name=empty?'-':(player.name||'-');
+  const avatarImg=row.querySelector('.p-avatar img');
+  const avatarFallback=row.querySelector('[data-avatar-fallback]');
+  setImage(avatarImg,empty?'':player.avatar);
+  avatarImg.onerror=function(){avatarImg.hidden=true;avatarFallback.hidden=false};
+  avatarFallback.hidden=Boolean(!empty&&player.avatar);
+  setText(avatarFallback,empty?'-':String(name).charAt(0));
+  const nameEl=row.querySelector('.p-nick');
+  setText(nameEl,name);
+  nameEl.title=empty?'':name;
+}
+// 血量：数字 + 一根条；60 以上绿、30 以上黄、更低红
+function updatePlayerHealth(row,player){
+  const hp=player?Number(player.hp):NaN;
+  const known=Number.isFinite(hp);
+  const fill=row.querySelector('.hp-fill');
+  const width=(known?Math.max(0,Math.min(100,hp)):0)+'%';
+  if(fill.style.width!==width)fill.style.width=width;
+  fill.className='hp-fill'+(!known||hp>60?'':(hp>30?' low':' crit'));
+  setText(row.querySelector('.hp-num'),known?hp:'-');
 }
 function updatePlayerRow(row,player){
   const empty=!player;
   row.classList.toggle('dead',empty||player.alive===false);
-  const avatarBox=row.querySelector('.player-avatar');
-  const avatarImg=avatarBox.querySelector('img');
-  const avatarFallback=avatarBox.querySelector('[data-avatar-fallback]');
-  const name=empty?'-':(player.name||'-');
-  setImage(avatarImg,empty?'':player.avatar);
-  avatarImg.onerror=function(){avatarImg.hidden=true;avatarFallback.hidden=false};
-  avatarFallback.hidden=Boolean(!empty&&player.avatar);
-  avatarFallback.textContent=empty?'-':String(name).charAt(0);
-  const nameEl=row.querySelector('.player-name');
-  if(nameEl.textContent!==name)nameEl.textContent=name;
-  nameEl.title=empty?'':name;
-  updateWeapon(row.querySelector('[data-field="secondary"]'),empty?'':player.secondary);
-  updateWeapon(row.querySelector('[data-field="primary"]'),empty?'':player.primary);
-
-  const hp=empty?NaN:Number(player.hp);
-  const hpKnown=Number.isFinite(hp);
-  const hpBar=row.querySelector('.hp-bar');
-  const hpEmpty=row.querySelector('[data-hp-empty]');
-  hpBar.hidden=!hpKnown;
-  hpEmpty.hidden=hpKnown;
-  if(hpKnown){
-    const fill=row.querySelector('.hp-fill');
-    fill.style.width=Math.max(0,Math.min(100,hp))+'%';
-    fill.className='hp-fill'+(hp>60?'':(hp>30?' low':' crit'));
-    row.querySelector('.hp-num').textContent=String(hp);
-  }
-
-  const armorImg=row.querySelector('.armor-img');
-  const armorEmpty=row.querySelector('[data-armor-empty]');
+  row.classList.toggle('missing',Boolean(player&&player.missing));
+  updatePlayerName(row,player);
+  updatePlayerHealth(row,player);
+  updateWeapon(row.querySelector('.p-pistol'),empty?'':player.secondary);
+  updateWeapon(row.querySelector('.p-weapon'),empty?'':player.primary);
   const armorSrc=empty?'':(player.helmet?ICON_BASE+'kevlar_helmet.webp':(Number(player.armor)>0?ICON_BASE+'kevlar.webp':''));
-  setImage(armorImg,armorSrc);
-  armorEmpty.hidden=Boolean(armorSrc);
-  row.querySelector('.money').textContent=empty||player.money==='-'?'-':'$'+Number(player.money||0);
-  row.querySelector('.kills').textContent=String(empty?0:Number(player.kills||0));
-  row.querySelector('[data-field="assists"]').textContent=String(empty?0:Number(player.assists||0));
-  row.querySelector('.deaths').textContent=String(empty?0:Number(player.deaths||0));
-  row.querySelector('.adr').textContent=String(empty?0:Number(player.adr||0));
+  setImage(row.querySelector('.p-armor img'),armorSrc);
+  setText(row.querySelector('.p-money'),empty||player.money==='-'?'-':'$'+Number(player.money||0).toLocaleString('en-US'));
+  setText(row.querySelector('.p-stat.k'),empty?0:Number(player.kills||0));
+  setText(row.querySelector('.p-stat.a'),empty?0:Number(player.assists||0));
+  setText(row.querySelector('.p-stat.d'),empty?0:Number(player.deaths||0));
+  setText(row.querySelector('.p-adr'),empty?0:Number(player.adr||0));
 }
 function renderTeam(target,players){
   const rows=ensurePlayerRows(target);
@@ -331,9 +242,9 @@ function renderRadarMap(mapName){
   const requested=mapKey(mapName),key=SUPPORTED_MAPS.has(requested)?requested:'mirage';
   if(key===currentRadarKey)return;
   currentRadarKey=key;
-  document.getElementById('radar').style.backgroundImage='url("/resources/map_landscapes/'+encodeURIComponent(key)+'.png")';
   setImage(document.getElementById('radarImage'),'/resources/radars/'+encodeURIComponent(key)+'.svg');
 }
+// 小地图：只画当前回合的阵亡点（最多 10 个），颜色是阵亡者的阵营
 function renderMarkers(data){
   const round=Number(data.round||0);
   const markers=(data.death_markers||data.kill_markers||[]).filter(function(item){return Number(item.round_number??item.round)===round}).slice(-10);
@@ -373,6 +284,24 @@ function reasonIcon(code,side){
   if(code==='time_expired')return ICON_BASE+'stopwatch.svg';
   return ICON_BASE+(side==='ct'?'ct_win.svg':'t_win.svg');
 }
+// 一格回合：这一队赢了就放胜利方式的图标，没赢留空
+function roundCell(round,roundIndex,teamKey,winnerTeam){
+  const won=Boolean(round)&&teamKey===winnerTeam;
+  const rawSide=String(round&&round.side||'').toLowerCase();
+  const winnerSide=rawSide==='ct'||rawSide==='t'?rawSide:(winnerTeam==='t1'?'ct':'t');
+  const code=round?reasonCode(round):'completed';
+  const cell=document.createElement('span');
+  cell.className='round-cell'+(won?' won '+winnerSide:' empty');
+  cell.title=tr('第 '+(roundIndex+1)+' 回合')+(won?' · '+winnerSide.toUpperCase()+' · '+reasonLabel(code):'');
+  if(won){
+    const img=document.createElement('img');
+    img.loading='lazy';img.className='round-result';img.alt='';
+    img.src=reasonIcon(code,winnerSide);
+    cell.appendChild(img);
+  }
+  return cell;
+}
+// 常规 24 回合（MR12）：每队一排，固定 24 格
 function renderRounds(rounds){
   const safe=(Array.isArray(rounds)?rounds:[]).filter(function(round){
     const roundNumber=Number(round.round_number??round.round);
@@ -389,56 +318,36 @@ function renderRounds(rounds){
   for(let roundIndex=0;roundIndex<24;roundIndex+=1){
     const round=roundByNumber.get(roundIndex+1);
     const winnerTeam=round&&['t1','t2'].includes(String(round.winner||'').toLowerCase())?String(round.winner).toLowerCase():'';
-    const rawSide=String(round&&round.side||'').toLowerCase();
-    const winnerSide=rawSide==='ct'||rawSide==='t'?rawSide:(winnerTeam==='t1'?'ct':'t');
-    const code=round?reasonCode(round):'completed';
-    ['t1','t2'].forEach(function(teamKey){
-      const wonByThisTeam=Boolean(round)&&teamKey===winnerTeam;
-      const cell=document.createElement('span');
-      cell.className='round-cell'+(wonByThisTeam?'':' empty');
-      cell.title=tr('第 '+(roundIndex+1)+' 回合')+(wonByThisTeam?' · '+winnerSide.toUpperCase()+' · '+reasonLabel(code):'');
-      if(wonByThisTeam){
-        const img=document.createElement('img');
-        img.loading='lazy';img.className='round-result';img.alt='';
-        img.src=reasonIcon(code,winnerSide);
-        cell.appendChild(img);
-      }
-      (teamKey==='t1'?team1Rounds:team2Rounds).appendChild(cell);
-    });
+    team1Rounds.appendChild(roundCell(round,roundIndex,'t1',winnerTeam));
+    team2Rounds.appendChild(roundCell(round,roundIndex,'t2',winnerTeam));
   }
   document.getElementById('roundTeam1').replaceChildren(team1Rounds);
   document.getElementById('roundTeam2').replaceChildren(team2Rounds);
 }
+// 加时：每 6 回合一段（OT1、OT2……），只画打过的
 function renderOvertime(rounds){
   const board=document.getElementById('overtimeBoard');
-  if(!board)return;
   const safe=(Array.isArray(rounds)?rounds:[]).filter(function(round){
     const number=Number(round.round_number??round.round);
     return Number.isFinite(number)&&number>24&&number<=48;
   }).sort(function(a,b){return Number(a.round_number??a.round)-Number(b.round_number??b.round)});
-  if(!safe.length){board.classList.remove('active');board.replaceChildren();return;}
-  board.classList.add('active');
+  board.classList.toggle('active',safe.length>0);
   board.replaceChildren();
   const groups=new Map();
   safe.forEach(function(round){
-    const number=Number(round.round_number??round.round);
-    const group=Math.floor((number-25)/6)+1;
+    const group=Math.floor((Number(round.round_number??round.round)-25)/6)+1;
     if(!groups.has(group))groups.set(group,[]);
     groups.get(group).push(round);
   });
   groups.forEach(function(groupRounds,group){
-    const title=document.createElement('div');title.className='overtime-title';title.textContent='OT'+group;
-    board.appendChild(title);
     const strip=document.createElement('div');strip.className='overtime-strip';
-    const byOffset=new Map(groupRounds.map(function(round){
-      return [Number(round.round_number??round.round)-25-(group-1)*6,round];
-    }));
+    addText(strip,'overtime-title','OT'+group);
+    const byOffset=new Map(groupRounds.map(function(round){return [Number(round.round_number??round.round)-25-(group-1)*6,round]}));
     for(let index=0;index<6;index+=1){
       const round=byOffset.get(index);
       const cell=document.createElement('span');cell.className='ot-round-cell';
       if(round){
-        const winner=String(round.winner||'').toLowerCase();
-        const side=String(round.side||'').toLowerCase();
+        const winner=String(round.winner||'').toLowerCase(),side=String(round.side||'').toLowerCase();
         const img=document.createElement('img');img.className='ot-round-result';img.alt='';
         img.src=reasonIcon(reasonCode(round),side==='ct'||side==='t'?side:(winner==='t1'?'ct':'t'));
         cell.appendChild(img);cell.title=tr('第 '+Number(round.round_number??round.round)+' 回合');
@@ -473,6 +382,12 @@ function addText(parent,className,text){
   parent.appendChild(node);
   return node;
 }
+function addIcon(parent,className,src){
+  const icon=document.createElement('img');
+  icon.loading='lazy';icon.className=className;icon.src=src;icon.alt='';
+  parent.appendChild(icon);
+}
+// 日志一行：下包 = “谁在哪个点下了包（几对几）”；回合结束 = “哪边赢了（比分）· 怎么赢的”
 function updateFeedNode(node,item){
   const event=item.data||{};
   const signature=JSON.stringify(event);
@@ -481,22 +396,19 @@ function updateFeedNode(node,item){
   node.replaceChildren();
   if(item.type==='plant'){
     node.className='kill-line bomb-planted';
+    addIcon(node,'plant-icon sb-mono',ICON_BASE+'bombplant.webp');
     addText(node,'kill-name t',event.player||'T Player');
-    const icon=document.createElement('img');
-    icon.loading='lazy';icon.className='plant-icon';icon.src=ICON_BASE+'bombplant.webp';icon.alt='';
-    node.appendChild(icon);
     addText(node,'event-text',tr('在 '+(event.site||'?')+' 点安放 C4')+' · '+Number(event.alive_t||0)+'v'+Number(event.alive_ct||0));
     addText(node,'kill-round','R'+Number((event.round_number??event.round) || 0));
     return;
   }
   const side=sideClass(event.side||event.winner),code=reasonCode(event);
   node.className='kill-line round-over '+side+' reason-'+code.replace(/_/g,'-');
-  const icon=document.createElement('img');
-  icon.loading='lazy';icon.className='reason-icon';icon.src=reasonIcon(code,side);icon.alt='';
-  node.appendChild(icon);
+  addIcon(node,'reason-icon',reasonIcon(code,side));
   addText(node,'event-text',tr('回合结束')+' · '+tr('胜方')+' ');
   addText(node,'round-winner '+side,side.toUpperCase());
   addText(node,'event-text',' ('+Number(event.score_ct||0)+' - '+Number(event.score_t||0)+') · '+reasonLabel(code));
+  addText(node,'kill-round','R'+Number((event.round_number??event.round) || 0));
 }
 function syncKillFeed(data){
   const feed=document.getElementById('killFeed');
@@ -543,8 +455,7 @@ function bombIcon(bomb){
   const state=String(bomb&&bomb.state||'');
   if(state==='exploded')return ICON_BASE+'bomb_exploded.svg';
   if(state==='defused')return ICON_BASE+'bomb_defused.svg';
-  if(state==='planted'||state==='planting')return ICON_BASE+'bombplant.webp';
-  return ICON_BASE+'bomb.webp';
+  return ICON_BASE+'bombplant.webp';
 }
 function bombLabel(bomb){
   const states={planted:'已安放',carried:'携带中',dropped:'已掉落',defused:'已拆除',exploded:'已爆炸',planting:'正在安放',defusing:'正在拆除'};
@@ -556,7 +467,7 @@ function formatUpdatedAt(value){
   if(!value)return tr('尚未收到数据');
   const date=new Date(value);
   if(Number.isNaN(date.getTime()))return tr('更新：')+String(value).replace('T',' ').slice(0,16);
-  return tr('更新：')+date.toLocaleString(liveLocale(),{hour12:false,year:'numeric',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit'});
+  return tr('更新：')+date.toLocaleString(liveLocale(),{hour12:false,month:'long',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'});
 }
 function currentTeamSides(team1,team2){
   const first=String(team1&&team1.side||'').toUpperCase();
@@ -566,31 +477,54 @@ function currentTeamSides(team1,team2){
   if(second==='CT'||second==='T')return [second==='CT'?'T':'CT',second];
   return ['',''];
 }
+// 阵营：选手表头的底色、表格左边的色条、比分颜色（CT 蓝 / T 橙）；不确定时用中性色
 function applyTeamSide(teamNumber,side){
   const sideKey=String(side||'').toLowerCase()||'unknown';
-  const tag=document.getElementById('team'+teamNumber+'SideTag');
-  tag.className='side-tag '+sideKey;
-  tag.textContent=side||tr('待确认');
-  document.getElementById('team'+teamNumber+'Block').className='team-block side-'+sideKey;
-  document.getElementById('team'+teamNumber+'RosterLabel').textContent=tr(side+' 选手');
+  document.getElementById('team'+teamNumber+'Block').className='sb-team-block side-'+sideKey;
   document.getElementById('liveScore'+teamNumber).className='side-score '+sideKey;
 }
-function render(data){
+// 比分变了闪一下
+function renderScores(team1,team2){
+  const s1=team1.score==null?'-':team1.score,s2=team2.score==null?'-':team2.score;
+  const changed=lastScores&&(s1!==lastScores[0]||s2!==lastScores[1]);
+  ['liveScore1','liveScore2'].forEach(function(id,index){
+    const el=document.getElementById(id);
+    setText(el,index?s2:s1);
+    if(changed){el.classList.remove('score-flash');void el.offsetWidth;el.classList.add('score-flash')}
+  });
+  lastScores=[s1,s2];
+}
+// 右上角的状态牌：连接情况；暂停时显示“战术暂停 · 哪队”或“技术暂停”
+function renderStatus(data,team1,team2){
   const sourceText={gsi:'观战账号已连接',gotv:'GOTV 数据已连接',a2s:'比赛服务器已连接，等待观战账号',stale_gsi:'观战账号连接已中断',stale_gotv:'GOTV 数据已中断'};
+  let text=tr(sourceText[data.source]||'等待观战账号连接');
+  let state=data.source==='gsi'||data.source==='gotv'||data.source==='a2s'?'online':'';
+  if(data.side_uncertain||data.source==='stale_gsi'||data.source==='stale_gotv'||data.source==='')state='offline';
+  if(data.paused){
+    state='paused';
+    if(data.pause_type==='tactical'){
+      const timeoutSide=String(data.phase_countdown||'').endsWith('_t')?'T':'CT';
+      const timeoutTeam=team1.side===timeoutSide?team1.name:(team2.side===timeoutSide?team2.name:'');
+      text=tr('战术暂停')+(timeoutTeam?' · '+timeoutTeam:'');
+    }else{
+      text=tr('技术暂停');
+    }
+  }
   const badge=document.getElementById('sourceBadge');
-  setText('sourceBadge',tr(sourceText[data.source]||'等待观战账号连接'));
-  badge.classList.toggle('online',data.source==='gsi'||data.source==='gotv'||data.source==='a2s');
-  badge.classList.toggle('offline',Boolean(data.side_uncertain)||data.source==='stale_gsi'||data.source==='stale_gotv'||data.source==='');
+  setText(badge,text);
+  badge.className='sb-status'+(state?' '+state:'');
+}
+function render(data){
   const team1=data.team1||{};
   const team2=data.team2||{};
   const sides=currentTeamSides(team1,team2);
-  setText('liveScore1',team1.score==null?'-':team1.score);
-  setText('liveScore2',team2.score==null?'-':team2.score);
+  renderStatus(data,team1,team2);
+  renderScores(team1,team2);
   setText('team1Name',team1.name||tr('队伍 1'));
   setText('team2Name',team2.name||tr('队伍 2'));
   applyTeamSide(1,sides[0]);
   applyTeamSide(2,sides[1]);
-  setText('roundNum',data.round??'-');
+  setText('roundNum',data.round?tr('第 '+data.round+' 回合'):tr('等待回合数据'));
   setText('mapName',mapDisplay(data.map_name)||'-');
   setText('timer',data.timer||'-');
   setText('radarMap',mapDisplay(data.map_name)||'-');
@@ -624,17 +558,21 @@ async function fetchLive(){
   }finally{
     fetching=false;
     window.clearTimeout(fetchTimer);
-    fetchTimer=window.setTimeout(fetchLive,1000);
+    fetchTimer=window.setTimeout(fetchLive,document.hidden?3000:1000);
   }
 }
 function markLiveUnavailable(message){
   const badge=document.getElementById('sourceBadge');
   if(!badge)return;
-  badge.classList.remove('online');
-  badge.classList.add('offline');
-  badge.textContent=tr(message||'直播数据中断');
+  badge.className='sb-status offline';
+  setText(badge,tr(message||'直播数据中断'));
 }
+document.addEventListener('visibilitychange',function(){
+  window.clearTimeout(fetchTimer);
+  fetchTimer=window.setTimeout(fetchLive,document.hidden?3000:50);
+});
 ensurePlayerRows('team1Players');
 ensurePlayerRows('team2Players');
+renderRounds([]);
 fetchLive();
 </script>

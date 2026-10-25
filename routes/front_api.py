@@ -52,7 +52,7 @@ PUBLIC_FEATURES = [
             {"name": "比赛列表", "page": "/matches", "api": "/api/front/matches"},
             {"name": "赛果列表", "page": "/results", "api": "/api/front/results"},
             {"name": "比赛详情", "page": "/matches/<id>", "api": "/api/front/matches/<id>"},
-            {"name": "数据直播", "page": "/matches/<id>/live", "api": "/api/live/<id>"},
+            {"name": "数据直播", "page": "/matches/<id>#data-live", "api": "/api/live/<id>"},
             {"name": "赛前投票", "page": "/matches/<id>", "api": "/matches/<id>/vote"},
             {"name": "BP 房间", "page": "/bp/<id>", "api": "/api/bp/<id>/state"},
         ],

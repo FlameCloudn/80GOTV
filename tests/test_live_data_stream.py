@@ -141,7 +141,7 @@ class LiveDataStreamTests(unittest.TestCase):
         self.assertTrue(live["paused"])
         self.assertEqual(live["pause_type"], "tactical")
 
-        html = self.client.get(f"/matches/{self.match_id}/live").get_data(as_text=True)
+        html = self.client.get(f"/matches/{self.match_id}").get_data(as_text=True)
         self.assertIn("战术暂停", html)
         self.assertIn("技术暂停", html)
 
@@ -331,19 +331,15 @@ class LiveDataStreamTests(unittest.TestCase):
         self.assertEqual(live["latest_round_result"]["winner"], "t1")
         self.assertEqual(live["latest_round_result"]["round_number"], 1)
 
-        html = self.client.get(f"/matches/{self.match_id}/live").get_data(as_text=True)
+        html = self.client.get(f"/matches/{self.match_id}").get_data(as_text=True)
         self.assertIn("bomb_exploded.svg", html)
         self.assertIn("bomb_defused.svg", html)
         self.assertIn("time_expired", html)
         self.assertIn("ct_win.svg", html)
         self.assertIn("t_win.svg", html)
-        self.assertIn("['ct', 't'].forEach", html)
-        self.assertIn("round-side-label", html)
-        self.assertIn("roundNumber < 24", html)
+        self.assertIn("roundNumber<24", html)
+        self.assertIn("roundIndex<24", html)
         self.assertNotIn("overflow-x:auto", html)
-        self.assertIn("grid-template-rows:repeat(2,21px)", html)
-        self.assertIn("grid-template-columns:repeat(24,minmax(0,1fr))", html)
-        self.assertIn("roundIndex < 24", html)
 
     def test_overtime_rounds_are_not_added_to_round_history(self):
         regulation = self._payload(win_team="T")

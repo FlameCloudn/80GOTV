@@ -846,39 +846,8 @@ def _render_match_detail(match_id):
 
 @app.route("/matches/<int:match_id>/live")
 def match_live(match_id):
-    """独立比赛数据直播页。"""
-    conn = get_db()
-    match = conn.execute(
-        f"""
-        SELECT m.*, t1.name AS team1_name, t2.name AS team2_name,
-               t1.short_name AS t1s, t2.short_name AS t2s,
-               t1.logo AS t1_logo, t2.logo AS t2_logo,
-               e.name AS event_name, {get_sql_effective_status()}
-        FROM matches m LEFT JOIN teams t1 ON m.team1_id=t1.id
-        LEFT JOIN teams t2 ON m.team2_id=t2.id LEFT JOIN events e ON m.event_id=e.id
-        WHERE m.id=?
-    """,
-        (match_id,),
-    ).fetchone()
-    if not match:
-        conn.close()
-        return "比赛不存在", 404
-    match = supplement_temp_teams(match, conn)
-    conn.close()
-
-    watch_urls = []
-    if row_get(match, "watch_urls"):
-        try:
-            watch_urls = json.loads(match["watch_urls"])
-        except (json.JSONDecodeError, TypeError):
-            pass
-    watch_urls = [
-        {"name": str(item.get("name", "")), "url": safe_url}
-        for item in watch_urls
-        if isinstance(item, dict)
-        if (safe_url := normalize_http_url(item.get("url")))
-    ]
-    return render_template("match_live.html", match=match, watch_urls=watch_urls)
+    """旧的独立直播页已删除：数据直播就在比赛页里，旧链接直接跳过去。"""
+    return redirect(url_for("match_detail", slug=match_id) + "#data-live")
 
 
 def _safe_float(value, default=0.0):

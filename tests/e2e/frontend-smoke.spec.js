@@ -180,7 +180,7 @@ test('live player rows and weapon images stay stable between polls', async ({ pa
   const fixtureResponse = await page.request.get('/__e2e__/live-fixture');
   expect(fixtureResponse.ok()).toBeTruthy();
   const fixture = await fixtureResponse.json();
-  await page.goto(`/matches/${fixture.match_id}/live`);
+  await page.goto(`/matches/${fixture.match_id}`);
 
   const firstRow = page.locator('#team1Players .player-row').first();
   await expect(firstRow).toContainText('Player One');

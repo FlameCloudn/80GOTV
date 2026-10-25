@@ -71,7 +71,7 @@
     '← 返回赛事列表': '← Back to events', '即将开始': 'Upcoming',
     '观赛平台': 'Watch platforms', '下载赛果海报': 'Download result poster',
     'Demo 下载': 'Demo download', '下载地图': 'Download map',
-    '历史交锋': 'Head-to-head', '比赛数据直播': 'Live match data',
+    '历史交锋': 'Head-to-head', '比赛数据直播': 'Scorebot',
     '报名开放中': 'Registration open', '创建队伍报名': 'Create team registration',
     '报名需要先绑定 Steam': 'Bind Steam before registering', '去绑定': 'Bind now',
     '管理员账号不能报名，请使用选手账号登录': 'Admin accounts cannot register; use a player account',
@@ -1181,7 +1181,7 @@
     '版本更新、地图变化、武器平衡讨论': 'Patches, map changes and weapon balance',
     '灌水闲聊，非 CS 话题': 'Casual chat and non-CS topics',
     // 比赛直播面板
-    '比赛数据直播': 'Live match data', '等待观战账号连接': 'Waiting for observer account', '待确认': 'TBC',
+    '比赛数据直播': 'Scorebot', '等待观战账号连接': 'Waiting for observer account', '待确认': 'TBC',
     '阵营待确认': 'Side TBC', 'CT 选手': 'CT players', 'T 选手': 'T players', '比赛事件': 'Match events',
     '观战账号已连接': 'Observer account connected', 'GOTV 数据已连接': 'GOTV data connected',
     '比赛服务器已连接，等待观战账号': 'Match server connected, waiting for observer account',
@@ -1373,7 +1373,8 @@
     '比赛结果': 'Results',
     '即将进行': 'Upcoming matches',
     '阵容人数': 'Players',
-    '胜 / 平 / 负': 'Wins / draws / losses'
+    '胜 / 平 / 负': 'Wins / draws / losses',
+    '数据直播': 'Scorebot'
   };
   var partialTranslations = [
     // 对阵图保存失败的原因（前面会带“保存失败：”）

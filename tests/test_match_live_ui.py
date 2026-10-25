@@ -50,24 +50,35 @@ class MatchLiveUiTests(unittest.TestCase):
         except OSError:
             pass
 
-    def test_live_page_keeps_rows_stable_between_polls(self):
-        response = self.client.get(f"/matches/{self.match_id}/live")
+    def _match_page(self):
+        response = self.client.get(f"/matches/{self.match_id}")
         self.assertEqual(response.status_code, 200)
-        html = response.get_data(as_text=True)
+        return response.get_data(as_text=True)
 
-        self.assertIn('id="liveApp" data-i18n-ignore', html)
+    def test_old_standalone_live_page_redirects_to_match_scorebot(self):
+        response = self.client.get(f"/matches/{self.match_id}/live")
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            response.headers["Location"].endswith(f"/matches/{self.match_id}#data-live")
+        )
+
+    def test_scorebot_keeps_rows_stable_between_polls(self):
+        html = self._match_page()
+
+        self.assertIn('id="data-live" data-i18n-ignore', html)
         self.assertIn("ensurePlayerRows", html)
         self.assertIn("container.replaceChildren(fragment)", html)
+        self.assertIn('id="livePlayerRowTemplate"', html)
         self.assertNotIn("setInterval(fetchLive", html)
         self.assertNotIn("el.innerHTML = html", html)
 
-    def test_live_page_uses_team_logo_and_complete_weapon_manifest(self):
-        response = self.client.get(f"/matches/{self.match_id}/live")
-        html = response.get_data(as_text=True)
+    def test_scorebot_uses_team_logos_and_complete_weapon_manifest(self):
+        html = self._match_page()
 
         self.assertIn("/static/uploads/team_logos/team-one.png", html)
-        self.assertIn('class="logo-fallback"', html)
+        self.assertIn('class="logo-fallback', html)
         self.assertIn("WEAPON_ICON_FILES", html)
+        self.assertNotIn('class="sb-side', html)
 
         project_root = Path(__file__).resolve().parents[1]
         required_icons = (
@@ -84,27 +95,30 @@ class MatchLiveUiTests(unittest.TestCase):
             )
 
     def test_match_detail_embeds_fixed_24_round_live_board(self):
-        response = self.client.get(f"/matches/{self.match_id}")
-        self.assertEqual(response.status_code, 200)
-        html = response.get_data(as_text=True)
+        html = self._match_page()
 
         self.assertIn("比赛数据直播", html)
         self.assertIn('id="roundTeam1"', html)
         self.assertIn('id="roundTeam2"', html)
         self.assertIn('class="round-divider"', html)
-        self.assertIn("grid-template-columns:repeat(24,minmax(0,1fr))", html)
         self.assertIn("roundIndex<24", html)
         self.assertIn("roundNumber<24", html)
-        self.assertIn("grid-template-columns:repeat(24,22px)", html)
-        self.assertIn("width:22px;height:22px", html)
-        self.assertIn("width:20px;height:20px", html)
-        self.assertIn('.round-board:after{content:""', html)
         self.assertIn("const sides=currentTeamSides(team1,team2)", html)
         self.assertIn("applyTeamSide(1,sides[0])", html)
         self.assertIn("applyTeamSide(2,sides[1])", html)
         self.assertIn("renderTeam('team1Players',data.players_t1)", html)
         self.assertIn("renderTeam('team2Players',data.players_t2)", html)
         self.assertNotIn("const team1IsCt=", html)
+
+        css_path = Path(__file__).resolve().parents[1] / "static" / "css" / "pages" / "match.css"
+        css = css_path.read_text(encoding="utf-8")
+        # 两个半场各 12 格，中间空一列画半场线；手机上同样是 24 格，只是格子变窄
+        self.assertIn("grid-template-columns: repeat(12, 22px) 9px repeat(12, 22px)", css)
+        self.assertIn(
+            "grid-template-columns: repeat(12, minmax(0, 1fr)) 5px repeat(12, minmax(0, 1fr))",
+            css,
+        )
+        self.assertIn(".round-cell:nth-child(13) { grid-column-start: 14; }", css)
 
 
 if __name__ == "__main__":
