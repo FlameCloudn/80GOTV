@@ -154,7 +154,7 @@
     '统计总览': 'Statistics', 'RATING 趋势': 'RATING timeline', '数据统计': 'Statistics', '对': 'vs',
     '火力': 'Firepower', '协作': 'Trading', '突破': 'Entrying', '补枪': 'Trading', '开局': 'Opening', '残局': 'Clutches', '狙击': 'Sniping', '道具': 'Utility',
     '每回合击杀': 'Kills per round', '每回合伤害': 'Damage per round', 'K-D 差': 'K-D difference',
-    '影响力 RATING': 'Impact RATING', '多杀回合占比': 'Rounds with a multi-kill', '爆头率': 'Headshot percentage', '每回合首杀': 'Opening kills per round',
+    '影响力 RATING': 'Impact RATING', '多杀回合占比': 'Rounds with a multi-kill', '爆头率': 'Headshot %', '每回合首杀': 'Opening kills per round',
     '每回合首死': 'Opening deaths per round', '开局对枪参与率': 'Opening attempts',
     '开局成功率': 'Opening success', '首杀后回合胜率': 'Win% after opening kill',
     '被补率': 'Trade death rate', '每回合补枪': 'Trade kills per round', '每回合被补': 'Traded deaths / r',
@@ -188,7 +188,7 @@
     '首杀-首死': 'Opening K-D', '击杀(爆头)': 'Kills (HS)', '助攻(闪白)': 'Assists (flash)',
     '死亡(被补)': 'Deaths (traded)', 'AWP 击杀': 'AWP kills',
     '选手表现总览': 'Player performance overview', '暂无队伍 1 选手数据': 'No team 1 player stats',
-    '暂无队伍 2 选手数据': 'No team 2 player stats', '偏低': 'Bad', '优秀': 'Good', '平均': 'Average',
+    '暂无队伍 2 选手数据': 'No team 2 player stats', '偏低': 'Bad', '优秀': 'Good', '平均': 'Avg',
     '首杀': 'First kills', '暂无比赛数据': 'No match data', '暂无直播或回放资源': 'No streams or VODs',
     '返回比赛': 'Back to match', '下载赛果海报': 'Download result poster',
     '表现': 'Performance', '经济': 'Economy',
@@ -1365,7 +1365,15 @@
     '我的备注': 'My note',
     '仅你可见': 'Only you can see this',
     '选手 A': 'Player A',
-    '选手 B': 'Player B'
+    '选手 B': 'Player B',
+    '击杀-死亡': 'K-D',
+    '条越长越好，竖线是平均水平': 'Longer bars are better · the line marks the average',
+    '每回合闪光助攻': 'Flash assists per round',
+    '交换左右': 'Swap players',
+    '比赛结果': 'Results',
+    '即将进行': 'Upcoming matches',
+    '阵容人数': 'Players',
+    '胜 / 平 / 负': 'Wins / draws / losses'
   };
   var partialTranslations = [
     // 对阵图保存失败的原因（前面会带“保存失败：”）
@@ -1502,6 +1510,10 @@
   // 带数字或名字的句式：先于"零散词替换"执行，避免翻出"Page 1 次"这类半中半英的结果
   var zhToEnPatterns = [
     [/(\d+)\s*张地图/g, '$1 maps'],
+    [/^1\s*名队员$/g, '1 player'],
+    [/(\d+)\s*名队员/g, '$1 players'],
+    [/领先\s*1\s*项/g, 'Better in 1 stat'],
+    [/领先\s*(\d+)\s*项/g, 'Better in $1 stats'],
     // —— 整句优先：必须排在下面的通用句式之前 ——
     [/请先把\s*(\d+)\s*支队伍全部放入首轮/g, 'place all $1 teams in the first round first'],
     [/在\s*(\d+)\s*次机会内猜出今天的职业选手/g, 'Guess today’s pro player within $1 attempts'],

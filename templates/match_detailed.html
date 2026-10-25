@@ -97,35 +97,36 @@
 </div>
 {% endmacro %}
 
-{#- 选手卡片里的一项指标：名称 | 条 | 数值 -#}
-{% macro perf_metric(label, value, width, class_name='') %}
-<div class="match-detailed-card-metric {{ class_name }}">
-  <span>{{ label }}</span>
-  <i><em style="width:{{ width }}%"></em></i>
-  <b>{{ value }}</b>
+{#- 选手表现总览的队伍栏：队标、队名、全队平均 Rating -#}
+{% macro perf_team_head(logo, name, short_name, side, rating) %}
+<div class="perf-team {{ side }}">
+  {{ team_logo(logo, name, short_name, 'md') }}
+  <span class="perf-team-name" data-i18n-ignore>{{ name }}</span>
+  <span class="perf-team-rating"><span>队伍 Rating</span> <b>{{ "%.2f"|format(rating) }}</b></span>
 </div>
 {% endmacro %}
 
-{% macro player_performance_card(player) %}
-<article class="match-detailed-player-card {{ player.team_side }}">
-  <a class="match-detailed-player-portrait" href="/players/{{ player.player_id }}">
-    {{ player_avatar(player, 'lg') }}
-  </a>
-  <div class="match-detailed-player-card-body">
-    <h4>
-      <a href="/players/{{ player.player_id }}" data-i18n-ignore>{{ private_name_for_player(player.player_id, player.nickname) }}</a>
-      <span class="match-detailed-player-team" data-i18n-ignore>{{ player.team_short }}</span>
-    </h4>
-    <div class="match-detailed-card-metrics">
-      {{ perf_metric('KPR', "%.2f"|format(player.kpr), player.kpr_bar, player.kpr_tier) }}
-      {{ perf_metric('DPR', "%.2f"|format(player.dpr), player.dpr_bar, player.dpr_tier) }}
-      {{ perf_metric('KAST', "%.1f%%"|format(player.kast), player.kast_bar, player.kast_tier) }}
-      {{ perf_metric('Impact', "%.2f"|format(player.mk_rating), player.mk_bar, player.impact_tier) }}
-      {{ perf_metric('RWS', "%.2f"|format(player.rws), player.rws_bar, player.rws_tier) }}
-      {{ perf_metric('ADR', "%.1f"|format(player.adr), player.adr_bar, player.adr_tier) }}
-      {{ perf_metric('Rating', "%.2f"|format(player.rating), player.rating_bar, player.rating_tier) }}
+{#- 选手表现总览的一张卡（照 HLTV）：每根条 = 这项数据 ÷ 平均水平，竖线是平均（Rating 的平均是 1.00，其余用全站平均） -#}
+{% macro perf_card(p, avg) %}
+{% set name = private_name_for_player(p.player_id, p.nickname) %}
+{% set diff = p.kills - p.deaths %}
+<article class="perf-card">
+  <header class="perf-card-head">
+    <a href="/players/{{ p.player_id }}" data-i18n-ignore>{{ name }}</a>
+    <span class="perf-kd" title="击杀-死亡">{{ p.kills }}-{{ p.deaths }} <b class="{{ 'up' if diff > 0 else 'down' if diff < 0 else '' }}">{{ '%+d'|format(diff) if diff else '0' }}</b></span>
+  </header>
+  <div class="perf-card-body">
+    <a class="perf-photo" href="/players/{{ p.player_id }}" tabindex="-1" aria-hidden="true">
+      {% if p.avatar %}<img src="{{ url_for('static', filename='avatars/' + p.avatar) }}" alt="" loading="lazy">{% else %}<span data-i18n-ignore>{{ name[:1] }}</span>{% endif %}
+    </a>
+    <div class="perf-chart" style="--avg:{{ avg }}">
+      {% for m in p.perf_bars %}
+      <span class="perf-label"{% if m.fixed %} data-i18n-ignore{% endif %}>{{ m.label }}</span>
+      <span class="perf-track"><i class="{{ m.tier }}" style="width:{{ m.pct }}%"></i><b>{{ m.text }}</b></span>
+      {% endfor %}
+      <span class="perf-avg-line" aria-hidden="true"></span>
+      <span class="perf-avg-label">平均</span>
     </div>
-    <small class="match-detailed-card-note">平均</small>
   </div>
 </article>
 {% endmacro %}
@@ -324,40 +325,21 @@
     </section>
 
     <section class="match-detailed-section match-detailed-player-overview">
-      <div class="match-detailed-section-head"><h3>选手表现总览</h3></div>
-      <div class="match-detailed-player-card-grid">
-        <div class="match-detailed-player-column-head">
-          {{ team_logo(match.t1_logo, match.team1_name, match.t1s, 'md') }}
-          <span data-i18n-ignore>{{ match.team1_name }}</span>
+      <div class="match-detailed-section-head"><h3>选手表现总览</h3><small>条越长越好，竖线是平均水平</small></div>
+      {% if team1_rows or team2_rows %}
+      <div class="perf-columns">
+        <div class="perf-column">
+          {{ perf_team_head(match.t1_logo, match.team1_name, match.t1s, 't1', summary.t1.rating) }}
+          {% for p in team1_rows %}{{ perf_card(p, perf_avg) }}{% else %}<p class="empty-state">暂无队伍 1 选手数据</p>{% endfor %}
         </div>
-        <div class="match-detailed-player-column-head">
-          {{ team_logo(match.t2_logo, match.team2_name, match.t2s, 'md') }}
-          <span data-i18n-ignore>{{ match.team2_name }}</span>
+        <div class="perf-column">
+          {{ perf_team_head(match.t2_logo, match.team2_name, match.t2s, 't2', summary.t2.rating) }}
+          {% for p in team2_rows %}{{ perf_card(p, perf_avg) }}{% else %}<p class="empty-state">暂无队伍 2 选手数据</p>{% endfor %}
         </div>
-        {% set team1_count = team1_rows|length %}
-        {% set team2_count = team2_rows|length %}
-        {% set player_count = team1_count if team1_count > team2_count else team2_count %}
-        {% if player_count %}
-          {% for idx in range(player_count) %}
-          <div class="match-detailed-player-slot">
-            {% if idx < team1_count %}
-            {{ player_performance_card(team1_rows[idx]) }}
-            {% else %}
-            <p class="empty-state match-detailed-player-empty">暂无队伍 1 选手数据</p>
-            {% endif %}
-          </div>
-          <div class="match-detailed-player-slot">
-            {% if idx < team2_count %}
-            {{ player_performance_card(team2_rows[idx]) }}
-            {% else %}
-            <p class="empty-state match-detailed-player-empty">暂无队伍 2 选手数据</p>
-            {% endif %}
-          </div>
-          {% endfor %}
-        {% else %}
-        <p class="empty-state match-detailed-player-empty">暂无选手表现数据</p>
-        {% endif %}
       </div>
+      {% else %}
+      <p class="empty-state">暂无选手表现数据</p>
+      {% endif %}
     </section>
   </div>
 </section>

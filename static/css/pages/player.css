@@ -463,69 +463,76 @@
   .pd-data-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
-/* ---------- 3. 选手对比（/players/compare） ---------- */
-.compare-selector { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto; align-items: center; gap: var(--space-md); padding: var(--space-md) var(--space-lg); }
-.compare-vs { color: var(--text-muted); font-size: var(--font-sm); font-weight: 800; letter-spacing: .06em; }
+/* ---------- 3. 选手对比（/players/compare，照 HLTV） ---------- */
+/* 左右两张卡；每项一行，占优的加粗、外侧一条绿线，落后的变灰、外侧一条红线（左卡画在左边，右卡画在右边） */
+.compare-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: var(--site-gap); }
+.compare-grid noscript { grid-column: 1 / -1; }
+.compare-card { display: grid; gap: var(--space-md); padding: var(--space-lg) var(--space-lg) 0; overflow: hidden; }
 
-.compare-board { display: grid; gap: var(--space-lg); padding: var(--space-xl); }
-.compare-heads { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: var(--space-lg); padding-bottom: var(--space-lg); border-bottom: 1px solid var(--border-color); }
-.compare-vs-big { color: var(--text-muted); font-size: var(--font-xl); font-weight: 800; }
-.compare-player { display: flex; align-items: center; gap: var(--space-md); min-width: 0; color: var(--text-primary); }
-.compare-player:hover { color: var(--text-primary); }
-.compare-player:hover b { color: var(--accent); }
-.compare-player.is-b { flex-direction: row-reverse; text-align: right; }
-
-.compare-avatar {
-  flex: 0 0 auto;
-  width: 64px;
-  height: 64px;
+.compare-card-head { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; align-items: center; gap: var(--space-md); min-height: 56px; }
+.compare-card-avatar {
   display: grid;
   place-items: center;
-  object-fit: cover;
+  width: 56px;
+  height: 56px;
+  overflow: hidden;
   color: var(--text-muted);
   background: var(--surface-soft);
-  border: 2px solid var(--accent);
-  border-radius: 50%;
+  border-radius: var(--radius-md);
   font-size: var(--font-xl);
   font-weight: 700;
 }
 
-.compare-player.is-b .compare-avatar { border-color: var(--color-t); }
-.compare-player-text { display: grid; gap: 2px; min-width: 0; }
-.compare-player-text b { overflow: hidden; font-size: var(--font-lg); text-overflow: ellipsis; white-space: nowrap; transition: color var(--transition-fast); }
-.compare-player-text .team { display: inline-flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: var(--font-sm); }
-.compare-player.is-b .compare-player-text .team { justify-content: flex-end; }
+.compare-card-avatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.compare-card-avatar.is-empty { background: transparent; border: 1px dashed var(--border-strong); }
+.compare-card-name { display: grid; gap: 4px; min-width: 0; }
+.compare-card-name > a,
+.compare-card-name > b { overflow: hidden; color: var(--text-primary); font-size: var(--font-lg); font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.compare-card-name > a:hover { color: var(--accent); }
+.compare-card-meta { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; color: var(--text-muted); font-size: var(--font-sm); white-space: nowrap; }
+.compare-card-maps::before { content: "·"; margin-right: 6px; }
+.compare-lead { padding: 3px var(--space-sm); color: var(--color-green); background: var(--green-soft); border-radius: var(--radius-pill); font-size: var(--font-xs); font-weight: 700; white-space: nowrap; }
+.compare-pick { width: 100%; }
 
-.compare-rows { display: grid; gap: var(--space-md); }
-
-.compare-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  grid-template-areas: "a label b" "track track track";
-  align-items: baseline;
-  gap: 4px var(--space-md);
+.compare-stats { display: grid; margin: 0 calc(-1 * var(--space-lg)); border-top: 1px solid var(--border-color); }
+.compare-stats > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  min-height: 38px;
+  padding: 0 var(--space-lg);
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-color);
 }
 
-.compare-label { grid-area: label; color: var(--text-muted); font-size: var(--font-xs); font-weight: 600; letter-spacing: .04em; text-align: center; }
-.compare-val { color: var(--text-secondary); font-size: var(--font-lg); font-weight: 600; font-variant-numeric: tabular-nums; }
-.compare-val.a { grid-area: a; }
-.compare-val.b { grid-area: b; text-align: right; }
-.compare-val.is-better { color: var(--text-primary); font-weight: 800; }
-.compare-val.a.is-better { color: var(--accent); }
-.compare-val.b.is-better { color: var(--color-t); }
-.compare-track { grid-area: track; display: flex; gap: 2px; height: 6px; overflow: hidden; border-radius: var(--radius-pill); }
-.compare-track i { display: block; height: 100%; }
-.compare-track .a { background: var(--accent); }
-.compare-track .b { background: var(--color-t); }
+.compare-stats > div:last-child { border-bottom: 0; }
+.compare-stats dt { min-width: 0; font-size: var(--font-sm); }
+.compare-stats dd { margin: 0; font-size: var(--font-md); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.compare-stats > .is-better { color: var(--text-primary); font-weight: 700; }
+.compare-stats > .is-worse { color: var(--text-muted); }
+.compare-card.is-a .compare-stats > div { border-left: 3px solid transparent; }
+.compare-card.is-b .compare-stats > div { border-right: 3px solid transparent; }
+.compare-card.is-a .compare-stats > .is-better { border-left-color: var(--color-green); }
+.compare-card.is-a .compare-stats > .is-worse { border-left-color: var(--color-red); }
+.compare-card.is-b .compare-stats > .is-better { border-right-color: var(--color-green); }
+.compare-card.is-b .compare-stats > .is-worse { border-right-color: var(--color-red); }
+.compare-hint { margin-top: var(--space-md); color: var(--text-muted); font-size: var(--font-sm); text-align: center; }
 
 @media (max-width: 760px) {
-  .compare-selector { grid-template-columns: minmax(0, 1fr); padding: var(--space-md); }
-  .compare-vs { justify-self: center; }
-  .compare-board { padding: var(--space-lg) var(--space-md); }
-  .compare-heads { gap: var(--space-sm); }
-  .compare-player { flex-direction: column; text-align: center; gap: 6px; }
-  .compare-player.is-b { flex-direction: column; text-align: center; }
-  .compare-player.is-b .compare-player-text .team { justify-content: center; }
-  .compare-avatar { width: 52px; height: 52px; }
-  .compare-player-text b { font-size: var(--font-md); }
+  .compare-grid { gap: var(--space-sm); }
+  .compare-card { gap: var(--space-sm); padding: var(--space-md) var(--space-md) 0; }
+  .compare-card-head { grid-template-columns: 40px minmax(0, 1fr); gap: var(--space-sm); min-height: 0; }
+  .compare-card-avatar { width: 40px; height: 40px; font-size: var(--font-lg); }
+  .compare-card-name > a,
+  .compare-card-name > b { font-size: var(--font-md); }
+  .compare-card-meta { flex-wrap: wrap; row-gap: 2px; }
+  .compare-card-meta > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .compare-card-maps { flex-basis: 100%; }
+  .compare-card-maps::before { content: none; }
+  .compare-lead { grid-column: 1 / -1; justify-self: start; }
+  .compare-stats { margin: 0 calc(-1 * var(--space-md)); }
+  .compare-stats > div { align-items: baseline; min-height: 36px; padding: 9px var(--space-md); }
+  .compare-stats dt { font-size: var(--font-xs); }
+  .compare-stats dd { font-size: var(--font-sm); }
 }

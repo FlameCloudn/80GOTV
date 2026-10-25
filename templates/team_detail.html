@@ -1,6 +1,37 @@
 {% extends 'base.html' %}
 {% block title %}{{ team.name }} - 80GOTV{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ versioned_url('static/css/pages/teams.css') }}">{% endblock %}
 {% block layout_class %}no-side-layout{% endblock %}
+
+{#- 一场比赛（照 HLTV 队伍页）：本队固定在左边，比分按本队看——赢了绿、输了红 -#}
+{% macro team_match_row(m) %}
+{% set home = m.team1_id == team.id %}
+{% set mine = m.team1_score if home else m.team2_score %}
+{% set theirs = m.team2_score if home else m.team1_score %}
+{% set status = m.effective_status %}
+{% set unscored = status == 'completed' and mine == 0 and theirs == 0 %}
+{% set scored = status in ['completed', 'live'] and mine is not none and theirs is not none and not unscored %}
+{% set result = '' %}
+{% if scored and status == 'completed' %}{% set result = 'win' if mine > theirs else 'loss' if mine < theirs else 'draw' %}{% endif %}
+{% set my_logo = m.t1_logo if home else m.t2_logo %}
+{% set op_logo = m.t2_logo if home else m.t1_logo %}
+{% set op_name = m.team2_name if home else m.team1_name %}
+{% set op_short = m.t2s if home else m.t1s %}
+<a class="match-card team-match{% if result %} is-{{ result }}{% endif %}" href="{{ url_for('match_detail', slug=m.slug or m.id) }}">
+  <span class="team-match-date">{{ m.match_time|date_display }}</span>
+  <span class="team">
+    <span data-i18n-ignore>{{ team.name }}</span>
+    {% if my_logo %}<img class="team-logo sm" src="{{ my_logo|team_logo_url }}" alt="" loading="lazy">{% endif %}
+  </span>
+  <span class="vs">{% if scored %}<b>{{ mine }} : {{ theirs }}</b>{% elif unscored or status == 'completed' %}<b>- : -</b>{% else %}VS{% endif %}</span>
+  <span class="team right">
+    {% if op_logo %}<img class="team-logo sm" src="{{ op_logo|team_logo_url }}" alt="" loading="lazy">{% endif %}
+    <span data-i18n-ignore>{{ op_name or op_short or 'TBD' }}</span>
+  </span>
+  <span class="meta"><span data-i18n-ignore>{{ m.event_name or '-' }}</span> · <span>{{ {'completed': '已结束', 'live': '直播中', 'cancelled': '已取消', 'upcoming': '未开始'}[status] }}</span></span>
+</a>
+{% endmacro %}
+
 {% block main %}
 <header class="page-head">
   <div>
@@ -10,40 +41,64 @@
   <a class="page-head-link" href="{{ url_for('teams_list') }}">全部队伍</a>
 </header>
 
-{% if team.logo or team.description %}
-<div class="team-list-row ui-panel-body">
-  {% if team.logo %}<img class="avatar-lg team-list-logo" src="{{ team.logo|team_logo_url }}" alt="{{ team.name }}">{% endif %}
-  {% if team.description %}<p data-i18n-ignore>{{ team.description }}</p>{% endif %}
-</div>
-{% endif %}
-
-<section class="h-panel">
-  <div class="h-panel-title"><span>当前阵容</span> <span>{{ players|length }}</span></div>
-  <div class="card-list h-compact-list team-roster">
-    {% for player in players %}
-    {% set player_name = private_name_for_player(player.id, player.nickname) %}
-    <a class="card team-list-row" href="{{ url_for('player_detail', player_id=player.id) }}">
-      {% if player.avatar %}<img class="avatar-lg team-list-logo" src="{{ url_for('static', filename='avatars/' ~ player.avatar) }}" alt="" loading="lazy">{% else %}<span class="avatar-lg" data-i18n-ignore>{{ player_name[:1] }}</span>{% endif %}
-      <strong data-i18n-ignore>{{ player_name }}</strong>
-    </a>
-    {% else %}<div class="empty-state">暂无队员</div>{% endfor %}
+{#- 队伍资料（照 HLTV 队伍页顶部）：大队标 + 简介，右边一排战绩数字 -#}
+{% set win_rate = (record.wins / record.finished * 100)|round|int if record.finished else none %}
+<section class="panel team-hero">
+  {% if team.logo %}
+  <img class="team-hero-logo" src="{{ team.logo|team_logo_url }}" alt="{{ team.name }}">
+  {% else %}
+  <span class="team-hero-logo is-fallback" data-i18n-ignore>{{ (team.short_name or team.name)[:2]|upper }}</span>
+  {% endif %}
+  <div class="team-hero-text">
+    {% if team.short_name %}<span class="team-hero-tag" data-i18n-ignore>{{ team.short_name }}</span>{% endif %}
+    {% if team.description %}<p data-i18n-ignore>{{ team.description }}</p>{% endif %}
   </div>
+  <dl class="team-hero-facts">
+    <div><dt>已结束</dt><dd>{{ record.finished }}</dd></div>
+    <div><dt>胜 / 平 / 负</dt><dd><span class="win-text">{{ record.wins }}</span> / {{ record.draws }} / <span class="loss-text">{{ record.losses }}</span></dd></div>
+    <div><dt>胜率</dt><dd>{{ win_rate ~ '%' if win_rate is not none else '-' }}</dd></div>
+    <div><dt>阵容人数</dt><dd>{{ players|length }}</dd></div>
+  </dl>
 </section>
 
-<section class="h-panel">
-  <div class="h-panel-title"><span>比赛</span> <span>{{ matches|length }}</span></div>
-  <div class="ui-panel-body">
-    <span>已结束</span> {{ record.finished }} · <span>胜</span> {{ record.wins }} · <span>负</span> {{ record.losses }} · <span>平</span> {{ record.draws }}
-  </div>
-  <div class="card-list h-compact-list">
-    {% for match in matches %}
-    <a class="card match-card" href="{{ url_for('match_detail', slug=match.slug or match.id) }}">
-      <span class="team" data-i18n-ignore>{{ match.team1_name or match.t1s or 'TBD' }}</span>
-      <span class="vs">{% if match.effective_status == 'completed' and match.team1_score == 0 and match.team2_score == 0 %}<b>- : -</b>{% elif match.effective_status in ['completed', 'live'] %}<b>{{ match.team1_score if match.team1_score is not none else '-' }} : {{ match.team2_score if match.team2_score is not none else '-' }}</b>{% else %}VS{% endif %}</span>
-      <span class="team right" data-i18n-ignore>{{ match.team2_name or match.t2s or 'TBD' }}</span>
-      <div class="meta"><span data-i18n-ignore>{{ match.event_name or '-' }}</span> · {{ match.match_time|date_display }} · <span>{{ {'completed': '已结束', 'live': '直播中', 'cancelled': '已取消', 'upcoming': '未开始'}[match.effective_status] }}</span></div>
+{#- 当前阵容（照 HLTV 队伍页的阵容条）：一人一张卡，大头像 + 名字 + 生涯 Rating 和地图数 -#}
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">当前阵容</h2><span class="panel-count">{{ players|length }}</span></div>
+  {% if players %}
+  <div class="team-roster">
+    {% for player in players %}
+    {% set player_name = private_name_for_player(player.id, player.nickname) %}
+    <a class="team-list-row roster-card" href="{{ url_for('player_detail', player_id=player.id) }}">
+      <span class="roster-card-photo">
+        {% if player.avatar %}<img src="{{ url_for('static', filename='avatars/' ~ player.avatar) }}" alt="" loading="lazy">{% else %}<span data-i18n-ignore>{{ player_name[:1] }}</span>{% endif %}
+      </span>
+      <strong data-i18n-ignore>{{ player_name }}</strong>
+      {% if player.maps %}
+      <small><span><span data-i18n-ignore>Rating</span> <b class="{{ player.avg_rating|rating_class }}">{{ "%.2f"|format(player.avg_rating or 0) }}</b></span><span class="roster-card-dot">·</span><span>{{ player.maps }} 张地图</span></small>
+      {% else %}
+      <small>暂无比赛数据</small>
+      {% endif %}
     </a>
-    {% else %}<div class="empty-state">暂无比赛</div>{% endfor %}
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state">暂无队员</div>
+  {% endif %}
+</section>
+
+{#- 比赛：没打完的放上面（即将进行），打完的放下面（比赛结果） -#}
+{% set upcoming = matches|selectattr('effective_status', 'in', ['upcoming', 'live'])|list %}
+{% set finished = matches|rejectattr('effective_status', 'in', ['upcoming', 'live'])|list %}
+{% if upcoming %}
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">即将进行</h2><span class="panel-count">{{ upcoming|length }}</span></div>
+  <div class="card-list">{% for m in upcoming|reverse %}{{ team_match_row(m) }}{% endfor %}</div>
+</section>
+{% endif %}
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">比赛结果</h2><span class="panel-count">{{ finished|length }}</span></div>
+  <div class="card-list">
+    {% for m in finished %}{{ team_match_row(m) }}{% else %}<div class="empty-state">暂无比赛</div>{% endfor %}
   </div>
 </section>
 {% endblock %}

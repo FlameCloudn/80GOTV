@@ -1451,28 +1451,61 @@ def awards_page():
 
 @app.route("/teams")
 def teams_list():
-    """队伍列表（公开）"""
+    """队伍列表（公开）：每支队伍带上当前阵容，列表里显示队员小头像。"""
     conn = get_db()
     teams = conn.execute("SELECT * FROM teams ORDER BY name").fetchall()
+    roster_rows = conn.execute(
+        """SELECT id, nickname, avatar, team_id FROM players
+           WHERE team_id IS NOT NULL ORDER BY nickname, id"""
+    ).fetchall()
     conn.close()
-    return render_template("teams_public.html", teams=teams)
+    rosters = {}
+    for row in roster_rows:
+        rosters.setdefault(row["team_id"], []).append(row)
+    return render_template("teams_public.html", teams=teams, rosters=rosters)
+
+
+def _team_record(matches, team_id):
+    """按本队视角统计已结束比赛的胜 / 负 / 平（0:0 或没填比分的不算）。"""
+    record = {"wins": 0, "losses": 0, "draws": 0, "finished": 0}
+    for match in matches:
+        first, second = match["team1_score"], match["team2_score"]
+        if (
+            match["effective_status"] != "completed"
+            or first is None
+            or second is None
+            or first == second == 0
+        ):
+            continue
+        record["finished"] += 1
+        if first == second:
+            record["draws"] += 1
+        elif (first > second) == (match["team1_id"] == team_id):
+            record["wins"] += 1
+        else:
+            record["losses"] += 1
+    return record
 
 
 @app.route("/teams/<int:team_id>")
 def team_detail(team_id):
-    """展示指定队伍、当前阵容和实际以该队伍身份参加的比赛。"""
+    """展示指定队伍、当前阵容（带生涯 Rating）和实际以该队伍身份参加的比赛。"""
     conn = get_db()
     try:
         team = conn.execute("SELECT * FROM teams WHERE id=?", (team_id,)).fetchone()
         if team is None:
             abort(404)
         players = conn.execute(
-            "SELECT id, nickname, avatar FROM players WHERE team_id=? ORDER BY nickname, id",
+            """SELECT p.id, p.nickname, p.avatar, s.maps, s.avg_rating
+               FROM players p
+               LEFT JOIN player_performance_summary s ON s.player_id=p.id
+               WHERE p.team_id=? ORDER BY p.nickname, p.id""",
             (team_id,),
         ).fetchall()
         rows = conn.execute(
             f"""SELECT m.*, t1.name AS team1_name, t2.name AS team2_name,
                        t1.short_name AS t1s, t2.short_name AS t2s,
+                       t1.logo AS t1_logo, t2.logo AS t2_logo,
                        e.name AS event_name, {get_sql_effective_status()}
                 FROM matches m
                 LEFT JOIN teams t1 ON t1.id=m.team1_id
@@ -1483,25 +1516,12 @@ def team_detail(team_id):
             (team_id, team_id),
         ).fetchall()
         matches = [supplement_temp_teams(row, conn) for row in rows]
-        record = {"wins": 0, "losses": 0, "draws": 0, "finished": 0}
-        for match in matches:
-            first, second = match["team1_score"], match["team2_score"]
-            if (
-                match["effective_status"] != "completed"
-                or first is None
-                or second is None
-                or first == second == 0
-            ):
-                continue
-            record["finished"] += 1
-            if first == second:
-                record["draws"] += 1
-            elif (first > second) == (match["team1_id"] == team_id):
-                record["wins"] += 1
-            else:
-                record["losses"] += 1
     finally:
         conn.close()
     return render_template(
-        "team_detail.html", team=team, players=players, matches=matches, record=record
+        "team_detail.html",
+        team=team,
+        players=players,
+        matches=matches,
+        record=_team_record(matches, team_id),
     )

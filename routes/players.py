@@ -569,108 +569,112 @@ def player_private_remark(player_id):
     return redirect(url_for("player_detail", player_id=player_id))
 
 
+# 对比页的数据项（照 HLTV 对比页一项一行）：(显示名, 取值键, 小数位, 后缀, 越大越好)
+COMPARE_FIELDS = (
+    ("Rating", "rating", 2, "", True),
+    ("KPR", "kpr", 2, "", True),
+    ("DPR", "dpr", 2, "", False),
+    ("KAST", "kast", 1, "%", True),
+    ("影响力", "impact", 2, "", True),
+    ("ADR", "adr", 1, "", True),
+    ("K/D", "kd", 2, "", True),
+    ("爆头率", "hs", 1, "%", True),
+    ("每回合助攻", "apr", 2, "", True),
+    ("每回合首杀", "opk", 2, "", True),
+    ("每回合闪光助攻", "fapr", 2, "", True),
+)
+
+
+def _compare_values(summary):
+    """把选手的生涯汇总换成对比用的数值；没有数据返回空字典。"""
+    if not summary or not summary["maps"]:
+        return {}
+    rounds = summary["rounds_played"] or 0
+    kills = summary["total_kills"] or 0
+    deaths = summary["total_deaths"] or 0
+
+    def per_round(total):
+        return (total or 0) / rounds if rounds else 0
+
+    return {
+        "rating": summary["avg_rating"] or 0,
+        "kpr": summary["avg_kpr"] or 0,
+        "dpr": summary["avg_dpr"] or 0,
+        "kast": summary["avg_kast"] or 0,
+        "impact": summary["avg_impact"] or 0,
+        "adr": summary["avg_adr"] or 0,
+        "kd": kills / deaths if deaths else kills,
+        "hs": summary["avg_hs"] or 0,
+        "apr": per_round(summary["total_assists"]),
+        "opk": per_round(summary["first_kills"]),
+        "fapr": per_round(summary["flash_assists"]),
+    }
+
+
+def _compare_player(conn, player_id):
+    """读一名选手的资料和生涯汇总；没选或选手不存在返回 None。"""
+    if not player_id:
+        return None
+    player = conn.execute(
+        """SELECT p.*, t.name AS team_name, t.logo AS team_logo
+           FROM players p LEFT JOIN teams t ON p.team_id=t.id
+           WHERE p.id=?""",
+        (player_id,),
+    ).fetchone()
+    if not player:
+        return None
+    summary = conn.execute(
+        """SELECT maps, rounds_played, avg_rating, avg_kpr, avg_dpr, avg_kast,
+                  avg_impact, avg_adr, avg_hs, total_kills, total_deaths,
+                  total_assists, first_kills, flash_assists
+           FROM player_performance_summary
+           WHERE player_id=?""",
+        (player_id,),
+    ).fetchone()
+    maps = (summary["maps"] if summary else 0) or 0
+    return {"player": player, "maps": maps, "values": _compare_values(summary)}
+
+
+def _compare_rows(mine, theirs):
+    """一侧的每一行：显示的数字 + 和对面比的结果（better 占优 / worse 落后 / 空 = 一样或没得比）。"""
+    rows = []
+    for label, key, digits, suffix, higher_better in COMPARE_FIELDS:
+        row = {"label": label, "fixed": label.isascii(), "value": "-", "state": ""}
+        if key in mine:
+            value = round(mine[key], digits)
+            row["value"] = f"{value:.{digits}f}{suffix}"
+            other = round(theirs[key], digits) if key in theirs else value
+            if value != other:
+                row["state"] = "better" if (value > other) == higher_better else "worse"
+        rows.append(row)
+    return rows
+
+
+def _compare_card(slot, field, mine, theirs):
+    """左右两张卡之一：选手、地图数、每项数据，以及两边都有数据时领先了几项。"""
+    card = {"slot": slot, "field": field, "player": None, "maps": 0, "rows": [], "lead": None}
+    if not mine:
+        return card
+    other_values = theirs["values"] if theirs else {}
+    rows = _compare_rows(mine["values"], other_values)
+    card.update(player=mine["player"], maps=mine["maps"], rows=rows)
+    if mine["values"] and other_values:
+        card["lead"] = sum(1 for row in rows if row["state"] == "better")
+    return card
+
+
 @app.route("/players/compare")
 def player_compare():
-    """选手对比工具"""
-    id1 = request.args.get("id1", type=int)
-    id2 = request.args.get("id2", type=int)
+    """选手对比（照 HLTV）：左右两张卡，每项数据一行，占优的一方加粗。"""
     conn = get_db()
     all_players = conn.execute(
         "SELECT p.*, t.name AS team_name FROM players p LEFT JOIN teams t ON p.team_id=t.id ORDER BY p.nickname"
     ).fetchall()
-    p1 = p2 = stats1 = stats2 = compare_bars = None
-
-    if id1 and id2:
-        p1 = conn.execute(
-            "SELECT p.*, t.name AS team_name, t.logo AS team_logo FROM players p LEFT JOIN teams t ON p.team_id=t.id WHERE p.id=?",
-            (id1,),
-        ).fetchone()
-        p2 = conn.execute(
-            "SELECT p.*, t.name AS team_name, t.logo AS team_logo FROM players p LEFT JOIN teams t ON p.team_id=t.id WHERE p.id=?",
-            (id2,),
-        ).fetchone()
-        if p1 and p2:
-
-            def _get_stats(pid):
-                r = conn.execute(
-                    """SELECT maps AS m, avg_rating AS r, avg_adr AS a,
-                              avg_kast AS k, avg_impact AS i, avg_hs AS h,
-                              total_kills*1.0/NULLIF(total_deaths,0) AS kd,
-                              avg_kpr AS kpr
-                       FROM player_performance_summary
-                       WHERE player_id=?""",
-                    (pid,),
-                ).fetchone()
-                return r or {
-                    "m": 0,
-                    "r": 0,
-                    "a": 0,
-                    "k": 0,
-                    "i": 0,
-                    "h": 0,
-                    "kd": 0,
-                    "kpr": 0,
-                }
-
-            r1, r2 = _get_stats(id1), _get_stats(id2)
-            stats1 = [
-                {"label": "RATING", "value": f"{r1['r'] or 0:.2f}"},
-                {"label": "K/D", "value": f"{r1['kd'] or 0:.2f}"},
-                {"label": "ADR", "value": f"{r1['a'] or 0:.1f}"},
-                {"label": "KAST%", "value": f"{r1['k'] or 0:.1f}%"},
-                {"label": "影响力", "value": f"{r1['i'] or 0:.2f}"},
-                {"label": "HS%", "value": f"{r1['h'] or 0:.1f}%"},
-                {"label": "KPR", "value": f"{r1['kpr'] or 0:.2f}"},
-                {"label": "地图数", "value": r1["m"] or 0},  # 这里的数字是地图数，不是比赛场次
-            ]
-            stats2 = [
-                {"label": "RATING", "value": f"{r2['r'] or 0:.2f}"},
-                {"label": "K/D", "value": f"{r2['kd'] or 0:.2f}"},
-                {"label": "ADR", "value": f"{r2['a'] or 0:.1f}"},
-                {"label": "KAST%", "value": f"{r2['k'] or 0:.1f}%"},
-                {"label": "影响力", "value": f"{r2['i'] or 0:.2f}"},
-                {"label": "HS%", "value": f"{r2['h'] or 0:.1f}%"},
-                {"label": "KPR", "value": f"{r2['kpr'] or 0:.2f}"},
-                {"label": "地图数", "value": r2["m"] or 0},  # 这里的数字是地图数，不是比赛场次
-            ]
-
-            # 水平对比条（百分比相对）
-            def _pct(v1, v2):
-                t = v1 + v2
-                if t == 0:
-                    return 50, 50
-                return round(v1 / t * 100), round(v2 / t * 100)
-
-            def _nv(d, k, default=0):
-                return (d[k] or default) if d else default
-
-            compare_bars = []
-            for key, label, v1, v2 in [
-                ("r", "RATING", _nv(r1, "r"), _nv(r2, "r")),
-                ("kd", "K/D", _nv(r1, "kd"), _nv(r2, "kd")),
-                ("a", "ADR", _nv(r1, "a"), _nv(r2, "a")),
-                ("k", "KAST", _nv(r1, "k"), _nv(r2, "k")),
-                ("i", "Impact", _nv(r1, "i"), _nv(r2, "i")),
-                ("h", "HS%", _nv(r1, "h"), _nv(r2, "h")),
-            ]:
-                pa, pb = _pct(v1, v2)
-                compare_bars.append(
-                    {
-                        "label": label,
-                        "s1": {"val": str(round(v1, 2) if v1 else "-"), "pct": pa},
-                        "s2": {"val": str(round(v2, 2) if v2 else "-"), "pct": pb},
-                    }
-                )
+    side_a = _compare_player(conn, request.args.get("id1", type=int))
+    side_b = _compare_player(conn, request.args.get("id2", type=int))
     conn.close()
-    return render_template(
-        "player_compare.html",
-        all_players=all_players,
-        p1=p1,
-        p2=p2,
-        stats1=stats1,
-        stats2=stats2,
-        compare_bars=compare_bars,
-    )
+    cards = [_compare_card("a", "id1", side_a, side_b), _compare_card("b", "id2", side_b, side_a)]
+    return render_template("player_compare.html", all_players=all_players, cards=cards)
 
 
 @app.route("/players/<int:player_id>")

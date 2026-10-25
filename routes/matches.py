@@ -9,6 +9,7 @@ from flask import jsonify, redirect, render_template, request, session, url_for
 
 from models import get_db
 from services.match_service import add_effective_event_status, parse_bp_log, supplement_temp_teams
+from services.perf_overview_service import build_perf_overview, load_metric_averages
 from utils.helpers import (
     build_comment_tree,
     normalize_http_url,
@@ -912,36 +913,6 @@ def _rating_bar_width(value):
     return max(4, min(100, round((rating / 1.6) * 100, 1)))
 
 
-def _metric_pct(value, target, floor=4):
-    number = _safe_float(value)
-    if target <= 0 or number <= 0:
-        return 0
-    return max(floor, min(100, round(number / target * 100, 1)))
-
-
-def _metric_tier(value, excellent, good, normal, poor, higher_better=True):
-    number = _safe_float(value)
-    if higher_better:
-        if number >= excellent:
-            return "tier-excellent"
-        if number >= good:
-            return "tier-good"
-        if number >= normal:
-            return "tier-normal"
-        if number >= poor:
-            return "tier-poor"
-        return "tier-bad"
-    if number <= excellent:
-        return "tier-excellent"
-    if number <= good:
-        return "tier-good"
-    if number <= normal:
-        return "tier-normal"
-    if number <= poor:
-        return "tier-poor"
-    return "tier-bad"
-
-
 def _build_match_player_row(data, team_side, team_short, team_name):
     kills = _safe_int(data.get("kills"))
     deaths = _safe_int(data.get("deaths"))
@@ -1005,19 +976,6 @@ def _build_match_player_row(data, team_side, team_short, team_name):
         "ct_adr": round(_safe_float(data.get("ct_adr")), 1),
         "ct_rating": round(_safe_float(data.get("ct_rating")), 2),
         "rating_bar": _rating_bar_width(rating),
-        "kpr_bar": _metric_pct(data.get("kpr"), 1.0),
-        "dpr_bar": _metric_pct(data.get("dpr"), 1.0),
-        "kast_bar": _metric_pct(data.get("kast"), 100),
-        "mk_bar": _metric_pct(mk_rating, 1.5),
-        "rws_bar": _metric_pct(rws, 20),
-        "adr_bar": _metric_pct(data.get("adr"), 120),
-        "kpr_tier": _metric_tier(data.get("kpr"), 0.85, 0.75, 0.65, 0.55),
-        "dpr_tier": _metric_tier(data.get("dpr"), 0.55, 0.62, 0.70, 0.80, higher_better=False),
-        "kast_tier": _metric_tier(data.get("kast"), 80, 75, 70, 65),
-        "impact_tier": _metric_tier(mk_rating, 1.25, 1.10, 0.95, 0.80),
-        "rws_tier": _metric_tier(rws, 18, 14, 10, 6),
-        "adr_tier": _metric_tier(data.get("adr"), 90, 80, 70, 60),
-        "rating_tier": _metric_tier(rating, 1.25, 1.10, 0.95, 0.80),
     }
 
 
@@ -1515,6 +1473,7 @@ def _build_match_detailed_context(match_id):
     player_ids = sorted({row["player_id"] for row in stats})
     player_aliases = _build_player_alias_map(conn, player_ids)
     persisted_kill_events = _load_persisted_kill_events(conn, match_id)
+    metric_averages = load_metric_averages(conn)
     conn.close()
 
     t1_key = match["team1_id"] if match["team1_id"] else -1
@@ -1635,6 +1594,7 @@ def _build_match_detailed_context(match_id):
         event["map_slot"] = map_slots.get(event_map_key, 0)
         kill_events.append(event)
     summary = {"t1": _team_summary(team1_rows), "t2": _team_summary(team2_rows)}
+    perf_avg = build_perf_overview(team1_rows + team2_rows, metric_averages)
     kill_matrix = _build_kill_matrix(team1_rows, team2_rows, player_aliases, kill_events)
     selected_tab = (request.args.get("tab") or "overview").strip().lower()
     if selected_tab not in ("overview", "performance"):
@@ -1651,6 +1611,7 @@ def _build_match_detailed_context(match_id):
         "team1_rows": team1_rows,
         "team2_rows": team2_rows,
         "performance_rows": performance_rows,
+        "perf_avg": perf_avg,
         "highlights": _highlight_rows(performance_rows),
         "kill_matrix": kill_matrix,
         "selected_tab": selected_tab,

@@ -3,66 +3,74 @@
 {% block head %}<link rel="stylesheet" href="{{ versioned_url('static/css/pages/player.css') }}">{% endblock %}
 {% block layout_class %}no-side-layout narrow-layout{% endblock %}
 
-{% macro compare_player(p, side) %}
-{% set name = private_name_for_player(p.id, p.nickname) %}
-<a class="compare-player is-{{ side }}" href="/players/{{ p.id }}">
-  {% if p.avatar %}<img class="compare-avatar" src="{{ url_for('static', filename='avatars/' + p.avatar) }}" alt="" loading="lazy">{% else %}<span class="compare-avatar" aria-hidden="true">{{ name[:1] }}</span>{% endif %}
-  <span class="compare-player-text">
-    <b data-i18n-ignore>{{ name }}</b>
-    <span class="team">{% if p.team_logo %}<img class="team-logo sm" src="{{ p.team_logo|team_logo_url }}" alt="" loading="lazy">{% endif %}{% if p.team_name %}<span data-i18n-ignore>{{ p.team_name }}</span>{% else %}自由选手{% endif %}</span>
-  </span>
-</a>
+{#- 一侧的选手卡（照 HLTV 对比页）：头部是头像、名字、队伍、地图数和换人下拉框；
+    下面每项一行，和对面比占优的加粗、外侧一条绿线，落后的变灰、外侧一条红线 -#}
+{% macro compare_card(card) %}
+{% set p = card.player %}
+<section class="panel compare-card is-{{ card.slot }}">
+  <header class="compare-card-head">
+    {% if p %}
+    {% set name = private_name_for_player(p.id, p.nickname) %}
+    <a class="compare-card-avatar" href="/players/{{ p.id }}" tabindex="-1" aria-hidden="true">
+      {% if p.avatar %}<img src="{{ url_for('static', filename='avatars/' + p.avatar) }}" alt="" loading="lazy">{% else %}<span data-i18n-ignore>{{ name[:1] }}</span>{% endif %}
+    </a>
+    <div class="compare-card-name">
+      <a href="/players/{{ p.id }}" data-i18n-ignore>{{ name }}</a>
+      <span class="compare-card-meta">
+        {% if p.team_logo %}<img class="team-logo sm" src="{{ p.team_logo|team_logo_url }}" alt="" loading="lazy">{% endif %}
+        {% if p.team_name %}<span data-i18n-ignore>{{ p.team_name }}</span>{% else %}<span>自由选手</span>{% endif %}
+        <span class="compare-card-maps">{{ card.maps }} 张地图</span>
+      </span>
+    </div>
+    {% if card.lead is not none %}<span class="compare-lead">领先 {{ card.lead }} 项</span>{% endif %}
+    {% else %}
+    <span class="compare-card-avatar is-empty" aria-hidden="true"></span>
+    <div class="compare-card-name"><b>添加选手</b></div>
+    {% endif %}
+  </header>
+
+  <select class="compare-pick" name="{{ card.field }}" aria-label="{{ '选手 A' if card.slot == 'a' else '选手 B' }}">
+    <option value="">{{ '选择选手 A...' if card.slot == 'a' else '选择选手 B...' }}</option>
+    {% for o in all_players %}
+    <option value="{{ o.id }}"{% if p and o.id == p.id %} selected{% endif %} data-i18n-ignore>{{ private_name_for_player(o.id, o.nickname) }}{% if o.team_name %} ({{ o.team_name }}){% endif %}</option>
+    {% endfor %}
+  </select>
+
+  {% if card.rows %}
+  <dl class="compare-stats">
+    {% for row in card.rows %}
+    <div{% if row.state %} class="is-{{ row.state }}"{% endif %}>
+      <dt{% if row.fixed %} data-i18n-ignore{% endif %}>{{ row.label }}</dt>
+      <dd>{{ row.value }}</dd>
+    </div>
+    {% endfor %}
+  </dl>
+  {% endif %}
+</section>
 {% endmacro %}
 
 {% block main %}
+{% set pa = cards[0].player %}
+{% set pb = cards[1].player %}
 <header class="page-head">
   <div><span class="page-head-kicker" data-i18n-ignore>COMPARE</span><h1>选手对比</h1></div>
+  {% if pa and pb %}<a class="page-head-link" href="/players/compare?id1={{ pb.id }}&id2={{ pa.id }}">交换左右</a>{% endif %}
 </header>
 
-<form class="panel compare-selector" method="get" action="/players/compare">
-  <select name="id1" required aria-label="选手 A">
-    <option value="">选择选手 A...</option>
-    {% for p in all_players %}
-    <option value="{{ p.id }}" {% if p1 and p.id==p1.id %}selected{% endif %} data-i18n-ignore>{{ private_name_for_player(p.id, p.nickname) }}{% if p.team_name %} ({{ p.team_name }}){% endif %}</option>
-    {% endfor %}
-  </select>
-  <span class="compare-vs" data-i18n-ignore>VS</span>
-  <select name="id2" required aria-label="选手 B">
-    <option value="">选择选手 B...</option>
-    {% for p in all_players %}
-    <option value="{{ p.id }}" {% if p2 and p.id==p2.id %}selected{% endif %} data-i18n-ignore>{{ private_name_for_player(p.id, p.nickname) }}{% if p.team_name %} ({{ p.team_name }}){% endif %}</option>
-    {% endfor %}
-  </select>
-  <button type="submit" class="btn btn-primary compare-submit">对比</button>
+<form class="compare-grid" method="get" action="/players/compare">
+  {% for card in cards %}{{ compare_card(card) }}{% endfor %}
+  <noscript><button type="submit" class="btn btn-primary">对比</button></noscript>
 </form>
 
-{% if p1 and p2 %}
-<section class="panel compare-board">
-  <div class="compare-heads">
-    {{ compare_player(p1, 'a') }}
-    <span class="compare-vs-big" data-i18n-ignore>VS</span>
-    {{ compare_player(p2, 'b') }}
-  </div>
-
-  {# 每一项一行：左右是两人的数值（数值大的一方高亮），中间是名称，下面一根左右两色的对比条 #}
-  <div class="compare-rows">
-    {% for s1 in stats1|default([]) %}
-    {% set s2 = stats2[loop.index0] %}
-    {% set v1 = (s1.value|string|replace('%', ''))|float %}
-    {% set v2 = (s2.value|string|replace('%', ''))|float %}
-    {% set total = v1 + v2 %}
-    {% set pct1 = (v1 / total * 100) if total else 50 %}
-    <div class="compare-row">
-      <span class="compare-val a{% if v1 > v2 %} is-better{% endif %}">{{ s1.value }}</span>
-      <span class="compare-label">{{ s1.label }}</span>
-      <span class="compare-val b{% if v2 > v1 %} is-better{% endif %}">{{ s2.value }}</span>
-      <div class="compare-track" aria-hidden="true"><i class="a" style="width:{{ '%.1f'|format(pct1) }}%"></i><i class="b" style="width:{{ '%.1f'|format(100 - pct1) }}%"></i></div>
-    </div>
-    {% endfor %}
-  </div>
-</section>
-{% else %}
-<div class="panel empty-state">请选择两名选手进行对比</div>
+{% if not (pa and pb) %}
+<p class="compare-hint">请选择两名选手进行对比</p>
 {% endif %}
+
+<script>
+// 下拉框换了人就直接刷新对比，不用再点按钮
+document.querySelectorAll('.compare-pick').forEach(function(select) {
+  select.addEventListener('change', function() { select.form.submit(); });
+});
+</script>
 {% endblock %}
 {% block side %}{% endblock %}

@@ -1,0 +1,100 @@
+/* ==========================================================================
+   队伍列表（/teams）、队伍详情（/teams/<id>）
+   ========================================================================== */
+
+/* ---------- 1. 队伍列表：一队一张卡；底下一排队员小头像（照 HLTV 排名页的阵容条） ---------- */
+.team-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--site-gap); }
+
+.team-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  color: var(--text-primary);
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.team-card:hover { color: var(--text-primary); background: var(--bg-hover); border-color: var(--border-strong); }
+.team-card:hover .team-card-title strong { color: var(--accent); }
+.team-card-head { display: flex; align-items: center; gap: var(--space-md); min-width: 0; }
+.team-card-logo { flex: 0 0 auto; width: 48px; height: 48px; object-fit: contain; }
+.team-card-title { display: grid; gap: 2px; min-width: 0; }
+.team-card-title strong { overflow: hidden; font-size: var(--font-lg); font-weight: 700; text-overflow: ellipsis; white-space: nowrap; transition: color var(--transition-fast); }
+.team-card-title small { display: flex; gap: 6px; color: var(--text-muted); font-size: var(--font-sm); white-space: nowrap; }
+.team-card-desc { overflow: hidden; color: var(--text-secondary); font-size: var(--font-sm); text-overflow: ellipsis; white-space: nowrap; }
+
+.team-card-roster { display: flex; align-items: center; gap: 6px; min-height: 32px; margin-top: auto; padding-top: var(--space-md); border-top: 1px solid var(--border-color); }
+.team-card-roster img,
+.team-card-roster span { width: 32px; height: 32px; object-fit: cover; background: var(--surface-soft); border-radius: var(--radius-sm); }
+.team-card-roster span { display: grid; place-items: center; color: var(--text-muted); font-size: var(--font-sm); font-weight: 700; }
+.team-card-roster em { color: var(--text-muted); font-size: var(--font-xs); font-style: normal; }
+
+/* 没有队标时：圆底 + 两个字母（列表卡和详情页大队标共用） */
+.team-card-logo.is-fallback,
+.team-hero-logo.is-fallback {
+  display: grid;
+  place-items: center;
+  color: var(--text-secondary);
+  background: var(--surface-soft);
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  font-weight: 700;
+}
+
+.team-card-logo.is-fallback { font-size: var(--font-lg); }
+
+/* ---------- 2. 队伍详情：顶部资料（大队标 + 简介 + 战绩数字） ---------- */
+.team-hero { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--space-xl); padding: var(--space-xl); }
+.team-hero-logo { width: 88px; height: 88px; object-fit: contain; }
+.team-hero-logo.is-fallback { font-size: var(--font-2xl); }
+.team-hero-text { display: grid; gap: var(--space-xs); min-width: 0; }
+.team-hero-tag { justify-self: start; padding: 2px var(--space-sm); color: var(--text-secondary); background: var(--surface-soft); border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: var(--font-xs); font-weight: 700; letter-spacing: .04em; }
+.team-hero-text p { color: var(--text-secondary); font-size: var(--font-md); }
+
+.team-hero-facts { display: grid; grid-template-columns: repeat(4, auto); margin: 0; }
+.team-hero-facts > div { display: grid; gap: 2px; padding: 0 var(--space-xl); text-align: center; border-left: 1px solid var(--border-color); }
+.team-hero-facts > div:first-child { border-left: 0; }
+.team-hero-facts dt { color: var(--text-muted); font-size: var(--font-xs); white-space: nowrap; }
+.team-hero-facts dd { margin: 0; font-size: var(--font-xl); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* ---------- 3. 当前阵容：一人一张卡，大头像在上，名字和生涯数据在下 ---------- */
+.team-roster { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--space-md); padding: var(--space-lg); }
+.roster-card { display: grid; justify-items: center; gap: var(--space-xs); min-width: 0; color: var(--text-primary); text-align: center; }
+.roster-card:hover { color: var(--text-primary); }
+.roster-card:hover strong { color: var(--accent); }
+.roster-card-photo { width: min(100%, 180px); aspect-ratio: 1; margin-bottom: var(--space-xs); overflow: hidden; background: var(--surface-soft); border: 1px solid var(--border-color); border-radius: var(--radius-md); }
+.roster-card-photo img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform var(--transition-base); }
+.roster-card:hover .roster-card-photo img { transform: scale(1.04); }
+.roster-card-photo span { display: grid; place-items: center; width: 100%; height: 100%; color: var(--text-muted); font-size: var(--font-3xl); font-weight: 700; }
+.roster-card strong { max-width: 100%; overflow: hidden; font-size: var(--font-md); text-overflow: ellipsis; white-space: nowrap; transition: color var(--transition-fast); }
+.roster-card small { display: flex; align-items: baseline; gap: 4px; color: var(--text-muted); font-size: var(--font-xs); white-space: nowrap; }
+.roster-card small b { font-size: var(--font-sm); font-variant-numeric: tabular-nums; }
+.roster-card-dot { margin: 0 2px; }
+
+/* ---------- 4. 比赛：日期 | 本队 | 比分（按本队看，赢绿输红） | 对手 | 赛事 · 状态 ---------- */
+.team-match { grid-template-columns: 96px minmax(0, 1fr) auto minmax(0, 1fr) minmax(0, 220px); }
+.team-match-date { color: var(--text-muted); font-size: var(--font-xs); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.team-match .team { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-sm); }
+.team-match .team.right { justify-content: flex-start; }
+.team-match .team > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.team-match.is-win .vs b { color: var(--color-green); }
+.team-match.is-loss .vs b { color: var(--color-red); }
+
+@media (max-width: 960px) {
+  .team-hero { grid-template-columns: auto minmax(0, 1fr); }
+  .team-hero-facts { grid-column: 1 / -1; grid-template-columns: repeat(4, minmax(0, 1fr)); padding-top: var(--space-lg); border-top: 1px solid var(--border-color); }
+  .team-hero-facts > div { padding: 0 var(--space-sm); }
+  .team-roster { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+}
+
+@media (max-width: 760px) {
+  .team-grid { grid-template-columns: minmax(0, 1fr); gap: var(--space-md); }
+  .team-hero { gap: var(--space-lg); padding: var(--space-lg); }
+  .team-hero-logo { width: 64px; height: 64px; }
+  .team-hero-facts dd { font-size: var(--font-lg); }
+  .team-roster { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-sm); padding: var(--space-md); }
+  .roster-card small { flex-direction: column; align-items: center; gap: 0; }
+  .roster-card-dot { display: none; }
+  .team-match { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+  .team-match-date { grid-column: 1 / -1; text-align: center; }
+}
