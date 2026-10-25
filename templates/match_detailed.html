@@ -175,7 +175,7 @@
     </a>
     {% for ms in map_cards %}
     <a class="match-detailed-map-card{% if selected_map_index == ms.index %} active{% endif %}{% if not ms.has_stats %} muted{% endif %}" href="/matches/{{ match.slug or match.id }}/detailed?map={{ ms.index }}&tab={{ selected_tab }}" data-map-href="/matches/{{ match.slug or match.id }}/detailed?map={{ ms.index }}">
-      <span class="match-detailed-map-cover" style="background-image:url('{{ ms.name|map_image }}')"><span>{{ ms.name|map_display_cn }}</span></span>
+      <span class="match-detailed-map-cover" style="background-image:url('{{ ms.name|map_image }}')"><span>{{ ms.name|map_display }}</span></span>
       <span class="match-detailed-map-info">
         <b>{{ ms.t1 }} - {{ ms.t2 }}</b>
         <small>{% if ms.picked_by == 't1' %}{{ match.t1s }} 选图{% elif ms.picked_by == 't2' %}{{ match.t2s }} 选图{% else %}图 {{ ms.index }}{% endif %}</small>
@@ -205,7 +205,7 @@
               <b class="{% if score_t2 > score_t1 %}score-win{% elif score_t2 < score_t1 %}score-lose{% endif %}">{{ score_t2 }}</b>
             </div>
             <small>地图</small>
-            <strong>{{ selected_label|map_display_cn if selected_label != 'All' else '全部' }}</strong>
+            <strong>{{ selected_label|map_display if selected_label != 'All' else '全部' }}</strong>
           </div>
           <div class="match-detailed-score-team">
             {{ team_logo(match.t2_logo, match.team2_name, match.t2s, 'lg') }}

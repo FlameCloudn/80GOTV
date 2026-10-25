@@ -215,7 +215,7 @@ def _build_player_blocks(overall):
                     "pct": _pct(multi_round_pct, 30),
                 },
                 {
-                    "label": "影响力",
+                    "label": "Impact",
                     "value": _fmt(overall["avg_impact"]),
                     "pct": _pct(overall["avg_impact"], 1.5),
                 },
@@ -394,7 +394,7 @@ def _build_player_blocks(overall):
         {"label": "每回合道具伤害", "value": _fmt(overall["utility_damage_per_round"])},
         {"label": "每回合补枪队友", "value": _fmt(trade_kills / rounds if rounds else 0)},
         {"label": "地图数", "value": str(maps)},
-        {"label": "影响力 RATING", "value": _fmt(overall["avg_impact"])},
+        {"label": "Impact", "value": _fmt(overall["avg_impact"])},
     ]
     return player_summary, player_category_cards, player_statistics
 
@@ -575,7 +575,7 @@ COMPARE_FIELDS = (
     ("KPR", "kpr", 2, "", True),
     ("DPR", "dpr", 2, "", False),
     ("KAST", "kast", 1, "%", True),
-    ("影响力", "impact", 2, "", True),
+    ("Impact", "impact", 2, "", True),
     ("ADR", "adr", 1, "", True),
     ("K/D", "kd", 2, "", True),
     ("爆头率", "hs", 1, "%", True),
@@ -1040,7 +1040,7 @@ def player_detail(player_id):
                     "pct": _pct(kills - deaths + 50, 100),
                 },
                 {
-                    "label": "影响力 RATING",
+                    "label": "Impact",
                     "value": _fmt(overall["avg_impact"]),
                     "pct": _pct(overall["avg_impact"], 1.5),
                 },
@@ -1203,7 +1203,7 @@ def player_detail(player_id):
         {"label": "每回合道具伤害", "value": _fmt(overall["utility_damage_per_round"])},
         {"label": "每回合补枪队友", "value": _fmt(trade_kills / rounds if rounds else 0)},
         {"label": "比赛数", "value": str(maps)},
-        {"label": "影响力 RATING", "value": _fmt(overall["avg_impact"])},
+        {"label": "Impact", "value": _fmt(overall["avg_impact"])},
     ]
 
     # Keep the profile and the detailed statistics page on the exact same

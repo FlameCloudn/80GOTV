@@ -88,7 +88,7 @@
     {% for mr in map_reports %}
     <article class="map-report-card{% if not mr.played %} is-pending{% endif %}">
       <div class="ms-top" style="background-image:url('{{ mr.name|map_image }}')">
-        <span class="ms-map-name">{{ mr.name|map_display_cn }}</span>
+        <span class="ms-map-name">{{ mr.name|map_display }}</span>
       </div>
       <div class="map-report-body">
         <span class="map-report-index">图{{ mr.idx }}</span>

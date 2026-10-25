@@ -6,13 +6,13 @@
 {% block layout_class %}no-side-layout guess-player-layout{% endblock %}
 {% block main %}
 <div class="guess-game guess-multiplayer">
-  <nav class="guess-mode-tabs" aria-label="游戏模式">
+  <nav class="segmented guess-mode-tabs" aria-label="游戏模式">
     <a href="{{ url_for('guess_player_page') }}">每日挑战</a>
     <a href="{{ url_for('guess_player_practice_page') }}">自由游玩</a>
     <a href="{{ url_for('guess_player_multiplayer_page') }}" class="active">在线对战</a>
   </nav>
 
-  <header class="guess-heading h-panel">
+  <header class="guess-heading panel">
     <div>
       <span class="guess-kicker" data-i18n-ignore>MULTIPLAYER</span>
       <h1>在线猜选手</h1>
@@ -22,8 +22,8 @@
   </header>
 
   <div class="guess-lobby-grid">
-    <section class="guess-lobby-section h-panel">
-      <div class="h-panel-title">创建房间</div>
+    <section class="guess-lobby-section panel">
+      <div class="panel-head"><h2 class="panel-title">创建房间</h2></div>
       <form method="post" action="{{ url_for('guess_player_multiplayer_create') }}" class="guess-lobby-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <fieldset class="guess-pool-picker">
@@ -37,19 +37,19 @@
             <span><strong data-i18n-ignore>Pro</strong><small>完整选手数据库</small></span>
           </label>
         </fieldset>
-        <button type="submit" class="guess-primary-action">创建对战</button>
+        <button type="submit" class="btn btn-primary guess-primary-action">创建对战</button>
       </form>
     </section>
 
-    <section class="guess-lobby-section h-panel">
-      <div class="h-panel-title">加入房间</div>
+    <section class="guess-lobby-section panel">
+      <div class="panel-head"><h2 class="panel-title">加入房间</h2></div>
       <form method="post" action="{{ url_for('guess_player_multiplayer_join') }}" class="guess-lobby-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <label class="guess-room-code-field">
           <span>房间码</span>
           <input name="room_code" inputmode="text" maxlength="6" autocomplete="off" required placeholder="例如 A7K9PX">
         </label>
-        <button type="submit" class="guess-primary-action">加入对战</button>
+        <button type="submit" class="btn btn-primary guess-primary-action">加入对战</button>
       </form>
     </section>
   </div>

@@ -1,94 +1,60 @@
 {% extends "base.html" %}
 {% from "_user_badges.html" import cheater_badge %}
 {% block title %}{{ thread.title }} - 论坛{% endblock %}
-{% block head %}
-<style>
-.thread-header{background:var(--h-panel);border:1px solid var(--h-panel-line);border-radius:0;padding:14px 16px;margin-bottom:10px}
-.thread-header h1{font-size:22px;margin:0 0 var(--space-md)}
-.thread-meta{font-size:13px;color:var(--text-muted);display:flex;flex-wrap:wrap;gap:var(--space-lg)}
-.thread-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px solid var(--h-panel-line)}
-.thread-actions form{display:inline-flex;margin:0}
-.thread-actions .danger{color:#c0392b;border-color:rgba(192,57,43,.35)}
-.breadcrumb{margin-bottom:var(--space-md);font-size:13px;color:var(--text-muted)}
-.breadcrumb a{color:var(--text-link)}
-.thread-body{background:var(--h-panel);border:1px solid var(--h-panel-line);border-radius:0;padding:14px 16px;margin-bottom:10px}
-.thread-body .content,.post-body{line-height:1.8;word-break:break-word;white-space:pre-wrap}
-.post-list{background:var(--h-panel);border:1px solid var(--h-panel-line);border-radius:0;overflow:hidden}
-.post-item{padding:12px 14px;border-bottom:1px solid var(--h-panel-line)}
-.post-item:last-child{border-bottom:none}
-.post-header{display:flex;align-items:center;gap:var(--space-md);margin-bottom:var(--space-md)}
-.post-avatar{width:36px;height:36px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;overflow:hidden}
-.post-avatar img{width:100%;height:100%;object-fit:cover}
-.post-user{font-weight:600;font-size:14px}
-.post-handle{font-size:11px;color:var(--text-muted)}
-.post-time{font-size:12px;color:var(--text-muted);margin-left:auto}
-.post-number{font-size:12px;color:var(--text-muted);background:var(--bg-hover);padding:2px 8px;border-radius:0;word-break:break-word}
-.post-footer{display:flex;gap:var(--space-md);margin-top:var(--space-md);font-size:12px}
-.post-action-btn{border:0;background:none;color:var(--text-link);font:inherit;padding:0;cursor:pointer}
-.post-action-btn:hover{text-decoration:underline}
-.reply-form-section{background:var(--h-panel);border:1px solid var(--h-panel-line);border-radius:0;padding:14px 16px;margin-top:10px}
-.reply-form-section h3{margin:0 0 var(--space-md);font-size:16px}
-.reply-form-section textarea{width:100%;resize:vertical;min-height:120px;background:var(--bg-primary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:0;padding:10px;font-family:inherit;font-size:14px}
-.reply-form-footer{display:flex;justify-content:flex-end;margin-top:var(--space-md)}
-.pagination{display:flex;justify-content:center;gap:var(--space-sm);margin-top:var(--space-lg)}
-.pagination a,.pagination span{padding:var(--space-sm) var(--space-md);background:var(--bg-card);border:1px solid var(--border-color);border-radius:0;font-size:13px;color:var(--text-primary)}
-.pagination a:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
-.pagination .current{background:var(--accent);color:#fff;border-color:var(--accent)}
-.locked-badge{background:#e74c3c;color:#fff;font-size:11px;padding:2px 8px;border-radius:0;margin-left:var(--space-sm)}
-.pinned-badge{background:var(--accent);color:#fff;font-size:11px;padding:2px 8px;border-radius:0;margin-left:var(--space-sm)}
-.category-badge{display:inline-block;padding:2px 6px;background:var(--h-panel-head);border:1px solid var(--h-panel-line);color:var(--text-secondary);font-size:11px}
-@media(max-width:640px){.thread-header h1{font-size:18px}.thread-meta{gap:7px 12px}.post-time{font-size:11px}.thread-actions{align-items:stretch}.thread-actions .btn{flex:1;text-align:center;justify-content:center}}
-</style>
-{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ versioned_url('static/css/pages/forum.css') }}">{% endblock %}
+{% block layout_class %}no-side-layout narrow-layout{% endblock %}
 {% block main %}
 {% set thread_private_remark = private_remark_for_user(thread.user_id) %}
 {% set thread_display_name = thread_private_remark or thread.username or thread.group_username %}
-<div class="breadcrumb">
-  <a href="{{ url_for('forum_index') }}">论坛</a> ›
-  <a href="{{ url_for('forum_index', category=thread.category_slug) }}">{{ thread.category_name }}</a> ›
-  <span data-i18n-ignore>{{ thread.title }}</span>
-</div>
-<div class="thread-header">
+<nav class="forum-breadcrumb" aria-label="位置">
+  <a href="{{ url_for('forum_index') }}">论坛</a><span>›</span>
+  <a href="{{ url_for('forum_index', category=thread.category_slug) }}">{{ thread.category_name }}</a><span>›</span>
+  <span class="forum-breadcrumb-current" data-i18n-ignore>{{ thread.title }}</span>
+</nav>
+
+{#- 帖子标题区：标题 + 置顶/锁定标记，下面一行作者、时间、浏览、回复、版块；管理按钮放最下面 -#}
+<section class="panel forum-thread-head">
   <h1>
-    {{ thread.title }}
-    {% if thread.is_pinned %}<span class="pinned-badge">置顶</span>{% endif %}
-    {% if thread.is_locked %}<span class="locked-badge">已锁定</span>{% endif %}
+    <span data-i18n-ignore>{{ thread.title }}</span>
+    {% if thread.is_pinned %}<span class="badge badge-square forum-pin">置顶</span>{% endif %}
+    {% if thread.is_locked %}<span class="badge badge-square badge-red">已锁定</span>{% endif %}
   </h1>
-  <div class="thread-meta">
-    <span>作者：{{ thread_display_name }}{% if not thread_private_remark and thread.group_username %} <span class="post-handle">@{{ thread.group_username }}</span>{% endif %}{{ cheater_badge(thread.is_cheater) }}</span>
+  <div class="forum-thread-facts">
+    <span>作者：<b data-i18n-ignore>{{ thread_display_name }}</b>{% if not thread_private_remark and thread.group_username %} <span class="forum-handle" data-i18n-ignore>@{{ thread.group_username }}</span>{% endif %}{{ cheater_badge(thread.is_cheater) }}</span>
     <span>发布：{{ thread.created_at|datetime_display }}</span>
     <span>{{ thread.view_count }} 浏览</span>
     <span>{{ thread.reply_count }} 回复</span>
-    <span class="category-badge">{{ thread.category_name }}</span>
+    <a class="badge badge-square forum-category" href="{{ url_for('forum_index', category=thread.category_slug) }}">{{ thread.category_name }}</a>
   </div>
   {% if can_manage_thread or is_forum_admin %}
-  <div class="thread-actions">
-    {% if can_manage_thread %}<a href="{{ url_for('forum_edit_thread', thread_id=thread.id) }}" class="btn btn-secondary">编辑帖子</a>{% endif %}
+  <div class="forum-thread-actions">
+    {% if can_manage_thread %}<a href="{{ url_for('forum_edit_thread', thread_id=thread.id) }}" class="btn btn-sm">编辑帖子</a>{% endif %}
     {% if is_forum_admin %}
     <form method="post" action="{{ url_for('forum_manage_thread', thread_id=thread.id) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="action" value="{{ 'unpin' if thread.is_pinned else 'pin' }}">
-      <button type="submit" class="btn btn-secondary">{{ '取消置顶' if thread.is_pinned else '置顶' }}</button>
+      <button type="submit" class="btn btn-sm">{{ '取消置顶' if thread.is_pinned else '置顶' }}</button>
     </form>
     <form method="post" action="{{ url_for('forum_manage_thread', thread_id=thread.id) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="action" value="{{ 'unlock' if thread.is_locked else 'lock' }}">
-      <button type="submit" class="btn btn-secondary">{{ '解锁' if thread.is_locked else '锁定' }}</button>
+      <button type="submit" class="btn btn-sm">{{ '解锁' if thread.is_locked else '锁定' }}</button>
     </form>
     {% endif %}
     {% if is_forum_admin or (current_user_id == thread.user_id and not thread.reply_count) %}
     <form method="post" action="{{ url_for('forum_manage_thread', thread_id=thread.id) }}" onsubmit="return confirm('确定删除这个帖子吗？此操作无法撤销。')">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="action" value="delete">
-      <button type="submit" class="btn btn-secondary danger">删除帖子</button>
+      <button type="submit" class="btn btn-sm btn-danger">删除帖子</button>
     </form>
     {% endif %}
   </div>
   {% endif %}
-</div>
+</section>
 
-<!-- 楼主帖 -->
-<div class="thread-body">
+{#- 楼主帖和回复用同一种楼层：头像、名字、时间、楼号，下面正文和操作 -#}
+<section class="panel forum-posts">
+<article class="forum-post forum-post-op">
   <div class="post-header">
     {% if thread.avatar %}
     <div class="post-avatar"><img loading="lazy" src="{{ avatar_thumbnail_url(thread.avatar) }}" alt=""></div>
@@ -100,22 +66,20 @@
     <span class="post-time">{{ thread.created_at|datetime_display }}</span>
     <span class="post-number">#1</span>
   </div>
-  <div class="post-body content">{{ thread.content }}</div>
+  <div class="post-body" data-i18n-ignore>{{ thread.content }}</div>
   {% if current_user_id and not thread.is_locked %}
   <div class="post-footer">
     <button type="button" class="post-action-btn forum-quote-btn" data-author="{{ thread_display_name }}{% if not thread_private_remark and thread.group_username %} @{{ thread.group_username }}{% endif %}" data-floor="1" data-content="{{ thread.content|e }}">引用</button>
   </div>
   {% endif %}
-</div>
+</article>
 
-<!-- 回复列表 -->
 {% if posts %}
-<div class="post-list">
   {% for post in posts %}
   {% set post_num = (page - 1) * 20 + loop.index + 1 %}
   {% set post_private_remark = private_remark_for_user(post.user_id) %}
   {% set post_display_name = post_private_remark or post.username or post.group_username %}
-  <div class="post-item" id="post-{{ post.id }}">
+  <article class="forum-post" id="post-{{ post.id }}">
     <div class="post-header">
       {% if post.avatar %}
       <div class="post-avatar"><img loading="lazy" src="{{ avatar_thumbnail_url(post.avatar) }}" alt=""></div>
@@ -127,7 +91,7 @@
       <span class="post-time">{{ post.created_at|datetime_display }}</span>
       <span class="post-number">#{{ post_num }}</span>
     </div>
-    <div class="post-body">{{ post.content }}</div>
+    <div class="post-body" data-i18n-ignore>{{ post.content }}</div>
     <div class="post-footer">
       {% if current_user_id %}
       <button class="comment-like-btn{% if post.user_liked %} liked{% endif %}" data-cid="{{ post.id }}" data-liked="{{ 1 if post.user_liked else 0 }}">
@@ -142,47 +106,42 @@
       <button type="button" class="post-action-btn forum-quote-btn" data-author="{{ post_display_name }}{% if not post_private_remark and post.group_username %} @{{ post.group_username }}{% endif %}" data-floor="{{ post_num }}" data-content="{{ post.content|e }}">引用</button>
       {% endif %}
       {% if (current_user_id and current_user_id == post.user_id) or session.admin_id or (session.user_username or '')|lower == 'flamecloud_' %}
-      <form class="comment-delete-form" data-cid="{{ post.id }}" style="display:inline">
+      <form class="comment-delete-form" data-cid="{{ post.id }}">
         <button type="submit" class="comment-delete-btn">删除</button>
       </form>
       {% endif %}
     </div>
-  </div>
+  </article>
   {% endfor %}
-</div>
 {% endif %}
+</section>
 
 {% if total_pages > 1 %}
-<div class="pagination">
+<nav class="pagination" aria-label="翻页">
   {% if page > 1 %}<a href="?page={{ page - 1 }}">上一页</a>{% endif %}
   {% for p in range(1, total_pages + 1) %}
     {% if p == page %}<span class="current">{{ p }}</span>
     {% else %}<a href="?page={{ p }}">{{ p }}</a>{% endif %}
   {% endfor %}
   {% if page < total_pages %}<a href="?page={{ page + 1 }}">下一页</a>{% endif %}
-</div>
+</nav>
 {% endif %}
 
-<!-- 回复表单 -->
 {% if current_user_id %}
 {% if not thread.is_locked %}
-<div class="reply-form-section">
-  <h3>回复帖子</h3>
-  <form method="post" action="{{ url_for('forum_thread_reply', thread_id=thread.id) }}">
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">回复帖子</h2></div>
+  <form class="panel-body form" method="post" action="{{ url_for('forum_thread_reply', thread_id=thread.id) }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <textarea id="forumReplyContent" name="content" rows="4" placeholder="发表你的看法..." required></textarea>
-    <div class="reply-form-footer">
-      <button type="submit" class="btn btn-primary">发表回复</button>
-    </div>
+    <div class="form-actions"><button type="submit" class="btn btn-primary">发表回复</button></div>
   </form>
-</div>
+</section>
 {% else %}
-<div class="reply-form-section" style="text-align:center;color:var(--text-muted)">该帖子已锁定，无法回复</div>
+<div class="panel empty-state">该帖子已锁定，无法回复</div>
 {% endif %}
 {% else %}
-<div class="reply-form-section" style="text-align:center">
-  <a href="{{ url_for('user_login') }}">登录</a> 后即可回复
-</div>
+<div class="panel empty-state"><a href="{{ url_for('user_login') }}">登录</a> 后即可回复</div>
 {% endif %}
 {% endblock %}
 {% block extra_js %}

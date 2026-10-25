@@ -1,35 +1,38 @@
 {% extends "base.html" %}
 {% block title %}编辑帖子 - 论坛{% endblock %}
+{% block layout_class %}no-side-layout narrow-layout{% endblock %}
 {% block main %}
-<div class="form-container">
-  <div class="form-card h-panel">
-    <div class="h-panel-title">编辑帖子</div>
-    <form method="post" class="ui-panel-body">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <div class="form-group">
-        <label>版块</label>
-        {% set selected_category = request.form.get('category_id', thread.category_id if thread else '') %}
-        <select name="category_id" required>
-          {% for category in categories %}
-          <option value="{{ category.id }}"{% if selected_category|string == category.id|string %} selected{% endif %}>{{ category.name }} · {{ category.description }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="form-group">
-        <label>标题</label>
-        <input type="text" name="title" maxlength="120" value="{{ request.form.get('title', thread.title if thread else '') }}" required>
-        <div class="form-hint">最多 120 字</div>
-      </div>
-      <div class="form-group">
-        <label>内容</label>
-        <textarea name="content" required>{{ request.form.get('content', thread.content if thread else '') }}</textarea>
-        <div class="form-hint">最多 10000 字</div>
-      </div>
-      <div class="form-actions">
-        <a href="{{ url_for('forum_thread', thread_id=thread.id) }}" class="ui-btn">取消</a>
-        <button type="submit" class="ui-btn ui-btn--primary">保存修改</button>
-      </div>
-    </form>
-  </div>
-</div>
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>FORUM</span><h1>编辑帖子</h1></div>
+  <a class="page-head-link" href="{{ url_for('forum_thread', thread_id=thread.id) }}">返回帖子</a>
+</header>
+<section class="panel">
+  <form method="post" class="panel-body form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {% set selected_category = request.form.get('category_id', thread.category_id if thread else '') %}
+    <label class="field">
+      <span class="field-label">版块</span>
+      <select name="category_id" required>
+        {% for category in categories %}
+        <option value="{{ category.id }}"{% if selected_category|string == category.id|string %} selected{% endif %}>{{ category.name }} · {{ category.description }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="field">
+      <span class="field-label">标题</span>
+      <input type="text" name="title" maxlength="120" value="{{ request.form.get('title', thread.title if thread else '') }}" required>
+      <span class="field-hint">最多 120 字</span>
+    </label>
+    <label class="field">
+      <span class="field-label">内容</span>
+      <textarea name="content" rows="12" required>{{ request.form.get('content', thread.content if thread else '') }}</textarea>
+      <span class="field-hint">最多 10000 字</span>
+    </label>
+    <div class="form-actions">
+      <a href="{{ url_for('forum_thread', thread_id=thread.id) }}" class="btn">取消</a>
+      <button type="submit" class="btn btn-primary">保存修改</button>
+    </div>
+  </form>
+</section>
 {% endblock %}
+{% block side %}{% endblock %}

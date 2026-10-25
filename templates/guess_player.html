@@ -6,12 +6,12 @@
 {% block layout_class %}no-side-layout guess-player-layout{% endblock %}
 {% block main %}
 <div class="guess-game">
-  <nav class="guess-mode-tabs" aria-label="游戏模式">
+  <nav class="segmented guess-mode-tabs" aria-label="游戏模式">
     <a href="{{ url_for('guess_player_page') }}" class="{{ 'active' if mode == 'daily' else '' }}">每日挑战</a>
     <a href="{{ url_for('guess_player_practice_page') }}" class="{{ 'active' if mode == 'practice' else '' }}">自由游玩</a>
     <a href="{{ url_for('guess_player_multiplayer_page') }}">在线对战</a>
   </nav>
-  <header class="guess-heading h-panel">
+  <header class="guess-heading panel">
     <div>
       <span class="guess-kicker">{{ '无限重玩' if mode == 'practice' else '每日挑战 #' ~ game.challenge_number }}</span>
       <h1>80GO 猜选手</h1>
@@ -35,7 +35,7 @@
   </nav>
   {% endif %}
 
-  <section class="guess-play-panel h-panel">
+  <section class="guess-play-panel panel">
     {% if not game.finished %}
     <form class="guess-search-form" method="post" action="{{ url_for('guess_player_practice_submit') if mode == 'practice' else url_for('guess_player_submit') }}" id="guessPlayerForm">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -51,7 +51,7 @@
           {% endfor %}
         </datalist>
       </div>
-      <button type="submit" class="guess-submit">提交猜测</button>
+      <button type="submit" class="btn btn-primary guess-submit">提交猜测</button>
     </form>
     <p class="guess-form-error" id="guessFormError" role="alert"></p>
     {% endif %}
@@ -113,7 +113,7 @@
   </section>
 
   {% if game.finished and game.answer %}
-  <section class="guess-answer h-panel {{ 'is-win' if game.won else 'is-loss' }}"
+  <section class="guess-answer panel {{ 'is-win' if game.won else 'is-loss' }}"
            id="guessResult" data-challenge="{{ game.challenge_number if mode == 'daily' else '' }}"
            data-attempts="{{ game.results|length }}" data-won="{{ '1' if game.won else '0' }}">
     <div class="guess-result-player">
@@ -125,22 +125,22 @@
     <div class="guess-result-actions">
       <span>下次挑战</span>
       <strong id="guessCountdown">--:--:--</strong>
-      <button type="button" id="guessShareScore">分享结果</button>
+      <button type="button" class="btn btn-sm" id="guessShareScore">分享结果</button>
     </div>
     {% endif %}
     {% if mode == 'practice' %}
     <form method="post" action="{{ url_for('guess_player_practice_new') }}" class="guess-replay-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="pool_mode" value="{{ pool_mode }}">
-      <button type="submit" class="guess-replay">再来一局</button>
+      <button type="submit" class="btn btn-primary guess-replay">再来一局</button>
     </form>
     {% endif %}
   </section>
   {% endif %}
 
   {% if mode == 'daily' %}
-  <section class="guess-stats h-panel">
-    <div class="h-panel-title">我的记录</div>
+  <section class="guess-stats panel">
+    <div class="panel-head"><h2 class="panel-title">我的记录</h2></div>
     <div class="guess-stat-grid">
       <div><strong>{{ statistics.games }}</strong><span>参与天数</span></div>
       <div><strong>{{ statistics.win_rate }}%</strong><span>胜率</span></div>
@@ -152,7 +152,7 @@
   <form method="post" action="{{ url_for('guess_player_practice_new') }}" class="guess-new-round-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <input type="hidden" name="pool_mode" value="{{ pool_mode }}">
-    <button type="submit">换一题</button>
+    <button type="submit" class="btn">换一题</button>
   </form>
   {% endif %}
 </div>

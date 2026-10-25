@@ -152,4 +152,4 @@ class MatchRosterPopupTests(unittest.TestCase):
         response = self.client.get(f"/matches/{self.match_id}")
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
-        self.assertIn("荒漠迷城", html)
+        self.assertIn("Mirage", html)

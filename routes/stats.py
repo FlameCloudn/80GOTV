@@ -1214,7 +1214,7 @@ def _comparison_context(conn, filters):
             ("K/D", "kd", 2, ""),
             ("ADR", "adr", 1, ""),
             ("KAST", "kast", 1, "%"),
-            ("影响力", "impact", 2, ""),
+            ("Impact", "impact", 2, ""),
             ("爆头率", "hs", 1, "%"),
             ("每回合击杀", "kpr", 2, ""),
             ("比赛数", "matches", 0, ""),

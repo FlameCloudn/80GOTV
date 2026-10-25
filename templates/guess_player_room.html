@@ -9,21 +9,21 @@
      data-room-code="{{ room_code }}"
      data-state-url="{{ url_for('guess_player_multiplayer_state', room_code=room_code) }}"
      data-guess-url="{{ url_for('guess_player_multiplayer_guess', room_code=room_code) }}">
-  <nav class="guess-mode-tabs" aria-label="游戏模式">
+  <nav class="segmented guess-mode-tabs" aria-label="游戏模式">
     <a href="{{ url_for('guess_player_page') }}">每日挑战</a>
     <a href="{{ url_for('guess_player_practice_page') }}">自由游玩</a>
     <a href="{{ url_for('guess_player_multiplayer_page') }}" class="active">在线对战</a>
   </nav>
 
-  <header class="guess-room-head h-panel">
+  <header class="guess-room-head panel">
     <div>
       <span class="guess-kicker" data-i18n-ignore>{{ pool_mode|upper }} ROOM</span>
       <h1>房间 {{ room_code }}</h1>
     </div>
-    <button type="button" class="guess-copy-code" id="copyRoomCode" title="复制房间码">复制房间码</button>
+    <button type="button" class="btn btn-sm guess-copy-code" id="copyRoomCode" title="复制房间码">复制房间码</button>
   </header>
 
-  <section class="guess-versus h-panel" aria-label="对战双方">
+  <section class="guess-versus panel" aria-label="对战双方">
     <div class="guess-contender is-me">
       <span data-i18n-ignore>YOU</span>
       <strong id="roomMeName" data-i18n-ignore>{{ state.me.username }}</strong>
@@ -37,13 +37,13 @@
     </div>
   </section>
 
-  <section class="guess-waiting h-panel" id="roomWaiting"{% if state.status != 'waiting' %} hidden{% endif %}>
+  <section class="guess-waiting panel" id="roomWaiting"{% if state.status != 'waiting' %} hidden{% endif %}>
     <span class="guess-waiting-pulse" aria-hidden="true"></span>
     <strong>等待对手加入</strong>
     <p>把房间码 <b>{{ room_code }}</b> 发给对方</p>
   </section>
 
-  <section class="guess-play-panel h-panel" id="roomPlay"{% if state.status == 'waiting' %} hidden{% endif %}>
+  <section class="guess-play-panel panel" id="roomPlay"{% if state.status == 'waiting' %} hidden{% endif %}>
     <div class="guess-live-strip">
       <span id="roomStatusText">{{ '比赛结束' if state.status == 'finished' else '比赛进行中' }}</span>
       <strong id="roomRemaining">{{ state.remaining }} 次机会</strong>
@@ -60,7 +60,7 @@
           {% endfor %}
         </datalist>
       </div>
-      <button type="submit" class="guess-submit">提交猜测</button>
+      <button type="submit" class="btn btn-primary guess-submit">提交猜测</button>
     </form>
     <p class="guess-form-error" id="guessFormError" role="alert"></p>
 
@@ -80,11 +80,11 @@
     </div>
   </section>
 
-  <section class="guess-answer h-panel" id="roomOutcome" hidden>
+  <section class="guess-answer panel" id="roomOutcome" hidden>
     <span id="roomOutcomeLabel"></span>
     <strong id="roomAnswerName" data-i18n-ignore></strong>
     <small id="roomAnswerDetail" data-i18n-ignore></small>
-    <a href="{{ url_for('guess_player_multiplayer_page') }}" class="guess-replay">返回对战大厅</a>
+    <a href="{{ url_for('guess_player_multiplayer_page') }}" class="btn btn-primary guess-replay">返回对战大厅</a>
   </section>
 </div>
 {% endblock %}

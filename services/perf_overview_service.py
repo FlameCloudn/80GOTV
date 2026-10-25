@@ -23,7 +23,7 @@ PERF_METRICS = (
     ("KPR", "kpr", "kpr", "{:.2f}", True),
     ("DPR", "dpr", "dpr", "{:.2f}", False),
     ("KAST", "kast", "kast", "{:.1f}%", True),
-    ("影响力", "mk_rating", "impact", "{:.2f}", True),
+    ("Impact", "mk_rating", "impact", "{:.2f}", True),
     ("RWS", "rws", "rws", "{:.2f}", True),
     ("ADR", "adr", "adr", "{:.1f}", True),
     ("Rating", "rating", None, "{:.2f}", True),

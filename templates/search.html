@@ -1,85 +1,86 @@
 {% extends 'base.html' %}
 {% block title %}搜索：{{ query }} - 80GOTV{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ versioned_url('static/css/pages/account.css') }}">{% endblock %}
+{% block layout_class %}no-side-layout narrow-layout{% endblock %}
+
+{#- 一组搜索结果：标题 + 条数，下面一行一个 -#}
+{% macro result_group(title, count) %}
+<section class="panel search-group">
+  <div class="panel-head"><h2 class="panel-title">{{ title }}</h2><span class="panel-count">{{ count }}</span></div>
+  <div class="list">{{ caller() }}</div>
+</section>
+{% endmacro %}
+
 {% block main %}
 <header class="page-head">
   <div><span class="page-head-kicker" data-i18n-ignore>SEARCH</span><h1>{% if query %}搜索“{{ query }}”的结果{% else %}搜索{% endif %}</h1></div>
 </header>
 
 {% if not query %}
-<div class="empty-state">输入关键词搜索全站内容</div>
+<div class="panel empty-state">输入关键词搜索全站内容</div>
 {% elif not results.news and not results.players and not results.teams and not results.events and not results.matches %}
-<div class="empty-state">未找到与“{{ query }}”相关的结果</div>
+<div class="panel empty-state">未找到与“{{ query }}”相关的结果</div>
 {% else %}
 
 {% if results.news %}
-<section class="h-panel">
-  <div class="h-panel-title">新闻</div>
-  <div class="card-list h-compact-list">
-    {% for n in results.news %}
-    <a class="card news-card" href="{{ news_path(n) }}">
-      <div class="news-title">{{ n.title }}</div>
-      {% if n.summary %}<div class="news-summary">{{ n.summary[:120] }}</div>{% endif %}
-      <div class="meta">{{ n.publish_time|datetime_display }}</div>
-    </a>
-    {% endfor %}
-  </div>
-</section>
+{% call result_group('新闻', results.news|length) %}
+  {% for n in results.news %}
+  <a class="list-row search-news" href="{{ news_path(n) }}">
+    <span class="grow">
+      <span class="title">{{ n.title }}</span>
+      {% if n.summary %}<span class="search-summary">{{ n.summary[:120] }}</span>{% endif %}
+    </span>
+    <span class="meta">{{ n.publish_time|datetime_display }}</span>
+  </a>
+  {% endfor %}
+{% endcall %}
 {% endif %}
 
 {% if results.players %}
-<section class="h-panel">
-  <div class="h-panel-title">选手</div>
-  <div class="card-list h-compact-list">
-    {% for p in results.players %}
-    {% set player_private_remark = private_remark_for_player(p.id) %}
-    {% set player_display_name = player_private_remark or p.nickname %}
-    <a class="card result-card" href="/players/{{ p.id }}">
-      <span class="result-name" data-i18n-ignore>{{ player_display_name }}{% if not player_private_remark and p.group_username %} <span class="user-group-handle">@{{ p.group_username }}</span>{% elif not player_private_remark and p.is_bashizhong_student == 0 %} <span class="player-origin-marker" aria-label="外校选手">🌐</span>{% endif %}</span>
-      {% if p.team_name %}<span class="result-sub" data-i18n-ignore>{{ p.team_name }}</span>{% endif %}
-    </a>
-    {% endfor %}
-  </div>
-</section>
+{% call result_group('选手', results.players|length) %}
+  {% for p in results.players %}
+  {% set player_private_remark = private_remark_for_player(p.id) %}
+  {% set player_display_name = player_private_remark or p.nickname %}
+  <a class="list-row" href="/players/{{ p.id }}">
+    <span class="grow title" data-i18n-ignore>{{ player_display_name }}{% if not player_private_remark and p.group_username %} <span class="user-group-handle">@{{ p.group_username }}</span>{% elif not player_private_remark and p.is_bashizhong_student == 0 %} <span class="player-origin-marker" aria-label="外校选手">🌐</span>{% endif %}</span>
+    {% if p.team_name %}<span class="meta" data-i18n-ignore>{{ p.team_name }}</span>{% endif %}
+  </a>
+  {% endfor %}
+{% endcall %}
 {% endif %}
 
 {% if results.teams %}
-<section class="h-panel">
-  <div class="h-panel-title">队伍</div>
-  <div class="card-list h-compact-list">
-    {% for t in results.teams %}
-    <a class="card result-card" href="{{ url_for('team_detail', team_id=t.id) }}">
-      <span class="result-name" data-i18n-ignore>{{ t.name }}</span>
-      {% if t.short_name %}<span class="result-sub" data-i18n-ignore>{{ t.short_name }}</span>{% endif %}
-    </a>
-    {% endfor %}
-  </div>
-</section>
+{% call result_group('队伍', results.teams|length) %}
+  {% for t in results.teams %}
+  <a class="list-row" href="{{ url_for('team_detail', team_id=t.id) }}">
+    <span class="grow title" data-i18n-ignore>{{ t.name }}</span>
+    {% if t.short_name %}<span class="meta" data-i18n-ignore>{{ t.short_name }}</span>{% endif %}
+  </a>
+  {% endfor %}
+{% endcall %}
 {% endif %}
 
 {% if results.events %}
-<section class="h-panel">
-  <div class="h-panel-title">赛事</div>
-  <div class="card-list h-compact-list">
-    {% for e in results.events %}
-    <a class="card result-card" href="{{ event_path(e) }}">
-      <span class="result-name" data-i18n-ignore>{{ e.name }}</span>
-      {% if e.start_date %}<span class="result-sub">{{ e.start_date|date_display }}</span>{% endif %}
-    </a>
-    {% endfor %}
-  </div>
-</section>
+{% call result_group('赛事', results.events|length) %}
+  {% for e in results.events %}
+  <a class="list-row" href="{{ event_path(e) }}">
+    <span class="grow title" data-i18n-ignore>{{ e.name }}</span>
+    {% if e.start_date %}<span class="meta">{{ e.start_date|date_display }}</span>{% endif %}
+  </a>
+  {% endfor %}
+{% endcall %}
 {% endif %}
 
 {% if results.matches %}
-<section class="h-panel">
-  <div class="h-panel-title">比赛</div>
-  <div class="card-list h-compact-list">
+<section class="panel search-group">
+  <div class="panel-head"><h2 class="panel-title">比赛</h2><span class="panel-count">{{ results.matches|length }}</span></div>
+  <div class="card-list">
     {% for m in results.matches %}
-    <a class="card match-card" href="/matches/{{ m.slug or m.id }}">
-      <span class="team">{{ m.team1_name or 'team_GO' }}</span>
+    <a class="match-card" href="/matches/{{ m.slug or m.id }}">
+      <span class="team" data-i18n-ignore>{{ m.team1_name or 'team_GO' }}</span>
       <span class="vs">{% if m.effective_status in ['completed', 'live'] %}<b>{{ m.team1_score or 0 }} : {{ m.team2_score or 0 }}</b>{% else %}VS{% endif %}</span>
-      <span class="team right">{{ m.team2_name or 'team_CS' }}</span>
-      <div class="meta"><span data-i18n-ignore>{{ m.event_name or '' }}</span> · {{ m.bo_format or '' }} · {{ m.match_time|date_display if m.match_time else '' }}</div>
+      <span class="team right" data-i18n-ignore>{{ m.team2_name or 'team_CS' }}</span>
+      <span class="meta"><span data-i18n-ignore>{{ m.event_name or '' }}</span> · {{ m.bo_format or '' }} · {{ m.match_time|date_display if m.match_time else '' }}</span>
     </a>
     {% endfor %}
   </div>
@@ -88,6 +89,4 @@
 
 {% endif %}
 {% endblock %}
-
-{% block layout_class %}no-side-layout{% endblock %}
 {% block side %}{% endblock %}

@@ -1374,7 +1374,14 @@
     '即将进行': 'Upcoming matches',
     '阵容人数': 'Players',
     '胜 / 平 / 负': 'Wins / draws / losses',
-    '数据直播': 'Scorebot'
+    '数据直播': 'Scorebot',
+    '帖子': 'Thread',
+    '最后回复': 'Last post',
+    '搜索标题和内容': 'Search titles and posts',
+    '返回论坛': 'Back to forum',
+    '返回帖子': 'Back to thread',
+    '注册时间': 'Joined',
+    '身份': 'Role'
   };
   var partialTranslations = [
     // 对阵图保存失败的原因（前面会带“保存失败：”）
@@ -1481,6 +1488,13 @@
   Object.keys(extraEnglishToChinese).forEach(function (key) {
     englishToChinese[key] = extraEnglishToChinese[key];
   });
+  // 术语（Rating、Impact、阵营、地图名、数据缩写）中文界面也保持英文，不反向翻成中文
+  var KEEP_ENGLISH_TERMS = [
+    'Rating', 'RATING', 'Rating 2.0', 'RATING 2.0', 'Impact', 'IMPACT', 'T', 'CT', 'T side', 'CT side',
+    'KAST', 'KAST%', 'ADR', 'KPR', 'DPR', 'RWS', 'HS%', 'K/D', 'K-D', 'MVP', 'EVP', 'BO1', 'BO3', 'BO5',
+    'Mirage', 'Inferno', 'Nuke', 'Dust2', 'Dust II', 'Ancient', 'Anubis', 'Overpass', 'Vertigo', 'Train', 'Cache'
+  ];
+  KEEP_ENGLISH_TERMS.forEach(function (term) { delete englishToChinese[term]; });
   var reversePartialTranslations = partialTranslations.concat(extraPartialTranslations).map(function (pair) {
     return [pair[1], pair[0]];
   }).concat([

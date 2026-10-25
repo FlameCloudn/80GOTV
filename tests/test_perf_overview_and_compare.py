@@ -53,7 +53,7 @@ class PerfOverviewTests(unittest.TestCase):
         self.assertEqual(bars["KPR"]["tier"], "perf-avg")
         self.assertEqual(bars["KAST"]["text"], "70.0%")
         self.assertTrue(bars["Rating"]["fixed"])
-        self.assertFalse(bars["影响力"]["fixed"])
+        self.assertTrue(bars["Impact"]["fixed"])
 
     def test_scale_keeps_room_on_the_right_of_the_average_line(self):
         rows = [_player_row(), _player_row(kpr=0.35)]

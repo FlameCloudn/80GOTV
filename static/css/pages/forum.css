@@ -1,0 +1,88 @@
+/* ==========================================================================
+   论坛（/forum、帖子页；发帖 / 编辑帖子只用共用的表单组件）
+   ========================================================================== */
+
+/* ---------- 1. 论坛首页：版块标签 → 搜索和排序 → 帖子列表 ---------- */
+.page-actions .btn.active { color: var(--accent); border-color: var(--accent); }
+.forum-panel { overflow: hidden; }
+.forum-tabs { border-bottom: 1px solid var(--border-color); }
+.forum-tab-count { margin-left: 5px; color: var(--text-muted); font-size: var(--font-xs); font-weight: 400; }
+.forum-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-md); padding: var(--space-md) var(--space-lg); border-bottom: 1px solid var(--border-color); }
+.forum-search { display: flex; align-items: center; gap: var(--space-sm); min-width: 0; }
+.forum-search input[type='search'] { width: 240px; }
+
+/* 列表表头和每一行共用三列：帖子 | 回复 | 最后回复 */
+.forum-list-head,
+.forum-thread { display: grid; grid-template-columns: minmax(0, 1fr) 72px 160px; align-items: center; gap: var(--space-lg); padding: 0 var(--space-lg); }
+.forum-list-head { min-height: 32px; color: var(--text-muted); background: var(--surface-soft); border-bottom: 1px solid var(--border-color); font-size: var(--font-xs); }
+.forum-list-head span:nth-child(2) { text-align: center; }
+.forum-list-head span:nth-child(3) { text-align: right; }
+
+/* 一行帖子：整行可点（标题链接盖住整行），版块标签单独可点 */
+.forum-thread { position: relative; min-height: 64px; border-bottom: 1px solid var(--border-color); transition: background var(--transition-fast); }
+.forum-thread:last-child { border-bottom: 0; }
+.forum-thread:hover { background: var(--bg-hover); }
+.forum-thread.pinned { box-shadow: inset 3px 0 0 var(--accent); }
+.forum-thread-main { display: grid; gap: 4px; min-width: 0; padding: var(--space-md) 0; }
+.forum-thread-title { display: flex; align-items: center; gap: var(--space-sm); min-width: 0; }
+.forum-thread-link { min-width: 0; overflow: hidden; color: var(--text-primary); font-size: var(--font-md); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.forum-thread-link::after { content: ""; position: absolute; inset: 0; }
+.forum-thread:hover .forum-thread-link { color: var(--accent); }
+.forum-category { position: relative; z-index: 1; flex: 0 0 auto; color: var(--text-secondary); }
+.forum-category:hover { color: var(--accent); border-color: var(--accent); }
+.forum-pin { flex: 0 0 auto; color: var(--accent); background: var(--accent-soft); border-color: transparent; }
+.forum-locked { flex: 0 0 auto; color: var(--text-muted); font-size: var(--font-xs); }
+.forum-thread-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0 4px; color: var(--text-muted); font-size: var(--font-xs); }
+.forum-handle { color: var(--text-muted); font-size: var(--font-xs); font-weight: 400; }
+.forum-dot { margin: 0 4px; }
+.forum-thread-replies { display: grid; justify-items: center; gap: 1px; }
+.forum-thread-replies b { font-size: var(--font-lg); font-variant-numeric: tabular-nums; }
+.forum-thread-replies span { color: var(--text-muted); font-size: var(--font-xs); }
+.forum-thread-last { display: grid; justify-items: end; gap: 2px; min-width: 0; color: var(--text-secondary); font-size: var(--font-xs); text-align: right; }
+.forum-thread-last > span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.forum-thread-last small { color: var(--text-muted); font-size: var(--font-xs); }
+.forum-none { color: var(--text-muted); }
+
+/* ---------- 2. 帖子页：位置 → 标题区 → 楼层 → 回复框 ---------- */
+.forum-breadcrumb { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--text-muted); font-size: var(--font-sm); }
+.forum-breadcrumb a { flex: 0 0 auto; color: var(--text-link); }
+.forum-breadcrumb-current { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.forum-thread-head { display: grid; gap: var(--space-md); padding: var(--space-lg) var(--space-xl); }
+.forum-thread-head h1 { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); font-size: var(--font-xl); line-height: 1.4; }
+.forum-thread-facts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs) var(--space-lg); color: var(--text-muted); font-size: var(--font-sm); }
+.forum-thread-facts b { color: var(--text-primary); font-weight: 600; }
+.forum-thread-actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); padding-top: var(--space-md); border-top: 1px solid var(--border-color); }
+.forum-thread-actions form { display: inline-flex; margin: 0; }
+
+/* 楼层：楼主那一层底色稍深一点，其余用分隔线隔开 */
+.forum-posts { overflow: hidden; }
+.forum-post { padding: var(--space-lg) var(--space-xl); border-bottom: 1px solid var(--border-color); }
+.forum-post:last-child { border-bottom: 0; }
+.forum-post-op { background: var(--surface-soft); }
+.post-header { display: flex; align-items: center; gap: var(--space-md); min-width: 0; margin-bottom: var(--space-md); }
+.post-avatar { display: grid; place-items: center; flex: 0 0 36px; width: 36px; height: 36px; overflow: hidden; color: var(--accent-contrast); background: var(--accent); border-radius: 50%; font-size: var(--font-md); font-weight: 700; }
+.post-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.post-user { min-width: 0; overflow: hidden; font-size: var(--font-md); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.post-handle { color: var(--text-muted); font-size: var(--font-xs); font-weight: 400; }
+.post-time { margin-left: auto; color: var(--text-muted); font-size: var(--font-xs); white-space: nowrap; }
+.post-number { padding: 1px 8px; color: var(--text-muted); background: var(--bg-hover); border-radius: var(--radius-pill); font-size: var(--font-xs); font-variant-numeric: tabular-nums; }
+.post-body { font-size: var(--font-md); line-height: 1.8; white-space: pre-wrap; word-break: break-word; }
+.post-footer { display: flex; align-items: center; gap: var(--space-md); margin-top: var(--space-md); font-size: var(--font-xs); }
+.post-footer .comment-delete-form { display: inline-flex; margin: 0; }
+.post-action-btn { padding: 0; color: var(--text-link); background: none; border: 0; font: inherit; }
+.post-action-btn:hover { color: var(--text-link-hover); text-decoration: underline; }
+
+@media (max-width: 760px) {
+  .forum-toolbar { padding: var(--space-md); }
+  .forum-search { width: 100%; }
+  .forum-search input[type='search'] { flex: 1 1 auto; width: auto; min-width: 0; }
+  .forum-sort { width: 100%; }
+  .forum-sort > a { flex: 1 1 0; text-align: center; }
+  .forum-list-head { display: none; }
+  .forum-thread { grid-template-columns: minmax(0, 1fr) 48px; gap: var(--space-md); padding: 0 var(--space-md); }
+  .forum-thread-last { display: none; }
+  .forum-thread-head { padding: var(--space-lg); }
+  .forum-thread-head h1 { font-size: var(--font-lg); }
+  .forum-post { padding: var(--space-md) var(--space-lg); }
+  .post-header { flex-wrap: wrap; row-gap: 4px; }
+}

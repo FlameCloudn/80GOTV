@@ -4,13 +4,13 @@
 {% block layout_class %}match-detail-layout{% endblock %}
 
 {#- 一支队伍的选手数据表（全部地图 / 单张地图、两种页面共用）。
-    rating_label：比赛页写“评分”，数据页写“RATING”。 -#}
+    rating_label：比赛页写“Rating”，数据页写“RATING”（术语不翻译）。 -#}
 {% macro team_stats_table(rows, logo, short_name, team_name, rating_label) %}
 <div class="stats-table">
   <table class="table">
     <thead>
       <tr>
-        <th class="stats-team-head">{% if logo %}<img class="team-logo sm" loading="lazy" src="{{ logo|team_logo_url }}" alt="">{% else %}<span class="logo-fallback sm" data-i18n-ignore>{{ short_name[:2] }}</span>{% endif %}<span data-i18n-ignore>{{ team_name }}</span></th>
+        <th class="stats-team-head"><span class="stats-team-label">{% if logo %}<img class="team-logo sm" loading="lazy" src="{{ logo|team_logo_url }}" alt="">{% else %}<span class="logo-fallback sm" data-i18n-ignore>{{ short_name[:2] }}</span>{% endif %}<span data-i18n-ignore>{{ team_name }}</span></span></th>
         <th class="col-overall">K-D</th><th class="col-t">T K-D</th><th class="col-ct">CT K-D</th>
         <th class="col-overall sortable" data-sort="kd">K/D</th><th class="col-t">T K/D</th><th class="col-ct">CT K/D</th>
         <th class="col-overall sortable" data-sort="adr">ADR</th><th class="col-t">T ADR</th><th class="col-ct">CT ADR</th>
@@ -61,7 +61,7 @@
   <div class="tabs detail-tabs" role="tablist" aria-label="地图数据切换">
     <button class="tab detail-tab active" type="button" role="tab" aria-selected="true" id="tab-0" aria-controls="panel-0" onclick="switchDetailTab(0)">全部地图</button>
     {% for ms in map_list %}
-    <button class="tab detail-tab" type="button" role="tab" aria-selected="false" id="tab-{{ loop.index }}" aria-controls="panel-{{ loop.index }}" onclick="switchDetailTab({{ loop.index }})">{{ ms.name|map_display_cn }}</button>
+    <button class="tab detail-tab" type="button" role="tab" aria-selected="false" id="tab-{{ loop.index }}" aria-controls="panel-{{ loop.index }}" onclick="switchDetailTab({{ loop.index }})">{{ ms.name|map_display }}</button>
     {% endfor %}
     <a href="/matches/{{ match.slug or match.id }}/detailed?map=all" class="tab detail-tab detail-tab-link">详细数据 →</a>
   </div>
@@ -148,7 +148,7 @@
       <button id="map-{{ ms.index }}" class="match-stat-map-card{% if loop.first %} active{% endif %}" type="button" style="--map-bg: url('{{ ms.name|map_background }}')" onclick="switchDetailTab({{ loop.index }})">
         <span class="match-stat-map-meta">
           <b>{{ ms.t1 }} - {{ ms.t2 }}</b>
-          <small>{{ ms.name|map_display_cn }}</small>
+          <small>{{ ms.name|map_display }}</small>
         </span>
       </button>
       {% endfor %}
@@ -164,7 +164,7 @@
             <b data-i18n-ignore>{{ match.t1s }}</b>
             <strong class="{% if shown_map_scores[0].t1 > shown_map_scores[0].t2 %}score-win{% elif shown_map_scores[0].t1 < shown_map_scores[0].t2 %}score-lose{% endif %}">{{ shown_map_scores[0].t1 }}</strong>
           </div>
-          <span>{{ shown_map_scores[0].name|map_display_cn }}</span>
+          <span>{{ shown_map_scores[0].name|map_display }}</span>
           <div>
             <b data-i18n-ignore>{{ match.t2s }}</b>
             <strong class="{% if shown_map_scores[0].t2 > shown_map_scores[0].t1 %}score-win{% elif shown_map_scores[0].t2 < shown_map_scores[0].t1 %}score-lose{% endif %}">{{ shown_map_scores[0].t2 }}</strong>
@@ -200,7 +200,7 @@
       </div>
       <div class="match-stat-roundline">
         {% for ms in shown_map_scores %}
-        <span class="{% if ms.t1 > ms.t2 %}t1-win{% elif ms.t2 > ms.t1 %}t2-win{% endif %}" title="{{ ms.name|map_display_cn }} {{ ms.t1 }}:{{ ms.t2 }}">{{ ms.index }}</span>
+        <span class="{% if ms.t1 > ms.t2 %}t1-win{% elif ms.t2 > ms.t1 %}t2-win{% endif %}" title="{{ ms.name|map_display }} {{ ms.t1 }}:{{ ms.t2 }}">{{ ms.index }}</span>
         {% endfor %}
       </div>
     </div>
@@ -368,7 +368,7 @@
       {% set t2_won_map = ms.played and ms.t2 > ms.t1 %}
       <div class="map-strip{% if not ms.played %} is-pending{% endif %}">
         <div class="ms-top" style="background-image:url('{{ ms.name|map_image }}')">
-          <span class="ms-map-name">{{ ms.name|map_display_cn }}</span>
+          <span class="ms-map-name">{{ ms.name|map_display }}</span>
         </div>
         {# 和 HLTV 一样分两行对齐：队标 · 队名 · 数据 · 队名 · 队标 / 选图 · 比分 · 半场比分 · 比分 · 选图 #}
         <div class="ms-bottom">
@@ -420,7 +420,7 @@
       {% for df in demo_list %}
       {% if df %}
       {% set demo_map = map_scores[loop.index0] if loop.index0 < map_scores|length else None %}
-      <a class="list-row mh-watch-row is-demo" href="{{ url_for('download_demo', slug=match.slug or match.id) }}?slot={{ loop.index0 }}"><span class="grow">Demo 下载（地图 {{ loop.index }}）</span>{% if demo_map and demo_map.name %}<span class="meta">{{ demo_map.name|map_display_cn }}</span>{% endif %}</a>
+      <a class="list-row mh-watch-row is-demo" href="{{ url_for('download_demo', slug=match.slug or match.id) }}?slot={{ loop.index0 }}"><span class="grow">Demo 下载（地图 {{ loop.index }}）</span>{% if demo_map and demo_map.name %}<span class="meta">{{ demo_map.name|map_display }}</span>{% endif %}</a>
       {% endif %}
       {% endfor %}
       {% endif %}
@@ -459,7 +459,7 @@
         <li class="bp-step is-{{ st.action }}">
           <span class="bp-num">{{ st.num }}</span>
           <span class="bp-act">{% if st.action == 'ban' %}禁图{% elif st.action == 'pick' %}选图{% else %}决胜图{% endif %}</span>
-          <span class="bp-map">{{ st.map|map_display_cn }}</span>
+          <span class="bp-map">{{ st.map|map_display }}</span>
           <span class="bp-team" data-i18n-ignore>{{ bp_names.get(st.team) or st.label }}</span>
         </li>
         {% endfor %}
@@ -469,7 +469,7 @@
         <span class="bp-sides-title">选边</span>
         {% for sd in bp_view.sides %}
         <div class="bp-side-row">
-          <span class="bp-map">{{ sd.map|map_display_cn }}</span>
+          <span class="bp-map">{{ sd.map|map_display }}</span>
           <span class="bp-team" data-i18n-ignore>{{ bp_names.get(sd.team) or sd.label }}</span>
           <span class="badge {{ 'badge-ct' if sd.side == 'CT' else 'badge-t' }}">{{ sd.side }}</span>
         </div>
@@ -526,7 +526,7 @@ function loadStream() {
 
 {% set any_played = map_scores|selectattr('played')|list|length > 0 %}
 {% if any_played %}
-{{ match_stats_block(shown_map_scores, overall_teams, ['双方', '恐怖分子', '反恐精英'], '评分') }}
+{{ match_stats_block(shown_map_scores, overall_teams, ['双方', 'T', 'CT'], 'Rating') }}
 {% endif %}
 
 {# -- 赛前预测 -- #}

@@ -1419,6 +1419,14 @@ a.team-chip:hover { color: var(--accent); }
 .meter { height: 6px; overflow: hidden; background: var(--surface-soft); border-radius: var(--radius-pill); }
 .meter > span { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
 
+/* 错误页（404 / 500）：居中一块，大号错误码 + 说明 + 回首页 */
+.error-page { display: grid; justify-items: center; gap: var(--space-md); padding: var(--space-3xl) var(--space-xl); text-align: center; }
+.error-code { color: var(--accent); font-size: calc(var(--font-3xl) * 2); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.error-title { font-size: var(--font-xl); }
+.error-text { max-width: 460px; color: var(--text-secondary); font-size: var(--font-md); line-height: 1.7; }
+.error-debug { width: 100%; margin-top: var(--space-md); text-align: left; }
+.error-debug pre { max-height: 320px; margin-top: var(--space-sm); padding: var(--space-md); overflow: auto; background: var(--surface-soft); border-radius: var(--radius-md); font-size: var(--font-xs); }
+
 /* ---------- 13. 评论 ---------- */
 .comment-section { padding: var(--space-lg) var(--space-xl); }
 .comment-section > h3, .comment-section-title, .comments-title { margin-bottom: var(--space-md); font-size: var(--font-md); }

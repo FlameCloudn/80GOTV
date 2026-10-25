@@ -487,8 +487,10 @@
 .stats-table .table tbody tr:hover td:first-child { background: var(--bg-hover); }
 
 .stats-team-head { color: var(--text-primary); font-size: var(--font-sm); }
-.stats-team-head .team-logo,
-.stats-team-head .logo-fallback { margin-right: 6px; vertical-align: -4px; }
+/* 队标和队名放进一个横排小盒子里，上下居中对齐（不再靠 vertical-align 手调） */
+.stats-team-label { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; vertical-align: middle; }
+.stats-team-label > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stats-team-label .logo-fallback { position: relative; top: 1px; }  /* 字母圆牌和大写队名的笔画中心差 1px，往下挪齐 */
 
 /* 双方 / T / CT：默认只显示“双方”的列 */
 .stats-table .col-t, .stats-table .col-ct { display: none; }
