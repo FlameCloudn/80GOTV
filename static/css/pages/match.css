@@ -290,10 +290,12 @@
   grid-template-areas:
     "logo1 name1 stats name2 logo2"
     "pick1 score1 halves score2 pick2";
+  grid-template-rows: 26px 22px;   /* 第一行和队标一样高，第二行和比分一样高 */
   align-items: center;
   column-gap: var(--space-md);
-  row-gap: 0;
-  padding: 6px var(--space-md) var(--space-sm);
+  /* 上下留白按实测调过：地图条下沿→“数据”按钮→半场比分→卡片下沿，三段间距一样（约 8.5px） */
+  row-gap: 4px;
+  padding: 5px var(--space-md) 5.5px;
 }
 
 .ms-logo-left { grid-area: logo1; }
@@ -309,12 +311,14 @@
 .ms-logo, .ms-pick-cell { display: flex; justify-content: center; }
 .ms-icon { width: 26px; height: 26px; object-fit: contain; }
 
-.ms-name { min-width: 0; overflow: hidden; color: var(--text-primary); font-size: var(--font-md); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+/* 队名：往下挪 1px，和“数据”按钮的中线对齐（实测） */
+.ms-name { position: relative; top: 1px; min-width: 0; overflow: hidden; color: var(--text-primary); font-size: var(--font-md); font-weight: 600; line-height: 20px; text-overflow: ellipsis; white-space: nowrap; }
 .ms-name.won { font-weight: 700; }
 .ms-name.lost { color: var(--text-secondary); font-weight: 500; }
 .ms-short { display: none; }
 
-.ms-score { font-size: var(--font-lg); font-weight: 800; line-height: 1.2; font-variant-numeric: tabular-nums; }
+/* 比分：队名的 1.3 倍大，和半场比分在同一行居中对齐 */
+.ms-score { font-size: calc(var(--font-md) * 1.3); font-weight: 800; line-height: 22px; font-variant-numeric: tabular-nums; }
 .ms-score.win { color: var(--color-green); }
 .ms-score.lose { color: var(--color-red); }
 
@@ -351,7 +355,7 @@
 .ms-stats-btn:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
 
 /* 上下半场比分（加时另起一个括号）：数字颜色表示当时在 CT（蓝）还是 T（橙） */
-.ms-half-detail, .ms-ot-detail { color: var(--text-secondary); font-size: var(--font-sm); font-variant-numeric: tabular-nums; }
+.ms-half-detail, .ms-ot-detail { color: var(--text-secondary); font-size: var(--font-sm); line-height: 22px; font-variant-numeric: tabular-nums; }
 .ms-half-detail .ct-side { color: var(--color-ct); }
 .ms-half-detail .t-side { color: var(--color-t); }
 
@@ -758,7 +762,7 @@
   .match-team-pop.right:hover .match-team-players-popup, .match-team-pop.right:focus-within .match-team-players-popup { transform: none; }
 
   .map-strips { padding: var(--space-sm); }
-  .ms-bottom { column-gap: var(--space-sm); padding: 6px var(--space-sm) var(--space-sm); }
+  .ms-bottom { column-gap: var(--space-sm); padding: 5px var(--space-sm) 5.5px; }
   .ms-full { display: none; }
   .ms-short { display: inline; }
 
