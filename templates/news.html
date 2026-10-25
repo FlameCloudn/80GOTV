@@ -11,7 +11,7 @@
 <div class="panel list news-list">
   {% for n in news %}
   <article class="list-row news-card full-click-news-card">
-    <a class="news-card-link" href="{{ news_path(n) }}" aria-label="{{ n.title }}"></a>
+    <a class="news-card-link" href="{{ news_path(n) }}" aria-label="{{ n.title }}" data-i18n-ignore></a>
     <div class="grow">
       <h2 class="news-title" data-i18n-ignore>{{ n.title }}</h2>
       {% if n.summary %}<p class="news-summary" data-i18n-ignore>{{ n.summary }}</p>{% endif %}

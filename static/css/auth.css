@@ -57,6 +57,7 @@ a {
   border: 1px solid var(--border-color);
   cursor: pointer;
   transition: border-color var(--transition-fast), color var(--transition-fast);
+  border-radius: var(--radius-md);
 }
 
 .theme-button {
@@ -103,6 +104,7 @@ a {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   box-shadow: var(--shadow-raised);
+  border-radius: var(--radius-lg);
 }
 
 .auth-shell--single {
@@ -118,7 +120,7 @@ a {
   flex-direction: column;
   justify-content: space-between;
   overflow: hidden;
-  color: #fff;
+  color: var(--color-white);
   background: linear-gradient(150deg, #16293a 0%, #24506f 58%, #337cac 100%);
 }
 
@@ -226,9 +228,12 @@ a {
 .tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
+  gap: 3px;
   margin-bottom: 18px;
-  background: var(--h-panel-head);
+  padding: 3px;
+  background: var(--surface-soft);
   border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
 }
 
 .tab {
@@ -239,10 +244,7 @@ a {
   text-align: center;
   text-decoration: none;
   transition: color var(--transition-fast), background-color var(--transition-fast);
-}
-
-.tab + .tab {
-  border-left: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
 }
 
 .tab:hover {
@@ -250,7 +252,7 @@ a {
 }
 
 .tab.active {
-  color: #fff;
+  color: var(--accent-contrast);
   background: var(--accent);
 }
 
@@ -268,6 +270,7 @@ a {
   padding: 9px 11px;
   border: 1px solid;
   font-size: var(--font-sm);
+  border-radius: var(--radius-md);
 }
 
 .alert-success {
@@ -297,6 +300,7 @@ a {
   border: 1px solid var(--border-color);
   font-size: var(--font-sm);
   line-height: 1.6;
+  border-radius: var(--radius-md);
 }
 
 /* ---------- 表单 ---------- */
@@ -328,7 +332,7 @@ a {
   color: var(--text-primary);
   background: var(--bg-input);
   border: 1px solid var(--border-color);
-  border-radius: 0;
+  border-radius: var(--radius-md);
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
@@ -367,6 +371,7 @@ a {
   background: var(--surface-soft);
   border: 1px solid var(--border-color);
   cursor: pointer;
+  border-radius: var(--radius-sm);
 }
 
 .field-note,
@@ -412,6 +417,7 @@ a {
   border: 1px solid var(--border-color);
   cursor: pointer;
   transition: border-color var(--transition-fast), background-color var(--transition-fast);
+  border-radius: var(--radius-md);
 }
 
 .email-action-button {
@@ -479,6 +485,7 @@ a {
   background: var(--surface-soft);
   border: 1px solid var(--border-color);
   transition: border-color var(--transition-fast), background-color var(--transition-fast);
+  border-radius: var(--radius-md);
 }
 
 .school-status-option:hover span {
@@ -528,6 +535,7 @@ a {
   background: var(--bg-input);
   border: 1px solid var(--border-color);
   user-select: none;
+  border-radius: var(--radius-md);
 }
 
 .captcha-refresh {
@@ -560,12 +568,13 @@ a {
 .primary-button {
   width: 100%;
   height: 40px;
-  color: #fff;
+  color: var(--accent-contrast);
   background: var(--accent);
   border: 1px solid var(--accent);
   font-weight: 700;
   cursor: pointer;
   transition: background-color var(--transition-fast), border-color var(--transition-fast);
+  border-radius: var(--radius-md);
 }
 
 .primary-button:hover {
@@ -595,6 +604,7 @@ a {
   font-weight: 700;
   text-decoration: none;
   transition: background-color var(--transition-fast);
+  border-radius: var(--radius-md);
 }
 
 .steam-verify-btn:hover {
@@ -633,7 +643,7 @@ a.back-link:hover {
 .auth-single-head {
   padding: 20px 24px 16px;
   border-bottom: 1px solid var(--border-color);
-  background: var(--h-panel-head);
+  background: var(--surface-soft);
 }
 
 .auth-single-head .brand-top {

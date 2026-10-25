@@ -59,7 +59,7 @@
     {% set featured = news[0] if news else None %}
     {% if featured %}
     <article class="panel home-feature">
-      <a href="{{ news_path(featured) }}" class="home-feature-link" aria-label="{{ featured.title }}"></a>
+      <a href="{{ news_path(featured) }}" class="home-feature-link" aria-label="{{ featured.title }}" data-i18n-ignore></a>
       <span class="badge badge-accent home-feature-tag">焦点新闻</span>
       <h1 data-i18n-ignore>{{ featured.title }}</h1>
       {% if featured.summary %}<p data-i18n-ignore>{{ featured.summary }}</p>{% endif %}

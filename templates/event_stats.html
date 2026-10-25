@@ -1,130 +1,138 @@
 {% extends 'base.html' %}
 {% block title %}{{ event.name }} 赛事数据 - 80GOTV{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ versioned_url('static/css/pages/event.css') }}">
+<link rel="stylesheet" href="{{ versioned_url('static/css/pages/stats.css') }}">
+{% endblock %}
+{% block layout_class %}event-detail-layout no-side-layout{% endblock %}
 {% block main %}
-<div class="event-header">
-  <h1>{{ event.name }}</h1>
-  <div class="event-meta">
-    <span>{{ event.start_date|date_display }} ~ {{ event.end_date|date_display }}</span>
-    <span>{{ event.format }}</span>
-  </div>
-</div>
+<a href="{{ event_path(event) }}" class="back-link btn-back">← 返回赛事</a>
 
-<nav class="tab-nav ui-tabs" aria-label="赛事页面导航">
-  <a href="{{ event_path(event) }}" class="tab-btn">对阵图</a>
-  <a href="{{ event_path(event) }}/stats" class="tab-btn active" aria-current="page">赛事数据</a>
-</nav>
+{#- 赛事头部（和赛事页同一种）：日期、赛制、名称；右边赛制和队伍数 -#}
+<section class="panel event-header">
+  <div class="event-header-main">
+    <div class="event-meta">
+      <span>{{ event.start_date|date_display }} ~ {{ event.end_date|date_display }}</span>
+      <span>{{ event.format }}</span>
+    </div>
+    <h1 data-i18n-ignore>{{ event.name }}</h1>
+    <div class="event-header-actions"><a href="{{ event_path(event) }}" class="btn">对阵图 →</a></div>
+  </div>
+  <dl class="event-facts" aria-label="赛事信息">
+    <div><dt>赛制：</dt><dd>{{ event.format }}</dd></div>
+    <div><dt>队伍数：</dt><dd>{{ team_count or '-' }}</dd></div>
+  </dl>
+  <span class="event-header-mark" aria-hidden="true"></span>
+</section>
 
 {% if rankings %}
-<h3 class="section-title">选手排行榜</h3>
-<div class="stats-table h-table-panel">
-  <table>
-    <thead>
-      <tr>
-        <th>#</th><th>选手</th><th>队伍</th><th>比赛数</th><th>地图数</th>
-        <th class="sortable sort-desc" data-sort="rating" aria-sort="descending">RATING</th>
-        <th class="sortable" data-sort="kd" aria-sort="none">K/D</th>
-        <th class="sortable" data-sort="adr" aria-sort="none">ADR</th>
-        <th class="sortable" data-sort="kast" aria-sort="none">KAST</th>
-        <th class="sortable" data-sort="impact" aria-sort="none">IMP</th>
-        <th class="sortable" data-sort="hs" aria-sort="none">HS%</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for r in rankings %}
-      <tr>
-        <td class="rank-cell">{{ loop.index }}</td>
-        <td><a href="/players/{{ r.id }}" data-i18n-ignore>{{ private_name_for_player(r.id, r.nickname) }}</a></td>
-        <td data-i18n-ignore>{{ r.team or '-' }}</td>
-        <td>{{ r.matches }}</td>
-        <td>{{ r.maps }}</td>
-        <td class="rt-cell" data-val="{{ r.rating }}"><b>{{ "%.2f"|format(r.rating) }}</b></td>
-        <td data-val="{{ r.kd }}">{{ "%.2f"|format(r.kd) if r.kd else '-' }}</td>
-        <td data-val="{{ r.adr }}">{{ "%.1f"|format(r.adr) }}</td>
-        <td data-val="{{ r.kast }}">{{ "%.1f"|format(r.kast) }}%</td>
-        <td data-val="{{ r.impact }}">{{ "%.1f"|format(r.impact) }}</td>
-        <td data-val="{{ r.hs }}">{{ "%.1f"|format(r.hs) }}%</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">选手排行榜</h2><span class="panel-count">点表头可排序</span></div>
+  <div class="table-wrap">
+    <table class="table stats-rank-table">
+      <thead>
+        <tr>
+          <th class="center">#</th><th>选手</th><th>队伍</th><th>比赛数</th><th>地图数</th>
+          <th class="sortable sort-desc" data-sort="rating" aria-sort="descending">Rating</th>
+          <th class="sortable" data-sort="kd" aria-sort="none">K/D</th>
+          <th class="sortable" data-sort="adr" aria-sort="none">ADR</th>
+          <th class="sortable" data-sort="kast" aria-sort="none">KAST</th>
+          <th class="sortable" data-sort="impact" aria-sort="none">IMP</th>
+          <th class="sortable" data-sort="hs" aria-sort="none">HS%</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rankings %}
+        <tr>
+          <td class="rank-cell">{{ loop.index }}</td>
+          <td><a href="/players/{{ r.id }}" data-i18n-ignore>{{ private_name_for_player(r.id, r.nickname) }}</a></td>
+          <td class="muted-cell" data-i18n-ignore>{{ r.team or '-' }}</td>
+          <td>{{ r.matches }}</td>
+          <td>{{ r.maps }}</td>
+          <td class="rt-cell" data-val="{{ r.rating }}"><b>{{ "%.2f"|format(r.rating) }}</b></td>
+          <td data-val="{{ r.kd }}">{{ "%.2f"|format(r.kd) if r.kd else '-' }}</td>
+          <td data-val="{{ r.adr }}">{{ "%.1f"|format(r.adr) }}</td>
+          <td data-val="{{ r.kast }}">{{ "%.1f"|format(r.kast) }}%</td>
+          <td data-val="{{ r.impact }}">{{ "%.1f"|format(r.impact) }}</td>
+          <td data-val="{{ r.hs }}">{{ "%.1f"|format(r.hs) }}%</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
 {% endif %}
 
 {% if team_rankings %}
-<h3 class="section-title">队伍排名</h3>
-<div class="stats-table h-table-panel">
-  <table>
-    <thead>
-      <tr>
-        <th>#</th><th>队伍</th>
-        <th class="sortable" data-sort="matches" aria-sort="none">比赛数</th>
-        <th class="sortable sort-desc" data-sort="wins" aria-sort="descending">胜场</th>
-        <th class="sortable" data-sort="win-rate" aria-sort="none">胜率</th>
-        <th class="sortable" data-sort="avg-score" aria-sort="none">场均得分</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for t in team_rankings %}
-      <tr>
-        <td class="rank-cell">{{ loop.index }}</td>
-        <td><b data-i18n-ignore>{{ t.team_short or t.team_name }}</b></td>
-        <td data-val="{{ t.match_count }}">{{ t.match_count }}</td>
-        <td data-val="{{ t.wins }}">{{ t.wins }}</td>
-        <td data-val="{{ (t.wins / t.match_count * 100) if t.match_count > 0 else 0 }}">
-          {% if t.match_count > 0 %}
-          {% set wr = (t.wins / t.match_count * 100)|round|int %}
-          <span class="pred-accuracy {% if wr >= 60 %}is-good{% elif wr >= 40 %}is-mid{% else %}is-bad{% endif %}">{{ wr }}%</span>
-          {% else %}-{% endif %}
-        </td>
-        <td data-val="{{ t.avg_score or 0 }}">{{ "%.1f"|format(t.avg_score) if t.avg_score else '-' }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">队伍排名</h2></div>
+  <div class="table-wrap">
+    <table class="table stats-rank-table">
+      <thead>
+        <tr>
+          <th class="center">#</th><th>队伍</th>
+          <th class="sortable" data-sort="matches" aria-sort="none">比赛数</th>
+          <th class="sortable sort-desc" data-sort="wins" aria-sort="descending">胜场</th>
+          <th class="sortable" data-sort="win-rate" aria-sort="none">胜率</th>
+          <th class="sortable" data-sort="avg-score" aria-sort="none">场均得分</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in team_rankings %}
+        <tr>
+          <td class="rank-cell">{{ loop.index }}</td>
+          <td><b data-i18n-ignore>{{ t.team_short or t.team_name }}</b></td>
+          <td data-val="{{ t.match_count }}">{{ t.match_count }}</td>
+          <td data-val="{{ t.wins }}">{{ t.wins }}</td>
+          <td data-val="{{ (t.wins / t.match_count * 100) if t.match_count > 0 else 0 }}">
+            {% if t.match_count > 0 %}
+            {% set wr = (t.wins / t.match_count * 100)|round|int %}
+            <span class="{% if wr >= 60 %}stat-pos{% elif wr >= 40 %}stat-mid{% else %}stat-neg{% endif %}">{{ wr }}%</span>
+            {% else %}-{% endif %}
+          </td>
+          <td data-val="{{ t.avg_score or 0 }}">{{ "%.1f"|format(t.avg_score) if t.avg_score else '-' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
 {% endif %}
 
 {% if map_stats %}
-<h3 class="section-title">地图统计</h3>
-<div class="stats-table h-table-panel">
-  <table>
-    <thead>
-      <tr>
-        <th>地图</th>
-        <th class="sortable sort-desc" data-sort="played" aria-sort="descending">出场次数</th>
-        <th class="sortable" data-sort="rating" aria-sort="none">场均 RATING</th>
-        <th class="sortable" data-sort="kd" aria-sort="none">场均 K/D</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for ms in map_stats %}
-      <tr>
-        <td><b>{{ ms.map_name|map_display }}</b></td>
-        <td data-val="{{ ms.times_played }}">{{ ms.times_played }}</td>
-        <td class="rt-cell {{ ms.avg_rating|rating_class }}" data-val="{{ ms.avg_rating }}"><b>{{ "%.2f"|format(ms.avg_rating) }}</b></td>
-        <td data-val="{{ ms.avg_kd or 0 }}">{{ "%.2f"|format(ms.avg_kd) if ms.avg_kd else '-' }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">地图统计</h2></div>
+  <div class="table-wrap">
+    <table class="table stats-rank-table">
+      <thead>
+        <tr>
+          <th>地图</th>
+          <th class="sortable sort-desc" data-sort="played" aria-sort="descending">出场次数</th>
+          <th class="sortable" data-sort="rating" aria-sort="none">场均 Rating</th>
+          <th class="sortable" data-sort="kd" aria-sort="none">场均 K/D</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for ms in map_stats %}
+        <tr>
+          <td><span class="stats-map-cell"><span class="stats-map-thumb" style="background-image:url('{{ ms.map_name|map_image }}')"></span><b>{{ ms.map_name|map_display }}</b></span></td>
+          <td data-val="{{ ms.times_played }}">{{ ms.times_played }}</td>
+          <td class="rt-cell {{ ms.avg_rating|rating_class }}" data-val="{{ ms.avg_rating }}"><b>{{ "%.2f"|format(ms.avg_rating) }}</b></td>
+          <td data-val="{{ ms.avg_kd or 0 }}">{{ "%.2f"|format(ms.avg_kd) if ms.avg_kd else '-' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
 {% endif %}
 
 {% if not rankings and not team_rankings %}
-<div class="empty-state">该赛事暂无统计数据</div>
+<div class="panel empty-state">该赛事暂无统计数据</div>
 {% endif %}
-
 {% endblock %}
 
-{% block side %}
-<section class="h-panel">
-<div class="h-panel-title">赛事信息</div>
-<div class="card small h-side-card">
-  <div><b>赛制：</b>{{ event.format }}</div>
-  <div><b>队伍数：</b>{{ team_count or '-' }}</div>
-</div>
-</section>
-{% endblock %}
+{% block side %}{% endblock %}
 
 {% block extra_js %}<script>
 function sortStatsTable(th) {

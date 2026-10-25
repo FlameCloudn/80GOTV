@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% from '_stats_shell.html' import stats_tabs, player_cell with context %}
 {% block title %}{{ config.title }} - 80GOTV{% endblock %}
 {% block head %}
 {% set detail_title_en = {
@@ -9,88 +10,67 @@
   'flashes': 'Flashes'
 }.get(section, config.title) %}
 <meta name="i18n-page-title" data-title-zh="{{ config.title }} - 80GOTV" data-title-en="{{ detail_title_en }} - 80GOTV">
-<link rel="stylesheet" href="{{ versioned_url('static/css/stats_hltv.css') }}">
+<link rel="stylesheet" href="{{ versioned_url('static/css/pages/stats.css') }}">
 {% endblock %}
 {% block main %}
 {% set event_value = filters.event if filters.event else '' %}
 {% set qs_base = 'time=' ~ filters.time ~ '&map=' ~ (filters.map|urlencode) ~ '&side=' ~ filters.side ~ '&event=' ~ event_value ~ '&ranking=' ~ filters.ranking %}
-{% set tabs = [
-  ('overview', '总览'),
-  ('players', '选手'),
-  ('matches', '比赛'),
-  ('events', '赛事'),
-  ('maps', '地图'),
-  ('compare', '对比')
-] %}
-<div class="stats-hltv-shell">
-  <aside class="stats-local-rail" aria-label="数据统计导航">
-    <div class="stats-rail-title">
-      <span class="stats-lang-zh" data-i18n-ignore>数据导航</span>
-      <span class="stats-lang-en" data-i18n-ignore>Statistics</span>
-    </div>
-    <nav class="stats-rail-links">
-      {% for tab_id, tab_label in tabs %}
-      <a href="/stats?tab={{ tab_id }}&{{ qs_base }}" class="{% if tab_id == 'overview' %}active{% endif %}">{{ tab_label }}</a>
-      {% endfor %}
-    </nav>
-    <div class="stats-version"><small><span class="stats-lang-zh" data-i18n-ignore>游戏版本</span><span class="stats-lang-en" data-i18n-ignore>Version</span></small><strong>CS2</strong></div>
-  </aside>
 
-  <div class="stats-workspace">
-<a href="/stats?tab=overview&{{ qs_base }}" class="stats-back-link">返回数据概览</a>
-
-<form class="stats-control-bar stats-detail-controls" method="get">
-  <input type="hidden" name="side" value="{{ filters.side }}">
-  <input type="hidden" name="ranking" value="{{ filters.ranking }}">
-  <label>
-    <span>赛事筛选</span>
-    <select name="event" onchange="this.form.submit()">
-      <option value="" {% if not filters.event %}selected{% endif %}>全部赛事</option>
-      {% for event in event_options %}
-      <option value="{{ event.id }}" {% if filters.event == event.id %}selected{% endif %} data-i18n-ignore>{{ event.name }}</option>
-      {% endfor %}
-    </select>
-  </label>
-  <label>
-    <span>时间筛选</span>
-    <select name="time" onchange="this.form.submit()">
-      {% for item in time_options %}
-      <option value="{{ item.value }}" {% if filters.time == item.value %}selected{% endif %}>{{ item.label }}</option>
-      {% endfor %}
-    </select>
-  </label>
-  <label>
-    <span>地图筛选</span>
-    <select name="map" onchange="this.form.submit()">
-      <option value="all" {% if filters.map == 'all' %}selected{% endif %}>全部</option>
-      {% for map in map_options %}
-      <option value="{{ map.value }}" {% if filters.map == map.value %}selected{% endif %}>{{ map.value|map_display }}</option>
-      {% endfor %}
-    </select>
-  </label>
-  <div class="stats-version-control" aria-label="游戏版本"><span><span class="stats-lang-zh" data-i18n-ignore>版本</span><span class="stats-lang-en" data-i18n-ignore>Version</span></span><b>CS2</b></div>
-</form>
-
-<header class="stats-detail-heading">
-  <h1>{{ config.title }}</h1>
-  <p>
-    {% if filters.time == 'all' %}<span class="stats-lang-zh" data-i18n-ignore>全部</span><span class="stats-lang-en" data-i18n-ignore>All</span>{% else %}{{ time_options|selectattr('value', 'equalto', filters.time)|map(attribute='label')|first }}{% endif %}
-    ·
-    {% if filters.map == 'all' %}<span class="stats-lang-zh" data-i18n-ignore>全部地图</span><span class="stats-lang-en" data-i18n-ignore>All maps</span>{% else %}{{ filters.map|map_display }}{% endif %}
-  </p>
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>STATS</span><h1>{{ config.title }}</h1></div>
+  <p class="page-head-meta"><span>版本</span> <b data-i18n-ignore>CS2</b> · <a href="/stats?tab=overview&{{ qs_base }}">返回数据概览</a></p>
 </header>
 
-{% if config.kind in ('players', 'flashes', 'pistol') %}
-<nav class="stats-side-tabs">
-  {% for side in side_options %}
-  <a href="?time={{ filters.time }}&map={{ filters.map|urlencode }}&event={{ event_value }}&ranking={{ filters.ranking }}&side={{ side.value }}" class="{% if filters.side == side.value %}active{% endif %}">{{ side.label }}</a>
-  {% endfor %}
-</nav>
-{% endif %}
+{#- 标签导航 + 筛选条（和数据统计首页同一套） -#}
+<section class="panel stats-toolbar">
+  {{ stats_tabs('overview', qs_base) }}
+  <form class="stats-filters" method="get">
+    <input type="hidden" name="side" value="{{ filters.side }}">
+    <input type="hidden" name="ranking" value="{{ filters.ranking }}">
+    <label class="stats-filter">
+      <span>赛事</span>
+      <select name="event" onchange="this.form.submit()">
+        <option value="" {% if not filters.event %}selected{% endif %}>全部赛事</option>
+        {% for event in event_options %}
+        <option value="{{ event.id }}" {% if filters.event == event.id %}selected{% endif %} data-i18n-ignore>{{ event.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="stats-filter">
+      <span>时间</span>
+      <select name="time" onchange="this.form.submit()">
+        {% for item in time_options %}
+        <option value="{{ item.value }}" {% if filters.time == item.value %}selected{% endif %}>{{ item.label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="stats-filter">
+      <span>地图</span>
+      <select name="map" onchange="this.form.submit()">
+        <option value="all" {% if filters.map == 'all' %}selected{% endif %}>全部地图</option>
+        {% for map in map_options %}
+        <option value="{{ map.value }}" {% if filters.map == map.value %}selected{% endif %}>{{ map.value|map_display }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    {% if config.kind in ('players', 'flashes', 'pistol') %}
+    <nav class="segmented stats-side-tabs" aria-label="阵营">
+      {% for side in side_options %}
+      <a href="?time={{ filters.time }}&map={{ filters.map|urlencode }}&event={{ event_value }}&ranking={{ filters.ranking }}&side={{ side.value }}" class="{% if filters.side == side.value %}active{% endif %}">{{ side.label }}</a>
+      {% endfor %}
+    </nav>
+    {% endif %}
+  </form>
+</section>
 
+<section class="panel">
+  <div class="panel-head">
+    <h2 class="panel-title">{{ config.title }}</h2>
+    <span class="panel-count">{% if filters.time == 'all' %}全部时间{% else %}{{ time_options|selectattr('value', 'equalto', filters.time)|map(attribute='label')|first }}{% endif %} · {% if filters.map == 'all' %}全部地图{% else %}{{ filters.map|map_display }}{% endif %}</span>
+  </div>
 {% if section == 'top-events' %}
-<div class="stats-table stats-dense-table">
-  <table>
+<div class="table-wrap">
+  <table class="table stats-rank-table">
     <thead><tr><th>冠军队伍</th><th>赛事</th><th>比赛数</th></tr></thead>
     <tbody>
       {% for r in rows %}
@@ -110,8 +90,8 @@
   </table>
 </div>
 {% elif section == 'flashes' %}
-<div class="stats-table stats-dense-table stats-flash-table">
-  <table>
+<div class="table-wrap">
+  <table class="table stats-rank-table stats-flash-table">
     <colgroup>
       <col class="stats-flash-player-col">
       <col class="stats-flash-maps-col">
@@ -125,21 +105,21 @@
     </colgroup>
     <thead>
       <tr>
-        <th><span class="stats-lang-zh" data-i18n-ignore>选手</span><span class="stats-lang-en" data-i18n-ignore>Player</span></th>
-        <th><span class="stats-lang-zh" data-i18n-ignore>地图</span><span class="stats-lang-en" data-i18n-ignore>Maps</span></th>
-        <th><span class="stats-lang-zh" data-i18n-ignore>回合数</span><span class="stats-lang-en" data-i18n-ignore>Rounds</span></th>
-        <th><span class="stats-lang-zh" data-i18n-ignore>投掷</span><span class="stats-lang-en" data-i18n-ignore>Thrown</span></th>
-        <th><span class="stats-lang-zh" data-i18n-ignore>致盲</span><span class="stats-lang-en" data-i18n-ignore>Blinded</span></th>
-        <th><span class="stats-lang-zh" data-i18n-ignore>敌方致盲</span><span class="stats-lang-en" data-i18n-ignore>Opp. flash</span></th>
-        <th><span class="stats-lang-zh" data-i18n-ignore>差值</span><span class="stats-lang-en" data-i18n-ignore>Diff</span></th>
-        <th><span class="stats-lang-zh" data-i18n-ignore>闪光助攻</span><span class="stats-lang-en" data-i18n-ignore>Flash assists</span></th>
-        <th title="在有投掷记录且投掷大于零的地图中，闪到过对手的地图占比；不是每颗闪光弹的成功率"><span class="stats-lang-zh" data-i18n-ignore>有效地图占比</span><span class="stats-lang-en" data-i18n-ignore>Effective maps</span></th>
+        <th>选手</th>
+        <th>地图</th>
+        <th>回合数</th>
+        <th>投掷</th>
+        <th>致盲</th>
+        <th>敌方致盲</th>
+        <th>差值</th>
+        <th>闪光助攻</th>
+        <th title="在有投掷记录且投掷大于零的地图中，闪到过对手的地图占比；不是每颗闪光弹的成功率">有效地图占比</th>
       </tr>
     </thead>
     <tbody>
       {% for r in rows %}
       <tr>
-        <td><a href="/players/{{ r.id }}" class="dense-player">{% set display_name = private_name_for_player(r.id, r.nickname) %}{% if r.avatar %}<img src="{{ avatar_thumbnail_url(r.avatar) }}" alt="{{ display_name }}" loading="lazy">{% else %}<span>{{ display_name[:1] }}</span>{% endif %}<b data-i18n-ignore>{{ display_name }}</b></a></td>
+        <td>{{ player_cell(r.id, r.nickname, r.avatar) }}</td>
         <td>{{ r.maps or 0 }}</td>
         <td>{{ r.rounds or 0 }}</td>
         <td>{% if r.thrown is none %}<span class="stat-missing">暂无数据</span>{% else %}{{ "%.2f"|format(r.thrown) }}{% endif %}</td>
@@ -154,22 +134,22 @@
   </table>
 </div>
 {% elif section == 'pistol-rounds' %}
-<div class="stats-table stats-dense-table">
-  <table>
+<div class="table-wrap">
+  <table class="table stats-rank-table">
     <thead>
-      <tr><th>Team</th><th>Maps</th><th>Won - Lost</th><th>Pistol win %</th><th>Round 2 conv</th><th>Round 2 break</th></tr>
+      <tr><th>队伍</th><th>地图</th><th>胜 - 负</th><th>手枪局胜率</th><th>第二局延续</th><th>第二局翻盘</th></tr>
     </thead>
     <tbody>
       {% for r in rows %}
       <tr>
-        <td class="team-cell" data-i18n-ignore>
-          {% if r.logo %}<img src="{{ r.logo|team_logo_url }}" alt="" loading="lazy" class="team-logo-sm">{% endif %}
+        <td class="team-cell" data-i18n-ignore><span class="cell-entity">
+          {% if r.logo %}<img src="{{ r.logo|team_logo_url }}" alt="" loading="lazy" class="team-logo sm">{% endif %}
           {% if r.team_id %}
           <a href="{{ url_for('team_detail', team_id=r.team_id) }}">{{ r.team_name }}</a>
           {% else %}
           <span>{{ r.team_name }}</span>
           {% endif %}
-        </td>
+        </span></td>
         <td>{{ r.maps or 0 }}</td>
         <td>{{ r.won or 0 }} - {{ r.lost or 0 }}</td>
         <td class="{% if r.pistol_win_pct >= 50 %}stat-pos{% else %}stat-neg{% endif %}">{{ r.pistol_win_pct }}%</td>
@@ -181,15 +161,15 @@
   </table>
 </div>
 {% elif section == 'best-players' %}
-<div class="stats-table stats-dense-table">
-  <table>
+<div class="table-wrap">
+  <table class="table stats-rank-table">
     <thead>
       <tr><th>选手</th><th>地图</th><th>回合</th><th>K-D Diff</th><th>K/D</th><th>RATING</th></tr>
     </thead>
     <tbody>
       {% for r in rows %}
       <tr>
-        <td><a href="/players/{{ r.id }}" class="dense-player">{% set display_name = private_name_for_player(r.id, r.nickname) %}{% if r.avatar %}<img src="{{ avatar_thumbnail_url(r.avatar) }}" alt="{{ display_name }}" loading="lazy">{% else %}<span>{{ display_name[:1] }}</span>{% endif %}<b data-i18n-ignore>{{ display_name }}</b></a></td>
+        <td>{{ player_cell(r.id, r.nickname, r.avatar) }}</td>
         <td>{{ r.maps }}</td>
         <td>{{ r.rounds or 0 }}</td>
         <td class="{% if r.kd_diff and r.kd_diff > 0 %}stat-pos{% elif r.kd_diff and r.kd_diff < 0 %}stat-neg{% endif %}">{{ "%+d"|format(r.kd_diff or 0) }}</td>
@@ -201,15 +181,15 @@
   </table>
 </div>
 {% elif section == 'kd' %}
-<div class="stats-table stats-dense-table">
-  <table>
+<div class="table-wrap">
+  <table class="table stats-rank-table">
     <thead>
       <tr><th>选手</th><th>队伍</th><th>地图</th><th>击杀</th><th>K-D 差</th><th>K/D</th><th>RATING</th></tr>
     </thead>
     <tbody>
       {% for r in rows %}
       <tr>
-        <td><a href="/players/{{ r.id }}" class="dense-player">{% set display_name = private_name_for_player(r.id, r.nickname) %}{% if r.avatar %}<img src="{{ avatar_thumbnail_url(r.avatar) }}" alt="{{ display_name }}" loading="lazy">{% else %}<span>{{ display_name[:1] }}</span>{% endif %}<b data-i18n-ignore>{{ display_name }}</b></a></td>
+        <td>{{ player_cell(r.id, r.nickname, r.avatar) }}</td>
         <td data-i18n-ignore>{{ r.team or '-' }}</td>
         <td>{{ r.maps }}</td>
         <td>{{ r.kills or 0 }}</td>
@@ -222,15 +202,15 @@
   </table>
 </div>
 {% else %}
-<div class="stats-table stats-dense-table">
-  <table>
+<div class="table-wrap">
+  <table class="table stats-rank-table">
     <thead>
       <tr><th>选手</th><th>队伍</th><th>地图</th><th>回合</th><th>K-D 差</th><th>K/D</th><th>ADR</th><th>HS%</th><th>RATING</th></tr>
     </thead>
     <tbody>
       {% for r in rows %}
       <tr>
-        <td><a href="/players/{{ r.id }}" class="dense-player">{% set display_name = private_name_for_player(r.id, r.nickname) %}{% if r.avatar %}<img src="{{ avatar_thumbnail_url(r.avatar) }}" alt="{{ display_name }}" loading="lazy">{% else %}<span>{{ display_name[:1] }}</span>{% endif %}<b data-i18n-ignore>{{ display_name }}</b></a></td>
+        <td>{{ player_cell(r.id, r.nickname, r.avatar) }}</td>
         <td data-i18n-ignore>{{ r.team or '-' }}</td>
         <td>{{ r.maps }}</td>
         <td>{{ r.rounds or 0 }}</td>
@@ -247,11 +227,9 @@
 {% endif %}
 
 {% if not rows %}<div class="empty-state">暂无数据</div>{% endif %}
-  </div>
-</div>
+</section>
 {% endblock %}
 
-{% block layout_class %}stats-layout-shell{% endblock %}
 {% block side %}{% include '_stats_home_sidebar.html' %}{% endblock %}
 
 {% block extra_js %}

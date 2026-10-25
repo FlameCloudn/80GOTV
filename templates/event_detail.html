@@ -222,7 +222,7 @@ function selectSlot(n){
 {% endif %}
 
 <section class="panel event-bracket-panel">
-<div class="panel-head"><h2 class="panel-title">对阵图</h2><a href="{{ event_path(event) }}/stats" class="panel-link h-panel-link">赛事数据 →</a></div>
+<div class="panel-head"><h2 class="panel-title">对阵图</h2><a href="{{ event_path(event) }}/stats" class="panel-link">赛事数据 →</a></div>
 {% if tour.name or tour.type or tour.total_teams %}
 <div class="bracket-subtitle">
   {% if tour.name %}{{ tour.name }}{% endif %}

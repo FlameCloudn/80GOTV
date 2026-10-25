@@ -58,8 +58,8 @@ test('desktop admin can enable test match mode without participants', async ({ p
 test('feedback dialog opens, closes, and restores focus', async ({ page }, testInfo) => {
   await page.goto('/__e2e__/admin-session');
   await page.goto('/');
-  const stylesheetHref = await page.locator('link[href*="hltv_refresh.css"]').getAttribute('href');
-  expect(stylesheetHref).toMatch(/hltv_refresh\.css\?v=\d+$/);
+  const stylesheetHref = await page.locator('link[href*="app.css"]').getAttribute('href');
+  expect(stylesheetHref).toMatch(/app\.css\?v=\d+$/);
   const opener = page.locator('#fbBtn');
   const dialog = page.locator('#fbOverlay');
   await expect(opener).toBeVisible();
@@ -264,7 +264,7 @@ test('English games and stats use translated common and dynamic labels', async (
   await expect(page.locator('#e2eDynamicI18nLabel')).toHaveText('Start challenge →');
 
   await page.goto('/stats');
-  await expect(page.locator('.stats-page-heading h1')).toHaveText('Statistics');
+  await expect(page.locator('.page-head h1')).toHaveText('Statistics');
   await expect(page.locator('.overview-quick-title')).toHaveText('Quick navigation');
   await expect(page.locator('.overview-summary-grid')).toContainText('Map stats');
   await page.screenshot({ path: testInfo.outputPath('i18n-stats.png'), fullPage: true });
@@ -348,5 +348,6 @@ test('desktop home side columns use the same compact width', async ({ page }, te
   expect(left).not.toBeNull();
   expect(right).not.toBeNull();
   expect(Math.abs(left.width - right.width)).toBeLessThanOrEqual(1);
-  expect(left.width).toBeLessThanOrEqual(220);
+  // 第三版首页两侧栏固定 240px（左右等宽）
+  expect(left.width).toBeLessThanOrEqual(240);
 });

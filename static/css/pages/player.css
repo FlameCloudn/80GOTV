@@ -466,7 +466,7 @@
 /* ---------- 3. 选手对比（/players/compare，照 HLTV） ---------- */
 /* 左右两张卡；每项一行，占优的加粗、外侧一条绿线，落后的变灰、外侧一条红线（左卡画在左边，右卡画在右边） */
 .compare-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: var(--site-gap); }
-.compare-grid noscript { grid-column: 1 / -1; }
+.compare-submit { grid-column: 1 / -1; justify-self: center; }
 .compare-card { display: grid; gap: var(--space-md); padding: var(--space-lg) var(--space-lg) 0; overflow: hidden; }
 
 .compare-card-head { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; align-items: center; gap: var(--space-md); min-height: 56px; }

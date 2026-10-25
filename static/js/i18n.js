@@ -130,7 +130,7 @@
     '直播': 'Live', '比赛筛选': 'Match filters', '已结束比赛': 'Completed matches',
     '暂无新闻': 'No news', '暂无赛事': 'No events', '暂无选手': 'No players',
     '数据概览': 'Stats overview', '地图数据': 'Map stats',
-    '返回数据概览': 'Back to stats overview', '返回选手资料': 'Back to player profile',
+    '返回数据概览': 'Back to overview', '返回选手资料': 'Back to player profile',
     '选手信息': 'Player information', '当前队伍': 'Current team', '地图数': 'Maps played',
     '无队伍': 'No team', '无': 'None', '昵称': 'Nickname', '真名': 'Real name',
     '历史昵称': 'Previous nicknames', '查看': 'View', '的完整数据': 'complete stats',
@@ -1381,7 +1381,23 @@
     '返回论坛': 'Back to forum',
     '返回帖子': 'Back to thread',
     '注册时间': 'Joined',
-    '身份': 'Role'
+    '身份': 'Role',
+    '第二局延续': 'Round 2 conv',
+    '第二局翻盘': 'Round 2 break',
+    '全部时间': 'All time',
+    '完整排行 →': 'Full ranking →',
+    '同一筛选条件下的真实比赛数据': 'Recorded data under the same filters',
+    '基于本站已记录的比赛与 Demo 数据': 'Based on recorded matches and demos',
+    '版本': 'Version',
+    '敌方致盲': 'Opp. flash',
+    '闪光助攻': 'Flash assists',
+    '有效地图占比': 'Effective maps',
+    '对阵图 →': 'Bracket →',
+    '点表头可排序': 'Click a header to sort',
+    '场均 Rating': 'Avg. Rating',
+    '选手对比结果': 'Comparison result',
+    '暂无参赛队伍': 'No teams yet',
+    '↔ 左右滑动查看完整淘汰赛对阵': '↔ Swipe to see the whole bracket'
   };
   var partialTranslations = [
     // 对阵图保存失败的原因（前面会带“保存失败：”）
@@ -1525,6 +1541,7 @@
   // 带数字或名字的句式：先于"零散词替换"执行，避免翻出"Page 1 次"这类半中半英的结果
   var zhToEnPatterns = [
     [/(\d+)\s*张地图/g, '$1 maps'],
+    [/^(\d+)\s*队$/g, '$1 teams'],
     [/^1\s*名队员$/g, '1 player'],
     [/(\d+)\s*名队员/g, '$1 players'],
     [/领先\s*1\s*项/g, 'Better in 1 stat'],

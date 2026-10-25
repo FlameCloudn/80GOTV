@@ -104,6 +104,7 @@
 .match-schedule-list > .schedule-day-head:first-child,
 .result-list > .schedule-day-head:first-child { border-top: 0; }
 .schedule-day-head.live { color: var(--live); }
+.result-time { white-space: nowrap; word-break: keep-all; }  /* 赛果日期一行写完，不折行 */
 
 /* 比赛行：时间 | 两支队伍 | 赛事 */
 .match-schedule-row {

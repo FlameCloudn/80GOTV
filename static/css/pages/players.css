@@ -77,6 +77,7 @@
 .player-country-slot:empty { display: none; }
 
 /* 作弊封禁：红色印章盖在整张卡片上 */
+.player-directory-card.is-cheater { overflow: hidden; }  /* 印章放大旋转后会伸出卡片，在圆角卡片里裁掉，手机上也不会把页面撑宽 */
 .player-directory-card.is-cheater .player-directory-avatar { filter: grayscale(1); }
 .player-directory-pac-overlay { position: absolute; z-index: 2; inset: 0; width: 100%; height: 100%; transform: scale(1.45) rotate(-4deg); }
 

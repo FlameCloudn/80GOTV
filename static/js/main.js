@@ -843,12 +843,14 @@ document.addEventListener('click', function(e) {
 // ==================== 顶部导航按实际宽度自动收纳 ====================
 // 登录后右侧多了通知、用户名、后台入口，英文菜单也更长，固定断点挡不住重叠。
 // 这里按真实宽度逐级收纳：1 级把次要入口收进“更多”，2 级压缩用户名和搜索框，
-// 3 级把赛果/赛事/论坛也收进“更多”，4 级把搜索框收成放大镜按钮。窄屏（≤960px）顶栏用抽屉菜单，不参与。
+// 3 级把赛果/赛事/论坛也收进“更多”，4 级把搜索框收成放大镜按钮。
+// 窄屏（≤960px）顶栏用抽屉菜单，只量顶栏上那几个常用入口：放不下的整个藏起来，不露半截。
 (function() {
   var navbar = document.querySelector('.navbar');
   var navLinks = document.getElementById('navLinks');
   var navInner = navbar && navbar.querySelector('.nav-inner');
   if (!navbar || !navLinks || !navInner) return;
+  var navQuick = navbar.querySelector('.nav-quick');
   var LEVEL_CLASSES = ['nav-fit-1', 'nav-fit-2', 'nav-fit-3', 'nav-fit-4'];
   var pending = false;
 
@@ -863,10 +865,21 @@ document.addEventListener('click', function(e) {
     });
   }
 
+  // 窄屏顶栏的常用入口：先全部显示，放不下就从最后一个开始藏（抽屉菜单里都有）
+  function fitQuickLinks() {
+    if (!navQuick) return;
+    var links = Array.prototype.slice.call(navQuick.querySelectorAll('a'));
+    links.forEach(function(link) { link.hidden = false; });
+    for (var i = links.length - 1; i > 0 && navQuick.scrollWidth > navQuick.clientWidth + 1; i -= 1) {
+      links[i].hidden = true;
+    }
+  }
+
   function fitNav() {
     pending = false;
     if (window.matchMedia('(max-width:960px)').matches) {
       applyLevel(0);
+      fitQuickLinks();
       return;
     }
     var level = 0;
@@ -890,7 +903,7 @@ document.addEventListener('click', function(e) {
   // 切换语言时菜单文字会变长或变短，文字一变就重新量
   if (window.MutationObserver) {
     var observer = new MutationObserver(scheduleFit);
-    [navLinks, navbar.querySelector('.user-nav')].forEach(function(node) {
+    [navLinks, navQuick, navbar.querySelector('.user-nav')].forEach(function(node) {
       if (node) observer.observe(node, { childList: true, characterData: true, subtree: true });
     });
   }
