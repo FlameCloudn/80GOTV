@@ -147,6 +147,7 @@ def match_report(match_id):
         """
         SELECT m.*, t1.name AS team1_name, t2.name AS team2_name,
                t1.short_name AS t1s, t2.short_name AS t2s,
+               t1.logo AS t1_logo, t2.logo AS t2_logo,
                e.name AS event_name
         FROM matches m
         LEFT JOIN teams t1 ON m.team1_id=t1.id
@@ -165,7 +166,7 @@ def match_report(match_id):
         dict(row)
         for row in conn.execute(
             """
-        SELECT ms.player_id, ms.team_id, p.nickname,
+        SELECT ms.player_id, ms.team_id, p.nickname, p.avatar,
                SUM(ms.kills) AS kills, SUM(ms.deaths) AS deaths,
                AVG(ms.adr) AS adr, AVG(ms.kast) AS kast, AVG(ms.rating) AS rating
         FROM match_stats ms

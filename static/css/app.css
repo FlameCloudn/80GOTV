@@ -288,6 +288,26 @@ hr { height: 1px; margin: var(--space-lg) 0; border: 0; background: var(--border
 .username-handle { color: var(--text-muted); font-weight: 400; }
 .guest-mode-label { color: var(--text-muted); }
 
+/* 用户名下拉：鼠标移上去或点一下展开（个人主页 / 后台管理 / 退出） */
+.user-dropdown { height: auto; }
+
+.user-dropdown > .nav-dropdown-toggle {
+  height: 34px;
+  padding: 0 8px;
+  color: var(--text-primary);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-md);
+  font-size: var(--font-sm);
+  font-weight: 500;
+}
+
+.user-dropdown > .nav-dropdown-toggle:hover,
+.user-dropdown:focus-within > .nav-dropdown-toggle { background: var(--bg-hover); }
+.user-dropdown .nav-dropdown-menu { top: calc(100% + 8px); left: auto; right: 0; min-width: 140px; }
+/* 从名字移到菜单要经过 8px 空隙，这里垫一块看不见的“桥”，鼠标经过时菜单不会收起 */
+.user-dropdown .nav-dropdown-menu::before { content: ''; position: absolute; left: 0; right: 0; bottom: 100%; height: 10px; }
+
 .icon-btn,
 .theme-btn,
 .notif-bell,
@@ -549,6 +569,11 @@ hr { height: 1px; margin: var(--space-lg) 0; border: 0; background: var(--border
 
   .user-nav { width: 100%; flex-wrap: wrap; gap: var(--space-sm) var(--space-lg); font-size: var(--font-md); }
   .user-nav .username { max-width: 100%; }
+  .user-dropdown { width: 100%; }
+  .user-dropdown > .nav-dropdown-toggle { height: auto; padding: 0 0 var(--space-xs); background: none !important; font-size: var(--font-md); pointer-events: none; }
+  .user-dropdown .nav-dropdown-menu { display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-lg); padding: 0; }
+  .user-dropdown .nav-dropdown-menu::before { display: none; }
+  .user-dropdown .nav-dropdown-menu a { padding: 6px 0; color: var(--text-secondary); }
   .theme-btn { border-color: var(--border-color); }
   .language-select { flex: 1 1 auto; height: 34px; font-size: var(--font-sm); }
 

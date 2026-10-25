@@ -125,14 +125,24 @@ window.addEventListener('error',function(e){
 
       <div class="nav-tools">
         <span class="user-nav" aria-label="用户菜单">
+          {# 登录后：用户名做成下拉，个人主页 / 后台管理 / 退出 收在里面（手机抽屉里直接展开） #}
           {% if session.user_id %}
-          <a href="/profile" class="username">{% if session.admin_id %}<span class="admin-badge-small">ADMIN</span>{% endif %}<span class="truncate">{{ session.user_username }}{% if current_user_group_username %} <span class="username-handle">@{{ current_user_group_username }}</span>{% endif %}</span>{{ cheater_badge(current_user_is_cheater) }}</a>
-          {% if session.admin_id %}<a href="/admin">后台管理</a>{% endif %}
-          <a href="/logout">退出</a>
+          <div class="nav-dropdown user-dropdown">
+            <button type="button" class="nav-dropdown-toggle username" aria-haspopup="true">{% if session.admin_id %}<span class="admin-badge-small">ADMIN</span>{% endif %}<span class="truncate">{{ session.user_username }}{% if current_user_group_username %} <span class="username-handle">@{{ current_user_group_username }}</span>{% endif %}</span>{{ cheater_badge(current_user_is_cheater) }}</button>
+            <div class="nav-dropdown-menu user-dropdown-menu">
+              <a href="/profile">个人主页</a>
+              {% if session.admin_id %}<a href="/admin">后台管理</a>{% endif %}
+              <a href="/logout">退出</a>
+            </div>
+          </div>
           {% elif session.admin_id %}
-          <a href="/admin" class="username"><span class="admin-badge-small">ADMIN</span><span class="truncate">{{ session.admin_username }}</span></a>
-          <a href="/admin">后台管理</a>
-          <a href="/admin/logout">退出</a>
+          <div class="nav-dropdown user-dropdown">
+            <button type="button" class="nav-dropdown-toggle username" aria-haspopup="true"><span class="admin-badge-small">ADMIN</span><span class="truncate">{{ session.admin_username }}</span></button>
+            <div class="nav-dropdown-menu user-dropdown-menu">
+              <a href="/admin">后台管理</a>
+              <a href="/admin/logout">退出</a>
+            </div>
+          </div>
           {% else %}
           <span class="guest-mode-label">访客</span>
           <a href="/login">登录</a>

@@ -1056,3 +1056,128 @@
   .match-detailed-player-column-head { display: none; }
   .match-detailed-player-card { gap: var(--space-md); padding: var(--space-md); }
 }
+
+/* ---------- 10. 比赛战报页（/matches/<id>/report） ---------- */
+.page-head-link { margin-left: auto; }
+
+/* 顶部：两队队标在两边，比分在中间（和比赛页横幅同一种底） */
+.report-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-lg);
+  padding: var(--space-2xl) var(--space-xl);
+  background:
+    radial-gradient(ellipse 45% 85% at 50% 0%, var(--accent-soft), transparent 72%),
+    var(--bg-card);
+}
+
+.report-team { display: grid; justify-items: center; gap: var(--space-sm); min-width: 0; text-align: center; }
+.report-team-name { max-width: 100%; font-size: var(--font-lg); font-weight: 700; overflow-wrap: anywhere; }
+.report-hero-mid { display: grid; justify-items: center; gap: 4px; text-align: center; }
+.report-event-name { color: var(--text-secondary); font-size: var(--font-sm); font-weight: 600; }
+.report-score { display: flex; align-items: baseline; gap: var(--space-md); font-size: var(--font-3xl); font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.report-score .sep, .map-report-score .sep { color: var(--text-muted); font-weight: 400; }
+.report-meta { color: var(--text-muted); font-size: var(--font-sm); }
+
+/* MVP：金色上边，头像 + 名字在左，四项数据在右 */
+.mvp-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg) var(--space-2xl);
+  padding: var(--space-lg) var(--space-xl);
+  border-top: 3px solid var(--color-gold);
+}
+
+.mvp-player { display: flex; align-items: center; gap: var(--space-md); color: var(--text-primary); }
+.mvp-player:hover { color: var(--text-primary); }
+.mvp-player:hover .mvp-name { color: var(--accent); }
+.mvp-player-text { display: grid; gap: 2px; }
+.mvp-label { color: var(--color-gold); font-size: var(--font-xs); font-weight: 700; letter-spacing: .12em; }
+.mvp-name { font-size: var(--font-xl); font-weight: 700; }
+.mvp-stats { display: flex; flex-wrap: wrap; gap: var(--space-xl); }
+.mvp-stat { min-width: 64px; text-align: center; }
+.mvp-stat-val { font-size: var(--font-xl); font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.mvp-stat-label { color: var(--text-muted); font-size: var(--font-xs); letter-spacing: .04em; }
+
+/* 地图战况：每张图上面是 HLTV 地图条，下面是比分和两队本图最佳 */
+.report-maps { display: grid; gap: var(--space-md); padding: var(--space-lg); }
+.map-report-card { overflow: hidden; border: 1px solid var(--border-color); border-radius: var(--radius-md); }
+.map-report-card.is-pending .ms-top { filter: grayscale(1); opacity: .75; }
+
+.map-report-body {
+  display: grid;
+  grid-template-columns: auto auto;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+}
+
+.map-report-index { color: var(--text-muted); font-size: var(--font-sm); font-weight: 600; }
+.map-report-score { display: inline-flex; align-items: baseline; gap: 6px; font-size: var(--font-xl); font-weight: 800; font-variant-numeric: tabular-nums; }
+.map-report-score .win { color: var(--color-green); }
+.map-report-score .lose { color: var(--color-red); }
+.map-report-score.is-pending { color: var(--text-muted); font-size: var(--font-sm); font-weight: 500; }
+.map-report-best { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-sm); }
+
+.best-player-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  min-width: 0;
+  padding: var(--space-sm) var(--space-md);
+  color: var(--text-primary);
+  background: var(--surface-soft);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  transition: border-color var(--transition-fast);
+}
+
+.best-player-card:hover { color: var(--text-primary); border-color: var(--border-strong); }
+.best-player-rating { flex: 0 0 auto; min-width: 44px; font-size: var(--font-xl); font-weight: 800; font-variant-numeric: tabular-nums; }
+.best-player-main { display: grid; min-width: 0; }
+.best-player-team { color: var(--text-muted); font-size: var(--font-xs); }
+.best-player-name { overflow: hidden; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.best-player-stats { display: flex; flex-wrap: wrap; gap: 4px var(--space-md); color: var(--text-secondary); font-size: var(--font-xs); font-variant-numeric: tabular-nums; }
+
+/* 队伍数据对比：和详细数据页的“表现总览”同一种对比条 */
+.report-compare { display: grid; gap: var(--space-md); padding: var(--space-md) var(--space-lg) var(--space-lg); }
+
+/* 比赛日志：一行一件事，CT 蓝 T 橙 */
+.timeline { max-height: 420px; overflow-y: auto; padding: var(--space-sm) 0; font-size: var(--font-sm); }
+
+.timeline-row {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: var(--space-md);
+  padding: 5px var(--space-lg);
+  border-top: 1px solid var(--border-color);
+}
+
+.timeline-row:first-child { border-top: 0; }
+.timeline-row.timeline-round { background: var(--surface-soft); }
+.timeline-round { color: var(--text-muted); font-size: var(--font-xs); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.timeline-text { display: flex; flex-wrap: wrap; gap: 4px 6px; min-width: 0; color: var(--text-secondary); }
+.timeline-text .timeline-ct { color: var(--color-ct); font-weight: 600; }
+.timeline-text .timeline-t { color: var(--color-t); font-weight: 600; }
+.timeline-weapon { color: var(--text-muted); }
+
+.report-footer-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
+.report-copy-toast { color: var(--color-green); font-size: var(--font-sm); }
+
+@media (max-width: 760px) {
+  .report-hero { gap: var(--space-sm); padding: var(--space-lg) var(--space-md); }
+  .report-hero .team-logo.lg, .report-hero .logo-fallback.lg { width: 40px; height: 40px; }
+  .report-team-name { font-size: var(--font-sm); }
+  .report-score { font-size: var(--font-2xl); }
+  .mvp-card { padding: var(--space-md); }
+  .mvp-stats { width: 100%; justify-content: space-between; gap: var(--space-sm); }
+  .mvp-stat { min-width: 0; }
+  .report-maps { padding: var(--space-md); }
+  .map-report-body { padding: var(--space-sm) var(--space-md); }
+  .map-report-best { grid-template-columns: minmax(0, 1fr); }
+  .timeline-row { grid-template-columns: minmax(0, 1fr); gap: 2px; padding: 6px var(--space-md); }
+}
