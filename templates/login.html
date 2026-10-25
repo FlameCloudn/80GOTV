@@ -70,7 +70,7 @@
             <label class="form-label" for="loginPassword">密码</label>
             <div class="password-wrap">
               <input class="text-input" id="loginPassword" type="password" name="password" required autocomplete="current-password" placeholder="请输入密码">
-              <button type="button" class="password-toggle" data-password-target="loginPassword">显示</button>
+              <button type="button" class="password-toggle" data-password-target="loginPassword" aria-label="显示密码" title="显示密码"><svg class="pw-icon pw-icon-show" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="pw-icon pw-icon-hide" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.9 17.9A10 10 0 0 1 12 19c-6.4 0-10-7-10-7a18.5 18.5 0 0 1 5.1-5.9"/><path d="M9.9 4.2A9 9 0 0 1 12 4c6.4 0 10 7 10 7a18.5 18.5 0 0 1-2.2 3.2"/><path d="M14.1 14.1a3 3 0 1 1-4.2-4.2"/><path d="M2 2l20 20"/></svg></button>
             </div>
           </div>
           <div class="captcha-block">
@@ -150,14 +150,14 @@
               <label class="form-label" for="registerPassword">密码 <span class="required">*</span></label>
               <div class="password-wrap">
                 <input class="text-input" id="registerPassword" type="password" name="password" required minlength="10" autocomplete="new-password" placeholder="至少 10 位，含字母和数字">
-                <button type="button" class="password-toggle" data-password-target="registerPassword">显示</button>
+                <button type="button" class="password-toggle" data-password-target="registerPassword" aria-label="显示密码" title="显示密码"><svg class="pw-icon pw-icon-show" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="pw-icon pw-icon-hide" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.9 17.9A10 10 0 0 1 12 19c-6.4 0-10-7-10-7a18.5 18.5 0 0 1 5.1-5.9"/><path d="M9.9 4.2A9 9 0 0 1 12 4c6.4 0 10 7 10 7a18.5 18.5 0 0 1-2.2 3.2"/><path d="M14.1 14.1a3 3 0 1 1-4.2-4.2"/><path d="M2 2l20 20"/></svg></button>
               </div>
             </div>
             <div class="form-group">
               <label class="form-label" for="registerPassword2">确认密码 <span class="required">*</span></label>
               <div class="password-wrap">
                 <input class="text-input" id="registerPassword2" type="password" name="password2" required minlength="10" autocomplete="new-password" placeholder="再次输入">
-                <button type="button" class="password-toggle" data-password-target="registerPassword2">显示</button>
+                <button type="button" class="password-toggle" data-password-target="registerPassword2" aria-label="显示密码" title="显示密码"><svg class="pw-icon pw-icon-show" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="pw-icon pw-icon-hide" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.9 17.9A10 10 0 0 1 12 19c-6.4 0-10-7-10-7a18.5 18.5 0 0 1 5.1-5.9"/><path d="M9.9 4.2A9 9 0 0 1 12 4c6.4 0 10 7 10 7a18.5 18.5 0 0 1-2.2 3.2"/><path d="M14.1 14.1a3 3 0 1 1-4.2-4.2"/><path d="M2 2l20 20"/></svg></button>
               </div>
             </div>
           </div>
@@ -210,7 +210,10 @@
           var input = document.getElementById(button.getAttribute('data-password-target'));
           var show = input.type === 'password';
           input.type = show ? 'text' : 'password';
-          button.textContent = show ? '隐藏' : '显示';
+          // 换图标（睁眼 ↔ 划掉的眼），提示文字跟着变
+          button.classList.toggle('is-shown', show);
+          button.setAttribute('aria-label', show ? '隐藏密码' : '显示密码');
+          button.setAttribute('title', show ? '隐藏密码' : '显示密码');
         });
       });
 
