@@ -69,7 +69,7 @@
         <div class="pd-rating-gauge pd-rating-main" style="--gauge-progress:{{ '%.2f'|format((player_summary.rating_pct or 0) / 2) }}%">
           <span class="pd-rating-arc" aria-hidden="true"></span>
           <div class="pd-rating-copy">
-            <strong class="{{ player_summary.rating|rating_class }}">{{ "%.2f"|format(player_summary.rating or 0) if player_summary.maps else '-' }}</strong>
+            <strong class="{{ player_summary.rating|rating_class }}">{{ "%.2f"|format(player_summary.rating) if player_summary.maps and player_summary.rating is not none else '-' }}</strong>
             <em>{{ player_summary.rating_label_cn or '-' }}</em>
             <span>RATING 2.0</span>
           </div>
@@ -92,7 +92,7 @@
         {{ metric("%.2f"|format(player_summary.impact) if player_summary.impact is not none else '-', 'IMPACT', player_summary.impact_pct or 0, 'impact') }}
         {{ metric("%.2f"|format(player_summary.dpr) if player_summary.dpr is not none else '-', 'DPR', [100, (player_summary.dpr or 0) * 100]|min) }}
         {{ metric("%.1f%%"|format(player_summary.kast) if player_summary.kast is not none else '-', 'KAST', [100, (player_summary.kast or 0)]|min) }}
-        {{ metric("%.1f%%"|format(player_summary.multi_kill or 0), 'MULTI-KILL', [100, (player_summary.multi_kill or 0) * 3]|min) }}
+        {{ metric("%.1f%%"|format(player_summary.multi_kill) if player_summary.multi_kill is not none else '-', 'MULTI-KILL', [100, (player_summary.multi_kill or 0) * 3]|min) }}
         {{ metric("%.1f"|format(player_summary.adr) if player_summary.adr is not none else '-', 'ADR', [100, (player_summary.adr or 0) / 1.2]|min) }}
         {{ metric("%.2f"|format(player_summary.kpr) if player_summary.kpr is not none else '-', 'KPR', [100, (player_summary.kpr or 0) * 100]|min) }}
       </div>
@@ -118,7 +118,7 @@
     <details class="pd-category" {% if loop.index <= 2 %}open{% endif %}>
       <summary>
         <span class="pd-category-title"><i class="pd-category-dot pd-dot-{{ loop.index }}"></i>{{ card.title }}</span>
-        <span class="pd-category-score">{{ card.score }}<small>/100</small><i style="--pct:{{ card.score }}%"></i></span>
+        <span class="pd-category-score">{{ card.score if card.score is not none else '-' }}<small>/100</small><i style="--pct:{{ card.score or 0 }}%"></i></span>
         <span class="pd-chevron" aria-hidden="true"></span>
       </summary>
       <div class="pd-category-body">
@@ -201,7 +201,7 @@
           <td data-i18n-ignore>{{ m.event_name or '-' }}</td>
           <td><a href="/matches/{{ m.slug or m.id }}"><span data-i18n-ignore>{{ m.t1s or 'TBD' }}</span> <span>对</span> <span data-i18n-ignore>{{ m.t2s or 'TBD' }}</span></a></td>
           <td>{{ m.team1_score if m.team1_score is not none else '-' }} : {{ m.team2_score if m.team2_score is not none else '-' }}</td>
-          <td>{{ m.kills }}-{{ m.deaths }}-{{ m.assists }}</td>
+          <td>{{ m.kills if m.kills is not none else '-' }}-{{ m.deaths if m.deaths is not none else '-' }}-{{ m.assists if m.assists is not none else '-' }}</td>
           <td>{{ "%.1f"|format(m.adr) if m.adr is not none else '-' }}</td>
           <td class="{{ m.rating|rating_class }}"><b>{{ "%.2f"|format(m.rating) if m.rating is not none else '-' }}</b></td>
         </tr>
@@ -240,7 +240,7 @@
     <details class="pd-category" open>
       <summary>
         <span class="pd-category-title"><i class="pd-category-dot pd-dot-5"></i>{{ card.title }}</span>
-        <span class="pd-category-score">{{ card.score }}<small>/100</small><i style="--pct:{{ card.score }}%"></i></span>
+        <span class="pd-category-score">{{ card.score if card.score is not none else '-' }}<small>/100</small><i style="--pct:{{ card.score or 0 }}%"></i></span>
         <span class="pd-chevron" aria-hidden="true"></span>
       </summary>
       <div class="pd-category-body">
@@ -260,10 +260,10 @@
   <div class="pd-panel">
     <h3>多杀</h3>
     <dl class="pd-data-grid">
-      <div><dt>MULTI-KILL</dt><dd>{{ "%.1f"|format(player_summary.multi_kill or 0) }}%</dd></div>
+      <div><dt>MULTI-KILL</dt><dd>{{ "%.1f%%"|format(player_summary.multi_kill) if player_summary.multi_kill is not none else '-' }}</dd></div>
       <div><dt>地图数</dt><dd>{{ player_summary.maps }}</dd></div>
-      <div><dt>回合数</dt><dd>{{ player_summary.rounds }}</dd></div>
-      <div><dt>RATING 2.0</dt><dd class="{{ player_summary.rating|rating_class }}">{{ "%.2f"|format(player_summary.rating or 0) if player_summary.maps else '-' }}</dd></div>
+      <div><dt>回合数</dt><dd>{{ player_summary.rounds if player_summary.rounds is not none else '-' }}</dd></div>
+      <div><dt>RATING 2.0</dt><dd class="{{ player_summary.rating|rating_class }}">{{ "%.2f"|format(player_summary.rating) if player_summary.maps and player_summary.rating is not none else '-' }}</dd></div>
     </dl>
   </div>
   {% else %}

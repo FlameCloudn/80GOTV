@@ -21,9 +21,19 @@ from utils.rate_limiter import rate_limit
 from utils.web_helpers import csrf_required
 from web_app import app
 
+MAX_SQLITE_INTEGER = 9223372036854775807
+
 
 def _login_redirect(endpoint="guess_player_page"):
     return redirect(url_for("user_login", next=url_for(endpoint)))
+
+
+def _parse_player_id(value):
+    raw_value = str(value or "").strip()
+    if not raw_value.isascii() or not raw_value.isdigit() or len(raw_value) > 19:
+        return None
+    player_id = int(raw_value)
+    return player_id if 0 < player_id <= MAX_SQLITE_INTEGER else None
 
 
 def _player_options(conn, pool_mode="pro"):
@@ -33,12 +43,12 @@ def _player_options(conn, pool_mode="pro"):
 def _resolve_player(conn, pool_mode="pro"):
     pool_mode = normalize_pool_mode(pool_mode)
     extra = " AND noob_eligible=1" if pool_mode == "noob" else ""
-    player_id = request.form.get("player_id", "").strip()
+    player_id = _parse_player_id(request.form.get("player_id", ""))
     player_query = request.form.get("player_query", "").strip()
     guessed = None
-    if player_id.isdigit():
+    if player_id is not None:
         guessed = conn.execute(
-            f"SELECT * FROM guess_players WHERE id=? AND active=1{extra}", (int(player_id),)
+            f"SELECT * FROM guess_players WHERE id=? AND active=1{extra}", (player_id,)
         ).fetchone()
     if not guessed and player_query:
         guessed = conn.execute(
@@ -98,6 +108,7 @@ def guess_player_submit():
 
     conn = get_db()
     try:
+        conn.execute("BEGIN IMMEDIATE")
         game = load_game(conn, session["user_id"])
         if game["finished"]:
             flash("今天的猜选手已经结束，明天再来吧", "info")
@@ -158,6 +169,7 @@ def guess_player_practice_submit():
         return redirect(url_for("guess_player_practice_page", difficulty=pool_mode))
     conn = get_db()
     try:
+        conn.execute("BEGIN IMMEDIATE")
         game = load_practice_game(conn, session["user_id"], pool_mode)
         if game["finished"]:
             flash("本局已经结束，可以再开一局", "info")
@@ -204,6 +216,7 @@ def guess_player_practice_new():
         return redirect(url_for("guess_player_practice_page", difficulty=pool_mode))
     conn = get_db()
     try:
+        conn.execute("BEGIN IMMEDIATE")
         create_practice_game(conn, session["user_id"], pool_mode)
     finally:
         conn.close()
@@ -299,13 +312,15 @@ def guess_player_multiplayer_guess(room_code):
         return jsonify({"success": False, "error": "请先登录"}), 401
     if not rate_limit("guess_player_room_guess", 60, 60):
         return jsonify({"success": False, "error": "操作太快了，请稍后再试"}), 429
-    payload = request.get_json(silent=True) or {}
-    player_id = str(payload.get("player_id", ""))
-    if not player_id.isdigit():
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        payload = {}
+    player_id = _parse_player_id(payload.get("player_id", ""))
+    if player_id is None:
         return jsonify({"success": False, "error": "请选择一名选手"}), 400
     conn = get_db()
     try:
-        error = submit_multiplayer_guess(conn, room_code, session["user_id"], int(player_id))
+        error = submit_multiplayer_guess(conn, room_code, session["user_id"], player_id)
         state = multiplayer_room_state(conn, room_code, session["user_id"])
     finally:
         conn.close()

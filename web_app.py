@@ -6,6 +6,7 @@
 
 import logging
 import os
+import posixpath
 import uuid
 
 from flask import (
@@ -24,7 +25,7 @@ from werkzeug.exceptions import HTTPException, SecurityError
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from config import Config
-from models import get_db
+from models import close_request_connections, get_db
 from services.player_remark_service import (
     private_name_for_player,
     private_name_for_user,
@@ -34,6 +35,7 @@ from services.player_remark_service import (
 from services.team_logo_service import team_logo_url
 from utils.db_helpers import avatar_static_filename
 from utils.helpers import event_path, news_path, normalize_map_key
+from utils.web_helpers import safe_redirect_target, validate_admin_session
 
 logger = logging.getLogger("80gotv")
 
@@ -41,6 +43,7 @@ app = Flask(__name__)
 app.jinja_env.auto_reload = True
 app.config.from_object(Config)
 app.config["PROPAGATE_EXCEPTIONS"] = False
+app.teardown_request(close_request_connections)
 if Config.TRUST_PROXY:
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
@@ -101,6 +104,35 @@ def _start_timer():
 
     g._start_time = _time.time()
     g.request_id = uuid.uuid4().hex
+
+
+@app.before_request
+def _limit_request_body():
+    """Apply limits before parsing, including streamed bodies without Content-Length."""
+    if request.method in ("GET", "HEAD", "OPTIONS"):
+        return None
+    image_form = request.path in (
+        "/register",
+        "/profile",
+        "/admin/upload/image",
+        "/admin/players/add",
+        "/admin/teams/add",
+    ) or request.path.startswith(("/admin/players/edit/", "/admin/teams/edit/"))
+    image_form = image_form or request.endpoint in {
+        "event_registration_upload_logo",
+        "event_register",
+    }
+    if _is_ingest_path(request.path) or request.is_json:
+        limit = _JSON_BODY_LIMIT
+    elif image_form:
+        limit = _IMAGE_FORM_LIMIT
+    elif request.path in _PUBLIC_FORM_PATHS:
+        limit = _PUBLIC_FORM_LIMIT
+    else:
+        return None
+    request.max_content_length = min(limit, app.config["MAX_CONTENT_LENGTH"] or limit)
+    if request.content_length is not None and request.content_length > request.max_content_length:
+        abort(413)
 
 
 @app.before_request
@@ -240,7 +272,12 @@ def _block_public_demo_static():
     这里把该前缀彻底挡掉：对外表现与"文件不在 static 下"一致，
     但不需要搬动任何文件，因此本地与线上的行为一致、无需配合部署。
     """
-    if request.path.startswith("/static/demos/"):
+    filename = (request.view_args or {}).get("filename", "")
+    parts = str(filename).replace("\\", "/").split("/")
+    if os.name == "nt":
+        parts = [part if part in {".", ".."} else part.rstrip(" .") for part in parts]
+    normalized = posixpath.normpath("/".join(parts))
+    if request.endpoint == "static" and normalized.split("/", 1)[0].casefold() == "demos":
         abort(404)
 
 
@@ -260,6 +297,21 @@ def _require_site_login():
     path = request.path
     if path in _PUBLIC_PATHS or _is_ingest_path(path) or path.startswith(_PUBLIC_PREFIXES):
         return None
+    if "admin_id" in session:
+        try:
+            validate_admin_session()
+        except Exception:
+            logger.exception("检查管理员权限失败")
+            response = jsonify(
+                {
+                    "ok": False,
+                    "success": False,
+                    "error": "暂时无法确认管理员权限，请稍后重试",
+                }
+            )
+            response.status_code = 503
+            response.headers["Retry-After"] = "5"
+            return response
     if "user_id" in session:
         conn = None
         try:
@@ -405,28 +457,6 @@ def _add_no_cache_headers(response):
 
 @app.before_request
 def _csrf_before_request():
-    content_length = request.content_length
-    if content_length is not None:
-        if _is_ingest_path(request.path) and content_length > _JSON_BODY_LIMIT:
-            abort(413)
-        image_form = request.path in (
-            "/register",
-            "/profile",
-            "/admin/upload/image",
-            "/admin/players/add",
-        ) or request.path.startswith("/admin/players/edit/")
-        image_form = image_form or request.endpoint in {
-            "event_registration_upload_logo",
-            "event_register",
-        }
-        if request.method == "POST" and image_form and content_length > _IMAGE_FORM_LIMIT:
-            abort(413)
-        if (
-            request.method == "POST"
-            and request.path in _PUBLIC_FORM_PATHS
-            and content_length > _PUBLIC_FORM_LIMIT
-        ):
-            abort(413)
     if "csrf_token" not in session:
         session["csrf_token"] = uuid.uuid4().hex
 
@@ -462,7 +492,7 @@ def _require_profile_completion_before_request():
             ),
             409,
         )
-    return redirect(request.referrer or url_for("index"))
+    return redirect(safe_redirect_target(url_for("index")))
 
 
 # ── 模板全局工具 ────────────────────────────────────────────
@@ -526,7 +556,7 @@ def _csrf_context():
             if current_user_school_status != 0:
                 current_user_group_username = current_user_saved_group_username
         except Exception:
-            pass
+            logger.exception("读取页面账号信息失败")
         finally:
             if conn is not None:
                 try:
@@ -586,6 +616,27 @@ def _handle_exception(e):
             request.path,
         )
     error = str(e) if code < 500 else "服务器内部错误，请稍后重试"
+    wants_json = (
+        request.path.startswith("/api/")
+        or "/api/" in request.path
+        or request.is_json
+        or request.headers.get("X-Requested-With") == "XMLHttpRequest"
+    )
+    if wants_json:
+        response = jsonify(
+            {
+                "ok": False,
+                "success": False,
+                "error": error,
+                "request_id": getattr(g, "request_id", None),
+            }
+        )
+        response.status_code = code
+        if isinstance(e, HTTPException):
+            for name, value in e.get_headers():
+                if name.lower() not in {"content-type", "content-length"}:
+                    response.headers[name] = value
+        return response
     return render_template("error.html", error=error, code=code, debug_info=None), code
 
 

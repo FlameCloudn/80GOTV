@@ -8,7 +8,7 @@ from unittest.mock import patch
 from app import app
 from config import Config
 from models import get_db, init_tables
-from utils.stats_calc import calculate_impact, calculate_rating
+from utils.stats_calc import calculate_rating, estimate_hltv2_impact
 
 
 class BroadcastMapResultTests(unittest.TestCase):
@@ -178,7 +178,8 @@ class BroadcastMapResultTests(unittest.TestCase):
         self.assertEqual(second.status_code, 200, second.get_data(as_text=True))
         self.assertEqual(first.get_json()["saved"], 2)
 
-        expected_impact = calculate_impact(4, 2, 5, 1, 20)
+        expected_impact = estimate_hltv2_impact(20, 6, 20)
+        self.assertAlmostEqual(expected_impact, 1.846)
         expected_rating, expected_kpr, expected_dpr = calculate_rating(
             20,
             12,

@@ -62,7 +62,7 @@
       {% if player_summary.maps %}
       <div>
         <dt>RATING 2.0</dt>
-        <dd class="{{ player_summary.rating|rating_class }}">{{ "%.2f"|format(player_summary.rating or 0) }}</dd>
+        <dd class="{{ player_summary.rating|rating_class }}">{{ "%.2f"|format(player_summary.rating) if player_summary.rating is not none else '-' }}</dd>
       </div>
       {% endif %}
       {% if match_record.finished %}
@@ -119,14 +119,14 @@
       {% if player_summary.maps %}
       <div class="pp-stat-lead">
         <span>RATING 2.0</span>
-        <b class="{{ player_summary.rating|rating_class }}">{{ "%.2f"|format(player_summary.rating or 0) }}</b>
+        <b class="{{ player_summary.rating|rating_class }}">{{ "%.2f"|format(player_summary.rating) if player_summary.rating is not none else '-' }}</b>
       </div>
       <div class="pp-skill-list">
         {% for card in player_category_cards %}
         <div>
           <span>{{ card.title }}</span>
-          <b>{{ card.score }}<small>/100</small></b>
-          <i style="--pct:{{ card.score }}%"></i>
+          <b>{{ card.score if card.score is not none else '-' }}<small>/100</small></b>
+          <i style="--pct:{{ card.score or 0 }}%"></i>
         </div>
         {% endfor %}
       </div>
@@ -204,7 +204,7 @@
               <span data-i18n-ignore>{{ m.t2s or 'TBD' }}</span>
             </a>
           </td>
-          <td>{{ m.kills }}-{{ m.deaths }}-{{ m.assists }}</td>
+          <td>{{ m.kills if m.kills is not none else '-' }}-{{ m.deaths if m.deaths is not none else '-' }}-{{ m.assists if m.assists is not none else '-' }}</td>
           <td>{{ m.team1_score if m.team1_score is not none else '-' }} : {{ m.team2_score if m.team2_score is not none else '-' }}</td>
           <td class="{{ m.rating|rating_class }}"><b>{{ "%.2f"|format(m.rating) if m.rating is not none else '-' }}</b></td>
         </tr>

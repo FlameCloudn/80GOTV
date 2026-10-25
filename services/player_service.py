@@ -1,6 +1,7 @@
 """Player nickname history and duplicate-profile helpers."""
 
 import json
+from collections import defaultdict
 
 from services.performance_service import refresh_player_performance
 
@@ -91,6 +92,14 @@ def merge_player_records(conn, source_id, target_id):
     target = conn.execute("SELECT * FROM players WHERE id=?", (target_id,)).fetchone()
     if not source or not target:
         raise ValueError("选手不存在")
+    ranking_conflict = conn.execute(
+        """SELECT 1 FROM yearly_top_players source
+           JOIN yearly_top_players target ON source.year=target.year
+           WHERE source.player_id=? AND target.player_id=? LIMIT 1""",
+        (source_id, target_id),
+    ).fetchone()
+    if ranking_conflict:
+        raise ValueError("两个选手档案在同一年各有年度排名，请先确认排名后再合并")
 
     record_player_nickname(conn, target_id, target["nickname"], "website")
     record_player_nickname(conn, target_id, source["nickname"], "merge")
@@ -99,91 +108,38 @@ def merge_player_records(conn, source_id, target_id):
     ).fetchall():
         record_player_nickname(conn, target_id, alias["nickname"], alias["source"] or "merge")
 
-    # If both profiles appear on the same map, keep the richer row instead of double counting.
-    source_stats = conn.execute(
-        "SELECT * FROM match_stats WHERE player_id=?", (source_id,)
-    ).fetchall()
-    stat_columns = [
-        "team_id",
-        "kills",
-        "deaths",
-        "assists",
-        "adr",
-        "kpr",
-        "dpr",
-        "rating",
-        "impact",
-        "kast",
-        "headshot_percentage",
-        "clutches_won",
-        "side",
-        "t_rating",
-        "ct_rating",
-        "t_kills",
-        "ct_kills",
-        "t_deaths",
-        "ct_deaths",
-        "t_adr",
-        "ct_adr",
-        "multi1k",
-        "multi2k",
-        "multi3k",
-        "multi4k",
-        "multi5k",
-        "first_kills",
-        "first_deaths",
-        "mvp_count",
-        "utility_damage",
-        "enemies_flashed",
-        "flash_count",
-        "he_count",
-        "smoke_count",
-        "molotov_count",
-        "trade_kills",
-        "trade_deaths",
-        "bomb_plants",
-        "bomb_defuses",
-        "utility_damage_per_round",
-        "rounds_played",
-        "damage_delta_per_round",
-        "rws_basic",
-        "clutch_1v1",
-        "clutch_1v2",
-        "clutch_1v3",
-        "clutch_1v4",
-        "clutch_1v5",
-        "flash_blinded_seconds",
-        "flash_enemy_seconds",
-        "flash_assists",
-    ]
-    for stat in source_stats:
-        existing = conn.execute(
-            """
-            SELECT * FROM match_stats
-            WHERE player_id=? AND match_id=?
-              AND COALESCE(map_name, '')=COALESCE(?, '')
-            LIMIT 1
-        """,
-            (target_id, stat["match_id"], stat["map_name"]),
-        ).fetchone()
-        if not existing:
-            conn.execute("UPDATE match_stats SET player_id=? WHERE id=?", (target_id, stat["id"]))
-            continue
-        source_weight = (
-            int(stat["kills"] or 0) + int(stat["deaths"] or 0) + int(stat["assists"] or 0)
+    # 只比较当前结果。历史版本保留原值，不再用旧的高击杀行覆盖新的有效结果。
+    current_groups = defaultdict(list)
+    for stat in conn.execute(
+        """SELECT * FROM match_stats WHERE player_id IN (?, ?)
+           AND COALESCE(data_status, 'final') <> 'superseded'""",
+        (source_id, target_id),
+    ).fetchall():
+        current_groups[(stat["match_id"], str(stat["map_name"] or "").strip().casefold())].append(
+            stat
         )
-        target_weight = (
-            int(existing["kills"] or 0)
-            + int(existing["deaths"] or 0)
-            + int(existing["assists"] or 0)
+
+    def priority(stat):
+        return (
+            (stat["data_status"] or "final") == "final",
+            int(stat["data_version"] or 1),
+            int(stat["rounds_played"] or 0),
+            sum(int(stat[field] or 0) for field in ("kills", "deaths", "assists")),
+            stat["player_id"] == target_id,
+            stat["id"],
         )
-        if source_weight > target_weight:
-            assignments = ", ".join(f"{column}=?" for column in stat_columns)
-            conn.execute(
-                f"UPDATE match_stats SET {assignments} WHERE id=?",
-                tuple(stat[column] for column in stat_columns) + (existing["id"],),
-            )
-        conn.execute("DELETE FROM match_stats WHERE id=?", (stat["id"],))
+
+    for stats in current_groups.values():
+        retained = max(stats, key=priority)
+        for stat in stats:
+            if stat["id"] != retained["id"]:
+                conn.execute(
+                    "UPDATE match_stats SET data_status='superseded' WHERE id=?", (stat["id"],)
+                )
+    conn.execute("UPDATE match_stats SET player_id=? WHERE player_id=?", (target_id, source_id))
+    conn.execute(
+        "UPDATE yearly_top_players SET player_id=? WHERE player_id=?", (target_id, source_id)
+    )
 
     for medal in conn.execute(
         "SELECT * FROM player_medals WHERE player_id=?", (source_id,)

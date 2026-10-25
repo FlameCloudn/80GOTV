@@ -52,9 +52,8 @@ def forum_index():
     if sort_by not in FORUM_SORT_ORDERS:
         sort_by = "latest"
     mine_only = request.args.get("mine") == "1" and bool(session.get("user_id"))
-    page = max(1, request.args.get("page", 1, type=int))
+    requested_page = request.args.get("page", 1, type=int)
     per_page = 25
-    offset = (page - 1) * per_page
 
     conn = get_db()
     categories = _forum_categories(conn)
@@ -78,6 +77,17 @@ def forum_index():
     where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
     order_sql = FORUM_SORT_ORDERS[sort_by]
 
+    total = conn.execute(
+        f"""SELECT COUNT(*) FROM forum_threads t
+            JOIN forum_categories c ON t.category_id=c.id
+            WHERE {where_sql}""",
+        params,
+    ).fetchone()[0]
+
+    total_pages = (total + per_page - 1) // per_page
+    page = min(max(1, requested_page), max(1, total_pages))
+    offset = (page - 1) * per_page
+
     threads = conn.execute(
         f"""
         SELECT t.*, c.name AS category_name, c.slug AS category_slug,
@@ -100,15 +110,6 @@ def forum_index():
     """,
         params + [per_page, offset],
     ).fetchall()
-
-    total = conn.execute(
-        f"""SELECT COUNT(*) FROM forum_threads t
-            JOIN forum_categories c ON t.category_id=c.id
-            WHERE {where_sql}""",
-        params,
-    ).fetchone()[0]
-
-    total_pages = (total + per_page - 1) // per_page
 
     conn.close()
     return render_template(
@@ -152,8 +153,15 @@ def forum_thread(thread_id):
     conn.commit()
 
     # 获取回复（使用 comments 表，target_type='forum_thread'，按时间正序，不分页）
-    page = request.args.get("page", 1, type=int)
+    requested_page = request.args.get("page", 1, type=int)
     per_page = 20
+
+    total_posts = conn.execute(
+        "SELECT COUNT(*) FROM comments WHERE target_type='forum_thread' AND target_id=?",
+        (thread_id,),
+    ).fetchone()[0]
+    total_pages = (total_posts + per_page - 1) // per_page
+    page = min(max(1, requested_page), max(1, total_pages))
     offset = (page - 1) * per_page
 
     posts = conn.execute(
@@ -167,17 +175,11 @@ def forum_thread(thread_id):
         FROM comments co
         JOIN users u ON co.user_id=u.id
         WHERE co.target_type='forum_thread' AND co.target_id=?
-        ORDER BY co.created_at ASC
+        ORDER BY co.created_at ASC, co.id ASC
         LIMIT ? OFFSET ?
     """,
         (session.get("user_id"), thread_id, per_page, offset),
     ).fetchall()
-
-    total_posts = conn.execute(
-        "SELECT COUNT(*) FROM comments WHERE target_type='forum_thread' AND target_id=?",
-        (thread_id,),
-    ).fetchone()[0]
-    total_pages = (total_posts + per_page - 1) // per_page
 
     conn.close()
     return render_template(

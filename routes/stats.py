@@ -10,10 +10,15 @@ from flask import abort, render_template, request
 
 from models import get_db
 from services.home_service import load_home_feed
-from services.match_service import score_predictions, supplement_temp_teams
-from services.performance_service import weighted_average_sql
+from services.match_service import (
+    get_prediction_leaderboard,
+    get_prediction_upcoming_matches,
+    supplement_temp_teams,
+)
+from services.performance_service import summary_metric_sql, weighted_average_sql
 from utils.demo_parser import normalize_map_name
 from utils.match_utils import get_sql_effective_status, get_sql_match_completed
+from utils.stats_display import format_stat
 from web_app import app, logger
 
 TIME_FILTERS = [
@@ -116,21 +121,21 @@ def _match_where(filters, extra=None):
 def _side_expr(side):
     if side == "t":
         return {
-            "kills": "SUM(COALESCE(ms.t_kills, 0))",
-            "deaths": "SUM(COALESCE(ms.t_deaths, 0))",
+            "kills": "SUM(ms.t_kills)",
+            "deaths": "SUM(ms.t_deaths)",
             "rating": "AVG(NULLIF(ms.t_rating, 0))",
             "adr": "AVG(NULLIF(ms.t_adr, 0))",
         }
     if side == "ct":
         return {
-            "kills": "SUM(COALESCE(ms.ct_kills, 0))",
-            "deaths": "SUM(COALESCE(ms.ct_deaths, 0))",
+            "kills": "SUM(ms.ct_kills)",
+            "deaths": "SUM(ms.ct_deaths)",
             "rating": "AVG(NULLIF(ms.ct_rating, 0))",
             "adr": "AVG(NULLIF(ms.ct_adr, 0))",
         }
     return {
-        "kills": "SUM(COALESCE(ms.kills, 0))",
-        "deaths": "SUM(COALESCE(ms.deaths, 0))",
+        "kills": "SUM(ms.kills)",
+        "deaths": "SUM(ms.deaths)",
         "rating": weighted_average_sql("ms.rating", "ms.rounds_played"),
         "adr": weighted_average_sql("ms.adr", "ms.rounds_played"),
     }
@@ -694,31 +699,35 @@ def _available_events(conn):
 
 def _player_rankings(conn, filters, order="rating", limit=50):
     if _is_unfiltered(filters):
+        kills = summary_metric_sql("total_kills", "kills")
+        deaths = summary_metric_sql("total_deaths", "deaths")
+        first_kills = summary_metric_sql("first_kills", "first_kills")
+        first_deaths = summary_metric_sql("first_deaths", "first_deaths")
         order_sql = {
-            "rating": "s.avg_rating DESC, s.maps DESC, p.nickname ASC",
-            "kd": "kd DESC, s.avg_rating DESC, p.nickname ASC",
-            "adr": "s.avg_adr DESC, s.avg_rating DESC, p.nickname ASC",
-            "maps": "s.maps DESC, s.avg_rating DESC, p.nickname ASC",
-            "pistol": "s.first_kills DESC, opening_success DESC, s.avg_rating DESC",
-        }.get(order, "s.avg_rating DESC, s.maps DESC")
+            "rating": "rating IS NULL, rating DESC, s.maps DESC, p.nickname ASC",
+            "kd": "kd IS NULL, kd DESC, rating DESC, p.nickname ASC",
+            "adr": "adr IS NULL, adr DESC, rating DESC, p.nickname ASC",
+            "maps": "s.maps DESC, rating DESC, p.nickname ASC",
+            "pistol": "first_kills IS NULL, first_kills DESC, opening_success DESC, rating DESC",
+        }.get(order, "rating IS NULL, rating DESC, s.maps DESC")
         return conn.execute(
             f"""
             SELECT p.nickname, p.id, p.avatar, t.short_name AS team,
-                   s.avg_rating AS rating,
-                   s.total_kills AS kills,
-                   s.total_deaths AS deaths,
-                   s.rounds_played AS rounds,
-                   s.total_kills - s.total_deaths AS kd_diff,
-                   (s.total_kills * 1.0 / NULLIF(s.total_deaths, 0)) AS kd,
-                   s.avg_adr AS adr,
-                   s.avg_kast AS kast,
-                   s.avg_impact AS impact,
-                   s.avg_hs AS hs,
-                   s.clutches_won AS clutch,
-                   s.first_kills,
-                   s.first_deaths,
-                   (s.first_kills * 1.0 /
-                    NULLIF(s.first_kills + s.first_deaths, 0)) AS opening_success,
+                   {summary_metric_sql("avg_rating", "rating")} AS rating,
+                   {kills} AS kills,
+                   {deaths} AS deaths,
+                   {summary_metric_sql("rounds_played", "rounds_played")} AS rounds,
+                   ({kills}) - ({deaths}) AS kd_diff,
+                   (({kills}) * 1.0 / NULLIF(({deaths}), 0)) AS kd,
+                   {summary_metric_sql("avg_adr", "adr")} AS adr,
+                   {summary_metric_sql("avg_kast", "kast")} AS kast,
+                   {summary_metric_sql("avg_impact", "impact")} AS impact,
+                   {summary_metric_sql("avg_hs", "headshot_percentage")} AS hs,
+                   {summary_metric_sql("clutches_won", "clutches_won")} AS clutch,
+                   {first_kills} AS first_kills,
+                   {first_deaths} AS first_deaths,
+                   (({first_kills}) * 1.0 /
+                    NULLIF(({first_kills}) + ({first_deaths}), 0)) AS opening_success,
                    s.maps
             FROM player_performance_summary s
             JOIN players p ON s.player_id=p.id
@@ -745,18 +754,18 @@ def _player_rankings(conn, filters, order="rating", limit=50):
                {expr["rating"]} AS rating,
                {expr["kills"]} AS kills,
                {expr["deaths"]} AS deaths,
-               SUM(COALESCE(ms.rounds_played, 0)) AS rounds,
+               SUM(ms.rounds_played) AS rounds,
                {expr["kills"]} - {expr["deaths"]} AS kd_diff,
                ({expr["kills"]} * 1.0 / NULLIF({expr["deaths"]}, 0)) AS kd,
                {expr["adr"]} AS adr,
-               AVG(ms.kast) AS kast,
-               AVG(ms.impact) AS impact,
-               AVG(ms.headshot_percentage) AS hs,
-               SUM(COALESCE(ms.clutches_won, 0)) AS clutch,
-               SUM(COALESCE(ms.first_kills, 0)) AS first_kills,
-               SUM(COALESCE(ms.first_deaths, 0)) AS first_deaths,
-               (SUM(COALESCE(ms.first_kills, 0)) * 1.0 /
-                NULLIF(SUM(COALESCE(ms.first_kills, 0)) + SUM(COALESCE(ms.first_deaths, 0)), 0)) AS opening_success,
+               {weighted_average_sql("ms.kast", "ms.rounds_played")} AS kast,
+               {weighted_average_sql("ms.impact", "ms.rounds_played")} AS impact,
+               {weighted_average_sql("ms.headshot_percentage", "ms.kills")} AS hs,
+               SUM(ms.clutches_won) AS clutch,
+               SUM(ms.first_kills) AS first_kills,
+               SUM(ms.first_deaths) AS first_deaths,
+               (SUM(ms.first_kills) * 1.0 /
+                NULLIF(SUM(ms.first_kills) + SUM(ms.first_deaths), 0)) AS opening_success,
                COUNT(ms.id) AS maps
         FROM match_stats ms
         JOIN players p ON ms.player_id=p.id
@@ -782,7 +791,7 @@ def _flash_rankings(conn, filters, limit=50):
         f"""
         SELECT p.nickname, p.id, p.avatar,
                COUNT(ms.id) AS maps,
-               SUM(COALESCE(ms.rounds_played, 0)) AS rounds,
+               SUM(ms.rounds_played) AS rounds,
                AVG(CASE WHEN {_FLASH_RECORDED_SQL} THEN ms.flash_count END) AS thrown,
                AVG(ms.flash_blinded_seconds) AS blinded,
                AVG(ms.flash_enemy_seconds) AS opp_flashed,
@@ -976,12 +985,12 @@ def _overview_context(conn, filters):
             "SELECT AVG(adr) AS v FROM match_stats WHERE COALESCE(data_status, 'final') <> 'superseded'"
         ).fetchone()["v"],
     }
-    overview["top_player"] = conn.execute("""
-        SELECT p.nickname, p.id, s.avg_rating AS r, s.maps AS m
+    overview["top_player"] = conn.execute(f"""
+        SELECT p.nickname, p.id, {summary_metric_sql("avg_rating", "rating")} AS r, s.maps AS m
         FROM player_performance_summary s
         JOIN players p ON s.player_id=p.id
         WHERE s.maps >= 5
-        ORDER BY s.avg_rating DESC, s.maps DESC
+        ORDER BY r IS NULL, r DESC, s.maps DESC
         LIMIT 1
     """).fetchone()
     overview["top_team"] = conn.execute("""
@@ -1177,17 +1186,17 @@ def _comparison_profile(conn, player_id, filters):
         SELECT p.id, p.nickname, p.avatar, t.short_name AS team,
                COUNT(DISTINCT ms.match_id) AS matches,
                COUNT(ms.id) AS maps,
-               SUM(COALESCE(ms.rounds_played, 0)) AS rounds,
+               SUM(ms.rounds_played) AS rounds,
                {expr["kills"]} AS kills,
                {expr["deaths"]} AS deaths,
                ({expr["kills"]} * 1.0 / NULLIF({expr["deaths"]}, 0)) AS kd,
                ({expr["kills"]} * 1.0 /
-                NULLIF(SUM(COALESCE(ms.rounds_played, 0)), 0)) AS kpr,
+                NULLIF(SUM(ms.rounds_played), 0)) AS kpr,
                {expr["rating"]} AS rating,
                {expr["adr"]} AS adr,
-               AVG(ms.kast) AS kast,
-               AVG(ms.impact) AS impact,
-               AVG(ms.headshot_percentage) AS hs
+               {weighted_average_sql("ms.kast", "ms.rounds_played")} AS kast,
+               {weighted_average_sql("ms.impact", "ms.rounds_played")} AS impact,
+               {weighted_average_sql("ms.headshot_percentage", "ms.kills")} AS hs
         FROM match_stats ms
         JOIN matches m ON ms.match_id=m.id
         JOIN players p ON ms.player_id=p.id
@@ -1333,6 +1342,7 @@ def stats_page():
 
     return render_template(
         "stats.html",
+        format_stat=format_stat,
         rankings=rankings,
         matches=matches,
         events=events,
@@ -1375,6 +1385,7 @@ def stats_overview_detail(section):
         conn.close()
     return render_template(
         "stats_detail.html",
+        format_stat=format_stat,
         section=section,
         config=config,
         rows=rows,
@@ -1392,46 +1403,9 @@ def predictions_page():
     """预测排行榜"""
     conn = get_db()
 
-    # 自动计分
-    score_predictions(conn)
-    conn.commit()
+    points_rows = get_prediction_leaderboard(conn)
 
-    # 积分排行榜（Total Points）
-    points_rows = conn.execute("""
-        SELECT u.username, u.id AS user_id, u.avatar, u.is_cheater,
-               COUNT(v.id) AS total_votes,
-               SUM(CASE WHEN v.points_earned > 0 THEN 1 ELSE 0 END) AS correct_votes,
-               SUM(v.points_earned) AS total_points,
-               MAX(CASE WHEN v.points_earned >= 8 THEN 1 ELSE 0 END) AS has_perfect
-        FROM match_votes v
-        JOIN users u ON v.user_id = u.id
-        WHERE v.scored = 1
-        GROUP BY v.user_id
-        HAVING total_votes >= 1
-        ORDER BY total_points DESC, correct_votes DESC
-        LIMIT 10
-    """).fetchall()
-
-    # 即将进行的比赛。没有人投票的比赛也要显示，否则用户看不到入口。
-    upcoming_matches = conn.execute("""
-        SELECT m.id, m.slug, m.match_time, m.bo_format,
-               COALESCE(t1.name, 'TBD') AS team1_name,
-               COALESCE(t2.name, 'TBD') AS team2_name,
-               e.name AS event_name,
-               COUNT(v.id) AS vote_count,
-               SUM(CASE WHEN v.voted_for = 't1' THEN 1 ELSE 0 END) AS t1_votes,
-               SUM(CASE WHEN v.voted_for = 't2' THEN 1 ELSE 0 END) AS t2_votes
-        FROM matches m
-        LEFT JOIN match_votes v ON m.id = v.match_id
-        LEFT JOIN teams t1 ON m.team1_id = t1.id
-        LEFT JOIN teams t2 ON m.team2_id = t2.id
-        LEFT JOIN events e ON m.event_id = e.id
-        WHERE COALESCE(m.status, '') = 'upcoming'
-          AND (m.match_time IS NULL OR datetime(m.match_time) > datetime('now', 'localtime'))
-        GROUP BY m.id
-        ORDER BY vote_count DESC, m.match_time ASC
-        LIMIT 10
-    """).fetchall()
+    upcoming_matches = get_prediction_upcoming_matches(conn)
 
     conn.close()
 

@@ -1,10 +1,12 @@
 """Online match Ban/Pick room and APIs."""
 
+import hashlib
+import hmac
 import json
 import time
 from copy import deepcopy
 
-from flask import flash, jsonify, redirect, render_template, request, session, url_for
+from flask import flash, g, jsonify, redirect, render_template, request, session, url_for
 
 from models import get_db
 from services.match_service import supplement_temp_teams
@@ -19,8 +21,65 @@ from web_app import app
 BP_SEAT_TIMEOUT_SECONDS = 30
 
 
+def _get_bp_write_connection(match_id):
+    conn = get_db()
+    g.bp_write_connection = conn
+    # Acquire the database write lock before reading the shared JSON state.
+    conn.execute("UPDATE matches SET bp_state=bp_state WHERE id=?", (match_id,))
+    return conn
+
+
+@app.teardown_request
+def _close_bp_write_connection(_error):
+    conn = g.pop("bp_write_connection", None)
+    if conn is not None:
+        conn.close()
+
+
 def _bp_window_is_open(match):
     return bool(match and str(match["status"] or "").lower() not in {"completed", "cancelled"})
+
+
+def _bp_verification_marker(stored_password):
+    return hashlib.sha256(str(stored_password or "").encode("utf-8")).hexdigest()
+
+
+def _bp_password_is_verified(match):
+    if not match["bp_password"]:
+        return True
+    marker = session.get(f"bp_verified_{match['id']}")
+    return isinstance(marker, str) and hmac.compare_digest(
+        marker, _bp_verification_marker(match["bp_password"])
+    )
+
+
+def _bp_change_lock_error(match):
+    if not _bp_window_is_open(match):
+        return "比赛已结束或取消，不能重置或撤回 BP"
+    fields = ["team1_score", "team2_score"]
+    fields.extend(f"map{slot}_t{side}" for slot in range(1, 6) for side in (1, 2))
+    if any(match[field] not in (None, 0, "0", "") for field in fields):
+        return "比赛已产生比分，不能重置或撤回 BP"
+    return None
+
+
+def _clear_bp_generated_maps(conn, match_id, bo_format):
+    updates: dict[str, int | None] = {f"map{slot}": None for slot in range(1, 6)}
+    updates.update({f"map{slot}_picked_by": None for slot in range(1, 6)})
+    updates.update(
+        {
+            "bp_process": None,
+            "decider_knife_winner": None,
+            "decider_start_side": None,
+            "has_map3": int(bo_format in ("BO3", "BO5")),
+            "has_map4": int(bo_format == "BO5"),
+            "has_map5": int(bo_format == "BO5"),
+        }
+    )
+    conn.execute(
+        "UPDATE matches SET " + ", ".join(f"{field}=?" for field in updates) + " WHERE id=?",
+        (*updates.values(), match_id),
+    )
 
 
 def _load_player_ids(raw_value):
@@ -37,13 +96,27 @@ def _get_player_team(player, match):
         return None
     # The locked match roster wins over a player's permanent team. This is
     # what makes an approved substitute belong to the correct side.
-    if player["id"] in _load_player_ids(match["team1_players"]):
+    roster1 = _load_player_ids(match["team1_players"])
+    roster2 = _load_player_ids(match["team2_players"])
+    if player["id"] in roster1 and player["id"] in roster2:
+        return None
+    if player["id"] in roster1:
         return "t1"
-    if player["id"] in _load_player_ids(match["team2_players"]):
+    if player["id"] in roster2:
         return "t2"
-    if match["team1_id"] and match["team1_id"] > 0 and player["team_id"] == match["team1_id"]:
+    if (
+        not roster1
+        and match["team1_id"]
+        and match["team1_id"] > 0
+        and player["team_id"] == match["team1_id"]
+    ):
         return "t1"
-    if match["team2_id"] and match["team2_id"] > 0 and player["team_id"] == match["team2_id"]:
+    if (
+        not roster2
+        and match["team2_id"]
+        and match["team2_id"] > 0
+        and player["team_id"] == match["team2_id"]
+    ):
         return "t2"
     return None
 
@@ -221,9 +294,7 @@ def bp_room(match_id):
 
     # A match may have a shared BP password. It is stored as a hash; the
     # password itself is never sent to the page or written to logs.
-    bp_verified = bool(
-        is_admin or not match["bp_password"] or session.get(f"bp_verified_{match_id}")
-    )
+    bp_verified = bool(is_admin or _bp_password_is_verified(match))
     bp_can_start = _bp_window_is_open(match)
     bp_state, state_changed = ensure_bp_started(conn, match)
     if state_changed:
@@ -288,8 +359,12 @@ def bp_verify(match_id):
         conn.close()
         return jsonify({"ok": False, "msg": "你未参加该比赛"}), 403
 
+    data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict):
+        conn.close()
+        return jsonify({"ok": False, "msg": "请求格式无效"}), 400
     stored_password = match["bp_password"]
-    provided_password = str((request.get_json(silent=True) or {}).get("password") or "")
+    provided_password = str(data.get("password") or "")
     # Existing matches without a configured password remain usable. Once a
     # password exists, do not let a participant skip the check.
     if (
@@ -301,7 +376,7 @@ def bp_verify(match_id):
         return jsonify({"ok": False, "msg": "BP 共享口令错误"}), 403
 
     conn.close()
-    session[f"bp_verified_{match_id}"] = True
+    session[f"bp_verified_{match_id}"] = _bp_verification_marker(stored_password)
     return jsonify(
         {"ok": True, "team": player_team, "bp_state": _load_bp_state(match["bp_state"])[0]}
     )
@@ -361,13 +436,15 @@ def bp_api_action(match_id):
         return jsonify({"ok": False, "msg": "请先登录"})
 
     data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict):
+        return jsonify({"ok": False, "msg": "请求格式无效"}), 400
     action = data.get("action", "")
     team = data.get("team", "")  # 't1' 或 't2'
     allowed_actions = {"start", "roll", "choose_order", "ban", "pick", "choose_side"}
     if action not in allowed_actions:
         return jsonify({"ok": False, "msg": "无效操作"}), 400
 
-    conn = get_db()
+    conn = _get_bp_write_connection(match_id)
     match = conn.execute(
         """
         SELECT m.*, t1.name AS team1_name, t2.name AS team2_name
@@ -385,11 +462,14 @@ def bp_api_action(match_id):
     if not _bp_window_is_open(match):
         conn.close()
         return jsonify({"ok": False, "msg": "比赛已结束或取消，BP 已锁定"}), 403
+    if _bp_change_lock_error(match):
+        conn.close()
+        return jsonify({"ok": False, "msg": "比赛已产生比分，不能继续更改 BP"}), 409
     # 校验队伍归属（管理员除外）。锁定名单中的任何选手都可以操作，
     # 不再把权限错误地绑在“队长”这个长期身份上。
     player_team = None
     if not is_admin:
-        if match["bp_password"] and not session.get(f"bp_verified_{match_id}"):
+        if not _bp_password_is_verified(match):
             conn.close()
             return jsonify({"ok": False, "msg": "请先输入 BP 共享口令"}), 403
         player_team = _get_current_player_team(conn, match)
@@ -415,8 +495,6 @@ def bp_api_action(match_id):
     )
 
     bp_state, state_changed = ensure_bp_started(conn, match)
-    if state_changed:
-        conn.commit()
 
     if bp_state is None and action == "start":
         try:
@@ -556,6 +634,19 @@ def bp_api_action(match_id):
         )
         bp_state["revision"] = int(bp_state.get("revision", 0)) + 1
 
+    if not ok:
+        conn.rollback()
+        conn.close()
+        return jsonify(
+            {
+                "ok": False,
+                "msg": result,
+                "state": bp_state,
+                "info": get_current_step_info(bp_state),
+                "bp_revision": bp_state.get("revision", 0),
+            }
+        )
+
     # 保存状态
     conn.execute(
         "UPDATE matches SET bp_state=? WHERE id=?",
@@ -566,7 +657,10 @@ def bp_api_action(match_id):
     if bp_state["status"] == "completed":
         from utils.bp_manager import save_bp_to_match
 
-        save_bp_to_match(conn, match_id, bp_state)
+        if not save_bp_to_match(conn, match_id, bp_state):
+            conn.rollback()
+            conn.close()
+            return jsonify({"ok": False, "msg": "BP 地图保存失败，本次操作未保存"}), 400
 
     conn.commit()
     conn.close()
@@ -591,7 +685,18 @@ def bp_api_reset(match_id):
     if not is_admin:
         return jsonify({"ok": False, "msg": "仅管理员可重置 BP"}), 403
 
-    conn = get_db()
+    conn = _get_bp_write_connection(match_id)
+    match = conn.execute("SELECT * FROM matches WHERE id=?", (match_id,)).fetchone()
+    if not match:
+        conn.close()
+        return jsonify({"ok": False, "msg": "比赛不存在"}), 404
+    lock_error = _bp_change_lock_error(match)
+    if lock_error:
+        conn.close()
+        return jsonify({"ok": False, "msg": lock_error}), 409
+    state, _ = ensure_bp_started(conn, match)
+    if state and state.get("status") == "completed":
+        _clear_bp_generated_maps(conn, match_id, state["bo"])
     conn.execute("UPDATE matches SET bp_state=NULL WHERE id=?", (match_id,))
     conn.commit()
     conn.close()
@@ -606,11 +711,14 @@ def bp_api_heartbeat(match_id):
     """Keep a team's BP operation seat alive without changing BP state."""
     if "user_id" not in session and not _helper_is_admin():
         return jsonify({"ok": False, "msg": "请先登录"}), 401
-    conn = get_db()
+    conn = _get_bp_write_connection(match_id)
     match = conn.execute("SELECT * FROM matches WHERE id=?", (match_id,)).fetchone()
     if not match:
         conn.close()
         return jsonify({"ok": False, "msg": "比赛不存在"}), 404
+    if not _bp_window_is_open(match):
+        conn.close()
+        return jsonify({"ok": False, "msg": "比赛已结束或取消，BP 已锁定"}), 403
     if _helper_is_admin():
         state, changed = ensure_bp_started(conn, match)
         if state is None:
@@ -628,7 +736,7 @@ def bp_api_heartbeat(match_id):
         conn.commit()
         conn.close()
         return jsonify({"ok": True, "seat": "admin", "bp_revision": state.get("revision", 0)})
-    if match["bp_password"] and not session.get(f"bp_verified_{match_id}"):
+    if not _bp_password_is_verified(match):
         conn.close()
         return jsonify({"ok": False, "msg": "请先输入 BP 共享口令"}), 403
     team = _get_current_player_team(conn, match)
@@ -664,10 +772,13 @@ def bp_api_release_seat(match_id):
     """管理员释放队伍操作席，便于掉线后的接管。"""
     if not _helper_is_admin():
         return jsonify({"ok": False, "msg": "仅管理员可释放席位"}), 403
-    team = str((request.get_json(silent=True) or {}).get("team") or "")
+    data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict):
+        return jsonify({"ok": False, "msg": "请求格式无效"}), 400
+    team = str(data.get("team") or "")
     if team not in {"t1", "t2"}:
         return jsonify({"ok": False, "msg": "队伍无效"}), 400
-    conn = get_db()
+    conn = _get_bp_write_connection(match_id)
     match = conn.execute("SELECT * FROM matches WHERE id=?", (match_id,)).fetchone()
     if not match:
         conn.close()
@@ -712,11 +823,15 @@ def bp_api_undo(match_id):
     """管理员撤回一步 BP；后续步骤随快照一起回退，审计记录保留。"""
     if not _helper_is_admin():
         return jsonify({"ok": False, "msg": "仅管理员可撤回 BP"}), 403
-    conn = get_db()
+    conn = _get_bp_write_connection(match_id)
     match = conn.execute("SELECT * FROM matches WHERE id=?", (match_id,)).fetchone()
     if not match:
         conn.close()
         return jsonify({"ok": False, "msg": "比赛不存在"}), 404
+    lock_error = _bp_change_lock_error(match)
+    if lock_error:
+        conn.close()
+        return jsonify({"ok": False, "msg": lock_error}), 409
     state, _ = ensure_bp_started(conn, match)
     if state is None:
         conn.close()
@@ -725,7 +840,11 @@ def bp_api_undo(match_id):
     if not history:
         conn.close()
         return jsonify({"ok": False, "msg": "没有可撤回的 BP 操作"}), 409
-    target = (request.get_json(silent=True) or {}).get("steps_back", 1)
+    data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict):
+        conn.close()
+        return jsonify({"ok": False, "msg": "请求格式无效"}), 400
+    target = data.get("steps_back", 1)
     try:
         steps_back = max(1, min(int(target), len(history)))
     except (TypeError, ValueError):
@@ -746,29 +865,7 @@ def bp_api_undo(match_id):
     was_completed = str(state.get("status") or "") == "completed"
     if was_completed and str(restored.get("status") or "") != "completed":
         bo = str(restored.get("bo") or "BO3").upper()
-        updates: dict[str, object] = {
-            "map1": None,
-            "map2": None,
-            "map3": None,
-            "map4": None,
-            "map5": None,
-            "map1_picked_by": None,
-            "map2_picked_by": None,
-            "map3_picked_by": None,
-            "map4_picked_by": None,
-            "map5_picked_by": None,
-            "bp_process": None,
-        }
-        bo3 = bo in ("BO3", "BO5")
-        bo5 = bo == "BO5"
-        updates["has_map3"] = 1 if bo3 else 0
-        updates["has_map4"] = 1 if bo5 else 0
-        updates["has_map5"] = 1 if bo5 else 0
-        set_clause = ", ".join(f"{key}=?" for key in updates)
-        conn.execute(
-            f"UPDATE matches SET {set_clause} WHERE id=?",
-            (*updates.values(), match_id),
-        )
+        _clear_bp_generated_maps(conn, match_id, bo)
     conn.execute(
         "UPDATE matches SET bp_state=? WHERE id=?",
         (json.dumps(restored, ensure_ascii=False), match_id),
@@ -776,7 +873,10 @@ def bp_api_undo(match_id):
     if restored.get("status") == "completed":
         from utils.bp_manager import save_bp_to_match
 
-        save_bp_to_match(conn, match_id, restored)
+        if not save_bp_to_match(conn, match_id, restored):
+            conn.rollback()
+            conn.close()
+            return jsonify({"ok": False, "msg": "BP 地图保存失败，本次撤回未保存"}), 400
     conn.commit()
     conn.close()
     from utils.bp_manager import get_current_step_info

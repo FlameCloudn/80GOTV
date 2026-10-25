@@ -124,10 +124,15 @@ def ensure_bp_started(conn, match):
             state = json.loads(raw_state) if isinstance(raw_state, str) else raw_state
             changed = normalize_bp_state(state)
             if changed:
-                conn.execute(
-                    "UPDATE matches SET bp_state=? WHERE id=?",
-                    (json.dumps(state, ensure_ascii=False), match["id"]),
+                updated = conn.execute(
+                    "UPDATE matches SET bp_state=? WHERE id=? AND bp_state=?",
+                    (json.dumps(state, ensure_ascii=False), match["id"], raw_state),
                 )
+                if updated.rowcount == 0:
+                    latest = conn.execute(
+                        "SELECT id,bp_state FROM matches WHERE id=?", (match["id"],)
+                    ).fetchone()
+                    return ensure_bp_started(conn, latest) if latest else (None, False)
             return state, changed
         except (TypeError, ValueError, json.JSONDecodeError):
             return None, False
@@ -151,7 +156,7 @@ def init_bp_state(bo_format, map_pool=None):
     pool = [str(name or "").strip() for name in pool]
     if any(not name for name in pool):
         raise ValueError("地图池不能包含空地图名")
-    if len({name.casefold() for name in pool}) != len(pool):
+    if len({_storage_map_name(name) for name in pool}) != len(pool):
         raise ValueError("地图池不能包含重复地图")
 
     steps = [dict(step) for step in _format_steps_for_pool(bo, len(pool))]
@@ -203,7 +208,7 @@ def normalize_bp_state(state):
         cleaned_pool = [str(name or "").strip() for name in initial_pool]
         if (
             any(not name for name in cleaned_pool)
-            or len({name.casefold() for name in cleaned_pool}) != len(cleaned_pool)
+            or len({_storage_map_name(name) for name in cleaned_pool}) != len(cleaned_pool)
             or len(cleaned_pool) < (2 if bo == "BO1" else FORMAT_MAP_COUNTS[bo])
         ):
             state["initial_pool"] = list(ALL_MAPS)
@@ -330,7 +335,12 @@ def set_first_choice(state, team, choice):
 
 def get_team_for_step(state, step_idx):
     """获取某步骤对应的队伍 ('t1' 或 't2')"""
-    if step_idx >= len(state["steps"]):
+    if (
+        step_idx < 0
+        or step_idx >= len(state["steps"])
+        or state.get("first_choice") not in ("first", "second")
+        or state.get("first_picker") not in ("t1", "t2")
+    ):
         return None
     step = state["steps"][step_idx]
     if step["team"] == "first":
@@ -410,6 +420,10 @@ def ban_map(state, team, map_name):
     """执行 ban 图操作"""
     if state["status"] != "bp":
         return False, "当前不在 BP 阶段"
+    if state.get("first_choice") not in ("first", "second"):
+        return False, "请先由 Roll 胜方选择先后手"
+    if team not in ("t1", "t2"):
+        return False, "队伍无效"
 
     step_idx = state["current_step"]
     if step_idx >= len(state["steps"]):
@@ -445,6 +459,10 @@ def pick_map(state, team, map_name):
     """执行 pick 图操作"""
     if state["status"] != "bp":
         return False, "当前不在 BP 阶段"
+    if state.get("first_choice") not in ("first", "second"):
+        return False, "请先由 Roll 胜方选择先后手"
+    if team not in ("t1", "t2"):
+        return False, "队伍无效"
 
     step_idx = state["current_step"]
     if step_idx >= len(state["steps"]):
@@ -651,6 +669,8 @@ def save_bp_to_match(conn, match_id, state):
     bo = state["bo"].upper()
     expected_count = FORMAT_MAP_COUNTS.get(bo)
     if expected_count is None or len(map_order) != expected_count:
+        return False
+    if len({_storage_map_name(name) for name in map_order}) != len(map_order):
         return False
 
     try:

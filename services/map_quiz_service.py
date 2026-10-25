@@ -275,16 +275,26 @@ def load_game(conn, game_row):
 
 
 def submit_guess(conn, game_row, guessed_map, guessed_spot):
-    game = load_game(conn, game_row)
+    conn.execute("BEGIN IMMEDIATE")
+    current_game = conn.execute(
+        "SELECT * FROM map_quiz_games WHERE id=?", (game_row["id"],)
+    ).fetchone()
+    if not current_game:
+        conn.rollback()
+        return None, "本局不存在"
+    game = load_game(conn, current_game)
     if game["finished"]:
+        conn.rollback()
         return game, "本局已经结束"
     guessed_map = (guessed_map or "").strip().casefold()
     guessed_spot = (guessed_spot or "").strip()[:80]
     if guessed_map not in dict(MAPS) or not guessed_spot:
+        conn.rollback()
         return game, "请选择地图并填写点位"
 
-    question = question_for_key(game_row["question_key"])
+    question = question_for_key(current_game["question_key"])
     if not question:
+        conn.rollback()
         return game, "题目不存在或已下架"
     map_correct = guessed_map == question["map_key"]
     accepted = {
@@ -301,7 +311,7 @@ def submit_guess(conn, game_row, guessed_map, guessed_spot):
                map_correct, spot_correct
            ) VALUES(?,?,?,?,?,?)""",
         (
-            game_row["id"],
+            current_game["id"],
             attempt_number,
             guessed_map,
             guessed_spot,
@@ -312,11 +322,11 @@ def submit_guess(conn, game_row, guessed_map, guessed_spot):
     conn.execute(
         """UPDATE map_quiz_games
            SET finished=?, won=?, updated_at=CURRENT_TIMESTAMP WHERE id=?""",
-        (int(finished), int(won), game_row["id"]),
+        (int(finished), int(won), current_game["id"]),
     )
     conn.commit()
     refreshed = conn.execute(
-        "SELECT * FROM map_quiz_games WHERE id=?", (game_row["id"],)
+        "SELECT * FROM map_quiz_games WHERE id=?", (current_game["id"],)
     ).fetchone()
     return load_game(conn, refreshed), None
 

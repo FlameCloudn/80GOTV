@@ -36,7 +36,7 @@
         {% for p in top_players %}
         <a class="h-side-row h-player-row" href="/players/{{ p.id }}">
           <span class="h-side-main" data-i18n-ignore>{{ private_name_for_player(p.id, p.nickname) }}</span>
-          <small class="{{ p.avg_rating|rating_class }}">{{ "%.2f"|format(p.avg_rating) }}</small>
+          <small class="{{ p.avg_rating|rating_class }}">{{ "%.2f"|format(p.avg_rating) if p.avg_rating is not none else '-' }}</small>
         </a>
         {% endfor %}
         {% if not top_players %}<div class="h-empty">暂无数据</div>{% endif %}

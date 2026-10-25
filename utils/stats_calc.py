@@ -1,25 +1,54 @@
 # 统计数据计算函数
 
+import math
+
+HLTV2_ESTIMATE_METHOD = "csda_hltv2_regression_v1"
+HLTV2_ESTIMATE_SOURCE = "https://github.com/akiver/cs-demo-analyzer/blob/main/pkg/api/player.go"
+
+
+def _rounds(value):
+    try:
+        value = float(value or 0)
+    except (TypeError, ValueError):
+        return 0.0
+    return value if math.isfinite(value) and value > 0 else 0.0
+
+
+def estimate_hltv2_impact(kills, assists, rounds_played):
+    """CSDA 使用的公开回归近似，不是 HLTV 保密的精确 Impact 公式。
+
+    来源：Dave 的 reverse-engineering-hltv-rating，CSDA player.go 同样使用此式。
+    未记录的助攻不能当作零；负估值也保留，以便与 CSDA Rating 的输入一致。
+    """
+    rounds_played = _rounds(rounds_played)
+    if not rounds_played or kills is None or assists is None:
+        return None
+    return 2.13 * kills / rounds_played + 0.42 * assists / rounds_played - 0.41
+
 
 def calculate_rating(kills, deaths, rounds_played, adr=None, kast=None, impact=None):
     """
-    计算 HLTV Rating 2.0
+    计算与 CSDA 同口径的 Rating 2.0 回归近似，非 HLTV 官方精确公式。
 
-    公式: 0.0073*KAST + 0.3591*KPR - 0.5329*DPR + 0.2372*Impact + 0.0032*ADR + 0.2698
+    来源：https://dave.xn--tckwe/posts/reverse-engineering-hltv-rating/
+    缺少必要指标时不猜测评分，返回 None。
     返回 (rating, kpr, dpr)
     """
-    if rounds_played == 0:
+    rounds_played = _rounds(rounds_played)
+    if not rounds_played:
         return 0.0, 0.0, 0.0
 
-    rounds_played = max(0, float(rounds_played or 0))
-    kpr = kills / rounds_played
+    kpr = kills / rounds_played if kills is not None else None
     # Zero deaths is a real value, not a missing value. The old 0.01 floor
     # made perfect maps look worse and caused director/site differences.
-    dpr = deaths / rounds_played
+    dpr = deaths / rounds_played if deaths is not None else None
 
-    # ``None`` means unavailable; an explicit zero Impact must remain zero.
-    if impact is None:
-        impact = kpr * 0.5 + (adr or 0) / 200.0
+    if kpr is None or dpr is None or adr is None or kast is None or impact is None:
+        return (
+            None,
+            round(kpr, 2) if kpr is not None else None,
+            round(dpr, 2) if dpr is not None else None,
+        )
 
     rating = (
         0.0073 * (kast or 0)
@@ -27,10 +56,10 @@ def calculate_rating(kills, deaths, rounds_played, adr=None, kast=None, impact=N
         - 0.5329 * dpr
         + 0.2372 * impact
         + 0.0032 * (adr or 0)
-        + 0.2698
+        + 0.1587
     )
 
-    return round(max(0.0, min(3.0, rating)), 2), round(kpr, 2), round(dpr, 2)
+    return round(max(0.0, rating), 2), round(kpr, 2), round(dpr, 2)
 
 
 def calculate_kd_ratio(kills, deaths):
@@ -71,9 +100,11 @@ def calculate_impact(entry_kills, entry_deaths, multi_kills, clutches_won, round
     """
     计算 Impact 评分
 
-    简化版，考虑首杀、多杀、残局等关键表现
+    旧版站内自定义指标，仅为旧调用保留；不是 HLTV Impact。
+    新的 Rating 2.0 近似输入使用 estimate_hltv2_impact。
     """
-    if rounds_played == 0:
+    rounds_played = _rounds(rounds_played)
+    if not rounds_played:
         return 0.0
 
     impact = (
@@ -102,38 +133,22 @@ def aggregate_player_stats(match_stats_list):
     if not match_stats_list:
         return {}
 
-    total_kills = sum(s["kills"] for s in match_stats_list)
-    total_deaths = sum(s["deaths"] for s in match_stats_list)
-    total_assists = sum(s["assists"] for s in match_stats_list)
+    total_kills = sum(s.get("kills") or 0 for s in match_stats_list)
+    total_deaths = sum(s.get("deaths") or 0 for s in match_stats_list)
+    total_assists = sum(s.get("assists") or 0 for s in match_stats_list)
     matches = len(match_stats_list)
-    total_rounds = sum(max(0, float(s.get("rounds_played", 0) or 0)) for s in match_stats_list)
-    weight = total_rounds or float(matches)
 
-    avg_adr = (
-        sum(
-            float(s.get("adr", 0) or 0) * (float(s.get("rounds_played", 0) or 0) or 1)
-            for s in match_stats_list
-        )
-        / weight
-    )
-    avg_rating = (
-        sum(
-            float(s.get("rating", 0) or 0) * (float(s.get("rounds_played", 0) or 0) or 1)
-            for s in match_stats_list
-        )
-        / weight
-    )
-    avg_kast = (
-        sum(
-            float(s.get("kast", 0) or 0) * (float(s.get("rounds_played", 0) or 0) or 1)
-            for s in match_stats_list
-        )
-        / weight
-    )
-    avg_hs = sum(
-        float(s.get("headshot_percentage", 0) or 0) * (float(s.get("kills", 0) or 0) or 1)
-        for s in match_stats_list
-    ) / sum((float(s.get("kills", 0) or 0) or 1) for s in match_stats_list)
+    def weighted(field, weight_field, digits):
+        recorded = [s for s in match_stats_list if s.get(field) is not None]
+        known_weights = [(s[field], _rounds(s.get(weight_field))) for s in recorded]
+        denominator = sum(weight for _, weight in known_weights)
+        if denominator:
+            average = sum(value * weight for value, weight in known_weights) / denominator
+        elif recorded:
+            average = sum(s[field] for s in recorded) / len(recorded)
+        else:
+            return None
+        return round(average, digits)
 
     return {
         "matches": matches,
@@ -141,8 +156,8 @@ def aggregate_player_stats(match_stats_list):
         "total_deaths": total_deaths,
         "total_assists": total_assists,
         "kd_ratio": calculate_kd_ratio(total_kills, total_deaths),
-        "avg_adr": round(avg_adr, 1),
-        "avg_rating": round(avg_rating, 2),
-        "avg_kast": round(avg_kast, 1),
-        "avg_headshot_percentage": round(avg_hs, 1),
+        "avg_adr": weighted("adr", "rounds_played", 1),
+        "avg_rating": weighted("rating", "rounds_played", 2),
+        "avg_kast": weighted("kast", "rounds_played", 1),
+        "avg_headshot_percentage": weighted("headshot_percentage", "kills", 1),
     }

@@ -16,6 +16,8 @@ from utils.rate_limiter import rate_limit
 from utils.web_helpers import csrf_required
 from web_app import app
 
+MAX_SQLITE_INTEGER = 9223372036854775807
+
 
 def _login_redirect(endpoint="player_bingo_page"):
     return redirect(url_for("user_login", next=url_for(endpoint)))
@@ -68,7 +70,17 @@ def _submit(mode):
     row_value = request.form.get("row_index", "")
     column_value = request.form.get("column_index", "")
     player_value = request.form.get("player_id", "")
-    if not (row_value.isdigit() and column_value.isdigit() and player_value.isdigit()):
+    if not (
+        row_value in ("0", "1", "2")
+        and column_value in ("0", "1", "2")
+        and player_value.isascii()
+        and player_value.isdigit()
+        and len(player_value) <= 19
+    ):
+        flash("请先点一个空格，再从候选列表中选择选手", "error")
+        return redirect(url_for(endpoint))
+    player_id = int(player_value)
+    if not 0 < player_id <= MAX_SQLITE_INTEGER:
         flash("请先点一个空格，再从候选列表中选择选手", "error")
         return redirect(url_for(endpoint))
     conn = get_db()
@@ -78,7 +90,7 @@ def _submit(mode):
             _game_row(conn, mode),
             int(row_value),
             int(column_value),
-            int(player_value),
+            player_id,
         )
     finally:
         conn.close()

@@ -946,21 +946,26 @@ def user_profile():
             if group_username_error:
                 flash(group_username_error, "error")
             else:
-                conn.execute(
-                    "UPDATE users SET group_username=? WHERE id=?",
-                    (group_username, user["id"]),
-                )
-                conn.commit()
-                if user["steam_id64"]:
+                try:
                     conn.execute(
-                        """UPDATE players SET group_username_override=?
-                           WHERE steam_id=?""",
-                        (group_username, user["steam_id64"]),
+                        "UPDATE users SET group_username=? WHERE id=?",
+                        (group_username, user["id"]),
                     )
+                    if user["steam_id64"]:
+                        conn.execute(
+                            """UPDATE players SET group_username_override=?
+                               WHERE steam_id=?""",
+                            (group_username, user["steam_id64"]),
+                        )
                     conn.commit()
-                session.pop("profile_completion_required", None)
-                session.pop("group_username_required", None)
-                flash("群内用户名已更新", "success")
+                except Exception:
+                    conn.rollback()
+                    logger.exception("同步群内用户名失败")
+                    flash("保存失败，请稍后重试", "error")
+                else:
+                    session.pop("profile_completion_required", None)
+                    session.pop("group_username_required", None)
+                    flash("群内用户名已更新", "success")
 
         elif action == "password":
             old_pw = request.form.get("old_password", "")

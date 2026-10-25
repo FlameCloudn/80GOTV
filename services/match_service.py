@@ -9,6 +9,44 @@ from datetime import datetime
 from services.team_logo_service import logo_relative_path
 
 
+def get_series_result(bo_format, score1, score2):
+    """Return the two match sides only for a valid, decided BO1/BO3/BO5 result."""
+    wins_needed = {"BO1": 1, "BO3": 2, "BO5": 3}.get(str(bo_format or "BO3").upper())
+    if wins_needed is None:
+        return None, None
+    scores = []
+    for value in (score1, score2):
+        if isinstance(value, bool) or not isinstance(value, (int, str)):
+            return None, None
+        text = str(value).strip()
+        if not text.isascii() or not text.isdigit():
+            return None, None
+        scores.append(int(text))
+    if max(scores) != wins_needed or min(scores) >= wins_needed:
+        return None, None
+    return ("t1", "t2") if scores[0] > scores[1] else ("t2", "t1")
+
+
+def completed_match_result_error(match):
+    """Validate the explicit finish action without requiring map or Demo details."""
+    match = dict(match)
+    if match.get("status") == "cancelled":
+        return "比赛已取消，不能直接结束比赛"
+    winner, _ = get_series_result(
+        match.get("bo_format"), match.get("team1_score"), match.get("team2_score")
+    )
+    if winner is None:
+        return "比分尚未达到该赛制的获胜条件，或比分无效，不能结束比赛"
+    for side in (1, 2):
+        if not match.get(f"team{side}_id") and not _has_temp_players(
+            match.get(f"team{side}_players")
+        ):
+            return "请先确认双方参赛队伍，再结束比赛"
+    if match.get("team1_id") and match.get("team1_id") == match.get("team2_id"):
+        return "两支参赛队伍不能相同"
+    return None
+
+
 def _has_temp_players(value):
     """Return whether a temporary match side contains an actual roster."""
     if isinstance(value, (list, tuple, set, dict)):
@@ -157,27 +195,90 @@ def add_effective_event_status(event_row, now=None):
     return event
 
 
-def score_predictions(conn):
-    """对已完成但未计分的比赛投票进行计分。
+def get_prediction_upcoming_matches(conn):
+    """Share the existing HTML upcoming-match selection with the JSON API."""
+    rows = conn.execute(
+        """SELECT m.id,m.slug,m.match_time,m.bo_format,
+                  COALESCE(t1.name,'TBD') AS team1_name,
+                  COALESCE(t2.name,'TBD') AS team2_name,e.name AS event_name,
+                  COUNT(v.id) AS vote_count,
+                  SUM(CASE WHEN v.voted_for='t1' THEN 1 ELSE 0 END) AS t1_votes,
+                  SUM(CASE WHEN v.voted_for='t2' THEN 1 ELSE 0 END) AS t2_votes
+           FROM matches m
+           LEFT JOIN match_votes v ON m.id=v.match_id
+           LEFT JOIN teams t1 ON m.team1_id=t1.id
+           LEFT JOIN teams t2 ON m.team2_id=t2.id
+           LEFT JOIN events e ON m.event_id=e.id
+           WHERE COALESCE(m.status,'')='upcoming'
+             AND (m.match_time IS NULL OR datetime(m.match_time)>datetime('now','localtime'))
+           GROUP BY m.id ORDER BY vote_count DESC,m.match_time ASC LIMIT 10"""
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def get_prediction_leaderboard(conn, limit=10):
+    """Read current prediction scores without updating votes, matches or caches."""
+    rows = conn.execute(
+        """WITH predictions AS (
+               SELECT v.user_id,v.voted_for,v.score1_guess,v.score2_guess,
+                      u.username,u.avatar,u.is_cheater,m.team1_score,m.team2_score,
+                      CASE UPPER(COALESCE(NULLIF(m.bo_format,''),'BO3'))
+                          WHEN 'BO1' THEN 1 WHEN 'BO3' THEN 2 WHEN 'BO5' THEN 3
+                      END AS wins_needed
+               FROM match_votes v
+               JOIN matches m ON m.id=v.match_id
+               JOIN users u ON u.id=v.user_id
+               WHERE m.status='completed'
+                 AND typeof(m.team1_score)='integer' AND typeof(m.team2_score)='integer'
+                 AND m.team1_score>=0 AND m.team2_score>=0
+           ), valid_votes AS (
+               SELECT *,CASE
+                   WHEN (team1_score>team2_score AND voted_for='t1')
+                     OR (team2_score>team1_score AND voted_for='t2')
+                   THEN 3+CASE WHEN score1_guess=team1_score AND score2_guess=team2_score THEN 5 ELSE 0 END
+                   ELSE 0 END AS current_points
+               FROM predictions
+               WHERE (team1_score=wins_needed AND team2_score<wins_needed)
+                  OR (team2_score=wins_needed AND team1_score<wins_needed)
+           )
+           SELECT user_id,username,avatar,is_cheater,COUNT(*) AS total_votes,
+                  SUM(CASE WHEN current_points>0 THEN 1 ELSE 0 END) AS correct_votes,
+                  SUM(current_points) AS total_points,
+                  MAX(CASE WHEN current_points>=8 THEN 1 ELSE 0 END) AS has_perfect
+           FROM valid_votes GROUP BY user_id
+           ORDER BY total_points DESC,correct_votes DESC,user_id ASC LIMIT ?""",
+        (max(1, min(int(limit), 100)),),
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def score_predictions(conn, match_id=None):
+    """Reconcile prediction points with the current valid completed result.
     正确猜中胜者: +3 分
     正确猜中精确比分: 额外 +5 分
     """
-    unscored = conn.execute("""
+    query = """
         SELECT v.id, v.match_id, v.voted_for, v.score1_guess, v.score2_guess,
-               m.team1_score, m.team2_score
+               v.scored, v.points_earned, m.status, m.bo_format, m.team1_score, m.team2_score
         FROM match_votes v
         JOIN matches m ON v.match_id = m.id
-        WHERE v.scored = 0
-          AND m.status = 'completed'
-          AND m.team1_score IS NOT NULL
-          AND m.team2_score IS NOT NULL
-          AND m.team1_score != m.team2_score
-    """).fetchall()
+        WHERE (m.status='completed' OR COALESCE(v.scored,0)<>0 OR COALESCE(v.points_earned,0)<>0)
+    """
+    params = ()
+    if match_id is not None:
+        query += " AND m.id=?"
+        params = (match_id,)
+    votes = conn.execute(query, params).fetchall()
 
-    for v in unscored:
-        winner = "t1" if v["team1_score"] > v["team2_score"] else "t2"
+    for v in votes:
+        winner, _ = (
+            get_series_result(v["bo_format"], v["team1_score"], v["team2_score"])
+            if v["status"] == "completed"
+            else (None, None)
+        )
         points = 0
-        if v["voted_for"] == winner:
+        scored = 1 if winner else 0
+        if winner and v["voted_for"] == winner:
             points += 3
             # 精确比分加分
             if (
@@ -187,6 +288,8 @@ def score_predictions(conn):
                 and v["score2_guess"] == v["team2_score"]
             ):
                 points += 5
-        conn.execute(
-            "UPDATE match_votes SET points_earned=?, scored=1 WHERE id=?", (points, v["id"])
-        )
+        if v["points_earned"] != points or v["scored"] != scored:
+            conn.execute(
+                "UPDATE match_votes SET points_earned=?, scored=? WHERE id=?",
+                (points, scored, v["id"]),
+            )

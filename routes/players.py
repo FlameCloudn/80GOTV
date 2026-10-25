@@ -7,7 +7,7 @@ from flask import flash, redirect, render_template, request, session, url_for
 from models import get_db
 from routes.stats import SIDE_OPTIONS, SIDE_VALUES, TIME_FILTER_MAP, TIME_FILTERS
 from services.match_service import supplement_temp_teams
-from services.performance_service import weighted_average_sql, weighted_rate_sql
+from services.performance_service import summary_metric_sql, weighted_average_sql, weighted_rate_sql
 from services.player_awards_service import build_award_page, build_top10_page
 from services.player_remark_service import validate_player_remark
 from services.steam_profile_service import enrich_player_from_steam
@@ -15,6 +15,7 @@ from utils.demo_parser import normalize_map_name
 from utils.filters import date_display_filter
 from utils.match_utils import get_sql_match_completed
 from utils.rate_limiter import rate_limit
+from utils.stats_display import optional_number
 from utils.web_helpers import csrf_required, safe_redirect_target, user_required
 from web_app import app
 
@@ -99,8 +100,8 @@ def _player_stat_where(player_id, filters):
 def _player_side_expr(side):
     if side == "t":
         return {
-            "kills": "SUM(COALESCE(ms.t_kills, 0))",
-            "deaths": "SUM(COALESCE(ms.t_deaths, 0))",
+            "kills": "SUM(ms.t_kills)",
+            "deaths": "SUM(ms.t_deaths)",
             "kills_value": "ms.t_kills",
             "deaths_value": "ms.t_deaths",
             "rating": "AVG(NULLIF(ms.t_rating, 0))",
@@ -110,8 +111,8 @@ def _player_side_expr(side):
         }
     if side == "ct":
         return {
-            "kills": "SUM(COALESCE(ms.ct_kills, 0))",
-            "deaths": "SUM(COALESCE(ms.ct_deaths, 0))",
+            "kills": "SUM(ms.ct_kills)",
+            "deaths": "SUM(ms.ct_deaths)",
             "kills_value": "ms.ct_kills",
             "deaths_value": "ms.ct_deaths",
             "rating": "AVG(NULLIF(ms.ct_rating, 0))",
@@ -120,8 +121,8 @@ def _player_side_expr(side):
             "row_adr": "NULLIF(ms.ct_adr, 0)",
         }
     return {
-        "kills": "SUM(COALESCE(ms.kills, 0))",
-        "deaths": "SUM(COALESCE(ms.deaths, 0))",
+        "kills": "SUM(ms.kills)",
+        "deaths": "SUM(ms.deaths)",
         "kills_value": "ms.kills",
         "deaths_value": "ms.deaths",
         "rating": weighted_average_sql("ms.rating", "ms.rounds_played"),
@@ -150,8 +151,11 @@ def _build_player_blocks(overall):
         + _num(overall["multi4k"])
         + _num(overall["multi5k"])
     )
-    rating_val = _num(overall["avg_rating"])
-    if rating_val >= 1.15:
+    rating_val = optional_number(overall["avg_rating"])
+    if rating_val is None:
+        rating_label = "Unknown"
+        rating_label_cn = "暂无数据"
+    elif rating_val >= 1.15:
         rating_label = "Good"
         rating_label_cn = "优秀"
     elif rating_val >= 0.95:
@@ -193,7 +197,7 @@ def _build_player_blocks(overall):
             "title": "火力",
             "desc": "综合击杀、伤害、多杀的火力输出",
             "score": _pct(
-                rating_val * 0.4
+                _num(rating_val) * 0.4
                 + (overall["avg_kpr"] or 0) * 0.3
                 + (overall["avg_adr"] or 0) / 120 * 0.3,
                 1.5,
@@ -396,6 +400,91 @@ def _build_player_blocks(overall):
         {"label": "地图数", "value": str(maps)},
         {"label": "影响力 RATING", "value": _fmt(overall["avg_impact"])},
     ]
+
+    def missing(*fields):
+        return any(optional_number(overall[field]) is None for field in fields)
+
+    # Keep the established formulas for known inputs; a display fallback is
+    # not evidence that a missing input was measured as zero.
+    multi_inputs = ("multi2k", "multi3k", "multi4k", "multi5k", "rounds_played")
+    summary_inputs = {
+        "rounds": ("rounds_played",),
+        "multi_kill": multi_inputs,
+        "kpr": ("total_kills", "rounds_played", "avg_kpr"),
+        "dpr": ("total_deaths", "rounds_played", "avg_dpr"),
+    }
+    for field, inputs in summary_inputs.items():
+        if missing(*inputs):
+            player_summary[field] = None
+
+    category_inputs = {
+        "火力": ("avg_rating", "avg_kpr", "total_kills", "rounds_played", "avg_adr"),
+        "协作": ("trade_kills", "trade_deaths"),
+        "突破": ("first_kills", "first_deaths", "rounds_played"),
+        "开局": ("first_kills", "first_deaths"),
+        "残局": ("clutches_won", "rounds_played"),
+        "道具": (
+            "utility_damage_per_round",
+            "utility_damage",
+            "rounds_played",
+            "enemies_flashed",
+            "flash_count",
+        ),
+    }
+    item_inputs = {
+        "每回合击杀": ("total_kills", "rounds_played", "avg_kpr"),
+        "每回合伤害": ("avg_adr",),
+        "多杀回合占比": multi_inputs,
+        "影响力": ("avg_impact",),
+        "RATING 2.0": ("avg_rating",),
+        "补枪击杀/回合": ("trade_kills", "rounds_played"),
+        "补枪击杀占比": ("trade_kills", "total_kills"),
+        "被补枪死亡/回合": ("trade_deaths", "rounds_played"),
+        "被补枪占比": ("trade_deaths", "total_deaths"),
+        "每回合助攻": ("total_assists", "rounds_played"),
+        "开局对枪参与率": ("first_kills", "first_deaths", "rounds_played"),
+        "被补率": ("trade_deaths", "total_deaths"),
+        "每回合补枪": ("trade_kills", "rounds_played"),
+        "每回合被补": ("trade_deaths", "rounds_played"),
+        "开局成功率": ("first_kills", "first_deaths"),
+        "每回合首杀": ("first_kills", "rounds_played"),
+        "每回合首死": ("first_deaths", "rounds_played"),
+        "首杀/首死比": ("first_kills", "first_deaths"),
+        "残局获胜": ("clutches_won",),
+        "残局得分/回合": ("clutches_won", "rounds_played"),
+        "下包数": ("bomb_plants",),
+        "拆包数": ("bomb_defuses",),
+        "每回合道具伤害": ("utility_damage", "rounds_played", "utility_damage_per_round"),
+        "总道具伤害": ("utility_damage",),
+        "每回合致盲敌人": ("enemies_flashed", "rounds_played"),
+        "闪光成功率": ("enemies_flashed", "flash_count"),
+    }
+    for card in player_category_cards:
+        if missing(*category_inputs[card["title"]]):
+            card["score"] = None
+        for item in card["items"]:
+            if missing(*item_inputs[item["label"]]):
+                item["value"] = "-"
+                item["pct"] = 0
+
+    statistic_inputs = {
+        "总击杀": ("total_kills",),
+        "总回合": ("rounds_played",),
+        "HS%": ("avg_hs",),
+        "每回合击杀": ("total_kills", "rounds_played", "avg_kpr"),
+        "总死亡": ("total_deaths",),
+        "每回合助攻": ("total_assists", "rounds_played"),
+        "K/D": ("total_kills", "total_deaths"),
+        "每回合死亡": ("total_deaths", "rounds_played", "avg_dpr"),
+        "每回合伤害": ("avg_adr",),
+        "每回合被队友补枪": ("trade_deaths", "rounds_played"),
+        "每回合道具伤害": ("utility_damage", "rounds_played", "utility_damage_per_round"),
+        "每回合补枪队友": ("trade_kills", "rounds_played"),
+        "影响力 RATING": ("avg_impact",),
+    }
+    for item in player_statistics:
+        if missing(*statistic_inputs.get(item["label"], ())):
+            item["value"] = "-"
     return player_summary, player_category_cards, player_statistics
 
 
@@ -419,7 +508,7 @@ def players_list():
     elif filter_type == "top10":
         top10_page = build_top10_page(conn)
 
-    query = """
+    query = f"""
         SELECT p.*, t.name AS team_name, t.short_name AS team_short,
                (SELECT u.id FROM users u
                 WHERE u.steam_id64=p.steam_id
@@ -445,7 +534,8 @@ def players_list():
                    WHERE u.steam_id64=p.steam_id
                    LIMIT 1
                ), 0) AS is_cheater,
-               s.avg_rating, s.avg_kills, s.avg_deaths,
+               {summary_metric_sql("avg_rating", "rating")} AS avg_rating,
+               s.avg_kills, s.avg_deaths,
                COALESCE(s.maps, 0) AS match_count
         FROM players p
         LEFT JOIN teams t ON p.team_id=t.id
@@ -468,7 +558,7 @@ def players_list():
         params.append(team_filter)
     if clauses:
         query += " WHERE " + " AND ".join(clauses)
-    query += " ORDER BY s.avg_rating IS NULL, s.avg_rating DESC, p.nickname ASC"
+    query += " ORDER BY avg_rating IS NULL, avg_rating DESC, p.nickname ASC, p.id"
     if filter_type == "top10":
         query += " LIMIT 10"
     players = [
@@ -834,7 +924,8 @@ def player_detail(player_id):
                     ELSE COALESCE(m.team2_id, -2)
                END AS stat_team_id,
                SUM(ms.kills) AS kills, SUM(ms.deaths) AS deaths, SUM(ms.assists) AS assists,
-               AVG(ms.rating) AS rating, AVG(ms.adr) AS adr,
+               {weighted_average_sql("ms.rating", "ms.rounds_played")} AS rating,
+               {weighted_average_sql("ms.adr", "ms.rounds_played")} AS adr,
                t1.name AS team1_name, t2.name AS team2_name,
                t1.short_name AS t1s, t2.short_name AS t2s,
                e.name AS event_name
@@ -889,7 +980,9 @@ def player_detail(player_id):
     # 趋势图数据（时间升序，最多 30 场）
     chart_rows = conn.execute(
         f"""
-        SELECT m.match_time, AVG(ms.rating) AS rating, AVG(ms.adr) AS adr,
+        SELECT m.match_time,
+               {weighted_average_sql("ms.rating", "ms.rounds_played")} AS rating,
+               {weighted_average_sql("ms.adr", "ms.rounds_played")} AS adr,
                SUM(ms.kills) AS kills, SUM(ms.deaths) AS deaths
         FROM match_stats ms
         JOIN matches m ON ms.match_id=m.id
@@ -904,8 +997,10 @@ def player_detail(player_id):
     chart_data = _json.dumps(
         {
             "labels": [date_display_filter(r["match_time"]) for r in chart_rows],
-            "rating": [round(r["rating"], 2) if r["rating"] else None for r in chart_rows],
-            "adr": [round(r["adr"], 1) if r["adr"] else None for r in chart_rows],
+            "rating": [
+                round(r["rating"], 2) if r["rating"] is not None else None for r in chart_rows
+            ],
+            "adr": [round(r["adr"], 1) if r["adr"] is not None else None for r in chart_rows],
         },
         ensure_ascii=False,
     )
@@ -1001,7 +1096,7 @@ def player_detail(player_id):
     player_summary = {
         "maps": maps,
         "rounds": int(rounds),
-        "rating": _num(overall["avg_rating"]),
+        "rating": optional_number(overall["avg_rating"]),
         "rating_pct": _rating_gauge_pct(overall["avg_rating"]),
         "t_rating": overall["avg_t_rating"],
         "t_rating_pct": _rating_gauge_pct(overall["avg_t_rating"]),
@@ -1326,8 +1421,8 @@ def player_stats_detail(player_id):
                SUM(ms.kills) AS kills,
                SUM(ms.deaths) AS deaths,
                SUM(ms.assists) AS assists,
-               AVG({expr["row_rating"]}) AS rating,
-               AVG({expr["row_adr"]}) AS adr,
+               {expr["rating"]} AS rating,
+               {expr["adr"]} AS adr,
                t1.name AS team1_name, t2.name AS team2_name,
                t1.short_name AS t1s, t2.short_name AS t2s,
                e.name AS event_name
@@ -1359,8 +1454,10 @@ def player_stats_detail(player_id):
         chart_data = json.dumps(
             {
                 "labels": [date_display_filter(r["match_time"]) for r in chart_rows],
-                "rating": [round(r["rating"], 2) if r["rating"] else None for r in chart_rows],
-                "adr": [round(r["adr"], 1) if r["adr"] else None for r in chart_rows],
+                "rating": [
+                    round(r["rating"], 2) if r["rating"] is not None else None for r in chart_rows
+                ],
+                "adr": [round(r["adr"], 1) if r["adr"] is not None else None for r in chart_rows],
             },
             ensure_ascii=False,
         )

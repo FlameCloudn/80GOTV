@@ -111,7 +111,10 @@ class AdminMatchEditLocksTests(unittest.TestCase):
 
     def test_started_match_can_save_without_disabled_setup_fields(self):
         conn = get_db()
-        conn.execute("UPDATE matches SET status='live' WHERE id=?", (self.match_id,))
+        conn.execute(
+            "UPDATE matches SET status='live',team1_score=2,team2_score=0 WHERE id=?",
+            (self.match_id,),
+        )
         conn.commit()
         conn.close()
 

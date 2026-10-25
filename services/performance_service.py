@@ -1,5 +1,6 @@
 """Persistent player-performance rollups and compact Demo event storage."""
 
+import math
 from collections import defaultdict
 
 SUMMARY_COLUMNS = (
@@ -79,11 +80,22 @@ def weighted_average_sql(value_sql, weight_sql):
 
 def weighted_rate_sql(numerator_sql, denominator_sql):
     """Return a SQL expression for totals divided by recorded rounds."""
-    valid = f"COALESCE({denominator_sql}, 0) > 0"
+    valid = f"COALESCE({denominator_sql}, 0) > 0 AND {numerator_sql} IS NOT NULL"
     return (
         "COALESCE("
         f"SUM(CASE WHEN {valid} THEN COALESCE({numerator_sql}, 0) ELSE 0 END) * 1.0 / "
         f"NULLIF(SUM(CASE WHEN {valid} THEN {denominator_sql} END), 0), 0)"
+    )
+
+
+def summary_metric_sql(summary_column, raw_column, summary_alias="s"):
+    """旧汇总表不允许 NULL，读取时用原始记录区分未知和真实零值。"""
+    return (
+        "CASE WHEN EXISTS (SELECT 1 FROM match_stats available "
+        f"WHERE available.player_id={summary_alias}.player_id "
+        "AND COALESCE(available.data_status, 'final') <> 'superseded' "
+        f"AND available.{raw_column} IS NOT NULL) "
+        f"THEN {summary_alias}.{summary_column} END"
     )
 
 
@@ -210,6 +222,14 @@ def _optional_int(value):
         return None
 
 
+def _optional_float(value):
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return None
+    return value if math.isfinite(value) else None
+
+
 def _side(value):
     try:
         value = int(value)
@@ -231,7 +251,9 @@ def _count_flash_throws(match_data, flash_metrics):
     if "flashbangsExplode" not in match_data:
         return
     events = match_data.get("flashbangsExplode")
-    if events is not None and not isinstance(events, list):
+    if events is None:
+        return
+    if not isinstance(events, list):
         raise ValueError("Demo 的闪光弹事件格式无效，未保存统计数据")
     for steam_id, player in (match_data.get("players") or {}).items():
         steam_id = _steam_id(steam_id)
@@ -254,21 +276,28 @@ def _count_flash_throws(match_data, flash_metrics):
         item["flash_count"] = (item.get("flash_count") or 0) + 1
 
 
-def build_demo_performance_payload(match_data):
+def build_demo_performance_payload(match_data, player_stats=None):
     """Reduce a multi-megabyte parser result to the fields pages actually need."""
     kill_events = []
+    blinds_recorded = isinstance(match_data.get("playersFlashed"), list)
+    assists_recorded = isinstance(match_data.get("kills"), list)
     flash_metrics = defaultdict(
         lambda: {
             "steam_id": "",
             "name": "",
-            "blinded_seconds": 0.0,
-            "enemy_seconds": 0.0,
-            "flash_assists": 0,
+            "blinded_seconds": 0.0 if blinds_recorded else None,
+            "enemy_seconds": 0.0 if blinds_recorded else None,
+            "flash_assists": 0 if assists_recorded else None,
             # 下面两项只有 Demo 里有对应事件时才会被填上数字
             "flash_count": None,
-            "enemies_flashed": None,
+            "enemies_flashed": 0 if blinds_recorded else None,
         }
     )
+    for steam_id, player in (match_data.get("players") or {}).items():
+        steam_id = _steam_id(steam_id)
+        if steam_id and isinstance(player, dict):
+            flash_metrics[steam_id]["steam_id"] = steam_id
+            flash_metrics[steam_id]["name"] = str(player.get("name") or "").strip()
 
     for event in match_data.get("kills", []) or []:
         if not isinstance(event, dict):
@@ -326,13 +355,54 @@ def build_demo_performance_payload(match_data):
             item["blinded_seconds"] += duration
 
     _count_flash_throws(match_data, flash_metrics)
+    from utils.stats_calc import HLTV2_ESTIMATE_METHOD, HLTV2_ESTIMATE_SOURCE
+
+    event_fields = (
+        "rounds",
+        "kills",
+        "clutches",
+        "damages",
+        "playerEconomies",
+        "playersBuy",
+        "bombsPlanted",
+        "bombsDefused",
+        "bombsExploded",
+        "flashbangsExplode",
+        "playersFlashed",
+        "heGrenadesExplode",
+        "smokesStart",
+    )
     return {
+        "analysis": {
+            "schema_version": 2,
+            "parser": "cs-demo-analyzer",
+            "parser_version": (match_data.get("analysisMetadata") or {}).get("parser_version"),
+            "demo_checksum": match_data.get("checksum"),
+            "rating_method": HLTV2_ESTIMATE_METHOD,
+            "impact_method": HLTV2_ESTIMATE_METHOD,
+            "method_source": HLTV2_ESTIMATE_SOURCE,
+            "official_hltv_formula": False,
+            "event_availability": {
+                field: isinstance(match_data.get(field), list) for field in event_fields
+            },
+        },
+        "raw_events": {
+            field: [dict(event) for event in match_data[field] if isinstance(event, dict)]
+            if isinstance(match_data.get(field), list)
+            else None
+            for field in event_fields
+        },
+        "player_metrics": list(player_stats or []),
         "kill_events": kill_events,
         "flash_metrics": [
             {
                 **item,
-                "blinded_seconds": round(item["blinded_seconds"], 3),
-                "enemy_seconds": round(item["enemy_seconds"], 3),
+                "blinded_seconds": round(item["blinded_seconds"], 3)
+                if item["blinded_seconds"] is not None
+                else None,
+                "enemy_seconds": round(item["enemy_seconds"], 3)
+                if item["enemy_seconds"] is not None
+                else None,
             }
             for item in flash_metrics.values()
         ],
@@ -384,6 +454,7 @@ def _match_player_id(conn, by_steam, by_name, match_id, map_name, steam_id, name
             """
             SELECT 1 FROM match_stats
             WHERE match_id=? AND map_name=? COLLATE NOCASE AND player_id=?
+              AND COALESCE(data_status, 'final') <> 'superseded'
             LIMIT 1
             """,
             (match_id, str(map_name or "").strip(), primary_id),
@@ -402,6 +473,7 @@ def _match_player_id(conn, by_steam, by_name, match_id, map_name, steam_id, name
               ON history.player_id = ms.player_id
             WHERE ms.match_id=?
               AND ms.map_name=? COLLATE NOCASE
+              AND COALESCE(ms.data_status, 'final') <> 'superseded'
               AND (
                 TRIM(p.nickname)=? COLLATE NOCASE
                 OR TRIM(history.nickname)=? COLLATE NOCASE
@@ -509,9 +581,9 @@ def persist_demo_performance_payload(conn, match_id, map_name, payload):
         conn.execute(
             """
             UPDATE match_stats
-            SET flash_blinded_seconds=?,
-                flash_enemy_seconds=?,
-                flash_assists=?,
+            SET flash_blinded_seconds=COALESCE(?, flash_blinded_seconds),
+                flash_enemy_seconds=COALESCE(?, flash_enemy_seconds),
+                flash_assists=COALESCE(?, flash_assists),
                 flash_count=COALESCE(?, flash_count),
                 flash_count_recorded=CASE WHEN ? IS NOT NULL THEN 1 ELSE flash_count_recorded END,
                 enemies_flashed=COALESCE(?, enemies_flashed)
@@ -519,9 +591,9 @@ def persist_demo_performance_payload(conn, match_id, map_name, payload):
               AND COALESCE(data_status, 'final') <> 'superseded'
             """,
             (
-                float(metric.get("blinded_seconds", 0) or 0),
-                float(metric.get("enemy_seconds", 0) or 0),
-                int(metric.get("flash_assists", 0) or 0),
+                _optional_float(metric.get("blinded_seconds")),
+                _optional_float(metric.get("enemy_seconds")),
+                _optional_int(metric.get("flash_assists")),
                 _optional_int(metric.get("flash_count")),
                 _optional_int(metric.get("flash_count")),
                 _optional_int(metric.get("enemies_flashed")),
@@ -546,6 +618,7 @@ def backfill_demo_performance(conn, match_id, map_name, match_data):
             clutch_1v4=0, clutch_1v5=0, clutches_won=0,
             rws_basic=0
         WHERE match_id=? AND map_name=? COLLATE NOCASE
+          AND COALESCE(data_status, 'final') <> 'superseded'
         """,
         (match_id, str(map_name or "").strip()),
     )
@@ -568,7 +641,8 @@ def backfill_demo_performance(conn, match_id, map_name, match_data):
             SET clutch_1v1=?, clutch_1v2=?, clutch_1v3=?,
                 clutch_1v4=?, clutch_1v5=?, clutches_won=?,
                 rws_basic=?
-            WHERE match_id=? AND map_name=? AND player_id=?
+            WHERE match_id=? AND map_name=? COLLATE NOCASE AND player_id=?
+              AND COALESCE(data_status, 'final') <> 'superseded'
             """,
             (
                 int(stat.get("clutch_1v1", 0) or 0),

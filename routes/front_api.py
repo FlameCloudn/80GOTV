@@ -4,6 +4,7 @@ These routes are the first full-site API layer. Existing HTML pages stay in
 place, while new frontend code can read the same data as JSON.
 """
 
+from contextlib import closing
 from datetime import datetime
 
 from flask import jsonify, request, session, url_for
@@ -12,12 +13,22 @@ from models import get_db
 from services.home_service import load_home_feed
 from services.match_service import (
     add_effective_event_status,
-    score_predictions,
+    get_prediction_leaderboard,
+    get_prediction_upcoming_matches,
     supplement_temp_teams,
 )
+from services.performance_service import summary_metric_sql
 from services.player_remark_service import (
     private_player_identity,
     private_user_identity,
+)
+from services.public_data_service import (
+    load_map_statistics,
+    load_match_page,
+    load_player_page,
+    load_player_summary,
+    load_statistics_totals,
+    load_team_statistics,
 )
 from services.team_logo_service import team_logo_url
 from utils.db_helpers import avatar_static_filename
@@ -26,14 +37,12 @@ from utils.helpers import event_path, news_path
 from utils.match_utils import (
     get_sql_effective_status,
     get_sql_match_completed,
-    get_sql_match_live,
-    get_sql_match_upcoming,
 )
+from utils.pagination import page_params
+from utils.stats_display import optional_number
 from web_app import app
 
 _SQL_MATCH_COMPLETED = get_sql_match_completed()
-_SQL_MATCH_UPCOMING = get_sql_match_upcoming()
-_SQL_MATCH_LIVE = get_sql_match_live()
 _SQL_EFFECTIVE_STATUS = get_sql_effective_status()
 
 PUBLIC_FEATURES = [
@@ -133,6 +142,11 @@ def _text(value):
     return "" if value is None else str(value)
 
 
+def _rounded(value, digits):
+    number = optional_number(value)
+    return round(number, digits) if number is not None else None
+
+
 def _user_display_name(username, group_username, user_id=None):
     nickname, group_name = private_user_identity(user_id, username, group_username)
     nickname = _text(nickname).strip()
@@ -164,10 +178,7 @@ def _get(row, key, default=None):
 
 
 def _page_params(default=20, maximum=100):
-    page = max(1, request.args.get("page", 1, type=int))
-    per_page = request.args.get("per_page", default, type=int)
-    per_page = max(1, min(maximum, per_page or default))
-    return page, per_page, (page - 1) * per_page
+    return page_params(request.args, default, maximum)
 
 
 def _avatar_url(filename):
@@ -217,6 +228,13 @@ def _match_payload(match):
     }
 
 
+def _home_match_payload(match):
+    payload = _match_payload(match)
+    payload["team1"] = _text(_get(match, "t1s") or payload["team1"])
+    payload["team2"] = _text(_get(match, "t2s") or payload["team2"])
+    return payload
+
+
 def _news_payload(row):
     return {
         "id": row["id"],
@@ -225,7 +243,7 @@ def _news_payload(row):
         "summary": _text(_get(row, "summary", "")),
         "time": datetime_display_filter(row["publish_time"]) if row["publish_time"] else "",
         "raw_time": _text(_get(row, "publish_time", "")),
-        "comments": row["comment_count"] if "comment_count" in row.keys() else 0,
+        "comments": _get(row, "actual_comment_count", _get(row, "comment_count", 0)) or 0,
     }
 
 
@@ -269,13 +287,13 @@ def _player_payload(row):
         "team_id": _get(row, "team_id"),
         "team": _text(_get(row, "team", _get(row, "team_name", ""))),
         "avatar": _avatar_url(_get(row, "avatar", "")),
-        "rating": round(float(rating), 2) if rating is not None else None,
+        "rating": _rounded(rating, 2),
         "maps": _get(row, "maps", _get(row, "match_count", 0)),
         "kills": _get(row, "kills"),
         "deaths": _get(row, "deaths"),
         "assists": _get(row, "assists"),
-        "adr": round(float(_get(row, "adr", 0) or 0), 1) if _get(row, "adr") is not None else None,
-        "hs": round(float(_get(row, "hs", 0) or 0), 1) if _get(row, "hs") is not None else None,
+        "adr": _rounded(_get(row, "adr"), 1),
+        "hs": _rounded(_get(row, "hs"), 1),
     }
 
 
@@ -288,9 +306,7 @@ def _team_payload(row):
         "description": _text(_get(row, "description", "")),
         "logo": _logo_url(_get(row, "logo", "")),
         "players": _get(row, "players", 0),
-        "rating": round(float(_get(row, "rating", 0) or 0), 2)
-        if _get(row, "rating") is not None
-        else None,
+        "rating": _rounded(_get(row, "rating"), 2),
         "maps": _get(row, "maps", 0),
     }
 
@@ -346,14 +362,14 @@ def api_front_home():
                 }
                 for row in forum_rows
             ],
-            "matches": [_match_payload(row) for row in match_rows],
-            "recent_results": [_match_payload(row) for row in recent_rows],
+            "matches": [_home_match_payload(row) for row in match_rows],
+            "recent_results": [_home_match_payload(row) for row in recent_rows],
             "top_players": [
                 {
                     "id": row["id"],
                     "url": url_for("player_detail", player_id=row["id"]),
                     "nickname": _player_display_name(row["id"], row["nickname"]),
-                    "rating": round(float(row["avg_rating"] or 0), 2),
+                    "rating": _rounded(row["avg_rating"], 2),
                 }
                 for row in top_players
             ],
@@ -370,40 +386,26 @@ def api_front_matches():
     if status not in ("active", "completed"):
         status = "active"
 
-    conn = get_db()
-    if status == "completed":
-        status_sql = _SQL_MATCH_COMPLETED
-        order_sql = "m.match_time DESC"
-    else:
-        status_sql = f"({_SQL_MATCH_LIVE} OR {_SQL_MATCH_UPCOMING})"
-        order_sql = """
-            CASE WHEN effective_status='live' THEN 0 ELSE 1 END,
-            CASE WHEN m.match_time IS NULL OR m.match_time='' THEN 1 ELSE 0 END,
-            m.match_time
-        """
-    query = f"""
-        SELECT m.*, t1.name AS team1_name, t2.name AS team2_name,
-               t1.short_name AS t1s, t2.short_name AS t2s,
-               t1.logo AS team1_logo, t2.logo AS team2_logo,
-               e.name AS event_name,
-               {_SQL_EFFECTIVE_STATUS}
-        FROM matches m
-        LEFT JOIN teams t1 ON m.team1_id=t1.id
-        LEFT JOIN teams t2 ON m.team2_id=t2.id
-        LEFT JOIN events e ON m.event_id=e.id
-        WHERE {status_sql}
-    """
-    params = []
-    if event_filter:
-        query += " AND m.event_id=?"
-        params.append(event_filter)
-    if date_filter:
-        query += " AND substr(COALESCE(m.match_time, ''), 1, 10)=?"
-        params.append(date_filter)
-    query += f" ORDER BY {order_sql} LIMIT 50"
-    rows = [supplement_temp_teams(row, conn) for row in conn.execute(query, params).fetchall()]
-    conn.close()
-    return jsonify({"ok": True, "matches": [_match_payload(row) for row in rows]})
+    page, per_page, offset = _page_params(default=50)
+    with closing(get_db()) as conn:
+        rows, total = load_match_page(
+            conn,
+            status=status,
+            event=event_filter,
+            date=date_filter,
+            month=request.args.get("month", "").strip(),
+            limit=per_page,
+            offset=offset,
+        )
+    return jsonify(
+        {
+            "ok": True,
+            "page": page,
+            "per_page": per_page,
+            "total": total,
+            "matches": [_match_payload(row) for row in rows],
+        }
+    )
 
 
 @app.route("/api/front/features")
@@ -418,7 +420,9 @@ def api_front_news():
     page, per_page, offset = _page_params(default=20, maximum=80)
     conn = get_db()
     rows = conn.execute(
-        "SELECT * FROM news ORDER BY publish_time DESC LIMIT ? OFFSET ?",
+        """SELECT n.*, (SELECT COUNT(*) FROM comments c
+                           WHERE c.target_type='news' AND c.target_id=n.id) AS actual_comment_count
+           FROM news n ORDER BY n.publish_time DESC, n.id DESC LIMIT ? OFFSET ?""",
         (per_page, offset),
     ).fetchall()
     total = conn.execute("SELECT COUNT(*) AS cnt FROM news").fetchone()["cnt"]
@@ -438,7 +442,12 @@ def api_front_news():
 def api_front_news_detail(news_id):
     """News detail with comments."""
     conn = get_db()
-    news = conn.execute("SELECT * FROM news WHERE id=?", (news_id,)).fetchone()
+    news = conn.execute(
+        """SELECT n.*, (SELECT COUNT(*) FROM comments c
+                           WHERE c.target_type='news' AND c.target_id=n.id) AS actual_comment_count
+           FROM news n WHERE n.id=?""",
+        (news_id,),
+    ).fetchone()
     if not news:
         conn.close()
         return jsonify({"ok": False, "error": "新闻不存在"}), 404
@@ -506,7 +515,7 @@ def api_front_results():
     if event_filter:
         count_query += " AND m.event_id=?"
         count_params.append(event_filter)
-    query += " ORDER BY m.match_time DESC LIMIT ? OFFSET ?"
+    query += " ORDER BY m.match_time DESC, m.id DESC LIMIT ? OFFSET ?"
     rows = [
         supplement_temp_teams(row, conn)
         for row in conn.execute(query, (*params, per_page, offset)).fetchall()
@@ -715,52 +724,21 @@ def api_front_players():
     page, per_page, offset = _page_params(default=50, maximum=120)
     filter_key = request.args.get("filter", "").strip().lower()
     team_filter = request.args.get("team", "").strip()
-    conn = get_db()
-    where = []
-    params = []
-    if team_filter:
-        where.append("p.team_id=?")
-        params.append(team_filter)
-    where_sql = "WHERE " + " AND ".join(where) if where else ""
-    order_sql = "rating IS NULL, rating DESC, p.nickname ASC"
-    limit = per_page
+    if filter_key == "top20":
+        filter_key = "top10"
+    initial = request.args.get("initial", "all").strip().lower()
     if filter_key == "top10":
-        limit = 10
-    rows = conn.execute(
-        f"""
-        SELECT p.*, t.name AS team_name, t.short_name AS team,
-               COALESCE((
-                   SELECT NULLIF(TRIM(u.group_username), '')
-                   FROM users u
-                   WHERE u.steam_id64=p.steam_id
-                   ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC
-                   LIMIT 1
-                ), NULLIF(TRIM(p.group_username_override), ''), '') AS group_username,
-               COALESCE((
-                   SELECT u.is_bashizhong_student
-                   FROM users u
-                   WHERE u.steam_id64=p.steam_id
-                   ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC
-                   LIMIT 1
-               ), p.is_bashizhong_student) AS managed_is_bashizhong_student,
-               COALESCE(s.maps, 0) AS maps, s.avg_rating AS rating,
-               COALESCE(s.total_kills, 0) AS kills,
-               COALESCE(s.total_deaths, 0) AS deaths,
-               COALESCE(s.total_assists, 0) AS assists,
-               s.avg_adr AS adr, s.avg_hs AS hs
-        FROM players p
-        LEFT JOIN teams t ON p.team_id=t.id
-        LEFT JOIN player_performance_summary s ON s.player_id=p.id
-        {where_sql}
-        ORDER BY {order_sql}
-        LIMIT ? OFFSET ?
-    """,
-        (*params, limit, offset),
-    ).fetchall()
-    total = conn.execute(
-        f"SELECT COUNT(*) AS cnt FROM players p {where_sql}", tuple(params)
-    ).fetchone()["cnt"]
-    conn.close()
+        per_page = min(10, per_page)
+        offset = (page - 1) * per_page
+    with closing(get_db()) as conn:
+        rows, total = load_player_page(
+            conn,
+            team=team_filter,
+            filter_key=filter_key,
+            initial=initial,
+            limit=per_page,
+            offset=offset,
+        )
     return jsonify(
         {
             "ok": True,
@@ -802,47 +780,21 @@ def api_front_player_detail(player_id):
     if not player:
         conn.close()
         return jsonify({"ok": False, "error": "选手不存在"}), 404
-    summary = conn.execute(
-        """
-        SELECT maps, total_kills AS kills, total_deaths AS deaths,
-               total_assists AS assists, avg_rating AS rating, avg_adr AS adr,
-               avg_kast AS kast, avg_hs AS hs, avg_kpr AS kpr,
-               avg_dpr AS dpr, avg_impact AS impact,
-               rounds_played AS rounds
-        FROM player_performance_summary
-        WHERE player_id=?
-    """,
-        (player_id,),
-    ).fetchone()
-    if summary is None:
-        summary = {
-            "maps": 0,
-            "kills": 0,
-            "deaths": 0,
-            "assists": 0,
-            "rating": 0,
-            "adr": 0,
-            "kast": 0,
-            "hs": 0,
-            "kpr": 0,
-            "dpr": 0,
-            "impact": 0,
-            "rounds": 0,
-        }
+    summary = load_player_summary(conn, player_id)
     recent = conn.execute(
         f"""
-        SELECT m.*, ms.team_id AS stat_team_id, ms.kills, ms.deaths, ms.assists,
-               ms.rating, ms.adr, t1.name AS team1_name, t2.name AS team2_name,
+        SELECT m.*, t1.name AS team1_name, t2.name AS team2_name,
                t1.short_name AS t1s, t2.short_name AS t2s, e.name AS event_name,
                {_SQL_EFFECTIVE_STATUS}
-        FROM match_stats ms
-        JOIN matches m ON ms.match_id=m.id
+        FROM matches m
         LEFT JOIN teams t1 ON m.team1_id=t1.id
         LEFT JOIN teams t2 ON m.team2_id=t2.id
         LEFT JOIN events e ON m.event_id=e.id
-        WHERE ms.player_id=?
-          AND COALESCE(ms.data_status, 'final') <> 'superseded'
-        ORDER BY m.match_time DESC
+        WHERE EXISTS (
+            SELECT 1 FROM match_stats ms WHERE ms.match_id=m.id AND ms.player_id=?
+              AND COALESCE(ms.data_status, 'final') <> 'superseded'
+        )
+        ORDER BY m.match_time DESC, m.id DESC
         LIMIT 10
     """,
         (player_id,),
@@ -866,16 +818,16 @@ def api_front_player_detail(player_id):
             "summary": {
                 "maps": summary["maps"] or 0,
                 "rounds": summary["rounds"] or 0,
-                "kills": summary["kills"] or 0,
-                "deaths": summary["deaths"] or 0,
-                "assists": summary["assists"] or 0,
-                "rating": round(float(summary["rating"] or 0), 2),
-                "adr": round(float(summary["adr"] or 0), 1),
-                "kast": round(float(summary["kast"] or 0), 1),
-                "hs": round(float(summary["hs"] or 0), 1),
-                "kpr": round(float(summary["kpr"] or 0), 2),
-                "dpr": round(float(summary["dpr"] or 0), 2),
-                "impact": round(float(summary["impact"] or 0), 2),
+                "kills": summary["kills"],
+                "deaths": summary["deaths"],
+                "assists": summary["assists"],
+                "rating": _rounded(summary["rating"], 2),
+                "adr": _rounded(summary["adr"], 1),
+                "kast": _rounded(summary["kast"], 1),
+                "hs": _rounded(summary["hs"], 1),
+                "kpr": _rounded(summary["kpr"], 2),
+                "dpr": _rounded(summary["dpr"], 2),
+                "impact": _rounded(summary["impact"], 2),
             },
             "recent_matches": [_match_payload(row) for row in recent],
             "awards": [
@@ -896,17 +848,7 @@ def api_front_player_detail(player_id):
 def api_front_teams():
     """Team list data."""
     conn = get_db()
-    rows = conn.execute("""
-        SELECT t.*, COUNT(DISTINCT p.id) AS players,
-               COUNT(ms.id) AS maps, AVG(ms.rating) AS rating
-        FROM teams t
-        LEFT JOIN players p ON p.team_id=t.id
-        LEFT JOIN match_stats ms
-          ON ms.team_id=t.id
-         AND COALESCE(ms.data_status, 'final') <> 'superseded'
-        GROUP BY t.id
-        ORDER BY t.name
-    """).fetchall()
+    rows = load_team_statistics(conn)
     conn.close()
     return jsonify({"ok": True, "teams": [_team_payload(row) for row in rows]})
 
@@ -915,7 +857,7 @@ def api_front_teams():
 def api_front_stats_overview():
     """Stats overview data for frontend pages."""
     conn = get_db()
-    top_players = conn.execute("""
+    top_players = conn.execute(f"""
         SELECT p.id, p.nickname, p.avatar, t.short_name AS team,
                COALESCE((
                    SELECT NULLIF(TRIM(u.group_username), '')
@@ -931,46 +873,22 @@ def api_front_stats_overview():
                    ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC
                    LIMIT 1
                ), p.is_bashizhong_student) AS managed_is_bashizhong_student,
-               s.maps, s.avg_rating AS rating,
-               s.total_kills AS kills, s.total_deaths AS deaths,
-               s.total_assists AS assists, s.avg_adr AS adr,
-               s.avg_hs AS hs
+               s.maps, {summary_metric_sql("avg_rating", "rating")} AS rating,
+               {summary_metric_sql("total_kills", "kills")} AS kills,
+               {summary_metric_sql("total_deaths", "deaths")} AS deaths,
+               {summary_metric_sql("total_assists", "assists")} AS assists,
+               {summary_metric_sql("avg_adr", "adr")} AS adr,
+               {summary_metric_sql("avg_hs", "headshot_percentage")} AS hs
         FROM player_performance_summary s
         JOIN players p ON s.player_id=p.id
         LEFT JOIN teams t ON p.team_id=t.id
         WHERE s.maps > 0
-        ORDER BY s.avg_rating DESC, s.maps DESC
+        ORDER BY rating DESC, s.maps DESC, p.id
         LIMIT 10
     """).fetchall()
-    top_teams = conn.execute("""
-        SELECT t.*, COUNT(ms.id) AS maps, AVG(ms.rating) AS rating
-        FROM match_stats ms
-        JOIN teams t ON ms.team_id=t.id
-        WHERE ms.team_id > 0
-          AND COALESCE(ms.data_status, 'final') <> 'superseded'
-        GROUP BY t.id
-        ORDER BY rating DESC, maps DESC
-        LIMIT 10
-    """).fetchall()
-    top_maps = conn.execute("""
-        SELECT map_name, COUNT(*) AS maps, AVG(rating) AS rating,
-               AVG(adr) AS adr, AVG(headshot_percentage) AS hs
-        FROM match_stats
-        WHERE map_name IS NOT NULL AND map_name != ''
-          AND COALESCE(data_status, 'final') <> 'superseded'
-        GROUP BY map_name
-        ORDER BY maps DESC, rating DESC
-        LIMIT 10
-    """).fetchall()
-    overview = conn.execute("""
-        SELECT COUNT(DISTINCT match_id) AS matches,
-               COUNT(DISTINCT player_id) AS players,
-               COUNT(*) AS player_maps,
-               AVG(rating) AS rating,
-               SUM(kills) AS kills
-        FROM match_stats
-        WHERE COALESCE(data_status, 'final') <> 'superseded'
-    """).fetchone()
+    top_teams = load_team_statistics(conn, ranked=True)
+    top_maps = load_map_statistics(conn)
+    overview = load_statistics_totals(conn)
     conn.close()
     return jsonify(
         {
@@ -979,8 +897,8 @@ def api_front_stats_overview():
                 "matches": overview["matches"] or 0,
                 "players": overview["players"] or 0,
                 "player_maps": overview["player_maps"] or 0,
-                "avg_rating": round(float(overview["rating"] or 0), 2),
-                "kills": overview["kills"] or 0,
+                "avg_rating": _rounded(overview["rating"], 2),
+                "kills": overview["kills"] if overview["player_maps"] else 0,
             },
             "top_players": [_player_payload(row) for row in top_players],
             "top_teams": [_team_payload(row) for row in top_teams],
@@ -988,9 +906,9 @@ def api_front_stats_overview():
                 {
                     "map": _text(row["map_name"]),
                     "maps": row["maps"],
-                    "rating": round(float(row["rating"] or 0), 2),
-                    "adr": round(float(row["adr"] or 0), 1),
-                    "hs": round(float(row["hs"] or 0), 1),
+                    "rating": _rounded(row["rating"], 2),
+                    "adr": _rounded(row["adr"], 1),
+                    "hs": _rounded(row["hs"], 1),
                 }
                 for row in top_maps
             ],
@@ -1098,15 +1016,15 @@ def api_front_dashboard():
             "generated_at": datetime.now().isoformat(timespec="seconds"),
             # 首页合并数据
             "news": [_news_payload(row) for row in news_rows],
-            "matches": [_match_payload(row) for row in match_rows],
-            "recent_results": [_match_payload(row) for row in recent_rows],
+            "matches": [_home_match_payload(row) for row in match_rows],
+            "recent_results": [_home_match_payload(row) for row in recent_rows],
             "events": [_event_payload(row) for row in event_rows],
             "top_players": [
                 {
                     "id": row["id"],
                     "url": url_for("player_detail", player_id=row["id"]),
                     "nickname": _player_display_name(row["id"], row["nickname"]),
-                    "rating": round(float(row["avg_rating"] or 0), 2),
+                    "rating": _rounded(row["avg_rating"], 2),
                 }
                 for row in top_players
             ],
@@ -1125,39 +1043,8 @@ def api_front_dashboard():
 def api_front_predictions():
     """Prediction leaderboard and voted upcoming matches."""
     conn = get_db()
-    score_predictions(conn)
-    conn.commit()
-    leaderboard = conn.execute("""
-        SELECT u.username, u.id AS user_id, u.avatar, u.is_cheater,
-               COUNT(v.id) AS total_votes,
-               SUM(CASE WHEN v.points_earned > 0 THEN 1 ELSE 0 END) AS correct_votes,
-               SUM(v.points_earned) AS total_points
-        FROM match_votes v
-        JOIN users u ON v.user_id=u.id
-        WHERE v.scored=1
-        GROUP BY v.user_id
-        HAVING total_votes >= 1
-        ORDER BY total_points DESC, correct_votes DESC
-        LIMIT 10
-    """).fetchall()
-    upcoming = conn.execute("""
-        SELECT m.id, m.match_time, m.bo_format,
-               COALESCE(t1.name, 'TBD') AS team1_name,
-               COALESCE(t2.name, 'TBD') AS team2_name,
-               e.name AS event_name,
-               COUNT(v.id) AS vote_count,
-               SUM(CASE WHEN v.voted_for='t1' THEN 1 ELSE 0 END) AS t1_votes,
-               SUM(CASE WHEN v.voted_for='t2' THEN 1 ELSE 0 END) AS t2_votes
-        FROM matches m
-        JOIN match_votes v ON m.id=v.match_id
-        LEFT JOIN teams t1 ON m.team1_id=t1.id
-        LEFT JOIN teams t2 ON m.team2_id=t2.id
-        LEFT JOIN events e ON m.event_id=e.id
-        WHERE m.team1_score IS NULL
-        GROUP BY m.id
-        ORDER BY vote_count DESC, m.match_time ASC
-        LIMIT 10
-    """).fetchall()
+    leaderboard = get_prediction_leaderboard(conn)
+    upcoming = get_prediction_upcoming_matches(conn)
     conn.close()
     return jsonify(
         {

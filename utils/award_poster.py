@@ -6,6 +6,8 @@ import os
 
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
+from utils.stats_display import format_stat, optional_number
+
 W, H = 1600, 900
 BG = (20, 24, 30)
 PANEL = (31, 37, 46)
@@ -88,11 +90,14 @@ def _draw_radar(draw, center, radius, dimensions, accent):
         angle = -math.pi / 2 + 2 * math.pi * index / count
         edge = (center[0] + math.cos(angle) * radius, center[1] + math.sin(angle) * radius)
         draw.line([center, edge], fill=LINE, width=1)
+        value = optional_number(value)
         points.append(
             (
-                center[0] + math.cos(angle) * radius * max(0.08, min(1, value)),
-                center[1] + math.sin(angle) * radius * max(0.08, min(1, value)),
+                center[0] + math.cos(angle) * radius * max(0, min(1, value)),
+                center[1] + math.sin(angle) * radius * max(0, min(1, value)),
             )
+            if value is not None
+            else None
         )
         label_pos = (
             center[0] + math.cos(angle) * (radius + 48),
@@ -115,15 +120,24 @@ def _draw_radar(draw, center, radius, dimensions, accent):
             fill=accent,
         )
 
-    draw.polygon(points, fill=accent + (105,), outline=accent)
-    draw.line(points + [points[0]], fill=accent, width=6, joint="curve")
+    if all(point is not None for point in points):
+        draw.polygon(points, fill=accent + (105,), outline=accent)
+        draw.line(points + [points[0]], fill=accent, width=6, joint="curve")
+    else:
+        # 缺失轴不补成零，也不跨过缺失轴填出不存在的完整面积。
+        for index, point in enumerate(points):
+            if point is None:
+                continue
+            following = points[(index + 1) % count]
+            if following is not None:
+                draw.line([point, following], fill=accent, width=6)
+            draw.ellipse((point[0] - 3, point[1] - 3, point[0] + 3, point[1] + 3), fill=accent)
 
 
-def _number(value, default=0.0):
-    try:
-        return float(value or 0)
-    except (TypeError, ValueError):
-        return default
+def _pair(first, second):
+    if optional_number(first) is None or optional_number(second) is None:
+        return "-"
+    return f"{format_stat(first)}-{format_stat(second)}"
 
 
 def generate_award_poster(base_dir, player, event, stats, map_rows, award_type):
@@ -154,7 +168,7 @@ def generate_award_poster(base_dir, player, event, stats, map_rows, award_type):
     draw.text(
         (438, 162), _fit_text(draw, nickname, 320, nickname_font), font=nickname_font, fill=WHITE
     )
-    team_name = str(player.get("team_name") or "NO TEAM")
+    team_name = str(player.get("team_name") or "-")
     team_font = _fit_font(draw, team_name, 320, 25, 12)
     draw.text((438, 232), _fit_text(draw, team_name, 320, team_font), font=team_font, fill=MUTED)
     event_name = str(event.get("name") or "80GOTV EVENT")
@@ -163,7 +177,7 @@ def generate_award_poster(base_dir, player, event, stats, map_rows, award_type):
     )
     draw.text(
         (62, 495),
-        f"{int(stats.get('maps', 0) or 0)} MAPS  |  {int(stats.get('kills', 0) or 0)}-{int(stats.get('deaths', 0) or 0)} K-D",
+        f"{format_stat(stats.get('maps'))} MAPS  |  {_pair(stats.get('kills'), stats.get('deaths'))} K-D",
         font=_font(21),
         fill=MUTED,
     )
@@ -181,15 +195,17 @@ def generate_award_poster(base_dir, player, event, stats, map_rows, award_type):
     for index, row in enumerate(map_rows[:3]):
         y = 592 + index * 78
         draw.rounded_rectangle((52, y, 772, y + 64), radius=7, fill=PANEL_2)
-        score_for = int(row.get("score_for") or 0)
-        score_against = int(row.get("score_against") or 0)
+        score_for = optional_number(row.get("score_for"))
+        score_against = optional_number(row.get("score_against"))
         score_fill = (
-            WIN if score_for > score_against else (LOSS if score_for < score_against else LINE)
+            (WIN if score_for > score_against else (LOSS if score_for < score_against else LINE))
+            if score_for is not None and score_against is not None
+            else LINE
         )
         draw.rounded_rectangle((62, y + 8, 150, y + 56), radius=6, fill=score_fill)
         draw.text(
             (106, y + 32),
-            f"{score_for}-{score_against}",
+            _pair(score_for, score_against),
             font=_font(21, True),
             fill=WHITE,
             anchor="mm",
@@ -216,39 +232,35 @@ def generate_award_poster(base_dir, player, event, stats, map_rows, award_type):
         )
         draw.text(
             (525, y + 21),
-            f"{int(row.get('kills') or 0)}-{int(row.get('deaths') or 0)}",
+            _pair(row.get("kills"), row.get("deaths")),
             font=_font(18),
             fill=WHITE,
         )
         draw.text(
-            (646, y + 19), f"{_number(row.get('rating')):.2f}", font=_font(21, True), fill=WHITE
+            (646, y + 19), format_stat(row.get("rating"), 2), font=_font(21, True), fill=WHITE
         )
 
-    rating = _number(stats.get("rating"))
-    adr = _number(stats.get("adr"))
-    kast = _number(stats.get("kast"))
-    impact = _number(stats.get("impact"))
-    kd = _number(stats.get("kd"))
-    kpr = _number(stats.get("kpr"))
-    dpr = _number(stats.get("dpr"))
-    two_k_pct = _number(stats.get("two_k_pct"))
-    one_k_pct = _number(stats.get("one_k_pct"))
-    rws_basic = _number(stats.get("rws_basic"))
-    dmg_delta = _number(stats.get("dmg_delta"))
-    kills_delta = _number(stats.get("kills_delta"))
+    def dimension(label, key, digits, normalizer, *, suffix="", signed=False):
+        value = optional_number(stats.get(key))
+        return (
+            label,
+            format_stat(value, digits, suffix=suffix, signed=signed),
+            optional_number(normalizer(value)) if value is not None else None,
+        )
+
     dimensions = [
-        ("RATING 2.0", f"{rating:.2f}", rating / 1.5),
-        ("KPR", f"{kpr:.2f}", kpr / 1.0),
-        ("ADR", f"{adr:.1f}", adr / 110),
-        ("DPR", f"{dpr:.2f}", (1.05 - dpr) / 0.45),
-        ("K/D", f"{kd:.2f}", kd / 1.6),
-        ("2K+ ROUNDS", f"{two_k_pct:.0f}%", two_k_pct / 30),
-        ("1K+ ROUNDS", f"{one_k_pct:.0f}%", one_k_pct / 80),
-        ("KAST", f"{kast:.0f}%", kast / 90),
-        ("RWS BASIC", f"{rws_basic:.1f}", rws_basic / 15),
-        ("DMG Δ/R", f"{dmg_delta:+.1f}", (dmg_delta + 30) / 80),
-        ("KILLS Δ/R", f"{kills_delta:+.2f}", (kills_delta + 0.25) / 0.65),
-        ("IMPACT", f"{impact:.2f}", impact / 1.5),
+        dimension("RATING 2.0", "rating", 2, lambda value: value / 1.5),
+        dimension("KPR", "kpr", 2, lambda value: value),
+        dimension("ADR", "adr", 1, lambda value: value / 110),
+        dimension("DPR", "dpr", 2, lambda value: (1.05 - value) / 0.45),
+        dimension("K/D", "kd", 2, lambda value: value / 1.6),
+        dimension("2K+ ROUNDS", "two_k_pct", 0, lambda value: value / 30, suffix="%"),
+        dimension("1K+ ROUNDS", "one_k_pct", 0, lambda value: value / 80, suffix="%"),
+        dimension("KAST", "kast", 0, lambda value: value / 90, suffix="%"),
+        dimension("RWS BASIC", "rws_basic", 1, lambda value: value / 15),
+        dimension("DMG Δ/R", "dmg_delta", 1, lambda value: (value + 30) / 80, signed=True),
+        dimension("KILLS Δ/R", "kills_delta", 2, lambda value: (value + 0.25) / 0.65, signed=True),
+        dimension("IMPACT", "impact", 2, lambda value: value / 1.5),
     ]
     draw.text((854, 72), "PERFORMANCE OVERVIEW", font=_font(21, True), fill=MUTED)
     _draw_radar(draw, (1188, 390), 198, dimensions, accent)

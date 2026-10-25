@@ -1,8 +1,10 @@
 """Generate event matches and advance elimination brackets from real results."""
 
 import json
+from copy import deepcopy
 from datetime import datetime
 
+from services.match_service import _has_temp_players, get_series_result
 from utils.helpers import ensure_unique_match_slug, make_match_slug
 
 FORMAT_SPECS = {
@@ -252,6 +254,10 @@ FORMAT_SPECS = {
 }
 
 
+class BracketDependencyError(ValueError):
+    """A historical change would invalidate a prepared downstream match."""
+
+
 def _nodes(spec):
     for _, rounds in spec["sections"]:
         for _, matches in rounds:
@@ -260,11 +266,23 @@ def _nodes(spec):
 
 
 def _flat_matches(tournament):
+    if not isinstance(tournament, dict) or not isinstance(tournament.get("sections", []), list):
+        raise ValueError("对阵图格式无效")
     result = {}
     for section in tournament.get("sections", []):
+        if not isinstance(section, dict) or not isinstance(section.get("rounds", []), list):
+            raise ValueError("对阵图分组格式无效")
         for round_data in section.get("rounds", []):
+            if not isinstance(round_data, dict) or not isinstance(
+                round_data.get("matches", []), list
+            ):
+                raise ValueError("对阵图轮次格式无效")
             for match in round_data.get("matches", []):
+                if not isinstance(match, dict):
+                    raise ValueError("对阵图比赛格式无效")
                 if match.get("id"):
+                    if not isinstance(match["id"], str) or match["id"] in result:
+                        raise ValueError("对阵图比赛编号无效或重复")
                     result[match["id"]] = match
     return result
 
@@ -400,17 +418,32 @@ def _find_reusable_stage_match(conn, event_id, stage, claimed_ids):
 
 def build_event_bracket(conn, event_id, payload):
     """Save a supported format and create every match exactly once."""
+    conn.execute("UPDATE events SET bracket_data=bracket_data WHERE id=?", (event_id,))
     event = conn.execute("SELECT * FROM events WHERE id=?", (event_id,)).fetchone()
     if not event:
         raise ValueError("赛事不存在")
-    tournament = (payload or {}).get("tournament", payload or {})
+    if not isinstance(payload, dict):
+        raise ValueError("对阵图格式无效")
+    payload = deepcopy(payload)
+    tournament = payload.get("tournament", payload)
+    if not isinstance(tournament, dict):
+        raise ValueError("对阵图格式无效")
     format_key = tournament.get("format_key")
-    spec = FORMAT_SPECS.get(format_key)
+    spec = FORMAT_SPECS.get(format_key) if format_key is not None else None
     if not spec:
         raise ValueError("该赛制暂不支持自动生成比赛")
 
     submitted_matches = _flat_matches(tournament)
-    submitted_teams = list(tournament.get("teams", []))
+    submitted_teams = tournament.get("teams", [])
+    if not isinstance(submitted_teams, list) or any(
+        not isinstance(team, dict) for team in submitted_teams
+    ):
+        raise ValueError("对阵图队伍格式无效")
+    team_keys = [team.get("id") for team in submitted_teams]
+    if any(not isinstance(key, str) or not key for key in team_keys) or len(set(team_keys)) != len(
+        team_keys
+    ):
+        raise ValueError("对阵图队伍编号无效或重复")
     for team in submitted_teams:
         try:
             team["db_id"] = int(team["db_id"]) if team.get("db_id") is not None else None
@@ -461,6 +494,8 @@ def build_event_bracket(conn, event_id, payload):
                            WHERE id=? AND event_id=? AND status!='cancelled'""",
                         (match_id, event_id),
                     ).fetchone()
+                    if not valid and submitted.get("match_id"):
+                        raise ValueError("所选比赛不存在、已取消或不属于当前赛事")
                     match_id = int(match_id) if valid else None
                 if match_id and match_id in claimed_match_ids:
                     raise ValueError("同一场比赛不能绑定到多个对阵槽位")
@@ -479,6 +514,11 @@ def build_event_bracket(conn, event_id, payload):
                 claimed_match_ids.add(match_id)
                 requested_bo = submitted.get("bo_format")
                 if requested_bo in ("BO1", "BO3", "BO5"):
+                    current = conn.execute(
+                        "SELECT * FROM matches WHERE id=?", (match_id,)
+                    ).fetchone()
+                    if current["bo_format"] != requested_bo and _match_has_started(current):
+                        raise ValueError("比赛已开始或已进行 BP，不能更改比赛赛制")
                     conn.execute(
                         "UPDATE matches SET bo_format=? WHERE id=? AND event_id=?",
                         (requested_bo, match_id, event_id),
@@ -535,24 +575,31 @@ def build_event_bracket(conn, event_id, payload):
         "UPDATE events SET bracket_data=?, format=? WHERE id=?",
         (json.dumps(data, ensure_ascii=False), spec["name"], event_id),
     )
-    refresh_event_bracket(conn, event_id, data=data)
-    return data
+    return refresh_event_bracket(conn, event_id, data=data)
 
 
 def _match_result(match):
     if not match or match["status"] != "completed":
         return None, None
-    score1 = int(match["team1_score"] or 0)
-    score2 = int(match["team2_score"] or 0)
-    if score1 == score2 or not match["team1_id"] or not match["team2_id"]:
+    winner, loser = get_series_result(
+        match["bo_format"], match["team1_score"], match["team2_score"]
+    )
+    if not winner or not loser or not match["team1_id"] or not match["team2_id"]:
         return None, None
-    if score1 > score2:
-        return match["team1_id"], match["team2_id"]
-    return match["team2_id"], match["team1_id"]
+    return match[f"team{winner[-1]}_id"], match[f"team{loser[-1]}_id"]
+
+
+def _match_has_started(match):
+    if match["status"] not in (None, "upcoming") or match["bp_state"]:
+        return True
+    fields = ["team1_score", "team2_score"]
+    fields.extend(f"map{slot}_t{side}" for slot in range(1, 6) for side in (1, 2))
+    return any(match[field] not in (None, 0, "0", "") for field in fields)
 
 
 def refresh_event_bracket(conn, event_id, data=None):
-    """Mirror live scores and route completed-match winners/losers into TBD slots."""
+    """Validate every dependency before applying any participant changes."""
+    conn.execute("UPDATE events SET bracket_data=bracket_data WHERE id=?", (event_id,))
     event = conn.execute("SELECT * FROM events WHERE id=?", (event_id,)).fetchone()
     if not event:
         return None
@@ -563,6 +610,9 @@ def refresh_event_bracket(conn, event_id, data=None):
             data = json.loads(event["bracket_data"])
         except (TypeError, ValueError):
             return None
+    data = deepcopy(data)
+    if not isinstance(data, dict):
+        raise ValueError("对阵图格式无效")
     tournament = data.get("tournament", data)
     matches_by_node = _flat_matches(tournament)
     if not matches_by_node:
@@ -571,6 +621,15 @@ def refresh_event_bracket(conn, event_id, data=None):
     ids = [m.get("match_id") for m in matches_by_node.values() if m.get("match_id")]
     if not ids:
         return data
+    try:
+        ids = [int(match_id) for match_id in ids]
+    except (ValueError, TypeError, OverflowError):
+        raise ValueError("对阵图关联比赛编号无效") from None
+    if len(set(ids)) != len(ids):
+        raise ValueError("同一场比赛不能绑定到多个对阵槽位")
+    for match in matches_by_node.values():
+        if match.get("match_id"):
+            match["match_id"] = int(match["match_id"])
     placeholders = ",".join("?" * len(ids))
     rows = conn.execute(
         f"""SELECT m.*, t1.name AS t1_name, t1.short_name AS t1_short,
@@ -582,6 +641,8 @@ def refresh_event_bracket(conn, event_id, data=None):
         tuple(ids),
     ).fetchall()
     db_matches = {row["id"]: row for row in rows}
+    if any(row["event_id"] != event_id for row in rows):
+        raise ValueError("对阵图关联的比赛不属于当前赛事，不能修改其他赛事")
     team_ids = {row["team1_id"] for row in rows if row["team1_id"]}
     team_ids.update(row["team2_id"] for row in rows if row["team2_id"])
     team_rows = {}
@@ -594,73 +655,97 @@ def refresh_event_bracket(conn, event_id, data=None):
             ).fetchall()
         }
     teams = tournament.setdefault("teams", [])
+    if not isinstance(teams, list) or any(not isinstance(team, dict) for team in teams):
+        raise ValueError("对阵图队伍格式无效")
+    teams_by_key = {team.get("id"): team for team in teams if isinstance(team.get("id"), str)}
+    results, assignments, resolving = {}, {}, set()
 
-    results = {}
-    for node_id, bracket_match in matches_by_node.items():
+    def resolve(node_id):
+        if node_id in results:
+            return results[node_id]
+        if node_id in resolving or node_id not in matches_by_node:
+            raise ValueError("对阵图晋级关系无效，存在循环或不存在的比赛")
+        resolving.add(node_id)
+        bracket_match = matches_by_node[node_id]
         row = db_matches.get(bracket_match.get("match_id"))
         if not row:
-            continue
-        if row["status"] in ("live", "ongoing", "completed"):
-            bracket_match["score1"] = int(row["team1_score"] or 0)
-            bracket_match["score2"] = int(row["team2_score"] or 0)
-        else:
-            bracket_match["score1"] = None
-            bracket_match["score2"] = None
+            bracket_match.update(
+                {"match_id": None, "score1": None, "score2": None, "status": "upcoming"}
+            )
+            for slot in (1, 2):
+                source = bracket_match.get(f"team{slot}_source") or {}
+                if not isinstance(source, dict) or "seed" not in source:
+                    bracket_match[f"team{slot}"] = None
+            resolving.remove(node_id)
+            results[node_id] = {"winner": None, "loser": None}
+            return results[node_id]
+        desired = []
+        for slot in (1, 2):
+            source = bracket_match.get(f"team{slot}_source") or {}
+            if not isinstance(source, dict):
+                raise ValueError("对阵图队伍来源格式无效")
+            if "winner" in source:
+                team_id = resolve(source["winner"])["winner"]
+            elif "loser" in source:
+                team_id = resolve(source["loser"])["loser"]
+            elif "seed" in source:
+                key = bracket_match.get(f"team{slot}")
+                team = teams_by_key.get(key)
+                team_id = team.get("db_id") if team else None
+            else:
+                team_id = row[f"team{slot}_id"]
+            desired.append(team_id)
+        changed_roster = any(
+            row[f"team{slot}_id"] != desired[slot - 1]
+            and _has_temp_players(row[f"team{slot}_players"])
+            for slot in (1, 2)
+        )
+        if tuple(desired) != (row["team1_id"], row["team2_id"]) and (
+            _match_has_started(row) or changed_roster
+        ):
+            raise BracketDependencyError(
+                "后续比赛已开始、已有比分、已进行 BP 或已锁定相关队伍名单，请先处理后续比赛，再修改历史结果或对阵"
+            )
+        assignments[node_id] = desired
+        winner, loser = _match_result(row)
+        results[node_id] = {"winner": winner, "loser": loser}
+        resolving.remove(node_id)
+        return results[node_id]
+
+    for node_id in matches_by_node:
+        resolve(node_id)
+
+    for node_id, desired in assignments.items():
+        bracket_match = matches_by_node[node_id]
+        row = db_matches[bracket_match["match_id"]]
+        if (row["team1_id"], row["team2_id"]) != tuple(desired):
+            conn.execute(
+                "UPDATE matches SET team1_id=?, team2_id=? WHERE id=? AND event_id=?",
+                (*desired, row["id"], event_id),
+            )
+            _update_match_slug(conn, row["id"])
+        for slot, team_id in enumerate(desired, 1):
+            bracket_match[f"team{slot}"] = (
+                (_team_key_by_db_id(teams, team_id) or _ensure_team(teams, team_rows.get(team_id)))
+                if team_id
+                else None
+            )
+        for side in (1, 2):
+            bracket_match[f"score{side}"] = (
+                int(row[f"team{side}_score"] or 0)
+                if row["status"] in ("live", "ongoing", "completed")
+                else None
+            )
         bracket_match["status"] = row["status"]
         bracket_match["match_time"] = row["match_time"]
         bracket_match["bo_format"] = row["bo_format"] or tournament.get("bo_format", "BO3")
-        for slot in (1, 2):
-            team_id = row[f"team{slot}_id"]
-            source = bracket_match.get(f"team{slot}_source") or {}
-            if team_id:
-                bracket_match[f"team{slot}"] = _team_key_by_db_id(teams, team_id) or _ensure_team(
-                    teams, team_rows.get(team_id)
-                )
-            elif "seed" not in source:
-                bracket_match[f"team{slot}"] = None
-        winner, loser = _match_result(row)
-        results[node_id] = {"winner": winner, "loser": loser}
 
-    for node_id, bracket_match in matches_by_node.items():
-        row = db_matches.get(bracket_match.get("match_id"))
-        if not row or row["status"] not in (None, "upcoming"):
-            continue
-        updates = []
-        for slot in (1, 2):
-            source = bracket_match.get(f"team{slot}_source") or {}
-            team_id = None
-            if "winner" in source:
-                team_id = (results.get(source["winner"]) or {}).get("winner")
-            elif "loser" in source:
-                team_id = (results.get(source["loser"]) or {}).get("loser")
-            elif "seed" in source:
-                key = bracket_match.get(f"team{slot}")
-                team = next((item for item in teams if item.get("id") == key), None)
-                team_id = team.get("db_id") if team else None
-            updates.append(team_id)
-        if row["team1_id"] != updates[0] or row["team2_id"] != updates[1]:
-            conn.execute(
-                "UPDATE matches SET team1_id=?, team2_id=? WHERE id=?",
-                (updates[0], updates[1], row["id"]),
-            )
-            _update_match_slug(conn, row["id"])
-            bracket_match["team1"] = (
-                (
-                    _team_key_by_db_id(teams, updates[0])
-                    or _ensure_team(teams, team_rows.get(updates[0]))
-                )
-                if updates[0]
-                else None
-            )
-            bracket_match["team2"] = (
-                (
-                    _team_key_by_db_id(teams, updates[1])
-                    or _ensure_team(teams, team_rows.get(updates[1]))
-                )
-                if updates[1]
-                else None
-            )
-
+    if "rounds" in tournament:
+        tournament["rounds"] = [
+            round_data
+            for section in tournament.get("sections", [])
+            for round_data in section.get("rounds", [])
+        ]
     conn.execute(
         "UPDATE events SET bracket_data=? WHERE id=?",
         (json.dumps(data, ensure_ascii=False), event_id),

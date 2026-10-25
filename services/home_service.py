@@ -3,6 +3,7 @@
 from datetime import date, datetime
 
 from services.match_service import supplement_temp_teams
+from services.performance_service import summary_metric_sql
 from utils.match_utils import (
     get_sql_effective_status,
     get_sql_match_completed,
@@ -25,7 +26,12 @@ def load_home_feed(conn, today=None):
     else:
         today_str = str(today)[:10]
 
-    news = conn.execute("SELECT * FROM news ORDER BY publish_time DESC LIMIT 12").fetchall()
+    news = conn.execute("""
+        SELECT n.*, (SELECT COUNT(*) FROM comments c
+                     WHERE c.target_type='news' AND c.target_id=n.id) AS actual_comment_count
+        FROM news n ORDER BY n.publish_time DESC, n.id DESC LIMIT 12
+    """).fetchall()
+    news = [{**dict(row), "comment_count": row["actual_comment_count"]} for row in news]
     forum_activity = conn.execute(
         """
         SELECT id, title, reply_count
@@ -47,7 +53,7 @@ def load_home_feed(conn, today=None):
           AND substr(COALESCE(m.match_time, ''), 1, 10)=?
         ORDER BY CASE WHEN effective_status='live' THEN 0 ELSE 1 END,
                  CASE WHEN m.match_time IS NULL OR m.match_time='' THEN 1 ELSE 0 END,
-                 m.match_time
+                 m.match_time, m.id
         LIMIT 10
         """,
         (today_str,),
@@ -62,17 +68,18 @@ def load_home_feed(conn, today=None):
         LEFT JOIN teams t1 ON m.team1_id=t1.id
         LEFT JOIN teams t2 ON m.team2_id=t2.id
         WHERE {_SQL_MATCH_COMPLETED}
-        ORDER BY m.match_time DESC LIMIT 8
+        ORDER BY m.match_time DESC, m.id DESC LIMIT 8
     """).fetchall()
     recent = [supplement_temp_teams(match, conn) for match in recent]
 
-    top_players = conn.execute("""
-        SELECT p.nickname, p.id, t.short_name AS team, s.avg_rating
+    top_players = conn.execute(f"""
+        SELECT p.nickname, p.id, t.short_name AS team,
+               {summary_metric_sql("avg_rating", "rating")} AS avg_rating
         FROM player_performance_summary s
         JOIN players p ON s.player_id=p.id
         LEFT JOIN teams t ON p.team_id=t.id
         WHERE s.maps > 0
-        ORDER BY s.avg_rating DESC, s.maps DESC
+        ORDER BY avg_rating DESC, s.maps DESC, p.id
         LIMIT 5
     """).fetchall()
 

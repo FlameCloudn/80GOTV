@@ -11,7 +11,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 try:
     from dotenv import load_dotenv
 
-    load_dotenv()
+    load_dotenv(os.path.join(BASE_DIR, ".env"))
 except ImportError:
     env_path = os.path.join(BASE_DIR, ".env")
     if os.path.isfile(env_path):

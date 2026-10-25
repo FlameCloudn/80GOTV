@@ -77,7 +77,15 @@ def add_comment(target_type, target_id):
     )
     new_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
     if target_type == "news":
-        conn.execute("UPDATE news SET comment_count = comment_count + 1 WHERE id=?", (target_id,))
+        conn.execute(
+            """UPDATE news
+               SET comment_count=COALESCE(
+                   (SELECT COUNT(*) FROM comments WHERE target_type='news' AND target_id=?),
+                   0
+               )
+               WHERE id=?""",
+            (target_id, target_id),
+        )
 
     # 回复通知：通知父评论作者
     if parent_id:
@@ -185,8 +193,13 @@ def delete_comment(comment_id):
     total = len(deleted_ids)
     if comment["target_type"] == "news":
         conn.execute(
-            "UPDATE news SET comment_count = MAX(0, comment_count - ?) WHERE id=?",
-            (total, comment["target_id"]),
+            """UPDATE news
+               SET comment_count=COALESCE(
+                   (SELECT COUNT(*) FROM comments WHERE target_type='news' AND target_id=?),
+                   0
+               )
+               WHERE id=?""",
+            (comment["target_id"], comment["target_id"]),
         )
     elif comment["target_type"] == "forum_thread":
         last_reply = conn.execute(

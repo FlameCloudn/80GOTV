@@ -23,6 +23,7 @@ from services.award_service import (
     list_event_award_players,
 )
 from services.match_service import add_effective_event_status, supplement_temp_teams
+from services.performance_service import weighted_average_sql
 from services.steam_playtime_service import (
     attach_latest_playtime,
     build_balanced_assignments,
@@ -454,10 +455,9 @@ def event_detail(event_id):
     # loaded names and avatars, so every rating rendered as a dash even when
     # the match had already produced stats.
     event_ratings = conn.execute(
-        """
+        f"""
         SELECT ms.player_id,
-               SUM(ms.rating * COALESCE(NULLIF(ms.rounds_played, 0), 1)) /
-                 NULLIF(SUM(COALESCE(NULLIF(ms.rounds_played, 0), 1)), 0) AS rating
+               {weighted_average_sql("ms.rating", "ms.rounds_played")} AS rating
         FROM match_stats ms
         JOIN matches m ON m.id=ms.match_id
         WHERE m.event_id=? AND ms.player_id IS NOT NULL
@@ -1761,20 +1761,21 @@ def event_stats(event_id):
 
     # 选手排行
     rankings = conn.execute(
-        """
-        SELECT p.nickname, p.id, t.short_name AS team,
-               AVG(ms.rating) AS rating,
+        f"""
+        SELECT p.nickname, p.id,
+               CASE WHEN COUNT(DISTINCT ms.team_id)=1 THEN MAX(t.short_name) END AS team,
+               {weighted_average_sql("ms.rating", "ms.rounds_played")} AS rating,
                (SUM(ms.kills) * 1.0 / NULLIF(SUM(ms.deaths), 0)) AS kd,
-               AVG(ms.adr) AS adr,
-               AVG(ms.kast) AS kast,
-               AVG(ms.impact) AS impact,
-               AVG(ms.headshot_percentage) AS hs,
+               {weighted_average_sql("ms.adr", "ms.rounds_played")} AS adr,
+               {weighted_average_sql("ms.kast", "ms.rounds_played")} AS kast,
+               {weighted_average_sql("ms.impact", "ms.rounds_played")} AS impact,
+               {weighted_average_sql("ms.headshot_percentage", "ms.kills")} AS hs,
                SUM(ms.clutches_won) AS clutch,
                COUNT(DISTINCT ms.match_id) AS matches,
                COUNT(ms.id) AS maps
         FROM match_stats ms
         JOIN players p ON ms.player_id=p.id
-        LEFT JOIN teams t ON p.team_id=t.id
+        LEFT JOIN teams t ON ms.team_id=t.id
         JOIN matches m ON ms.match_id=m.id
         WHERE m.event_id=?
           AND COALESCE(ms.data_status, 'final') <> 'superseded'
@@ -1786,10 +1787,10 @@ def event_stats(event_id):
 
     # 地图统计
     map_stats = conn.execute(
-        """
+        f"""
         SELECT ms.map_name,
                COUNT(DISTINCT ms.match_id) AS times_played,
-               AVG(ms.rating) AS avg_rating,
+               {weighted_average_sql("ms.rating", "ms.rounds_played")} AS avg_rating,
                (SUM(ms.kills) * 1.0 / NULLIF(SUM(ms.deaths), 0)) AS avg_kd
         FROM match_stats ms
         JOIN matches m ON ms.match_id=m.id

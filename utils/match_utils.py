@@ -3,6 +3,7 @@
 """
 
 import json
+from typing import Any, Literal, overload
 
 from utils.helpers import row_get
 
@@ -88,12 +89,34 @@ def get_demo_map_names(match_row):
     return [row_get(match_row, f"map{i}", "") for i in range(1, slot_count + 1)]
 
 
-def build_raw_maps(match_row, include_picked_by=True):
+RawMap = tuple[Any, Any, Any, bool]
+RawMapWithPickedBy = tuple[Any, Any, Any, bool, Any]
+
+
+@overload
+def build_raw_maps(
+    match_row, include_picked_by: Literal[True] = True
+) -> list[RawMapWithPickedBy]: ...
+
+
+@overload
+def build_raw_maps(match_row, include_picked_by: Literal[False]) -> list[RawMap]: ...
+
+
+@overload
+def build_raw_maps(
+    match_row, include_picked_by: bool
+) -> list[RawMapWithPickedBy] | list[RawMap]: ...
+
+
+def build_raw_maps(
+    match_row, include_picked_by: bool = True
+) -> list[RawMapWithPickedBy] | list[RawMap]:
     """
     从比赛行数据构建地图列表。
     返回 list of (map_name, t1_score, t2_score, active, picked_by)
     """
-    raw = [
+    raw: list[RawMapWithPickedBy] = [
         (
             row_get(match_row, "map1"),
             row_get(match_row, "map1_t1"),
@@ -145,7 +168,7 @@ def calculate_map_wins(match_row, raw_maps=None):
 
     t1_wins = 0
     t2_wins = 0
-    for map_row in raw_maps:
+    for map_row in raw_maps[: get_bo_max_maps(row_get(match_row, "bo_format", "BO3"))]:
         mn, t1s, t2s, active = map_row[0], map_row[1], map_row[2], map_row[3]
         if mn and active:
             s1 = int(t1s or 0)

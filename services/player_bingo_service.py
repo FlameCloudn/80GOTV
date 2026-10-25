@@ -310,23 +310,35 @@ def load_game(conn, game_row):
 
 
 def submit_player(conn, game_row, row_index, column_index, player_id):
-    game = load_game(conn, game_row)
+    conn.execute("BEGIN IMMEDIATE")
+    current_game = conn.execute(
+        "SELECT * FROM player_bingo_games WHERE id=?", (game_row["id"],)
+    ).fetchone()
+    if not current_game:
+        conn.rollback()
+        return None, "本局不存在"
+    game = load_game(conn, current_game)
     if game["finished"]:
+        conn.rollback()
         return game, "本局已经完成"
     if row_index not in range(3) or column_index not in range(3):
+        conn.rollback()
         return game, "格子位置无效"
     if (row_index, column_index) in game["cells"]:
+        conn.rollback()
         return game, "这个格子已经填过了"
     player = conn.execute(
         "SELECT * FROM guess_players WHERE id=? AND active=1", (player_id,)
     ).fetchone()
     if not player:
+        conn.rollback()
         return game, "请从候选列表中选择一名选手"
     duplicate = conn.execute(
         "SELECT 1 FROM player_bingo_cells WHERE game_id=? AND player_id=?",
-        (game_row["id"], player_id),
+        (current_game["id"], player_id),
     ).fetchone()
     if duplicate:
+        conn.rollback()
         return game, "同一名选手不能重复使用"
     row_key = game["row_keys"][row_index]
     column_key = game["column_keys"][column_index]
@@ -334,11 +346,11 @@ def submit_player(conn, game_row, row_index, column_index, player_id):
         conn.execute(
             """UPDATE player_bingo_games
                SET mistakes=mistakes+1, updated_at=CURRENT_TIMESTAMP WHERE id=?""",
-            (game_row["id"],),
+            (current_game["id"],),
         )
         conn.commit()
         refreshed = conn.execute(
-            "SELECT * FROM player_bingo_games WHERE id=?", (game_row["id"],)
+            "SELECT * FROM player_bingo_games WHERE id=?", (current_game["id"],)
         ).fetchone()
         return load_game(conn, refreshed), "这名选手不同时符合两个条件"
 
@@ -346,13 +358,13 @@ def submit_player(conn, game_row, row_index, column_index, player_id):
         """INSERT INTO player_bingo_cells(
                game_id, row_index, column_index, player_id
            ) VALUES(?,?,?,?)""",
-        (game_row["id"], row_index, column_index, player_id),
+        (current_game["id"], row_index, column_index, player_id),
     )
     coordinates = {
         (row["row_index"], row["column_index"])
         for row in conn.execute(
             "SELECT row_index, column_index FROM player_bingo_cells WHERE game_id=?",
-            (game_row["id"],),
+            (current_game["id"],),
         ).fetchall()
     }
     lines = _line_count(coordinates)
@@ -360,11 +372,11 @@ def submit_player(conn, game_row, row_index, column_index, player_id):
     conn.execute(
         """UPDATE player_bingo_games
            SET lines=?, finished=?, updated_at=CURRENT_TIMESTAMP WHERE id=?""",
-        (lines, int(finished), game_row["id"]),
+        (lines, int(finished), current_game["id"]),
     )
     conn.commit()
     refreshed = conn.execute(
-        "SELECT * FROM player_bingo_games WHERE id=?", (game_row["id"],)
+        "SELECT * FROM player_bingo_games WHERE id=?", (current_game["id"],)
     ).fetchone()
     return load_game(conn, refreshed), None
 

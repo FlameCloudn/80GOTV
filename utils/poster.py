@@ -5,6 +5,7 @@ import io
 from PIL import Image, ImageDraw, ImageFont
 
 from utils.helpers import map_display_name
+from utils.stats_display import format_stat, optional_number, resolve_match_team_side
 
 W, H = 750, 1050
 BG = (22, 22, 40)
@@ -110,9 +111,9 @@ def generate_match_poster(match, map_scores, player_ratings=None):
     y += 36
 
     # Score
-    s1 = match.get("team1_score") or 0
-    s2 = match.get("team2_score") or 0
-    score_text = f"{s1} : {s2}"
+    score_text = (
+        f"{format_stat(match.get('team1_score'))} : {format_stat(match.get('team2_score'))}"
+    )
     fn_score = _font(72, bold=True)
     _draw_centered(draw, score_text, y, fn_score, WHITE)
     y += 80
@@ -136,8 +137,8 @@ def generate_match_poster(match, map_scores, player_ratings=None):
         fn_map_bold = _font(18, bold=True)
         for ms in map_scores:
             map_name = map_display_name(ms.get("name") or "TBA")
-            t1 = ms.get("t1") or 0
-            t2 = ms.get("t2") or 0
+            t1 = optional_number(ms.get("t1"))
+            t2 = optional_number(ms.get("t2"))
             played = ms.get("played")
 
             col_w = 540
@@ -146,13 +147,13 @@ def generate_match_poster(match, map_scores, player_ratings=None):
             draw.text((x0, y), map_name, font=fn_map, fill=WHITE)
 
             if played:
-                score_str = f"{t1} : {t2}"
+                score_str = f"{format_stat(t1)} : {format_stat(t2)}"
                 _draw_centered(draw, score_str, y, fn_map_bold, WHITE)
             else:
                 _draw_centered(draw, "-", y, fn_map, MUTED)
 
             # Win indicator
-            if played and t1 != t2:
+            if played and t1 is not None and t2 is not None and t1 != t2:
                 wx = x0 + col_w + 8
                 bbox = draw.textbbox((0, 0), map_name, font=fn_map)
                 wy = y + (bbox[3] - bbox[1] - 16) / 2
@@ -161,10 +162,8 @@ def generate_match_poster(match, map_scores, player_ratings=None):
             y += 32
 
     ratings = player_ratings or []
-    t1_key = match.get("team1_id") or -1
-    t2_key = match.get("team2_id") or -2
-    t1_ratings = [r for r in ratings if r.get("team_id") == t1_key][:5]
-    t2_ratings = [r for r in ratings if r.get("team_id") == t2_key][:5]
+    t1_ratings = [r for r in ratings if resolve_match_team_side(r, match) == "t1"][:5]
+    t2_ratings = [r for r in ratings if resolve_match_team_side(r, match) == "t2"][:5]
     if t1_ratings or t2_ratings:
         y += 18
         draw.line([(60, y), (W - 60, y)], fill=DIVIDER, width=1)
@@ -182,14 +181,12 @@ def generate_match_poster(match, map_scores, player_ratings=None):
                     font=fn_rating,
                     fill=WHITE,
                 )
-                _draw_right(
-                    draw, f"{float(row.get('rating') or 0):.2f}", 330, y, fn_rating_bold, ACCENT
-                )
+                _draw_right(draw, format_stat(row.get("rating"), 2), 330, y, fn_rating_bold, ACCENT)
             if index < len(t2_ratings):
                 row = t2_ratings[index]
                 draw.text(
                     (420, y),
-                    f"{float(row.get('rating') or 0):.2f}",
+                    format_stat(row.get("rating"), 2),
                     font=fn_rating_bold,
                     fill=ACCENT,
                 )

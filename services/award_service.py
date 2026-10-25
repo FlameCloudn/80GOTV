@@ -1,6 +1,42 @@
 """Build event MVP / EVP posters from saved match statistics."""
 
+from services.performance_service import weighted_average_sql
 from utils.award_poster import generate_award_poster
+from utils.demo_parser import match_map_slot
+from utils.match_utils import build_raw_maps, get_bo_max_maps
+from utils.stats_display import optional_number, resolve_match_team_side
+
+
+def _recorded_rate_sql(numerator):
+    valid = f"ms.stat_rounds > 0 AND ({numerator}) IS NOT NULL"
+    return (
+        f"SUM(CASE WHEN {valid} THEN ({numerator}) END) * 1.0 / "
+        f"NULLIF(SUM(CASE WHEN {valid} THEN ms.stat_rounds END), 0)"
+    )
+
+
+def _award_map_row(row):
+    row = dict(row)
+    side = resolve_match_team_side(row, row)
+    raw_maps = build_raw_maps(row, include_picked_by=False)[: get_bo_max_maps(row.get("bo_format"))]
+    slot = match_map_slot(
+        str(row.get("map_name") or "").strip(),
+        [str(item[0]).strip() if item[0] else None for item in raw_maps],
+    )
+    result = {key: row.get(key) for key in ("map_name", "kills", "deaths", "rating", "stage")}
+    result.update(opponent=None, score_for=None, score_against=None)
+    if side is None:
+        return result
+    opponent_side = "2" if side == "t1" else "1"
+    result["opponent"] = row.get(f"t{opponent_side}s") or row.get(f"team{opponent_side}_name")
+    if slot >= 0 and raw_maps[slot][3]:
+        _, team1_score, team2_score, _ = raw_maps[slot]
+        score_for, score_against = (
+            (team1_score, team2_score) if side == "t1" else (team2_score, team1_score)
+        )
+        result["score_for"] = optional_number(score_for)
+        result["score_against"] = optional_number(score_against)
+    return result
 
 
 def find_event_award_player(conn, event_id, award_type="MVP"):
@@ -42,32 +78,48 @@ def build_event_award_poster(conn, base_dir, event_id, player_id, award_type="MV
     if not event or not player:
         return None
 
+    player = dict(player)
+    played_teams = conn.execute(
+        """SELECT DISTINCT ms.team_id, ms.match_team_side, m.team1_id, m.team2_id,
+                  t1.name AS team1_name, t1.short_name AS team1_short,
+                  t2.name AS team2_name, t2.short_name AS team2_short
+           FROM match_stats ms JOIN matches m ON m.id=ms.match_id
+           LEFT JOIN teams t1 ON t1.id=m.team1_id
+           LEFT JOIN teams t2 ON t2.id=m.team2_id
+           WHERE ms.player_id=? AND m.event_id=?
+             AND COALESCE(ms.data_status, 'final') <> 'superseded'""",
+        (player_id, event_id),
+    ).fetchall()
+    historical_teams = set()
+    for row in played_teams:
+        side = resolve_match_team_side(row, row)
+        historical_teams.add(
+            (row[f"team{side[-1]}_name"], row[f"team{side[-1]}_short"]) if side else (None, None)
+        )
+    player["team_name"], player["team_short"] = (
+        next(iter(historical_teams)) if len(historical_teams) == 1 else (None, None)
+    )
+
     stats = conn.execute(
-        """
+        f"""
         SELECT COUNT(ms.id) AS maps,
                SUM(ms.kills) AS kills, SUM(ms.deaths) AS deaths,
-               SUM(ms.rating * ms.stat_rounds) / NULLIF(SUM(ms.stat_rounds), 0) AS rating,
-               SUM(ms.adr * ms.stat_rounds) / NULLIF(SUM(ms.stat_rounds), 0) AS adr,
-               SUM(ms.kast * ms.stat_rounds) / NULLIF(SUM(ms.stat_rounds), 0) AS kast,
-               SUM(ms.impact * ms.stat_rounds) / NULLIF(SUM(ms.stat_rounds), 0) AS impact,
+               {weighted_average_sql("ms.rating", "ms.stat_rounds")} AS rating,
+               {weighted_average_sql("ms.adr", "ms.stat_rounds")} AS adr,
+               {weighted_average_sql("ms.kast", "ms.stat_rounds")} AS kast,
+               {weighted_average_sql("ms.impact", "ms.stat_rounds")} AS impact,
                SUM(ms.kills) * 1.0 / NULLIF(SUM(ms.deaths), 0) AS kd,
-               SUM(ms.kills) * 1.0 / NULLIF(SUM(ms.stat_rounds), 0) AS kpr,
-               SUM(ms.deaths) * 1.0 / NULLIF(SUM(ms.stat_rounds), 0) AS dpr,
-               SUM(ms.multi2k + ms.multi3k + ms.multi4k + ms.multi5k) * 100.0
-                   / NULLIF(SUM(ms.stat_rounds), 0) AS two_k_pct,
-               SUM(ms.multi1k + ms.multi2k + ms.multi3k + ms.multi4k + ms.multi5k) * 100.0
-                   / NULLIF(SUM(ms.stat_rounds), 0) AS one_k_pct,
-               SUM(ms.damage_delta_per_round * ms.stat_rounds)
-                   / NULLIF(SUM(ms.stat_rounds), 0) AS dmg_delta,
-               (SUM(ms.kills) - SUM(ms.deaths)) * 1.0
-                   / NULLIF(SUM(ms.stat_rounds), 0) AS kills_delta,
-               SUM(ms.rws_basic * ms.stat_rounds)
-                   / NULLIF(SUM(ms.stat_rounds), 0) AS rws_basic
+               {_recorded_rate_sql("ms.kills")} AS kpr,
+               {_recorded_rate_sql("ms.deaths")} AS dpr,
+               ({_recorded_rate_sql("ms.multi2k + ms.multi3k + ms.multi4k + ms.multi5k")}) * 100 AS two_k_pct,
+               ({_recorded_rate_sql("ms.multi1k + ms.multi2k + ms.multi3k + ms.multi4k + ms.multi5k")}) * 100 AS one_k_pct,
+               {weighted_average_sql("ms.damage_delta_per_round", "ms.stat_rounds")} AS dmg_delta,
+               {_recorded_rate_sql("ms.kills - ms.deaths")} AS kills_delta,
+               {weighted_average_sql("ms.rws_basic", "ms.stat_rounds")} AS rws_basic
         FROM (
             SELECT ms.*,
                    CASE
                        WHEN COALESCE(ms.rounds_played, 0) > 0 THEN ms.rounds_played
-                       WHEN COALESCE(ms.kpr, 0) > 0 THEN ROUND(ms.kills * 1.0 / ms.kpr)
                        ELSE 0
                    END AS stat_rounds
             FROM match_stats ms JOIN matches m ON m.id=ms.match_id
@@ -79,37 +131,9 @@ def build_event_award_poster(conn, base_dir, event_id, player_id, award_type="MV
     ).fetchone()
     map_rows = conn.execute(
         """
-        SELECT ms.map_name, ms.kills, ms.deaths, ms.rating,
-               COALESCE(NULLIF(m.stage, ''), '-') AS stage,
-               CASE WHEN ms.team_id=COALESCE(m.team1_id, -1)
-                    THEN COALESCE(t2.short_name, t2.name, 'SIDE 2')
-                    ELSE COALESCE(t1.short_name, t1.name, 'SIDE 1') END AS opponent,
-               CASE WHEN ms.team_id=COALESCE(m.team1_id, -1)
-                    THEN CASE
-                        WHEN ms.map_name=m.map1 THEN m.map1_t1
-                        WHEN ms.map_name=m.map2 THEN m.map2_t1
-                        WHEN ms.map_name=m.map3 THEN m.map3_t1
-                        WHEN ms.map_name=m.map4 THEN m.map4_t1
-                        WHEN ms.map_name=m.map5 THEN m.map5_t1 ELSE 0 END
-                    ELSE CASE
-                        WHEN ms.map_name=m.map1 THEN m.map1_t2
-                        WHEN ms.map_name=m.map2 THEN m.map2_t2
-                        WHEN ms.map_name=m.map3 THEN m.map3_t2
-                        WHEN ms.map_name=m.map4 THEN m.map4_t2
-                        WHEN ms.map_name=m.map5 THEN m.map5_t2 ELSE 0 END END AS score_for,
-               CASE WHEN ms.team_id=COALESCE(m.team1_id, -1)
-                    THEN CASE
-                        WHEN ms.map_name=m.map1 THEN m.map1_t2
-                        WHEN ms.map_name=m.map2 THEN m.map2_t2
-                        WHEN ms.map_name=m.map3 THEN m.map3_t2
-                        WHEN ms.map_name=m.map4 THEN m.map4_t2
-                        WHEN ms.map_name=m.map5 THEN m.map5_t2 ELSE 0 END
-                    ELSE CASE
-                        WHEN ms.map_name=m.map1 THEN m.map1_t1
-                        WHEN ms.map_name=m.map2 THEN m.map2_t1
-                        WHEN ms.map_name=m.map3 THEN m.map3_t1
-                        WHEN ms.map_name=m.map4 THEN m.map4_t1
-                        WHEN ms.map_name=m.map5 THEN m.map5_t1 ELSE 0 END END AS score_against
+        SELECT ms.map_name, ms.kills, ms.deaths, ms.rating, ms.team_id, ms.match_team_side,
+               m.*, t1.name AS team1_name, t2.name AS team2_name,
+               t1.short_name AS t1s, t2.short_name AS t2s
         FROM match_stats ms JOIN matches m ON m.id=ms.match_id
         LEFT JOIN teams t1 ON t1.id=m.team1_id
         LEFT JOIN teams t2 ON t2.id=m.team2_id
@@ -120,7 +144,12 @@ def build_event_award_poster(conn, base_dir, event_id, player_id, award_type="MV
         (player_id, event_id),
     ).fetchall()
 
-    stats = {key: (value or 0) for key, value in dict(stats).items()}
+    stats = dict(stats)
     return generate_award_poster(
-        base_dir, dict(player), dict(event), stats, [dict(row) for row in map_rows], award_type
+        base_dir,
+        dict(player),
+        dict(event),
+        stats,
+        [_award_map_row(row) for row in map_rows],
+        award_type,
     )

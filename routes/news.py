@@ -10,18 +10,28 @@ from web_app import app
 @app.route("/news")
 def news_list():
     """新闻列表"""
-    page = request.args.get("page", 1, type=int)
+    requested_page = request.args.get("page", 1, type=int)
     per_page = 20
-    offset = (page - 1) * per_page
 
     conn = get_db()
-    news = conn.execute(
-        "SELECT * FROM news ORDER BY publish_time DESC LIMIT ? OFFSET ?", (per_page, offset)
-    ).fetchall()
     total = conn.execute("SELECT COUNT(*) as cnt FROM news").fetchone()["cnt"]
-    conn.close()
-
     total_pages = (total + per_page - 1) // per_page
+    page = min(max(1, requested_page), max(1, total_pages))
+    offset = (page - 1) * per_page
+    news_rows = conn.execute(
+        """SELECT n.*,
+                  (SELECT COUNT(*) FROM comments c
+                   WHERE c.target_type='news' AND c.target_id=n.id) AS actual_comment_count
+           FROM news n ORDER BY n.publish_time DESC LIMIT ? OFFSET ?""",
+        (per_page, offset),
+    ).fetchall()
+    conn.close()
+    news = []
+    for row in news_rows:
+        item = dict(row)
+        item["comment_count"] = item.pop("actual_comment_count", 0)
+        news.append(item)
+
     return render_template(
         "news.html",
         news=news,
@@ -34,11 +44,19 @@ def news_list():
 def news_detail(news_id):
     """新闻详情"""
     conn = get_db()
-    news = conn.execute("SELECT * FROM news WHERE id=?", (news_id,)).fetchone()
+    news = conn.execute(
+        """SELECT n.*,
+                  (SELECT COUNT(*) FROM comments c
+                   WHERE c.target_type='news' AND c.target_id=n.id) AS actual_comment_count
+           FROM news n WHERE n.id=?""",
+        (news_id,),
+    ).fetchone()
 
     if not news:
         conn.close()
         return "新闻不存在", 404
+    news = dict(news)
+    news["comment_count"] = news.pop("actual_comment_count", 0)
     if news["redirect_url"]:
         target = news["redirect_url"]
         conn.close()

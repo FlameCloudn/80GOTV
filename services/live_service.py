@@ -1,9 +1,244 @@
 """Helpers for turning raw GSI data into website live-match data."""
 
 import json
+import math
 import time
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Literal, overload
+
+from utils.stats_calc import calculate_rating, estimate_hltv2_impact
+
+
+class IngestValidationError(ValueError):
+    """An authenticated live-data request contains an invalid value."""
+
+
+def update_unconfirmed_map_slots(conn, match_id, map_slot, confirmed=True):
+    """Update only result-confirmation metadata inside the caller's transaction."""
+    row = conn.execute(
+        "SELECT live_state FROM live_match_data WHERE match_id=?", (match_id,)
+    ).fetchone()
+    try:
+        state = json.loads(row["live_state"] or "{}") if row else {}
+    except (ValueError, TypeError):
+        state = {}
+    if not isinstance(state, dict):
+        state = {}
+    raw_slots = state.get("unconfirmed_map_slots", [])
+    slots = (
+        {
+            slot
+            for slot in raw_slots
+            if isinstance(slot, int) and not isinstance(slot, bool) and 0 <= slot < 5
+        }
+        if isinstance(raw_slots, list)
+        else set()
+    )
+    previous = set(slots)
+    if confirmed:
+        slots.discard(map_slot)
+    else:
+        slots.add(map_slot)
+    if slots != previous:
+        state["unconfirmed_map_slots"] = sorted(slots)
+        if isinstance(state.get("gsi"), dict):
+            state["gsi"] = {key: value for key, value in state["gsi"].items() if key != "auth"}
+        conn.execute(
+            """INSERT INTO live_match_data(match_id,live_state) VALUES(?,?)
+               ON CONFLICT(match_id) DO UPDATE SET live_state=excluded.live_state,updated_at=CURRENT_TIMESTAMP""",
+            (match_id, json.dumps(state, ensure_ascii=False, allow_nan=False)),
+        )
+    return slots
+
+
+def has_nonfinite_number(value):
+    if isinstance(value, float):
+        return not math.isfinite(value)
+    if isinstance(value, dict):
+        return any(has_nonfinite_number(item) for item in value.values())
+    if isinstance(value, (list, tuple)):
+        return any(has_nonfinite_number(item) for item in value)
+    return False
+
+
+@overload
+def read_ingest_number(
+    payload: Mapping[str, object],
+    key: str,
+    minimum: float = 0,
+    maximum: float = 100000,
+    *,
+    integer: Literal[True],
+    default: int | float | str | None = None,
+) -> int | None: ...
+
+
+@overload
+def read_ingest_number(
+    payload: Mapping[str, object],
+    key: str,
+    minimum: float = 0,
+    maximum: float = 100000,
+    integer: Literal[False] = False,
+    default: int | float | str | None = None,
+) -> float | None: ...
+
+
+@overload
+def read_ingest_number(
+    payload: Mapping[str, object],
+    key: str,
+    minimum: float = 0,
+    maximum: float = 100000,
+    integer: bool = False,
+    default: int | float | str | None = None,
+) -> int | float | None: ...
+
+
+def read_ingest_number(
+    payload: Mapping[str, object],
+    key: str,
+    minimum: float = 0,
+    maximum: float = 100000,
+    integer: bool = False,
+    default: int | float | str | None = None,
+) -> int | float | None:
+    value = payload.get(key, default)
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+        raise IngestValidationError(f"{key} 必须是有效数字")
+    try:
+        value = float(value)
+    except (TypeError, ValueError, OverflowError):
+        raise IngestValidationError(f"{key} 必须是有效数字") from None
+    if not math.isfinite(value) or not minimum <= value <= maximum:
+        raise IngestValidationError(f"{key} 超出允许范围")
+    if integer and not value.is_integer():
+        raise IngestValidationError(f"{key} 必须是整数")
+    return int(value) if integer else value
+
+
+def _live_side_stat(payload):
+    if payload is None or payload == {}:
+        return None
+    if not isinstance(payload, dict):
+        raise IngestValidationError("分阵营统计格式错误")
+    rounds = read_ingest_number(payload, "roundsPlayed", 0, 100, integer=True)
+    kills = read_ingest_number(payload, "kills", 0, 500, integer=True)
+    deaths = read_ingest_number(payload, "deaths", 0, 500, integer=True)
+    assists = read_ingest_number(payload, "assists", 0, 500, integer=True)
+    damage = read_ingest_number(payload, "damage", 0, 100000)
+    kast_rounds = read_ingest_number(payload, "kastRounds", 0, 100, integer=True)
+    if rounds is not None and kast_rounds is not None and kast_rounds > rounds:
+        raise IngestValidationError("KAST 回合数不能大于参赛回合数")
+    adr = (
+        round(damage / rounds, 1)
+        if rounds and damage is not None
+        else read_ingest_number(payload, "adr", 0, 10000)
+    )
+    kast = (
+        round(kast_rounds * 100 / rounds, 1)
+        if rounds and kast_rounds is not None
+        else read_ingest_number(payload, "kast", 0, 100)
+    )
+    impact = estimate_hltv2_impact(kills, assists, rounds)
+    rating, _, _ = calculate_rating(kills, deaths, rounds, adr=adr, kast=kast, impact=impact)
+    return {
+        "kills": kills,
+        "deaths": deaths,
+        "assists": assists,
+        "damage": damage,
+        "rounds": rounds,
+        "adr": adr,
+        "kast": kast,
+        "rating": rating if rounds else None,
+    }
+
+
+def parse_director_player_stat(payload):
+    rounds = read_ingest_number(payload, "roundsPlayed", 0, 100, integer=True)
+    kills = read_ingest_number(payload, "kills", 0, 500, integer=True)
+    deaths = read_ingest_number(payload, "deaths", 0, 500, integer=True)
+    assists = read_ingest_number(payload, "assists", 0, 500, integer=True)
+    damage = read_ingest_number(payload, "damage", 0, 100000)
+    damage_taken = read_ingest_number(payload, "damageTaken", 0, 100000)
+    headshots = read_ingest_number(payload, "headshots", 0, 500, integer=True)
+    kast_rounds = read_ingest_number(payload, "kastRounds", 0, 100, integer=True)
+    if headshots is not None and kills is not None and headshots > kills:
+        raise IngestValidationError("爆头击杀数不能大于总击杀数")
+    if kast_rounds is not None and rounds is not None and kast_rounds > rounds:
+        raise IngestValidationError("KAST 回合数不能大于参赛回合数")
+    multi = [
+        read_ingest_number(payload, f"multi{size}k", 0, 100, integer=True) for size in range(1, 6)
+    ]
+    clutches = [
+        read_ingest_number(payload, f"clutch1v{size}", 0, 100, integer=True) for size in range(1, 6)
+    ]
+    clutches_won = read_ingest_number(payload, "clutchesWon", 0, 100, integer=True)
+    if clutches_won is None and all(value is not None for value in clutches):
+        clutches_won = sum(value for value in clutches if value is not None)
+    adr = (
+        round(damage / rounds, 1)
+        if rounds and damage is not None
+        else read_ingest_number(payload, "adr", 0, 10000)
+    )
+    kast = (
+        round(kast_rounds * 100 / rounds, 1)
+        if rounds and kast_rounds is not None
+        else read_ingest_number(payload, "kast", 0, 100)
+    )
+    impact = estimate_hltv2_impact(kills, assists, rounds)
+    rating, kpr, dpr = calculate_rating(kills, deaths, rounds, adr=adr, kast=kast, impact=impact)
+    t_stats = _live_side_stat(payload.get("tStats"))
+    ct_stats = _live_side_stat(payload.get("ctStats"))
+    utility_damage = read_ingest_number(payload, "utilityDamage", 0, 100000)
+    stat = {
+        "steam_id": str(payload.get("steam_id") or "").strip(),
+        "name": str(payload.get("name") or "").strip(),
+        "team_side": payload.get("team_side"),
+        "kills": kills,
+        "deaths": deaths,
+        "assists": assists,
+        "adr": adr,
+        "kast": kast,
+        "rating": rating if rounds else None,
+        "kpr": kpr if rounds else None,
+        "dpr": dpr if rounds else None,
+        "impact": impact,
+        "headshot_percentage": (round(headshots * 100 / kills, 1) if kills else 0)
+        if headshots is not None and kills is not None
+        else None,
+        "clutches_won": clutches_won,
+        "first_kill_count": read_ingest_number(payload, "firstKills", 0, 100, integer=True),
+        "first_death_count": read_ingest_number(payload, "firstDeaths", 0, 100, integer=True),
+        "mvp_count": read_ingest_number(payload, "mvpCount", 0, 100, integer=True),
+        "utility_damage": utility_damage,
+        "trade_kills": read_ingest_number(payload, "tradeKills", 0, 500, integer=True),
+        "trade_deaths": read_ingest_number(payload, "tradeDeaths", 0, 500, integer=True),
+        "bomb_plants": read_ingest_number(payload, "bombPlants", 0, 100, integer=True),
+        "bomb_defuses": read_ingest_number(payload, "bombDefuses", 0, 100, integer=True),
+        "utility_damage_per_round": round(utility_damage / rounds, 1)
+        if rounds and utility_damage is not None
+        else None,
+        "rounds_played": rounds,
+        "damage_delta_per_round": round((damage - damage_taken) / rounds, 1)
+        if rounds and damage is not None and damage_taken is not None
+        else None,
+        "rws_basic": read_ingest_number(payload, "rwsBasic", 0, 100),
+        "flash_assists": read_ingest_number(payload, "flashAssists", 0, 500, integer=True),
+    }
+    for side, values in (("t", t_stats), ("ct", ct_stats)):
+        for field in ("rating", "kills", "deaths", "adr"):
+            stat[f"{side}_{field}"] = values[field] if values else None
+    for index, value in enumerate(multi, 1):
+        stat[f"multi{index}k"] = value
+    for index, value in enumerate(clutches, 1):
+        stat[f"clutch_1v{index}"] = value
+    return stat
+
 
 # 与网页雷达图使用同一套坐标换算。包点中心来自 resources/radars/*.svg
 # 中的红色斜线区域，只用于游戏没有直接返回 A / B 时的兜底判断。
@@ -82,7 +317,7 @@ def _parse_gsi_coordinates(value):
         result = [float(value[0]), float(value[1])]
         if len(value) >= 3:
             result.append(float(value[2]))
-        return result
+        return result if all(math.isfinite(number) for number in result) else None
     except (TypeError, ValueError):
         return None
 
@@ -154,6 +389,9 @@ def _normalize_bombsite(value):
 
 def _position_to_radar(map_name, position):
     """将游戏坐标换算为雷达 SVG 坐标。"""
+    position = _parse_gsi_coordinates(position)
+    if position is None:
+        return None
     key = _normalize_map_key(map_name)
     metadata = (_RADAR_METADATA.get("maps", {}) or {}).get(key)
     if metadata and len(position) >= 2:

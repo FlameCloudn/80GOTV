@@ -162,6 +162,44 @@ def main():
             finally:
                 conn.close()
 
+        @app.get("/__e2e__/refactor-fixture")
+        def _e2e_refactor_fixture():
+            from services.performance_service import refresh_player_performance
+
+            conn = get_db()
+            try:
+                suffix = uuid.uuid4().hex[:8]
+                event_id = conn.execute(
+                    "INSERT INTO events(name) VALUES(?)", (f"E2E Refactor {suffix}",)
+                ).lastrowid
+                team1 = conn.execute(
+                    "INSERT INTO teams(name,short_name) VALUES(?,?)", (f"E2E Alpha {suffix}", "ALP")
+                ).lastrowid
+                team2 = conn.execute(
+                    "INSERT INTO teams(name,short_name) VALUES(?,?)", (f"E2E Bravo {suffix}", "BRV")
+                ).lastrowid
+                player_id = conn.execute(
+                    "INSERT INTO players(nickname,team_id) VALUES(?,?)",
+                    (f"E2E Missing {suffix}", team1),
+                ).lastrowid
+                match_id = conn.execute(
+                    """INSERT INTO matches(event_id,team1_id,team2_id,status,bo_format,
+                       team1_score,team2_score,match_time) VALUES(?,?,?,'completed','BO3',2,0,
+                       '2098-01-01 12:00:00')""",
+                    (event_id, team1, team2),
+                ).lastrowid
+                conn.execute(
+                    """INSERT INTO match_stats(match_id,player_id,team_id,map_name,
+                       rounds_played,kills,deaths,rating,adr,headshot_percentage,kast,impact)
+                       VALUES(?,?,?,'de_mirage',20,0,0,NULL,NULL,NULL,NULL,NULL)""",
+                    (match_id, player_id, team1),
+                )
+                refresh_player_performance(conn, [player_id])
+                conn.commit()
+                return {"event_id": event_id, "player_id": player_id, "match_id": match_id}
+            finally:
+                conn.close()
+
         @app.get("/__e2e__/review-state/<int:event_id>")
         def _e2e_review_state(event_id):
             conn = get_db()

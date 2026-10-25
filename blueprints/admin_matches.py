@@ -13,10 +13,14 @@ from flask import flash, redirect, render_template, request, url_for
 from blueprints.admin import admin_bp
 from config import BASE_DIR
 from models import get_db
-from services.bracket_service import refresh_bracket_for_match
+from services.bracket_service import refresh_bracket_for_match, refresh_event_bracket
 from services.demo_service import analyze_demo, import_demo_data
 from services.live_log_service import persist_live_match_events
-from services.match_service import score_predictions, supplement_temp_teams
+from services.match_service import (
+    completed_match_result_error,
+    score_predictions,
+    supplement_temp_teams,
+)
 from services.performance_service import refresh_player_performance
 from utils.demo_naming import build_demo_filename
 from utils.helpers import ensure_unique_match_slug, make_match_slug, normalize_http_url, row_get
@@ -803,13 +807,27 @@ def admin_matches_edit(match_id):
                 _match_values(f, team1_id, team2_id, team1_players, team2_players)
                 + (f["decider_knife_winner"], f["decider_start_side"], match_id),
             )
+            if f["status"] == "completed" and existing["status"] != "completed":
+                result = conn.execute("SELECT * FROM matches WHERE id=?", (match_id,)).fetchone()
+                error = completed_match_result_error(result)
+                if error:
+                    raise ValueError(error)
+            if existing["status"] == "completed" and f["status"] != "completed":
+                conn.execute(
+                    "UPDATE match_votes SET scored=0,points_earned=0 WHERE match_id=?", (match_id,)
+                )
             _generate_match_slug(conn, match_id)
             refresh_bracket_for_match(conn, match_id)
+            if f["status"] == "completed":
+                score_predictions(conn, match_id)
             conn.commit()
         except Exception as exc:
             conn.rollback()
-            logger.exception("更新比赛失败 match_id=%s", match_id)
-            flash(f"比赛保存失败：{exc}", "error")
+            if isinstance(exc, ValueError):
+                flash(str(exc), "error")
+            else:
+                logger.exception("更新比赛失败 match_id=%s", match_id)
+                flash("比赛保存失败，请稍后重试", "error")
             return _match_form_response(
                 conn,
                 _match_form_state(
@@ -829,7 +847,7 @@ def admin_matches_edit(match_id):
 def admin_matches_delete(match_id):
     conn = get_db()
     try:
-        match = conn.execute("SELECT id FROM matches WHERE id=?", (match_id,)).fetchone()
+        match = conn.execute("SELECT id,event_id FROM matches WHERE id=?", (match_id,)).fetchone()
         if not match:
             flash("比赛不存在", "error")
             return redirect(url_for("admin.admin_matches"))
@@ -860,6 +878,8 @@ def admin_matches_delete(match_id):
         conn.execute("UPDATE live_ingest_status SET match_id=NULL WHERE match_id=?", (match_id,))
         conn.execute("DELETE FROM match_slug_aliases WHERE match_id=?", (match_id,))
         conn.execute("DELETE FROM matches WHERE id=?", (match_id,))
+        if match["event_id"]:
+            refresh_event_bracket(conn, match["event_id"])
         refresh_player_performance(conn, affected_player_ids)
         conn.commit()
         flash("比赛删除成功", "success")
@@ -877,27 +897,40 @@ def admin_matches_delete(match_id):
 def admin_match_complete(match_id):
     """Explicitly finish a match and optionally snapshot its Game Log."""
     conn = get_db()
-    match = conn.execute("SELECT id FROM matches WHERE id=?", (match_id,)).fetchone()
-    if not match:
+    try:
+        conn.execute("UPDATE matches SET status=status WHERE id=?", (match_id,))
+        match = conn.execute("SELECT * FROM matches WHERE id=?", (match_id,)).fetchone()
+        if not match:
+            raise ValueError("比赛不存在")
+        error = completed_match_result_error(match)
+        if error:
+            raise ValueError(error)
+        saved = 0
+        if request.form.get("save_game_log") == "1":
+            row = conn.execute(
+                "SELECT live_state FROM live_match_data WHERE match_id=?", (match_id,)
+            ).fetchone()
+            if row and row["live_state"]:
+                try:
+                    live_state = json.loads(row["live_state"])
+                except (TypeError, ValueError):
+                    live_state = None
+                if isinstance(live_state, dict):
+                    saved = persist_live_match_events(conn, match_id, live_state)
+        conn.execute("UPDATE matches SET status='completed' WHERE id=?", (match_id,))
+        refresh_bracket_for_match(conn, match_id)
+        score_predictions(conn, match_id)
+        conn.commit()
+        flash(f"比赛已结束，新增保存 {saved} 条 Game Log", "success")
+    except ValueError as exc:
+        conn.rollback()
+        flash(str(exc), "error")
+    except Exception as exc:
+        conn.rollback()
+        logger.error("结束比赛失败 match_id=%s 错误类型=%s", match_id, type(exc).__name__)
+        flash("比赛结束失败，所有变更均未保存，请稍后重试", "error")
+    finally:
         conn.close()
-        flash("比赛不存在", "error")
-        return redirect(url_for("admin.admin_matches"))
-    saved = 0
-    if request.form.get("save_game_log") == "1":
-        row = conn.execute(
-            "SELECT live_state FROM live_match_data WHERE match_id=?", (match_id,)
-        ).fetchone()
-        if row and row["live_state"]:
-            try:
-                saved = persist_live_match_events(conn, match_id, json.loads(row["live_state"]))
-            except (TypeError, ValueError):
-                pass
-    conn.execute("UPDATE matches SET status='completed' WHERE id=?", (match_id,))
-    refresh_bracket_for_match(conn, match_id)
-    score_predictions(conn)
-    conn.commit()
-    conn.close()
-    flash(f"比赛已结束，新增保存 {saved} 条 Game Log", "success")
     return redirect(url_for("admin.admin_matches"))
 
 
@@ -907,17 +940,26 @@ def admin_match_complete(match_id):
 def admin_match_reopen(match_id):
     """Reopen a mistakenly completed match; time decides live/upcoming."""
     conn = get_db()
-    changed = conn.execute(
-        "UPDATE matches SET status='live' WHERE id=? AND status='completed'", (match_id,)
-    ).rowcount
-    if changed:
-        conn.execute(
-            "UPDATE match_votes SET scored=0, points_earned=0 WHERE match_id=?", (match_id,)
-        )
-        refresh_bracket_for_match(conn, match_id)
-    conn.commit()
-    conn.close()
-    flash("比赛已重新开启" if changed else "比赛未发生变化", "success")
+    try:
+        changed = conn.execute(
+            "UPDATE matches SET status='live' WHERE id=? AND status='completed'", (match_id,)
+        ).rowcount
+        if changed:
+            conn.execute(
+                "UPDATE match_votes SET scored=0, points_earned=0 WHERE match_id=?", (match_id,)
+            )
+            refresh_bracket_for_match(conn, match_id)
+        conn.commit()
+        flash("比赛已重新开启" if changed else "比赛未发生变化", "success")
+    except ValueError as exc:
+        conn.rollback()
+        flash(str(exc), "error")
+    except Exception as exc:
+        conn.rollback()
+        logger.error("重新开启比赛失败 match_id=%s 错误类型=%s", match_id, type(exc).__name__)
+        flash("重新开启失败，所有变更均未保存，请稍后重试", "error")
+    finally:
+        conn.close()
     return redirect(url_for("admin.admin_matches"))
 
 

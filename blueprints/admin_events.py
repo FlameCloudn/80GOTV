@@ -7,7 +7,7 @@ from flask import flash, redirect, render_template, request, url_for
 
 from blueprints.admin import admin_bp
 from models import get_db
-from services.bracket_service import build_event_bracket
+from services.bracket_service import build_event_bracket, refresh_event_bracket
 from services.match_service import add_effective_event_status
 from utils.demo_naming import normalize_event_short_name
 from utils.helpers import (
@@ -302,6 +302,20 @@ def admin_events_delete(event_id):
     return redirect(url_for("admin.admin_events"))
 
 
+def _event_bracket_matches(conn, event_id):
+    return conn.execute(
+        """SELECT m.id, m.match_time, m.bo_format, m.team1_score, m.team2_score,
+                  m.status, m.stage, m.team1_id, m.team2_id,
+                  t1.name AS t1_name, t1.short_name AS t1_short_name,
+                  t2.name AS t2_name, t2.short_name AS t2_short_name
+        FROM matches m LEFT JOIN teams t1 ON m.team1_id=t1.id LEFT JOIN teams t2 ON m.team2_id=t2.id
+        WHERE m.event_id=? AND m.status!='cancelled'
+        ORDER BY CASE WHEN m.match_time IS NULL OR m.match_time='' THEN 1 ELSE 0 END,
+                 m.match_time, m.id""",
+        (event_id,),
+    ).fetchall()
+
+
 @admin_bp.route("/events/<int:event_id>/bracket", methods=["GET", "POST"])
 @csrf_required
 @login_required
@@ -315,13 +329,20 @@ def admin_event_bracket(event_id):
         bracket_data = request.form.get("bracket_data", "").strip()
         if bracket_data:
             try:
-                json.loads(bracket_data)
-            except json.JSONDecodeError as e:
-                flash(f"JSON 格式错误：{str(e)}", "error")
+                parsed = json.loads(bracket_data)
+                validated = refresh_event_bracket(conn, event_id, data=parsed)
+                bracket_data = json.dumps(validated, ensure_ascii=False)
+            except (ValueError, TypeError) as exc:
+                conn.rollback()
+                flash(f"对阵图保存失败：{exc}", "error")
+                matches = _event_bracket_matches(conn, event_id)
                 conn.close()
                 return render_template(
-                    "admin/event_bracket.html", event=event, bracket_data=bracket_data
-                )
+                    "admin/event_bracket.html",
+                    event=event,
+                    bracket_data=bracket_data,
+                    event_matches=[dict(row) for row in matches],
+                ), 400
         conn.execute(
             "UPDATE events SET bracket_data=? WHERE id=?", (bracket_data or None, event_id)
         )
@@ -329,17 +350,7 @@ def admin_event_bracket(event_id):
         conn.close()
         flash("对阵图保存成功", "success")
         return redirect(url_for("admin.admin_events"))
-    matches = conn.execute(
-        """SELECT m.id, m.match_time, m.bo_format, m.team1_score, m.team2_score,
-                  m.status, m.stage, m.team1_id, m.team2_id,
-                  t1.name AS t1_name, t1.short_name AS t1_short_name,
-                  t2.name AS t2_name, t2.short_name AS t2_short_name
-        FROM matches m LEFT JOIN teams t1 ON m.team1_id=t1.id LEFT JOIN teams t2 ON m.team2_id=t2.id
-        WHERE m.event_id=? AND m.status!='cancelled'
-        ORDER BY CASE WHEN m.match_time IS NULL OR m.match_time='' THEN 1 ELSE 0 END,
-                 m.match_time, m.id""",
-        (event_id,),
-    ).fetchall()
+    matches = _event_bracket_matches(conn, event_id)
     conn.close()
     return render_template(
         "admin/event_bracket.html",

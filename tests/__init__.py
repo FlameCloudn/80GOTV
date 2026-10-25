@@ -6,6 +6,11 @@ import shutil
 import tempfile
 from pathlib import Path
 
+# Test databases and credentials must not inherit a developer's .env file.
+os.environ["PYTHON_DOTENV_DISABLED"] = "1"
+os.environ["ADMIN_USERNAME"] = "suite-test-admin"
+os.environ["ADMIN_PASSWORD"] = "suite-only-not-a-real-password"
+
 _TEST_DATA_DIR = Path(tempfile.mkdtemp(prefix="80gotv-tests-"))
 
 os.environ["FLASK_ENV"] = "testing"

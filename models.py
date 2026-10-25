@@ -29,7 +29,7 @@ def get_db():
 
         conn = libsql.connect(database=TURSO_URL, auth_token=TURSO_TOKEN)
         conn.sync()
-        return conn
+        return _track_request_connection(conn)
     conn = sqlite3.connect(Config.DATABASE, timeout=10)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys=ON")
@@ -39,7 +39,28 @@ def get_db():
     conn.execute("PRAGMA cache_size=-16384")
     conn.execute("PRAGMA temp_store=MEMORY")
     conn.execute("PRAGMA mmap_size=67108864")
+    return _track_request_connection(conn)
+
+
+def _track_request_connection(conn):
+    from flask import g, has_request_context
+
+    if has_request_context():
+        if not hasattr(g, "_database_connections"):
+            g._database_connections = []
+        g._database_connections.append(conn)
     return conn
+
+
+def close_request_connections(error=None):
+    """Roll back and close connections even if a route exits before its close call."""
+    from flask import g
+
+    for conn in g.pop("_database_connections", []):
+        try:
+            conn.close()
+        except Exception:
+            logger.exception("请求结束时关闭数据库连接失败")
 
 
 @contextmanager
@@ -223,27 +244,26 @@ def _ensure_match_stats_unique_result_index(cursor):
     """Prevent duplicate player/map rows while retaining older rows as history."""
     columns = {row[1] for row in cursor.execute("PRAGMA table_info(match_stats)").fetchall()}
     if not {"data_status", "match_id", "map_name", "player_id"}.issubset(columns):
-        return
-    cursor.execute(
+        return []
+    duplicates = cursor.execute(
         """
-        UPDATE match_stats
-        SET data_status='superseded'
-        WHERE id IN (
-            SELECT id
-            FROM (
-                SELECT id,
-                       ROW_NUMBER() OVER (
-                           PARTITION BY match_id, map_name, player_id
-                           ORDER BY id DESC
-                       ) AS row_number
-                FROM match_stats
-                WHERE player_id IS NOT NULL AND map_name IS NOT NULL
-            )
-            WHERE row_number > 1
+        SELECT id, player_id FROM (
+            SELECT id, player_id,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY match_id, map_name, player_id ORDER BY id DESC
+                   ) AS row_number
+            FROM match_stats
+            WHERE player_id IS NOT NULL AND map_name IS NOT NULL
+              AND COALESCE(data_status, 'final') <> 'superseded'
         )
-        AND COALESCE(data_status, 'final') <> 'superseded'
+        WHERE row_number > 1
         """
-    )
+    ).fetchall()
+    if duplicates:
+        cursor.executemany(
+            "UPDATE match_stats SET data_status='superseded' WHERE id=?",
+            [(row[0],) for row in duplicates],
+        )
     cursor.execute(
         """
         CREATE UNIQUE INDEX IF NOT EXISTS idx_match_stats_match_map_player_current
@@ -252,6 +272,7 @@ def _ensure_match_stats_unique_result_index(cursor):
           AND COALESCE(data_status, 'final') <> 'superseded'
         """
     )
+    return sorted({row[1] for row in duplicates})
 
 
 def _ensure_school_profile_columns(cursor):
@@ -372,7 +393,14 @@ def _init_tables(conn):
         _ensure_match_stats_team_side_column(c)
         _ensure_match_stats_data_version_columns(c)
         _ensure_match_stats_flash_recorded_column(c)
-        _ensure_match_stats_unique_result_index(c)
+        affected_players = _ensure_match_stats_unique_result_index(c)
+        summary_exists = c.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='player_performance_summary'"
+        ).fetchone()
+        if affected_players and summary_exists:
+            from services.performance_service import refresh_player_performance
+
+            refresh_player_performance(conn, affected_players)
         _ensure_school_profile_columns(c)
         _ensure_yearly_top10_table(c)
         _ensure_player_private_remarks_table(c)

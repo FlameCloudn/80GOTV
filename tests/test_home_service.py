@@ -6,6 +6,7 @@ from datetime import date, timedelta
 from config import Config
 from models import get_db, init_tables
 from services.home_service import load_home_feed
+from services.performance_service import refresh_player_performance
 
 
 class HomeServiceTests(unittest.TestCase):
@@ -75,11 +76,15 @@ class HomeServiceTests(unittest.TestCase):
                 "INSERT INTO players(nickname, team_id) VALUES(?, ?)",
                 (f"Player {index}", self.team1_id),
             )
-            self.conn.execute(
-                """INSERT INTO player_performance_summary(player_id, maps, avg_rating)
-                   VALUES(?, 3, ?)""",
-                (cursor.lastrowid, rating),
+            self.conn.executemany(
+                """INSERT INTO match_stats(player_id,match_id,map_name,rounds_played,rating)
+                   VALUES(?,?,?,20,?)""",
+                [
+                    (cursor.lastrowid, older_id, map_name, rating)
+                    for map_name in ("de_mirage", "de_nuke", "de_inferno")
+                ],
             )
+        refresh_player_performance(self.conn)
         older_thread_id = self.conn.execute(
             """INSERT INTO forum_threads(
                    category_id, user_id, title, content, last_reply_at

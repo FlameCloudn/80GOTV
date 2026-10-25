@@ -224,8 +224,8 @@
             </td>
             <td data-i18n-ignore>{{ row.team or '-' }}</td>
             <td>{{ row.maps }}</td>
-            <td>{{ row.rounds }}</td>
-            <td class="{% if row.kd_diff > 0 %}stat-pos{% elif row.kd_diff < 0 %}stat-neg{% endif %}">{{ "%+d"|format(row.kd_diff) }}</td>
+            <td>{{ format_stat(row.rounds) }}</td>
+            <td class="{% if row.kd_diff is not none and row.kd_diff > 0 %}stat-pos{% elif row.kd_diff is not none and row.kd_diff < 0 %}stat-neg{% endif %}">{{ format_stat(row.kd_diff, signed=true) }}</td>
             <td>{{ "%.2f"|format(row.kd) if row.kd is not none else '-' }}</td>
             <td>{% if row.hs is not none %}{{ "%.1f"|format(row.hs) }}%{% else %}-{% endif %}</td>
             <td>{{ "%.1f"|format(row.adr) if row.adr is not none else '-' }}</td>

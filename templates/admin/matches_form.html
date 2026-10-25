@@ -133,7 +133,7 @@
             </span>
           </div>
           <div class="time-picker-row">
-            <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:240px">
+            <div class="time-picker-date" style="display:flex;align-items:center;gap:6px">
               <input type="date" id="matchDate" value="{{ match.match_time[:10] if match and match.match_time else '' }}"
                      onchange="syncMatchTime()" {% if not setup_editable %}disabled{% endif %} style="flex:1">
               {% if setup_editable %}
@@ -173,7 +173,7 @@
         <!-- 对阵双方设置（不写红蓝，选边由拼刀/在线BP决定） -->
         {% if setup_editable %}
         <div class="vs-matchup-card" id="matchParticipants">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div class="vs-matchup-heading" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
             <div>
               <strong style="font-size:14px;color:var(--text-primary)">⚔️ 对阵双方设置</strong>
               <span style="display:block;font-size:12px;color:var(--text-muted)">具体选边（CT / T）由在线 BP 或拼刀局决定</span>
@@ -368,7 +368,7 @@
           <strong>出场名单机制：</strong>默认直接同步战队报名人员。若临时有选手缺席，在对应选手位置下拉更换为已报名的替补即可；保存后网站和导播软件会使用同一份名单。
         </div>
 
-        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:16px">
+        <div class="match-roster-grid">
           {% for side in (1, 2) %}
           {% set side_options = match_roster_options.get(side, []) %}
           {% set side_selected = match_roster_selected.get(side, []) %}

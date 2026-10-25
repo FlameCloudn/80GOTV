@@ -4,6 +4,7 @@ cs-demo-analyzer: https://github.com/akiver/cs-demo-analyzer
 """
 
 import json
+import math
 import os
 import shutil
 import subprocess
@@ -49,6 +50,10 @@ def run_analysis(demo_path, output_dir=None):
         output_dir = tmpdir
 
     os.makedirs(output_dir, exist_ok=True)
+    base = os.path.splitext(os.path.basename(demo_path))[0]
+    # 每次独立空目录兼容旧版 csda（只接受目录），也不可能误读上次生成的 JSON。
+    run_output_dir = tempfile.mkdtemp(prefix=f"csda_{base}_", dir=output_dir)
+    json_path = os.path.join(run_output_dir, f"{base}.json")
 
     try:
         source = os.environ.get("CSDA_SOURCE", "valve")
@@ -58,7 +63,7 @@ def run_analysis(demo_path, output_dir=None):
                 "-demo-path",
                 demo_path,
                 "-output",
-                output_dir,
+                run_output_dir,
                 "-format",
                 "json",
                 "-source",
@@ -73,18 +78,20 @@ def run_analysis(demo_path, output_dir=None):
             stderr = result.stderr.strip() or "未知错误"
             raise RuntimeError(f"csda 分析失败 (exit {result.returncode}): {stderr}")
 
-        base = os.path.splitext(os.path.basename(demo_path))[0]
-        json_path = os.path.join(output_dir, f"{base}.json")
-
         if not os.path.isfile(json_path):
-            json_files = [f for f in os.listdir(output_dir) if f.endswith(".json")]
-            if json_files:
-                json_path = os.path.join(output_dir, json_files[0])
-            else:
-                raise RuntimeError("csda 未生成 JSON 输出，请检查 demo 文件是否有效")
+            generated = [
+                os.path.join(run_output_dir, name)
+                for name in os.listdir(run_output_dir)
+                if name.endswith(".json")
+            ]
+            if len(generated) != 1:
+                raise RuntimeError("csda 未生成唯一的本次 JSON 输出，请检查 demo 文件是否有效")
+            json_path = generated[0]
 
         with open(json_path, "r", encoding="utf-8") as f:
             data = json.load(f)
+        if not isinstance(data, dict):
+            raise RuntimeError("csda 生成的 JSON 格式无效")
 
         return data
 
@@ -107,8 +114,12 @@ def _extract_halftime_scores(match_data):
     second_half = False
 
     for r in rounds:
-        winner_side = r.get("winnerSide", 0)
-        team_a_side = r.get("teamASide", 0)
+        if not isinstance(r, dict) or _event_int(r, "overtimeNumber") > 0:
+            continue
+        winner_side = _event_int(r, "winnerSide")
+        team_a_side = _event_int(r, "teamASide")
+        if winner_side not in (2, 3) or team_a_side not in (2, 3):
+            continue
         if first_a_side is None and team_a_side:
             first_a_side = team_a_side
         elif first_a_side and team_a_side and team_a_side != first_a_side:
@@ -511,13 +522,47 @@ def parse_player_stats(match_data):
     返回: list[dict]
     """
     players_data = match_data.get("players", {}) or {}
+    if not isinstance(players_data, dict):
+        return []
+    players_data = {
+        _steam_id(sid): player
+        for sid, player in players_data.items()
+        if _steam_id(sid) and isinstance(player, dict)
+    }
     team_a = match_data.get("teamA", {}) or {}
     team_b = match_data.get("teamB", {}) or {}
     rounds = match_data.get("rounds", [])
     if not isinstance(rounds, list):
         rounds = []
-    rounds_count = max(len(rounds), 1)
+    rounds = [row for row in rounds if isinstance(row, dict)]
+    rounds_count = len(rounds)
+    rounds_by_number = {
+        _event_int(row, "number", index): row for index, row in enumerate(rounds, 1)
+    }
     event_player_stats = calculate_event_player_stats(match_data)
+
+    def metric(player, key, digits=None):
+        value = player.get(key)
+        if value is None:
+            return None
+        try:
+            value = float(value)
+        except (TypeError, ValueError):
+            return None
+        if not math.isfinite(value):
+            return None
+        return round(value, digits) if digits is not None else int(value)
+
+    def grenade_count(player, key, event_key, steam_id):
+        recorded = metric(player, key)
+        if recorded is not None:
+            return recorded
+        events = match_data.get(event_key)
+        if not isinstance(events, list):
+            return None
+        if any(not isinstance(event, dict) for event in events):
+            raise ValueError("Demo 的投掷物事件格式无效，未保存统计数据")
+        return sum(_steam_id(event.get("throwerSteamId")) == steam_id for event in events)
 
     # ---- Calculate T/CT side stats from kills, damages, rounds ----
     # csda provides killerSide/attackerSide directly in kills/damages (2=T, 3=CT)
@@ -525,6 +570,9 @@ def parse_player_stats(match_data):
     side_deaths = {}
     side_damage = {}  # steam_id_str -> {'T': int, 'CT': int}  (total damage)
     side_rounds = {}  # steam_id_str -> {'T': int, 'CT': int}
+    side_assists = {}
+    side_kast_rounds = {}
+    deaths_by_round = defaultdict(set)
     damage_received = {}
     rws_points = {}
 
@@ -542,6 +590,8 @@ def parse_player_stats(match_data):
         side_deaths[sid] = {"T": 0, "CT": 0}
         side_damage[sid] = {"T": 0, "CT": 0}
         side_rounds[sid] = {"T": 0, "CT": 0}
+        side_assists[sid] = {"T": 0, "CT": 0}
+        side_kast_rounds[sid] = {"T": set(), "CT": set()}
         damage_received[sid] = 0
         rws_points[sid] = 0.0
 
@@ -551,10 +601,10 @@ def parse_player_stats(match_data):
 
     # Count rounds per side for each player (from rounds data)
     for r in rounds:
-        a_side = int(r.get("teamASide", 0))
-        b_side = int(r.get("teamBSide", 0))
+        a_side = _event_int(r, "teamASide")
+        b_side = _event_int(r, "teamBSide")
         for sid, letter in player_team_map.items():
-            side_val = a_side if letter == "A" else b_side
+            side_val = a_side if letter == "A" else b_side if letter == "B" else 0
             if side_val in (2, 3):
                 if sid in side_rounds:
                     side_rounds[sid][_side_label(side_val)] += 1
@@ -563,20 +613,54 @@ def parse_player_stats(match_data):
     kills_list = match_data.get("kills", [])
     if isinstance(kills_list, list):
         for kill in kills_list:
-            killer_sid = str(kill.get("killerSteamId", kill.get("killerSteamId64", "")))
-            victim_sid = str(kill.get("victimSteamId", kill.get("victimSteamId64", "")))
-            killer_side = int(kill.get("killerSide", 0))
+            if not isinstance(kill, dict):
+                continue
+            round_number = _event_int(kill, "roundNumber")
+            if round_number not in rounds_by_number or not _kill_is_in_round_window(
+                kill, rounds_by_number[round_number]
+            ):
+                continue
+            killer_sid = _steam_id(kill.get("killerSteamId", kill.get("killerSteamId64")))
+            victim_sid = _steam_id(kill.get("victimSteamId", kill.get("victimSteamId64")))
+            assister_sid = _steam_id(kill.get("assisterSteamId", kill.get("assisterSteamId64")))
+            killer_side = _event_int(kill, "killerSide")
+            victim_side = _event_int(kill, "victimSide")
+            enemy_kill = (
+                killer_side in (2, 3) and victim_side in (2, 3) and killer_side != victim_side
+            )
 
-            if killer_sid and killer_side in (2, 3) and killer_sid in side_kills:
+            if enemy_kill and killer_sid in side_kills and not kill.get("isKillerControllingBot"):
                 side_kills[killer_sid][_side_label(killer_side)] += 1
+                side_kast_rounds[killer_sid][_side_label(killer_side)].add(round_number)
+            if (
+                enemy_kill
+                and assister_sid in side_assists
+                and not kill.get("isAssisterControllingBot")
+            ):
+                assister_side = _event_int(kill, "assisterSide", killer_side)
+                if assister_side in (2, 3):
+                    side_assists[assister_sid][_side_label(assister_side)] += 1
+                    side_kast_rounds[assister_sid][_side_label(assister_side)].add(round_number)
 
-            if victim_sid and victim_sid in side_deaths:
-                victim_side = int(kill.get("victimSide", 0))
+            if victim_sid in side_deaths and not kill.get("isVictimControllingBot"):
                 if victim_side in (2, 3):
                     side_deaths[victim_sid][_side_label(victim_side)] += 1
+                    deaths_by_round[victim_sid].add(round_number)
+                    if kill.get("isTradeDeath"):
+                        side_kast_rounds[victim_sid][_side_label(victim_side)].add(round_number)
+
+    for number, round_data in rounds_by_number.items():
+        for sid, letter in player_team_map.items():
+            side = (
+                _event_int(round_data, "teamASide" if letter == "A" else "teamBSide")
+                if letter in ("A", "B")
+                else 0
+            )
+            if side in (2, 3) and number not in deaths_by_round[sid]:
+                side_kast_rounds[sid][_side_label(side)].add(number)
 
     # Count damage by side (using attackerSide directly)
-    damages_list = match_data.get("damages", [])
+    damages_list = match_data.get("damages")
     winning_rounds = {
         int(r.get("number", 0) or 0): {
             "name": str(r.get("winnerName", "") or ""),
@@ -587,6 +671,8 @@ def parse_player_stats(match_data):
     winning_round_damage = {}
     if isinstance(damages_list, list):
         for dmg in damages_list:
+            if not isinstance(dmg, dict):
+                continue
             attacker_sid = str(dmg.get("attackerSteamId", dmg.get("attackerSteamId64", "")))
             victim_sid = str(dmg.get("victimSteamId", dmg.get("victimSteamId64", "")))
             amount = int(dmg.get("healthDamage", 0) or 0)
@@ -645,20 +731,20 @@ def parse_player_stats(match_data):
         elif team_letter == "B":
             team_name = team_b.get("name", "")
 
-        entry_kills = player.get("firstKillCount", 0)
-        entry_deaths = player.get("firstDeathCount", 0)
+        entry_kills = metric(player, "firstKillCount")
+        entry_deaths = metric(player, "firstDeathCount")
         event_stats = event_player_stats.get(str(steam_id), _empty_event_stats())
-        multi_kills = sum(event_stats[f"multi{i}k"] for i in range(2, 6))
+        events_available = isinstance(match_data.get("kills"), list) and rounds_count > 0
+        if not events_available:
+            event_stats = {key: None for key in event_stats}
         clutches_won = event_stats["clutches_won"]
 
-        from utils.stats_calc import calculate_impact
+        from utils.stats_calc import HLTV2_ESTIMATE_METHOD, estimate_hltv2_impact
 
-        impact = calculate_impact(
-            entry_kills=entry_kills,
-            entry_deaths=entry_deaths,
-            multi_kills=multi_kills,
-            clutches_won=clutches_won,
-            rounds_played=rounds_count,
+        impact = estimate_hltv2_impact(
+            metric(player, "killCount"),
+            metric(player, "assistCount"),
+            rounds_count,
         )
 
         sk = side_kills.get(steam_id, {"T": 0, "CT": 0})
@@ -666,22 +752,51 @@ def parse_player_stats(match_data):
         sdm = side_damage.get(steam_id, {"T": 0, "CT": 0})
         sr = side_rounds.get(steam_id, {"T": 0, "CT": 0})
 
-        side_rounds_complete = sr["T"] + sr["CT"] == rounds_count
-        kills_total = int(player.get("killCount", 0) or 0)
-        deaths_total = int(player.get("deathCount", 0) or 0)
+        side_rounds_complete = rounds_count > 0 and sr["T"] + sr["CT"] == rounds_count
+        kills_total = metric(player, "killCount")
+        deaths_total = metric(player, "deathCount")
         side_kills_complete = sk["T"] + sk["CT"] == kills_total
         side_deaths_complete = sd["T"] + sd["CT"] == deaths_total
-        side_stats_complete = side_rounds_complete and side_kills_complete and side_deaths_complete
+        side_stats_complete = (
+            events_available
+            and side_rounds_complete
+            and side_kills_complete
+            and side_deaths_complete
+        )
+        side_damage_complete = isinstance(damages_list, list) and metric(
+            player, "healthDamage"
+        ) == sum(sdm.values())
+        side_assists_complete = metric(player, "assistCount") == sum(
+            side_assists[steam_id].values()
+        )
 
-        t_rounds = max(sr["T"], 1)
-        ct_rounds = max(sr["CT"], 1)
+        t_rounds = sr["T"]
+        ct_rounds = sr["CT"]
         t_k = sk["T"] if side_stats_complete else None
         ct_k = sk["CT"] if side_stats_complete else None
         t_d = sd["T"] if side_stats_complete else None
         ct_d = sd["CT"] if side_stats_complete else None
 
-        t_adr_val = round(sdm["T"] / t_rounds, 1) if side_stats_complete else None
-        ct_adr_val = round(sdm["CT"] / ct_rounds, 1) if side_stats_complete else None
+        t_adr_val = (
+            round(sdm["T"] / t_rounds, 1)
+            if side_stats_complete and side_damage_complete and t_rounds
+            else None
+        )
+        ct_adr_val = (
+            round(sdm["CT"] / ct_rounds, 1)
+            if side_stats_complete and side_damage_complete and ct_rounds
+            else None
+        )
+        t_kast = (
+            len(side_kast_rounds[steam_id]["T"]) / t_rounds * 100
+            if side_stats_complete and side_assists_complete and t_rounds
+            else None
+        )
+        ct_kast = (
+            len(side_kast_rounds[steam_id]["CT"]) / ct_rounds * 100
+            if side_stats_complete and side_assists_complete and ct_rounds
+            else None
+        )
 
         # Approximate T/CT rating from side-specific stats
         from utils.stats_calc import calculate_rating as _calc_rtg
@@ -692,19 +807,27 @@ def parse_player_stats(match_data):
                 deaths=t_d,
                 rounds_played=t_rounds,
                 adr=t_adr_val,
-                kast=player.get("kast", 70),
-                impact=None,
+                kast=t_kast,
+                impact=estimate_hltv2_impact(t_k, side_assists[steam_id]["T"], t_rounds)
+                if side_assists_complete
+                else None,
             )
             ct_rating, _, _ = _calc_rtg(
                 kills=ct_k,
                 deaths=ct_d,
                 rounds_played=ct_rounds,
                 adr=ct_adr_val,
-                kast=player.get("kast", 70),
-                impact=None,
+                kast=ct_kast,
+                impact=estimate_hltv2_impact(ct_k, side_assists[steam_id]["CT"], ct_rounds)
+                if side_assists_complete
+                else None,
             )
         else:
             t_rating = ct_rating = None
+        if not t_rounds:
+            t_rating = None
+        if not ct_rounds:
+            ct_rating = None
 
         results.append(
             {
@@ -712,18 +835,20 @@ def parse_player_stats(match_data):
                 "name": name,
                 "team_name": team_name,
                 "team_letter": team_letter,
-                "kills": player.get("killCount", 0),
-                "deaths": player.get("deathCount", 0),
-                "assists": player.get("assistCount", 0),
-                "adr": round(player.get("averageDamagePerRound", 0), 1),
-                "kpr": round(player.get("averageKillPerRound", 0), 2),
-                "dpr": round(player.get("averageDeathPerRound", 0), 2),
-                "kast": round(player.get("kast", 0), 1),
-                "headshot_percentage": round(player.get("headshotPercent", 0), 1),
-                "headshot_count": player.get("headshotCount", 0),
-                "rating": round(player.get("hltvRating2", 0), 2),
-                "impact": round(impact, 2),
-                "mvp_count": player.get("mvpCount", 0),
+                "kills": kills_total,
+                "deaths": deaths_total,
+                "assists": metric(player, "assistCount"),
+                "adr": metric(player, "averageDamagePerRound", 1),
+                "kpr": metric(player, "averageKillPerRound", 2),
+                "dpr": metric(player, "averageDeathPerRound", 2),
+                "kast": metric(player, "kast", 1),
+                "headshot_percentage": metric(player, "headshotPercent", 1),
+                "headshot_count": metric(player, "headshotCount"),
+                "rating": metric(player, "hltvRating2", 2),
+                "impact": round(impact, 2) if impact is not None else None,
+                "impact_method": HLTV2_ESTIMATE_METHOD,
+                "rating_method": HLTV2_ESTIMATE_METHOD,
+                "mvp_count": metric(player, "mvpCount"),
                 "first_kill_count": entry_kills,
                 "first_death_count": entry_deaths,
                 "clutches_won": clutches_won,
@@ -739,25 +864,33 @@ def parse_player_stats(match_data):
                 "multi4k": event_stats["multi4k"],
                 "multi5k": event_stats["multi5k"],
                 # 投掷物统计
-                "utility_damage": round(player.get("utilityDamage", 0), 1),
-                "utility_damage_per_round": round(player.get("utilityDamagePerRound", 0), 2),
-                "enemies_flashed": player.get("enemyFlashCount", 0),
-                "flash_count": player.get("flashbangCount", 0),
-                "he_count": player.get("heGrenadeCount", 0),
-                "smoke_count": player.get("smokeCount", 0),
-                "molotov_count": player.get("molotovCount", 0),
+                "utility_damage": metric(player, "utilityDamage", 1),
+                "utility_damage_per_round": metric(player, "utilityDamagePerRound", 2),
+                "enemies_flashed": metric(player, "enemyFlashCount"),
+                "flash_count": grenade_count(
+                    player, "flashbangCount", "flashbangsExplode", steam_id
+                ),
+                "he_count": grenade_count(player, "heGrenadeCount", "heGrenadesExplode", steam_id),
+                "smoke_count": grenade_count(player, "smokeCount", "smokesStart", steam_id),
+                "molotov_count": metric(player, "molotovCount"),
                 # 交换击杀与目标相关数据
-                "trade_kills": player.get("tradeKillCount", 0),
-                "trade_deaths": player.get("tradeDeathCount", 0),
-                "bomb_plants": player.get("bombPlantedCount", 0),
-                "bomb_defuses": player.get("bombDefusedCount", 0),
+                "trade_kills": metric(player, "tradeKillCount"),
+                "trade_deaths": metric(player, "tradeDeathCount"),
+                "bomb_plants": metric(player, "bombPlantedCount"),
+                "bomb_defuses": metric(player, "bombDefusedCount"),
                 "rounds_played": rounds_count,
                 "damage_delta_per_round": round(
                     (player.get("healthDamage", 0) - damage_received.get(steam_id, 0))
                     / rounds_count,
                     2,
-                ),
-                "rws_basic": round(rws_points.get(steam_id, 0) / rounds_count, 2),
+                )
+                if rounds_count
+                and isinstance(damages_list, list)
+                and metric(player, "healthDamage") is not None
+                else None,
+                "rws_basic": round(rws_points.get(steam_id, 0) / rounds_count, 2)
+                if rounds_count and isinstance(damages_list, list)
+                else None,
                 # T/CT 侧数据
                 "t_rating": t_rating,
                 "ct_rating": ct_rating,
@@ -767,6 +900,16 @@ def parse_player_stats(match_data):
                 "ct_deaths": ct_d,
                 "t_adr": t_adr_val,
                 "ct_adr": ct_adr_val,
+                "t_rounds": t_rounds if side_rounds_complete else None,
+                "ct_rounds": ct_rounds if side_rounds_complete else None,
+                "t_assists": side_assists[steam_id]["T"]
+                if side_stats_complete and side_assists_complete
+                else None,
+                "ct_assists": side_assists[steam_id]["CT"]
+                if side_stats_complete and side_assists_complete
+                else None,
+                "t_kast": round(t_kast, 1) if t_kast is not None else None,
+                "ct_kast": round(ct_kast, 1) if ct_kast is not None else None,
                 "side_stats_complete": side_stats_complete,
             }
         )
@@ -793,8 +936,8 @@ def get_match_info(match_data):
         else 0,
         "team_a_name": (team_a or {}).get("name", ""),
         "team_b_name": (team_b or {}).get("name", ""),
-        "team_a_score": (team_a or {}).get("score", 0),
-        "team_b_score": (team_b or {}).get("score", 0),
+        "team_a_score": (team_a or {}).get("score"),
+        "team_b_score": (team_b or {}).get("score"),
         "rounds_count": len(rounds),
         "tick_rate": match_data.get("tickrate", 0),
         "source": match_data.get("source", ""),

@@ -5,10 +5,14 @@ Demo 解析与导入服务：CSGO Demo 文件分析、选手自动创建、统�
 import json
 import logging
 import secrets
+from pathlib import Path
 
 from werkzeug.security import generate_password_hash
 
+from config import BASE_DIR
 from services.bracket_service import refresh_bracket_for_match
+from services.live_service import update_unconfirmed_map_slots
+from services.match_service import score_predictions
 from services.performance_service import (
     build_demo_performance_payload,
     persist_demo_performance_payload,
@@ -27,9 +31,29 @@ from utils.demo_parser import (
     run_analysis,
 )
 from utils.helpers import row_get
-from utils.match_utils import get_demo_map_names, get_demo_upload_slot_count
+from utils.match_utils import (
+    build_raw_maps,
+    calculate_map_wins,
+    get_demo_map_names,
+    get_demo_upload_slot_count,
+)
 
 logger = logging.getLogger("80gotv")
+
+
+def _save_analysis_snapshot(performance_data):
+    """追加保存统计所需的事件，不改动原始 Demo 或此前的解析文件。"""
+    analysis_dir = Path(BASE_DIR) / "static" / "demos" / "analysis"
+    analysis_dir.mkdir(parents=True, exist_ok=True)
+    filename = secrets.token_hex(16) + ".json"
+    with (analysis_dir / filename).open("x", encoding="utf-8") as output:
+        json.dump(
+            {"state": "preview", **performance_data},
+            output,
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+    return {**performance_data["analysis"], "snapshot": "analysis/" + filename}
 
 
 def auto_create_user_from_demo(conn, stat):
@@ -101,8 +125,16 @@ def sync_match_scores(conn, match_id, map_slot, info, a_to_t1):
     if not current_match or not 0 <= map_slot < get_demo_upload_slot_count(current_match):
         return False
 
-    t1s = info.get("team_a_score", 0) if a_to_t1 else info.get("team_b_score", 0)
-    t2s = info.get("team_b_score", 0) if a_to_t1 else info.get("team_a_score", 0)
+    t1s = info.get("team_a_score") if a_to_t1 else info.get("team_b_score")
+    t2s = info.get("team_b_score") if a_to_t1 else info.get("team_a_score")
+    if t1s is None or t2s is None:
+        return False
+    try:
+        t1s, t2s = int(t1s), int(t2s)
+    except (TypeError, ValueError):
+        return False
+    if t1s < 0 or t2s < 0:
+        return False
 
     # 更新该地图槽位的比分
     map_cols = [
@@ -125,41 +157,26 @@ def sync_match_scores(conn, match_id, map_slot, info, a_to_t1):
 
     # 重新统计总比分（按地图胜场数）
     match = conn.execute(
-        "SELECT map1_t1, map1_t2, map2_t1, map2_t2, map3_t1, map3_t2, "
+        "SELECT bo_format, map1, map2, map3, map4, map5, map1_t1, map1_t2, map2_t1, map2_t2, map3_t1, map3_t2, "
         "map4_t1, map4_t2, map5_t1, map5_t2, has_map3, has_map4, has_map5 FROM matches WHERE id=?",
         (match_id,),
     ).fetchone()
     if match:
-        t1_wins = 0
-        t2_wins = 0
-        slot_count = get_demo_upload_slot_count(
-            {
-                "bo_format": current_match["bo_format"],
-                "status": current_match["status"],
-                "team1_score": current_match["team1_score"],
-                "team2_score": current_match["team2_score"],
-            }
-        )
-        raw = [
-            (match["map1_t1"], match["map1_t2"], slot_count >= 1),
-            (match["map2_t1"], match["map2_t2"], slot_count >= 2),
-            (match["map3_t1"], match["map3_t2"], bool(match["has_map3"])),
-            (match["map4_t1"], match["map4_t2"], bool(row_get(match, "has_map4", 1))),
-            (match["map5_t1"], match["map5_t2"], bool(row_get(match, "has_map5", 1))),
+        unconfirmed = update_unconfirmed_map_slots(conn, match_id, map_slot, confirmed=True)
+        raw_maps = [
+            (name, score1, score2, active and slot not in unconfirmed)
+            for slot, (name, score1, score2, active) in enumerate(
+                build_raw_maps(match, include_picked_by=False)
+            )
         ]
-        for m1, m2, active in raw:
-            if active and (m1 or m2):
-                s1 = int(m1 or 0)
-                s2 = int(m2 or 0)
-                if s1 > s2:
-                    t1_wins += 1
-                elif s2 > s1:
-                    t2_wins += 1
+        t1_wins, t2_wins = calculate_map_wins(match, raw_maps)
         conn.execute(
             "UPDATE matches SET team1_score = ?, team2_score = ? WHERE id = ?",
             (t1_wins, t2_wins, match_id),
         )
         refresh_bracket_for_match(conn, match_id)
+        if current_match["status"] == "completed":
+            score_predictions(conn, match_id)
     return True
 
 
@@ -167,8 +184,9 @@ def save_halftime_data(conn, match_id, map_slot, demo_data, a_to_t1):
     """从 demo 数据提取半场比分并保存到 match 的 map_halves JSON"""
     info = demo_data.get("info", {}) or {}
     halftime = info.get("halftime", {})
+    analysis = info.get("analysis")
 
-    if not halftime or not any(halftime.values()):
+    if (not halftime or not any(halftime.values())) and not isinstance(analysis, dict):
         return
 
     # Load existing map_halves
@@ -181,20 +199,54 @@ def save_halftime_data(conn, match_id, map_slot, demo_data, a_to_t1):
             halves = {}
 
     map_key = str(map_slot)
+    if not isinstance(halves, dict):
+        halves = {}
+    if not isinstance(halves.get(map_key), dict):
+        halves[map_key] = {}
 
     h1_a = halftime.get("h1_a", 0)
     h1_b = halftime.get("h1_b", 0)
     h2_a = halftime.get("h2_a", 0)
     h2_b = halftime.get("h2_b", 0)
 
-    if a_to_t1:
-        halves[map_key] = {"h1_t1": h1_a, "h1_t2": h1_b, "h2_t1": h2_a, "h2_t2": h2_b}
-    else:
-        halves[map_key] = {"h1_t1": h1_b, "h1_t2": h1_a, "h2_t1": h2_b, "h2_t2": h2_a}
+    if halftime and any(halftime.values()):
+        if a_to_t1:
+            halves[map_key].update({"h1_t1": h1_a, "h1_t2": h1_b, "h2_t1": h2_a, "h2_t2": h2_b})
+        else:
+            halves[map_key].update({"h1_t1": h1_b, "h1_t2": h1_a, "h2_t1": h2_b, "h2_t2": h2_a})
+    if isinstance(analysis, dict):
+        reference = str(analysis.get("snapshot") or "")
+        filename = reference.removeprefix("analysis/")
+        if (
+            reference == "analysis/" + filename
+            and len(filename) == 37
+            and filename.endswith(".json")
+            and all(char in "0123456789abcdef" for char in filename[:-5])
+        ):
+            snapshot = Path(BASE_DIR) / "static" / "demos" / "analysis" / filename
+            if snapshot.is_file():
+                halves[map_key]["analysis"] = {
+                    key: value
+                    for key, value in analysis.items()
+                    if key
+                    in {
+                        "schema_version",
+                        "parser",
+                        "parser_version",
+                        "demo_checksum",
+                        "rating_method",
+                        "impact_method",
+                        "method_source",
+                        "official_hltv_formula",
+                        "snapshot",
+                        "data_version",
+                    }
+                }
     opening_ct_team = str(info.get("opening_ct_team") or "").lower()
-    halves[map_key]["opening_ct_team"] = (
-        opening_ct_team if opening_ct_team in {"t1", "t2"} else None
-    )
+    if opening_ct_team in {"t1", "t2"}:
+        halves[map_key]["opening_ct_team"] = opening_ct_team
+    else:
+        halves[map_key].setdefault("opening_ct_team", None)
     halves[map_key]["side_source"] = str(info.get("side_source") or "demo_review")
 
     conn.execute(
@@ -208,7 +260,7 @@ def analyze_demo(conn, match, demo_path):
     match_data = run_analysis(demo_path)
     players = parse_player_stats(match_data)
     info = get_match_info(match_data)
-    performance_data = build_demo_performance_payload(match_data)
+    performance_data = build_demo_performance_payload(match_data, players)
 
     db_players = conn.execute(
         "SELECT p.*, t.name AS team_name FROM players p LEFT JOIN teams t ON p.team_id=t.id"
@@ -308,6 +360,7 @@ def analyze_demo(conn, match, demo_path):
     map_slot = match_map_slot(info["map_name"], map_names)
     if map_slot < 0:
         raise ValueError("Demo 地图不在当前比赛赛程中，请先检查比赛地图设置")
+    info["analysis"] = _save_analysis_snapshot(performance_data)
 
     return {
         "map_name": info["map_name"],
@@ -341,13 +394,29 @@ def import_demo_data(conn, match_id, match, demo_data_str, map_slot):
     if not 0 <= map_slot < len(map_names):
         return None, "地图编号超出当前比赛范围"
 
-    demo_data = json.loads(demo_data_str)
+    try:
+        demo_data = json.loads(demo_data_str)
+    except (TypeError, ValueError):
+        return None, "Demo 数据格式无效"
     if not isinstance(demo_data, dict):
         return None, "Demo 数据格式无效"
     players = demo_data.get("players", [])
     info = demo_data.get("info", {})
     if not isinstance(players, list) or not isinstance(info, dict):
         return None, "Demo 数据格式无效"
+    if any(not isinstance(stat, dict) for stat in players):
+        return None, "Demo 选手数据格式无效"
+
+    seen_steam_ids = set()
+    for stat in players:
+        steam_id = str(stat.get("steam_id") or "").strip()
+        if not steam_id or steam_id == "0" or not str(stat.get("name") or "").strip():
+            return None, "Demo 中有选手缺少身份或昵称，未导入数据"
+        if steam_id in seen_steam_ids:
+            return None, "Demo 中有重复选手身份，未导入数据"
+        if stat.get("team_letter") not in ("A", "B"):
+            return None, "Demo 中有选手缺少队伍归属，未导入数据"
+        seen_steam_ids.add(steam_id)
 
     source_map = normalize_map_name(info.get("map_name", ""))
     scheduled_map = normalize_map_name(map_names[map_slot] or "")
@@ -428,10 +497,14 @@ def import_demo_data(conn, match_id, match, demo_data_str, map_slot):
         if row["player_id"]
     }
     team_a_players = sorted(
-        [s for s in players if s.get("team_letter") == "A"], key=lambda x: x["rating"], reverse=True
+        [s for s in players if s.get("team_letter") == "A"],
+        key=lambda x: x.get("rating") if x.get("rating") is not None else float("-inf"),
+        reverse=True,
     )
     team_b_players = sorted(
-        [s for s in players if s.get("team_letter") == "B"], key=lambda x: x["rating"], reverse=True
+        [s for s in players if s.get("team_letter") == "B"],
+        key=lambda x: x.get("rating") if x.get("rating") is not None else float("-inf"),
+        reverse=True,
     )
     if len(team_a_players) > 5 or len(team_b_players) > 5:
         return None, "暂不支持同队超过五名选手的录像，未截取或导入部分选手"
@@ -442,6 +515,14 @@ def import_demo_data(conn, match_id, match, demo_data_str, map_slot):
             None,
             f"未找到可导入的选手数据（A 队 {len(team_a_players)} 人，B 队 {len(team_b_players)} 人）",
         )
+
+    matched_ids = [
+        player["id"]
+        for stat in selected
+        if (player := _match_player_from_db(stat, db_players, alias_player_ids)) is not None
+    ]
+    if len(set(matched_ids)) != len(matched_ids):
+        return None, "Demo 中有重复的网站选手对应关系，未导入数据"
 
     previous_version = conn.execute(
         """SELECT COALESCE(MAX(data_version), 0) AS version
@@ -484,6 +565,8 @@ def import_demo_data(conn, match_id, match, demo_data_str, map_slot):
         imported += 1
 
     sync_match_scores(conn, match_id, map_slot, info, a_to_t1)
+    if isinstance(info.get("analysis"), dict):
+        info["analysis"]["data_version"] = int(previous_version or 0) + 1
     save_halftime_data(conn, match_id, map_slot, demo_data, a_to_t1)
     affected_player_ids.update(
         persist_demo_performance_payload(
@@ -508,12 +591,23 @@ def _match_player_from_db(stat, db_players, alias_player_ids=None):
     for db_p in db_players:
         if db_p["steam_id"] and str(stat["steam_id"]) == str(db_p["steam_id"]):
             return db_p
-    for db_p in db_players:
-        if stat["name"].casefold() == db_p["nickname"].casefold():
-            return db_p
+    name = str(stat.get("name") or "").strip().casefold()
+    candidates = {
+        db_p["id"]: db_p
+        for db_p in db_players
+        if name and name == str(db_p["nickname"] or "").strip().casefold()
+    }
     alias_player_id = (alias_player_ids or {}).get(stat["name"].casefold())
     if alias_player_id:
-        return next((db_p for db_p in db_players if db_p["id"] == alias_player_id), None)
+        candidates.update(
+            {db_p["id"]: db_p for db_p in db_players if db_p["id"] == alias_player_id}
+        )
+    if len(candidates) == 1:
+        candidate = next(iter(candidates.values()))
+        if not candidate["steam_id"] or str(candidate["steam_id"]) == str(
+            stat.get("steam_id") or ""
+        ):
+            return candidate
     return None
 
 
@@ -549,35 +643,39 @@ def _infer_demo_team_order(
     match_t1_name = row_get(match, "team1_name", "")
     match_t2_name = row_get(match, "team2_name", "")
 
-    if _team_name_matches(demo_a_name, match_t1_name) or _team_name_matches(
+    def orientation(direct, reverse):
+        if direct and not reverse:
+            return True
+        if reverse and not direct:
+            return False
+        return None
+
+    # 比赛当时固定的名单比选手今天所在的队伍可靠；A/B 两边都参与核对。
+    direct = len(demo_a_db_ids & t1_pids_set) + len(demo_b_db_ids & t2_pids_set)
+    reverse = len(demo_a_db_ids & t2_pids_set) + len(demo_b_db_ids & t1_pids_set)
+    if direct or reverse:
+        return orientation(direct, reverse)
+
+    direct = _team_name_matches(demo_a_name, match_t1_name) or _team_name_matches(
         demo_b_name, match_t2_name
-    ):
-        return True
-    if _team_name_matches(demo_a_name, match_t2_name) or _team_name_matches(
+    )
+    reverse = _team_name_matches(demo_a_name, match_t2_name) or _team_name_matches(
         demo_b_name, match_t1_name
-    ):
-        return False
+    )
+    if direct or reverse:
+        return orientation(direct, reverse)
 
     db_by_id = {row["id"]: row for row in db_players}
-    a_in_t1 = sum(
-        1
-        for player_id in demo_a_db_ids
-        if db_by_id.get(player_id) is not None and db_by_id[player_id]["team_id"] == t1_key
-    )
-    a_in_t2 = sum(
-        1
-        for player_id in demo_a_db_ids
-        if db_by_id.get(player_id) is not None and db_by_id[player_id]["team_id"] == t2_key
-    )
-    if a_in_t1 != a_in_t2 and (a_in_t1 or a_in_t2):
-        return a_in_t1 > a_in_t2
-
-    # 最后才使用比赛中手工固定的选手列表，兼容旧比赛。
-    a_in_t1 = len(demo_a_db_ids & t1_pids_set)
-    a_in_t2 = len(demo_a_db_ids & t2_pids_set)
-    if a_in_t1 != a_in_t2 and (a_in_t1 or a_in_t2):
-        return a_in_t1 > a_in_t2
-    # 无法确认对应关系时拒绝导入，避免 Demo 队伍顺序反转写错数据。
+    current_t1 = {
+        pid for pid, row in db_by_id.items() if t1_key is not None and row["team_id"] == t1_key
+    }
+    current_t2 = {
+        pid for pid, row in db_by_id.items() if t2_key is not None and row["team_id"] == t2_key
+    }
+    direct = len(demo_a_db_ids & current_t1) + len(demo_b_db_ids & current_t2)
+    reverse = len(demo_a_db_ids & current_t2) + len(demo_b_db_ids & current_t1)
+    if direct or reverse:
+        return orientation(direct, reverse)
     return None
 
 
@@ -618,6 +716,7 @@ def insert_match_stat(conn, match_id, player_id, team_id, match_team_side, stat,
         "utility_damage",
         "enemies_flashed",
         "flash_count",
+        "flash_count_recorded",
         "he_count",
         "smoke_count",
         "molotov_count",
@@ -634,64 +733,26 @@ def insert_match_stat(conn, match_id, player_id, team_id, match_team_side, stat,
         "clutch_1v3",
         "clutch_1v4",
         "clutch_1v5",
+        "flash_blinded_seconds",
+        "flash_enemy_seconds",
         "flash_assists",
         "map_name",
         "data_source",
         "data_status",
         "data_version",
     )
+    stat_values = {
+        **stat,
+        "first_kills": stat.get("first_kill_count"),
+        "first_deaths": stat.get("first_death_count"),
+        "flash_count_recorded": int(stat.get("flash_count") is not None),
+    }
     values = (
         match_id,
         player_id,
         team_id,
         match_team_side,
-        stat.get("kills", 0),
-        stat.get("deaths", 0),
-        stat.get("assists", 0),
-        stat.get("adr", 0),
-        stat.get("kpr", 0),
-        stat.get("dpr", 0),
-        stat.get("rating", 0),
-        stat.get("impact", 0),
-        stat.get("kast", 0),
-        stat.get("headshot_percentage", 0),
-        stat.get("clutches_won", 0),
-        stat.get("t_rating", 0),
-        stat.get("ct_rating", 0),
-        stat.get("t_kills", 0),
-        stat.get("ct_kills", 0),
-        stat.get("t_deaths", 0),
-        stat.get("ct_deaths", 0),
-        stat.get("t_adr", 0),
-        stat.get("ct_adr", 0),
-        stat.get("multi1k", 0),
-        stat.get("multi2k", 0),
-        stat.get("multi3k", 0),
-        stat.get("multi4k", 0),
-        stat.get("multi5k", 0),
-        stat.get("first_kill_count", 0),
-        stat.get("first_death_count", 0),
-        stat.get("mvp_count", 0),
-        stat.get("utility_damage", 0),
-        stat.get("enemies_flashed", 0),
-        stat.get("flash_count", 0),
-        stat.get("he_count", 0),
-        stat.get("smoke_count", 0),
-        stat.get("molotov_count", 0),
-        stat.get("trade_kills", 0),
-        stat.get("trade_deaths", 0),
-        stat.get("bomb_plants", 0),
-        stat.get("bomb_defuses", 0),
-        stat.get("utility_damage_per_round", 0),
-        stat.get("rounds_played", 0),
-        stat.get("damage_delta_per_round", 0),
-        stat.get("rws_basic", 0),
-        stat.get("clutch_1v1", 0),
-        stat.get("clutch_1v2", 0),
-        stat.get("clutch_1v3", 0),
-        stat.get("clutch_1v4", 0),
-        stat.get("clutch_1v5", 0),
-        stat.get("flash_assists", 0),
+        *(stat_values.get(column) for column in columns[4:-4]),
         map_name,
         stat.get("_data_source", "demo"),
         stat.get("_data_status", "final"),

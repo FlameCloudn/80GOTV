@@ -141,12 +141,12 @@
       <tr>
         <td><a href="/players/{{ r.id }}" class="dense-player">{% set display_name = private_name_for_player(r.id, r.nickname) %}{% if r.avatar %}<img src="{{ avatar_thumbnail_url(r.avatar) }}" alt="{{ display_name }}" loading="lazy">{% else %}<span>{{ display_name[:1] }}</span>{% endif %}<b data-i18n-ignore>{{ display_name }}</b></a></td>
         <td>{{ r.maps or 0 }}</td>
-        <td>{{ r.rounds or 0 }}</td>
+        <td>{{ format_stat(r.rounds) }}</td>
         <td>{% if r.thrown is none %}<span class="stat-missing">暂无数据</span>{% else %}{{ "%.2f"|format(r.thrown) }}{% endif %}</td>
-        <td>{{ "%.2f"|format(r.blinded or 0) }}s</td>
-        <td>{{ "%.2f"|format(r.opp_flashed or 0) }}s</td>
-        <td class="{% if r.diff and r.diff > 0 %}stat-pos{% elif r.diff and r.diff < 0 %}stat-neg{% endif %}">{{ "%+.2f"|format(r.diff or 0) }}</td>
-        <td>{{ "%.2f"|format(r.fa or 0) }}</td>
+        <td>{{ format_stat(r.blinded, 2, suffix='s') }}</td>
+        <td>{{ format_stat(r.opp_flashed, 2, suffix='s') }}</td>
+        <td class="{% if r.diff and r.diff > 0 %}stat-pos{% elif r.diff and r.diff < 0 %}stat-neg{% endif %}">{{ format_stat(r.diff, 2, signed=true) }}</td>
+        <td>{{ format_stat(r.fa, 2) }}</td>
         <td>{% if r.thrown is none %}<span class="stat-missing">暂无数据</span>{% elif r.success is none %}-{% else %}{{ "%.1f"|format(r.success * 100) }}%{% endif %}</td>
       </tr>
       {% endfor %}
@@ -191,10 +191,10 @@
       <tr>
         <td><a href="/players/{{ r.id }}" class="dense-player">{% set display_name = private_name_for_player(r.id, r.nickname) %}{% if r.avatar %}<img src="{{ avatar_thumbnail_url(r.avatar) }}" alt="{{ display_name }}" loading="lazy">{% else %}<span>{{ display_name[:1] }}</span>{% endif %}<b data-i18n-ignore>{{ display_name }}</b></a></td>
         <td>{{ r.maps }}</td>
-        <td>{{ r.rounds or 0 }}</td>
-        <td class="{% if r.kd_diff and r.kd_diff > 0 %}stat-pos{% elif r.kd_diff and r.kd_diff < 0 %}stat-neg{% endif %}">{{ "%+d"|format(r.kd_diff or 0) }}</td>
-        <td>{{ "%.2f"|format(r.kd) if r.kd else '-' }}</td>
-        <td class="rt-cell {{ r.rating|rating_class }}"><b>{{ "%.2f"|format(r.rating or 0) }}</b></td>
+        <td>{{ format_stat(r.rounds) }}</td>
+        <td class="{% if r.kd_diff and r.kd_diff > 0 %}stat-pos{% elif r.kd_diff and r.kd_diff < 0 %}stat-neg{% endif %}">{{ format_stat(r.kd_diff, signed=true) }}</td>
+        <td>{{ format_stat(r.kd, 2) }}</td>
+        <td class="rt-cell {{ r.rating|rating_class }}"><b>{{ format_stat(r.rating, 2) }}</b></td>
       </tr>
       {% endfor %}
     </tbody>
@@ -212,10 +212,10 @@
         <td><a href="/players/{{ r.id }}" class="dense-player">{% set display_name = private_name_for_player(r.id, r.nickname) %}{% if r.avatar %}<img src="{{ avatar_thumbnail_url(r.avatar) }}" alt="{{ display_name }}" loading="lazy">{% else %}<span>{{ display_name[:1] }}</span>{% endif %}<b data-i18n-ignore>{{ display_name }}</b></a></td>
         <td data-i18n-ignore>{{ r.team or '-' }}</td>
         <td>{{ r.maps }}</td>
-        <td>{{ r.kills or 0 }}</td>
-        <td class="{% if r.kd_diff and r.kd_diff > 0 %}stat-pos{% elif r.kd_diff and r.kd_diff < 0 %}stat-neg{% endif %}">{{ "%+d"|format(r.kd_diff or 0) }}</td>
-        <td><b>{{ "%.2f"|format(r.kd) if r.kd else '-' }}</b></td>
-        <td class="rt-cell {{ r.rating|rating_class }}"><b>{{ "%.2f"|format(r.rating or 0) }}</b></td>
+        <td>{{ format_stat(r.kills) }}</td>
+        <td class="{% if r.kd_diff and r.kd_diff > 0 %}stat-pos{% elif r.kd_diff and r.kd_diff < 0 %}stat-neg{% endif %}">{{ format_stat(r.kd_diff, signed=true) }}</td>
+        <td><b>{{ format_stat(r.kd, 2) }}</b></td>
+        <td class="rt-cell {{ r.rating|rating_class }}"><b>{{ format_stat(r.rating, 2) }}</b></td>
       </tr>
       {% endfor %}
     </tbody>
@@ -233,12 +233,12 @@
         <td><a href="/players/{{ r.id }}" class="dense-player">{% set display_name = private_name_for_player(r.id, r.nickname) %}{% if r.avatar %}<img src="{{ avatar_thumbnail_url(r.avatar) }}" alt="{{ display_name }}" loading="lazy">{% else %}<span>{{ display_name[:1] }}</span>{% endif %}<b data-i18n-ignore>{{ display_name }}</b></a></td>
         <td data-i18n-ignore>{{ r.team or '-' }}</td>
         <td>{{ r.maps }}</td>
-        <td>{{ r.rounds or 0 }}</td>
-        <td class="{% if r.kd_diff and r.kd_diff > 0 %}stat-pos{% elif r.kd_diff and r.kd_diff < 0 %}stat-neg{% endif %}">{{ "%+d"|format(r.kd_diff or 0) }}</td>
-        <td>{{ "%.2f"|format(r.kd) if r.kd else '-' }}</td>
-        <td>{{ "%.1f"|format(r.adr or 0) }}</td>
-        <td>{{ "%.1f"|format(r.hs or 0) }}%</td>
-        <td class="rt-cell {{ r.rating|rating_class }}"><b>{{ "%.2f"|format(r.rating or 0) }}</b></td>
+        <td>{{ format_stat(r.rounds) }}</td>
+        <td class="{% if r.kd_diff and r.kd_diff > 0 %}stat-pos{% elif r.kd_diff and r.kd_diff < 0 %}stat-neg{% endif %}">{{ format_stat(r.kd_diff, signed=true) }}</td>
+        <td>{{ format_stat(r.kd, 2) }}</td>
+        <td>{{ format_stat(r.adr, 1) }}</td>
+        <td>{{ format_stat(r.hs, 1, suffix='%') }}</td>
+        <td class="rt-cell {{ r.rating|rating_class }}"><b>{{ format_stat(r.rating, 2) }}</b></td>
       </tr>
       {% endfor %}
     </tbody>

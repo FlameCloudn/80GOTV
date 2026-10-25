@@ -16,6 +16,7 @@ from flask import (
 from models import get_db
 from services.live_log_service import load_match_timeline
 from services.match_service import supplement_temp_teams
+from services.performance_service import weighted_average_sql
 from utils.demo_naming import build_demo_download_name
 from utils.helpers import normalize_map_key, resolve_match_slug, row_get
 from web_app import DEMOS_DIR, app
@@ -91,9 +92,15 @@ def match_poster(slug):
         return "比赛不存在", 404
 
     match = supplement_temp_teams(match, conn)
+    valid_side = (
+        "CASE WHEN LOWER(TRIM(ms.match_team_side)) IN ('t1','t2') "
+        "THEN LOWER(TRIM(ms.match_team_side)) END"
+    )
     player_ratings = conn.execute(
-        """
-        SELECT ms.team_id, p.nickname, AVG(ms.rating) AS rating
+        f"""
+        SELECT ms.team_id, p.nickname,
+               CASE WHEN COUNT(DISTINCT {valid_side})=1 THEN MIN({valid_side}) END AS match_team_side,
+               {weighted_average_sql("ms.rating", "ms.rounds_played")} AS rating
         FROM match_stats ms
         JOIN players p ON p.id=ms.player_id
         WHERE ms.match_id=?
@@ -129,9 +136,9 @@ def match_poster(slug):
         map_scores.append(
             {
                 "name": mn or "TBA",
-                "t1": t1 or 0,
-                "t2": t2 or 0,
-                "played": bool(mn and (t1 or t2)),
+                "t1": t1,
+                "t2": t2,
+                "played": bool(mn and active and t1 is not None and t2 is not None),
             }
         )
 

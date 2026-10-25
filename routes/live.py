@@ -177,7 +177,7 @@ def _gsi_team_mapping(gsi, row, roster_side_by_steamid=None):
     roster_mapping = _roster_gsi_mapping(gsi, roster_side_by_steamid or {})
     if roster_mapping:
         return roster_mapping
-    identity = gsi.get("_80gotv", {}) if isinstance(gsi, dict) else {}
+    identity = (gsi.get("_80gotv") or {}) if isinstance(gsi, dict) else {}
     ct_identity = identity.get("team_ct")
     t_identity = identity.get("team_t")
     if {ct_identity, t_identity} == {"team1", "team2"}:
@@ -208,7 +208,7 @@ def _gsi_team_mapping(gsi, row, roster_side_by_steamid=None):
 def _format_live_timer(value):
     try:
         seconds = max(0, int(math.ceil(float(value))))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return "-"
     return f"{seconds // 60}:{seconds % 60:02d}"
 
@@ -268,11 +268,20 @@ def api_live_match(match_id):
     except (json.JSONDecodeError, TypeError):
         conn.close()
         return jsonify(result)
+    if not isinstance(state, dict):
+        conn.close()
+        return jsonify(result)
 
     result["ok"] = True
-    gsi = state.get("gsi", {}) or {}
-    gotv = state.get("gotv", {}) or {}
-    a2s = state.get("a2s", {}) or {}
+    gsi = state.get("gsi")
+    if not isinstance(gsi, dict):
+        gsi = {}
+    gotv = state.get("gotv")
+    if not isinstance(gotv, dict):
+        gotv = {}
+    a2s = state.get("a2s")
+    if not isinstance(a2s, dict):
+        a2s = {}
     result["round_history"] = (
         state.get("round_history", []) if isinstance(state.get("round_history", []), list) else []
     )
