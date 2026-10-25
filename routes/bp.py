@@ -156,6 +156,8 @@ def bp_room(match_id):
     match = conn.execute(
         """
         SELECT m.*, t1.name AS team1_name, t2.name AS team2_name,
+               t1.short_name AS t1s, t2.short_name AS t2s,
+               t1.logo AS t1_logo, t2.logo AS t2_logo,
                e.name AS event_name, e.status AS event_status
         FROM matches m
         LEFT JOIN teams t1 ON m.team1_id = t1.id

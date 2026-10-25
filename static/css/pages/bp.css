@@ -1,0 +1,211 @@
+/* ==========================================================================
+   BP 房间（/bp/<id>）：页面结构在模板里，地图卡、步骤点、选边按钮由脚本生成
+   ========================================================================== */
+
+/* ---------- 顶部：赛制 · 赛事 · 两队 ---------- */
+.bp-header {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-md);
+  padding: var(--space-xl) var(--space-xl) var(--space-lg);
+  background:
+    radial-gradient(ellipse 45% 85% at 50% 0%, var(--accent-soft), transparent 72%),
+    var(--bg-card);
+}
+
+.bp-header-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--space-sm) var(--space-md); }
+.bp-event-name { color: var(--text-secondary); font-size: var(--font-sm); font-weight: 600; }
+.bp-teams { display: flex; align-items: center; justify-content: center; gap: var(--space-2xl); }
+.bp-team { display: grid; justify-items: center; gap: 6px; min-width: 120px; text-align: center; }
+.bp-team-name { font-size: var(--font-lg); font-weight: 700; }
+.bp-team.my-team .bp-team-name { color: var(--accent); }
+.bp-vs { color: var(--text-muted); font-size: var(--font-xl); font-weight: 800; }
+.bp-role-hint { color: var(--text-muted); font-size: var(--font-sm); }
+
+/* ---------- 主体 ---------- */
+.bp-board { display: grid; gap: var(--space-lg); padding: var(--space-xl); }
+
+.bp-password-gate { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--space-sm); }
+.bp-password-gate input { width: min(260px, 100%); }
+.bp-error { color: var(--color-red); font-size: var(--font-xs); }
+
+.bp-status-bar { min-height: 28px; color: var(--text-primary); font-size: var(--font-lg); font-weight: 600; text-align: center; }
+.bp-status-bar b { font-variant-numeric: tabular-nums; }
+.bp-good { color: var(--color-green); }
+.bp-accent { color: var(--accent); }
+.bp-turn-tag { font-size: var(--font-sm); font-weight: 500; }
+
+/* 步骤点：B = Ban、P = Pick */
+.bp-steps-indicator { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
+.bp-steps-indicator:empty { display: none; }
+
+.bp-step-dot {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+  background: var(--surface-soft);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-xs);
+  font-weight: 700;
+  transition: background var(--transition-base), color var(--transition-base);
+}
+
+.bp-step-dot.done { color: var(--accent-contrast); border-color: transparent; }
+.bp-step-dot.ban-dot.done { background: var(--color-red); }
+.bp-step-dot.pick-dot.done { background: var(--color-green); }
+.bp-step-dot.current { color: var(--accent-contrast); background: var(--accent); border-color: var(--accent); animation: bp-pulse 1.2s ease-in-out infinite; }
+
+@keyframes bp-pulse { 50% { box-shadow: 0 0 0 4px var(--accent-soft); } }
+
+.bp-section-label { color: var(--text-muted); font-size: var(--font-xs); font-weight: 600; letter-spacing: .12em; text-align: center; text-transform: uppercase; }
+.bp-section-label:empty { display: none; }
+
+/* 地图池：HLTV 地图条做底，地图名居中；右下角状态小标 */
+.bp-map-pool { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: var(--space-sm); }
+
+.bp-map-card {
+  position: relative;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: var(--color-white);
+  background-color: var(--surface-soft);
+  background-position: center;
+  background-size: cover;
+  border: 2px solid transparent;
+  border-radius: var(--radius-md);
+  font-size: var(--font-md);
+  font-weight: 700;
+  text-shadow: var(--on-image-shadow);
+  user-select: none;
+  transition: transform var(--transition-fast), filter var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.bp-map-card .map-name { position: relative; padding: 0 var(--space-md); text-align: center; }
+
+.bp-map-card .map-status {
+  position: absolute;
+  right: 6px;
+  bottom: 5px;
+  padding: 1px 6px;
+  color: var(--color-white);
+  background: var(--overlay);
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  text-shadow: none;
+}
+
+/* 已被 Ban：变灰变暗，红色小标 */
+.bp-map-card.banned { filter: grayscale(1) brightness(.55); border-color: var(--color-red); cursor: not-allowed; }
+.bp-map-card.banned .map-status { background: var(--color-red); }
+
+/* 已选：队伍 1 蓝框、队伍 2 橙框、剩下的决胜图金框 */
+.bp-map-card.picked .map-status { color: var(--accent-contrast); background: var(--color-green); }
+.bp-map-card.picked.t1 { border-color: var(--accent); }
+.bp-map-card.picked.t2 { border-color: var(--color-t); }
+.bp-map-card.picked.remaining { border-color: var(--color-gold); }
+.bp-map-card.picked.remaining .map-status { color: var(--color-dark); background: var(--color-gold); }
+
+/* 轮到我：可点，红框 = Ban、绿框 = Pick */
+.bp-map-card.clickable { cursor: pointer; border-color: var(--accent); animation: bp-glow 1.6s ease-in-out infinite; }
+.bp-map-card.clickable.ban-action { border-color: var(--color-red); }
+.bp-map-card.clickable.pick-action { border-color: var(--color-green); }
+.bp-map-card.clickable:hover { transform: translateY(-2px); filter: brightness(1.12); box-shadow: var(--shadow-raised); animation: none; }
+
+@keyframes bp-glow { 50% { box-shadow: 0 0 0 3px var(--accent-soft); } }
+
+/* 已选地图 */
+.bp-picks-section { display: grid; gap: var(--space-sm); }
+.bp-picks-row { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-sm); }
+.bp-empty { color: var(--text-muted); font-size: var(--font-sm); }
+
+.bp-pick-slot {
+  min-width: 120px;
+  padding: var(--space-sm) var(--space-lg);
+  background: var(--surface-soft);
+  border: 1px solid var(--border-color);
+  border-left: 3px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  text-align: center;
+}
+
+.bp-pick-slot .pick-num { display: block; margin-top: 2px; color: var(--text-muted); font-size: var(--font-xs); font-weight: 400; }
+.bp-pick-slot.t1 { border-left-color: var(--accent); }
+.bp-pick-slot.t2 { border-left-color: var(--color-t); }
+.bp-pick-slot.remaining { border-left-color: var(--color-gold); border-style: dashed solid dashed solid; }
+
+/* 操作区：Roll 点、先后手、选边 */
+.bp-action-area { display: grid; justify-items: center; gap: var(--space-md); min-height: 48px; text-align: center; }
+.bp-btn-row { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-md); }
+.bp-btn-row:empty { display: none; }
+.bp-waiting { padding: var(--space-sm); color: var(--text-muted); font-size: var(--font-sm); }
+.bp-hint { color: var(--text-muted); font-size: var(--font-xs); }
+.bp-choice-title { font-size: var(--font-md); font-weight: 600; }
+.bp-admin-hint { padding: var(--space-sm) var(--space-lg); background: var(--accent-soft); border: 1px solid var(--accent); border-radius: var(--radius-md); font-size: var(--font-sm); }
+
+.roll-dice-row { display: flex; align-items: center; justify-content: center; gap: var(--space-2xl); }
+.roll-team-dice { display: grid; justify-items: center; gap: 6px; }
+.dice-label { color: var(--text-secondary); font-size: var(--font-sm); font-weight: 600; }
+.roll-vs { color: var(--text-muted); font-size: var(--font-lg); font-weight: 800; }
+
+.roll-dice {
+  width: 76px;
+  height: 76px;
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+  background: var(--surface-soft);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  font-size: var(--font-3xl);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  transition: color var(--transition-base), border-color var(--transition-base), background var(--transition-base);
+}
+
+.roll-dice.rolled { color: var(--accent); background: var(--accent-soft); border-color: var(--accent); }
+.roll-dice.winner { color: var(--color-green); background: var(--green-soft); border-color: var(--color-green); }
+
+.bp-side-item { display: grid; justify-items: center; gap: 6px; font-size: var(--font-sm); }
+.side-btns { display: flex; gap: var(--space-sm); }
+
+.side-btn {
+  height: var(--control-h);
+  padding: 0 var(--space-xl);
+  color: var(--text-primary);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: var(--font-sm);
+  font-weight: 700;
+  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.side-btn.ct:hover { color: var(--accent-contrast); background: var(--color-ct); border-color: var(--color-ct); }
+.side-btn.t:hover { color: var(--accent-contrast); background: var(--color-t); border-color: var(--color-t); }
+
+.bp-admin-tools { display: flex; justify-content: center; padding-top: var(--space-lg); border-top: 1px solid var(--border-color); }
+
+@media (max-width: 760px) {
+  .bp-header { padding: var(--space-lg) var(--space-md); }
+  .bp-teams { gap: var(--space-md); }
+  .bp-team { min-width: 0; }
+  .bp-team .team-logo.lg, .bp-team .logo-fallback.lg { width: 36px; height: 36px; }
+  .bp-team-name { font-size: var(--font-md); }
+  .bp-board { padding: var(--space-md); }
+  .bp-status-bar { font-size: var(--font-md); }
+  .bp-map-pool { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* 手机上卡片窄：地图名和状态小标上下排，不叠在一起 */
+  .bp-map-card { height: 58px; flex-direction: column; gap: 3px; font-size: var(--font-xs); }
+  .bp-map-card .map-name { padding: 0 6px; line-height: 1.25; }
+  .bp-map-card .map-status { position: static; }
+  .roll-dice { width: 60px; height: 60px; font-size: var(--font-2xl); }
+}
