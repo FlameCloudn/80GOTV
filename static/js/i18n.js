@@ -1326,7 +1326,12 @@
     '已有队标，如无需更换请勿选择新文件': 'A logo is already set. Leave this empty to keep it.',
     '支持 PNG、JPG、WebP、GIF 图片格式（最大 2MB）': 'PNG, JPG, WebP or GIF (max 2 MB)',
     '上传后会自动去掉纯色背景、裁掉多余空白并居中；原图另外备份，不会丢失':
-      'Uploads are cleaned up automatically: solid backgrounds removed, extra margins trimmed and the logo centred. The original is kept as a backup.'
+      'Uploads are cleaned up automatically: solid backgrounds removed, extra margins trimmed and the logo centred. The original is kept as a backup.',
+    // —— 第三版前台（2026-10 重构）新增的界面文字 ——
+    '搜索选手、战队、赛事...': 'Search players, teams, events...',
+    '快捷导航': 'Quick navigation',
+    '时间待定': 'Time TBD',
+    '分页': 'Pagination'
   };
   var partialTranslations = [
     // 对阵图保存失败的原因（前面会带“保存失败：”）

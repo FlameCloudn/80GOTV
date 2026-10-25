@@ -1,0 +1,129 @@
+/* 首页：左栏排行 / 中间新闻 / 右栏比赛（两侧栏同宽） */
+.home-grid {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr) 240px;
+  gap: var(--site-gap);
+  align-items: start;
+}
+
+.home-left-col,
+.home-main-col,
+.home-right-col {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--site-gap);
+}
+
+/* 焦点新闻：整张卡片可点；右下角压一个很淡的站标，让首页有一点分量 */
+.home-feature {
+  position: relative;
+  overflow: hidden;
+  min-height: 188px;
+  padding: var(--space-xl) var(--space-2xl) var(--space-lg);
+  background: linear-gradient(115deg, var(--accent-soft), transparent 60%), var(--bg-card);
+}
+
+.home-feature-link { position: absolute; inset: 0; z-index: 1; border-radius: inherit; }
+.home-feature h1 { position: relative; max-width: 86%; margin: var(--space-md) 0 var(--space-sm); font-size: var(--font-2xl); line-height: 1.25; transition: color var(--transition-fast); }
+.home-feature:hover h1 { color: var(--accent); }
+.home-feature p { position: relative; max-width: 78%; color: var(--text-secondary); line-height: 1.7; }
+.home-feature-foot { position: relative; display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-md); margin-top: var(--space-lg); }
+.home-feature-meta { color: var(--text-muted); font-size: var(--font-xs); }
+
+.home-feature-mark {
+  position: absolute;
+  right: 20px;
+  bottom: -18px;
+  width: 176px;
+  height: 176px;
+  background: var(--text-primary);
+  opacity: .06;
+  -webkit-mask: url('../../logos/80gotv-silhouette.png') center / contain no-repeat;
+  mask: url('../../logos/80gotv-silhouette.png') center / contain no-repeat;
+  pointer-events: none;
+}
+
+/* 队伍排行 */
+.h-rank-num {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  display: inline-grid;
+  place-items: center;
+  color: var(--text-muted);
+  background: var(--surface-soft);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-xs);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.h-rank-num.top { color: var(--accent); background: var(--accent-soft); }
+.h-side-row .grow { display: grid; gap: 1px; }
+.h-side-row small.meta { white-space: nowrap; }
+
+/* 新闻列表 */
+.h-news-row { gap: var(--space-lg); }
+.h-news-meta { display: flex; gap: var(--space-sm); }
+
+/* 今日比赛 */
+.h-match-mini { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; gap: var(--space-sm); }
+.h-mini-status { color: var(--text-muted); font-size: var(--font-xs); font-variant-numeric: tabular-nums; }
+.h-mini-status.live { display: inline-flex; align-items: center; gap: 5px; color: var(--live); font-weight: 700; }
+.h-mini-status.live::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: live-pulse 1.6s ease-in-out infinite; }
+.h-mini-teams { display: grid; gap: 2px; min-width: 0; font-size: var(--font-sm); }
+.h-mini-teams b { overflow: hidden; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.h-mini-bo { padding: 1px 6px; color: var(--text-muted); background: var(--surface-soft); border-radius: var(--radius-sm); font-size: 10px; font-weight: 600; }
+
+/* 论坛动态 */
+.h-activity-count {
+  min-width: 24px;
+  padding: 1px 6px;
+  color: var(--text-muted);
+  background: var(--surface-soft);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-xs);
+  text-align: center;
+}
+
+/* 近期赛果：两队向中间的比分靠拢，胜者正常色，负者变淡 */
+.h-result-mini {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: var(--space-sm);
+  font-size: var(--font-sm);
+}
+
+.h-result-team { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.h-result-team.right { justify-content: flex-end; }
+.h-result-team.win { color: var(--text-primary); font-weight: 600; }
+.h-result-team.lose { color: var(--text-muted); }
+
+.h-result-score {
+  min-width: 46px;
+  padding: 2px 6px;
+  background: var(--surface-soft);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-xs);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+/* 平板：右栏留在旁边，左栏三块挪到下面并排 */
+@media (max-width: 1080px) {
+  .home-grid { grid-template-columns: minmax(0, 1fr) 260px; }
+  .home-left-col { order: 3; grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 760px) {
+  .home-grid { grid-template-columns: minmax(0, 1fr); }
+  .home-left-col { display: none; }
+  .home-right-col.is-empty-mobile > .home-today { display: none; }
+  .home-feature { min-height: 0; padding: var(--space-lg); }
+  .home-feature h1 { max-width: none; font-size: var(--font-xl); }
+  .home-feature p { max-width: none; font-size: var(--font-sm); }
+  .home-feature-mark { width: 120px; height: 120px; right: 8px; bottom: -14px; }
+  .h-news-row { flex-wrap: wrap; row-gap: 2px; }
+  .h-news-row .grow { flex-basis: 100%; white-space: normal; }
+}

@@ -1,14 +1,20 @@
 {% extends 'base.html' %}
 {% block title %}赛果 - 80GOTV{% endblock %}
-{% block layout_class %}results-layout-shell{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ versioned_url('static/css/pages/schedule.css') }}">{% endblock %}
+{% block layout_class %}results-layout-shell no-side-layout{% endblock %}
 {% block main %}
-<div class="results-page-layout">
-  <aside class="results-filter-sidebar">
-    <section class="h-panel">
-      <div class="h-panel-title">赛事筛选</div>
-      <nav class="results-event-filter" aria-label="赛事筛选">
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>RESULTS</span><h1>赛果</h1></div>
+  {% if total_pages > 1 %}<p class="page-head-meta">第 {{ page }} / {{ total_pages }} 页</p>{% endif %}
+</header>
+
+<div class="schedule-layout">
+  <aside class="schedule-side results-filter-sidebar">
+    <section class="panel">
+      <div class="panel-head"><h2 class="panel-title">赛事筛选</h2></div>
+      <nav class="filter-nav results-event-filter" aria-label="赛事筛选">
         <a href="{{ url_for('results_list') }}" class="{% if not event_filter %}active{% endif %}">
-          <span>全部赛事</span>
+          <span class="match-filter-name">全部赛事</span>
         </a>
         {% for e in events %}
         <a href="{{ url_for('results_list') }}?event={{ e.id }}" class="{% if event_filter==e.id|string %}active{% endif %}">
@@ -20,7 +26,7 @@
     </section>
   </aside>
 
-  <section class="results-list-panel">
+  <section class="schedule-main results-list-panel">
     <form class="mobile-result-event-filter" method="get" action="{{ url_for('results_list') }}">
       <label for="mobileResultEvent">赛事</label>
       <select id="mobileResultEvent" name="event" onchange="this.form.submit()">
@@ -30,61 +36,67 @@
         {% endfor %}
       </select>
     </form>
-    <div class="hltv-list-head">
-      <span>最新赛果</span>
-      {% if total_pages > 1 %}<small>第 {{ page }} / {{ total_pages }} 页</small>{% endif %}
+
+    <div class="panel">
+      <div class="panel-head hltv-list-head">
+        <h2 class="panel-title">最新赛果</h2>
+        {% if total_pages > 1 %}<small class="panel-count">第 {{ page }} / {{ total_pages }} 页</small>{% endif %}
+      </div>
+      <div class="result-list">
+        {% set ns = namespace(day=None) %}
+        {% for m in matches %}
+        {% set day = (m.match_time or '')[:10] %}
+        {% if day != ns.day %}
+        <div class="schedule-day-head result-time">{{ m.match_time|date_display }}</div>
+        {% set ns.day = day %}
+        {% endif %}
+        {% set scored = m.team1_score is not none and m.team2_score is not none %}
+        {% set t1_won = scored and m.team1_score > m.team2_score %}
+        {% set t2_won = scored and m.team2_score > m.team1_score %}
+        <a class="result-row" href="/matches/{{ m.slug or m.id }}">
+          <span class="result-score-group">
+            <span class="result-team-cell team-left">
+              <span class="result-team-name {% if t1_won %}won{% elif t2_won %}lost{% endif %}" data-i18n-ignore>{{ m.team1_name }}</span>
+              {% if m.team1_logo %}
+              <img class="team-logo result-team-logo" src="{{ m.team1_logo|team_logo_url }}" alt="" loading="lazy">
+              {% else %}
+              <span class="logo-fallback result-team-logo-fallback" data-i18n-ignore>{{ (m.t1s or m.team1_name or 'T1')[:2]|upper }}</span>
+              {% endif %}
+            </span>
+
+            <span class="result-big-score">
+              <span class="{% if t1_won %}result-win{% elif t2_won %}result-lose{% endif %}">{{ m.team1_score if m.team1_score is not none else '-' }}</span>
+              <span class="result-score-colon">:</span>
+              <span class="{% if t2_won %}result-win{% elif t1_won %}result-lose{% endif %}">{{ m.team2_score if m.team2_score is not none else '-' }}</span>
+            </span>
+
+            <span class="result-team-cell team-right">
+              {% if m.team2_logo %}
+              <img class="team-logo result-team-logo" src="{{ m.team2_logo|team_logo_url }}" alt="" loading="lazy">
+              {% else %}
+              <span class="logo-fallback result-team-logo-fallback" data-i18n-ignore>{{ (m.t2s or m.team2_name or 'T2')[:2]|upper }}</span>
+              {% endif %}
+              <span class="result-team-name {% if t2_won %}won{% elif t1_won %}lost{% endif %}" data-i18n-ignore>{{ m.team2_name }}</span>
+            </span>
+          </span>
+
+          <span class="result-event" data-i18n-ignore>{{ m.event_name }}</span>
+          <span class="result-bo">{{ m.bo_format }}</span>
+        </a>
+        {% endfor %}
+      </div>
+
+      {% if not matches %}
+      <div class="empty-state">暂无赛果</div>
+      {% endif %}
     </div>
-    <div class="result-list">
-      {% for m in matches %}
-      <a class="result-row" href="/matches/{{ m.slug or m.id }}">
-        <span class="result-time">{{ m.match_time|date_display }}</span>
-
-        <span class="result-score-group">
-          <span class="result-team-cell team-left">
-            <span class="result-team-name {% if m.team1_score is not none and m.team2_score is not none and m.team1_score > m.team2_score %}won{% elif m.team1_score is not none and m.team2_score is not none and m.team1_score < m.team2_score %}lost{% endif %}" data-i18n-ignore>{{ m.team1_name }}</span>
-            {% if m.team1_logo %}
-            <img class="result-team-logo" src="{{ m.team1_logo|team_logo_url }}" alt="" loading="lazy">
-            {% else %}
-            <span class="result-team-logo-fallback" data-i18n-ignore>{{ (m.t1s or m.team1_name or 'T1')[:2]|upper }}</span>
-            {% endif %}
-          </span>
-
-          <span class="result-big-score">
-            <span class="{% if m.team1_score is not none and m.team2_score is not none and m.team1_score > m.team2_score %}result-win{% elif m.team1_score is not none and m.team2_score is not none and m.team1_score < m.team2_score %}result-lose{% endif %}">{{ m.team1_score if m.team1_score is not none else '-' }}</span>
-            <span class="result-score-colon">:</span>
-            <span class="{% if m.team1_score is not none and m.team2_score is not none and m.team2_score > m.team1_score %}result-win{% elif m.team1_score is not none and m.team2_score is not none and m.team2_score < m.team1_score %}result-lose{% endif %}">{{ m.team2_score if m.team2_score is not none else '-' }}</span>
-          </span>
-
-          <span class="result-team-cell team-right">
-            {% if m.team2_logo %}
-            <img class="result-team-logo" src="{{ m.team2_logo|team_logo_url }}" alt="" loading="lazy">
-            {% else %}
-            <span class="result-team-logo-fallback" data-i18n-ignore>{{ (m.t2s or m.team2_name or 'T2')[:2]|upper }}</span>
-            {% endif %}
-            <span class="result-team-name {% if m.team1_score is not none and m.team2_score is not none and m.team2_score > m.team1_score %}won{% elif m.team1_score is not none and m.team2_score is not none and m.team2_score < m.team1_score %}lost{% endif %}" data-i18n-ignore>{{ m.team2_name }}</span>
-          </span>
-        </span>
-
-        <span class="result-event" data-i18n-ignore>{{ m.event_name }}</span>
-        <span class="result-bo">{{ m.bo_format }}</span>
-      </a>
-      {% endfor %}
-    </div>
-
-    {% if not matches %}
-    <div class="card empty-state">暂无赛果</div>
-    {% endif %}
 
     {% if total_pages > 1 %}
-    <div class="pagination">
-      {% if page > 1 %}
-      <a href="?page={{ page - 1 }}&event={{ event_filter }}">&laquo; 上一页</a>
-      {% endif %}
-      <span>第 {{ page }} / {{ total_pages }} 页</span>
-      {% if page < total_pages %}
-      <a href="?page={{ page + 1 }}&event={{ event_filter }}">下一页 &raquo;</a>
-      {% endif %}
-    </div>
+    <nav class="pager" aria-label="分页">
+      {% if page > 1 %}<a href="?page={{ page - 1 }}&event={{ event_filter }}">&laquo; 上一页</a>{% endif %}
+      <span class="current">第 {{ page }} / {{ total_pages }} 页</span>
+      {% if page < total_pages %}<a href="?page={{ page + 1 }}&event={{ event_filter }}">下一页 &raquo;</a>{% endif %}
+    </nav>
     {% endif %}
   </section>
 </div>

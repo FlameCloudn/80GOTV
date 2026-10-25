@@ -29,7 +29,7 @@ def index():
         top_player = top_players[0] if top_players else None
 
         team_ranking = conn.execute(f"""
-            SELECT t.id, t.name, t.short_name,
+            SELECT t.id, t.name, t.short_name, t.logo,
                    COUNT(m.id) AS match_count,
                    SUM(CASE
                        WHEN (m.team1_id=t.id AND m.team1_score>m.team2_score)

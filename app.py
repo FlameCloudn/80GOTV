@@ -1,6 +1,7 @@
 """80GOTV 启动入口。具体页面按功能放在 routes/ 目录。"""
 
 import logging
+import os
 
 from blueprints.admin import admin_bp
 from config import validate_production_config
@@ -40,16 +41,16 @@ app.register_blueprint(admin_bp)
 
 
 def _local_server_options():
+    """本地运行：默认 5000 端口；想同时开两份网站时，用环境变量 PORT 换一个端口。"""
     return {
         "debug": False,
         "use_reloader": False,
-        "port": 5000,
+        "port": int(os.environ.get("PORT") or 5000),
         "host": "127.0.0.1",
     }
 
 
 if __name__ == "__main__":
-    import os
     from logging.handlers import RotatingFileHandler
 
     from config import BASE_DIR

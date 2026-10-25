@@ -1,27 +1,34 @@
 {% extends 'base.html' %}
 {% block title %}新闻 - 80GOTV{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ versioned_url('static/css/pages/news.css') }}">{% endblock %}
+{% block layout_class %}narrow-layout no-side-layout{% endblock %}
 {% block main %}
-<div class="card-list h-compact-list">
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>NEWS</span><h1>新闻</h1></div>
+</header>
+
+{% if news %}
+<div class="panel list news-list">
   {% for n in news %}
-  <article class="card news-card full-click-news-card">
+  <article class="list-row news-card full-click-news-card">
     <a class="news-card-link" href="{{ news_path(n) }}" aria-label="{{ n.title }}"></a>
-    <div class="news-title">{{ n.title }}</div>
-    <div class="news-summary">{{ n.summary }}</div>
-    <div class="meta">{{ n.author }} · {{ n.publish_time|datetime_display }} · 评论 {{ n.comment_count }}</div>
+    <div class="grow">
+      <h2 class="news-title" data-i18n-ignore>{{ n.title }}</h2>
+      {% if n.summary %}<p class="news-summary" data-i18n-ignore>{{ n.summary }}</p>{% endif %}
+      <div class="meta news-meta"><span data-i18n-ignore>{{ n.author }}</span> · {{ n.publish_time|datetime_display }} · 评论 {{ n.comment_count }}</div>
+    </div>
   </article>
   {% endfor %}
 </div>
-{% if not news %}<div class="card empty-state">暂无新闻</div>{% endif %}
+{% else %}
+<div class="panel empty-state">暂无新闻</div>
+{% endif %}
 
 {% if total_pages > 1 %}
-<div class="pagination">
-  {% if page > 1 %}
-  <a href="?page={{ page - 1 }}">&laquo; 上一页</a>
-  {% endif %}
-  <span>第 {{ page }} / {{ total_pages }} 页</span>
-  {% if page < total_pages %}
-  <a href="?page={{ page + 1 }}">下一页 &raquo;</a>
-  {% endif %}
-</div>
+<nav class="pager" aria-label="分页">
+  {% if page > 1 %}<a href="?page={{ page - 1 }}">&laquo; 上一页</a>{% endif %}
+  <span class="current">第 {{ page }} / {{ total_pages }} 页</span>
+  {% if page < total_pages %}<a href="?page={{ page + 1 }}">下一页 &raquo;</a>{% endif %}
+</nav>
 {% endif %}
 {% endblock %}

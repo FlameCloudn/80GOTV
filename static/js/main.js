@@ -225,68 +225,42 @@ if (searchToggle && searchForm) {
   });
 })();
 
-// ==================== 移动端汉堡菜单 ====================
+// ==================== 手机抽屉菜单 ====================
+// 手机上 #navPanel（导航 + 账号 + 主题 + 语言）变成右侧抽屉，顶栏下面盖一层半透明遮罩。
 const hamburger = document.getElementById('hamburger');
 const navLinks = document.getElementById('navLinks');
-let mobileNavUnderlay = null;
+const navPanel = document.getElementById('navPanel') || navLinks;
+const siteNavbar = document.querySelector('.navbar');
 
-function ensureMobileNavUnderlay(){
-  if (mobileNavUnderlay || !hamburger) return mobileNavUnderlay;
-  const navInner = hamburger.closest('.nav-inner');
-  if (!navInner) return null;
-
-  const shell = document.createElement('div');
-  const clone = navInner.cloneNode(true);
-  shell.className = 'mobile-nav-underlay-shell';
-  shell.setAttribute('aria-hidden', 'true');
-  shell.setAttribute('inert', '');
-  clone.querySelectorAll('[id]').forEach(function(el){
-    el.removeAttribute('id');
-  });
-  const clonedLinks = clone.querySelector('.nav-links');
-  const clonedMenuButton = clone.querySelector('.hamburger');
-  if (clonedLinks) clonedLinks.classList.remove('open');
-  if (clonedMenuButton) clonedMenuButton.setAttribute('aria-expanded', 'false');
-  shell.appendChild(clone);
-  shell.addEventListener('click', function(e){
-    e.preventDefault();
-    e.stopPropagation();
-    closeMenu();
-  });
-  document.body.appendChild(shell);
-  mobileNavUnderlay = shell;
-  return mobileNavUnderlay;
-}
-
-function setMobileNavUnderlayVisible(isVisible){
-  const shell = isVisible ? ensureMobileNavUnderlay() : mobileNavUnderlay;
-  if (shell) shell.classList.toggle('visible', isVisible);
+function setMenuOpen(isOpen){
+  if (!hamburger || !navLinks) return;
+  navLinks.classList.toggle('open', isOpen);
+  if (siteNavbar) siteNavbar.classList.toggle('menu-open', isOpen);
+  document.documentElement.classList.toggle('menu-open', isOpen);
+  hamburger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  hamburger.setAttribute('aria-label', isOpen ? '关闭菜单' : '打开菜单');
 }
 
 function closeMenu(){
-  navLinks.classList.remove('open');
-  hamburger.setAttribute('aria-expanded', 'false');
-  hamburger.setAttribute('aria-label', '打开菜单');
+  setMenuOpen(false);
   setSearchOpen(false);
-  setMobileNavUnderlayVisible(false);
-  navLinks.querySelectorAll('.nav-dropdown.expanded').forEach(function(item){
-    item.classList.remove('expanded');
-  });
-  navLinks.querySelectorAll('.nav-dropdown-toggle').forEach(function(toggle){
-    toggle.setAttribute('aria-expanded', 'false');
+}
+
+if (searchToggle) {
+  // 打开搜索时先收起抽屉，两个浮层不叠在一起
+  searchToggle.addEventListener('click', function(){
+    if (searchForm && searchForm.classList.contains('open')) setMenuOpen(false);
   });
 }
+
 if(hamburger && navLinks){
   hamburger.addEventListener('click', ()=>{
     if (navLinks.classList.contains('open')) {
       closeMenu();
       return;
     }
-    ensureMobileNavUnderlay();
-    navLinks.classList.add('open');
-    hamburger.setAttribute('aria-expanded', 'true');
-    hamburger.setAttribute('aria-label', '关闭菜单');
-    setMobileNavUnderlayVisible(true);
+    setSearchOpen(false);
+    setMenuOpen(true);
   });
 
   // 点击菜单项后关闭菜单
@@ -296,20 +270,14 @@ if(hamburger && navLinks){
     });
   });
 
-  // 点击外部关闭菜单
+  // 点击抽屉外面（包括遮罩）关闭菜单
   document.addEventListener('click', (e)=>{
-    var menuTools = [
-      document.getElementById('searchToggle'),
-      document.getElementById('searchForm'),
-      document.getElementById('themeToggle'),
-      document.querySelector('.user-nav')
-    ];
-    var clickedMenuTool = menuTools.some(function(el) {
-      return el && el.contains(e.target);
-    });
-    if(!hamburger.contains(e.target) && !navLinks.contains(e.target) && !clickedMenuTool){
-      closeMenu();
-    }
+    if (!navLinks.classList.contains('open')) return;
+    var searchToggleButton = document.getElementById('searchToggle');
+    var insideMenu = navPanel.contains(e.target) || hamburger.contains(e.target) ||
+      (searchToggleButton && searchToggleButton.contains(e.target)) ||
+      (searchForm && searchForm.contains(e.target));
+    if (!insideMenu) closeMenu();
   });
 
   document.addEventListener('keydown', function(e){

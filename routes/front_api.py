@@ -193,6 +193,8 @@ def _match_payload(match):
         "team2": _text(_get(match, "team2_name", "TBD") or "TBD"),
         "team1_full": _text(_get(match, "team1_name", "TBD")),
         "team2_full": _text(_get(match, "team2_name", "TBD")),
+        "team1_short": _text(_get(match, "t1s", "")),
+        "team2_short": _text(_get(match, "t2s", "")),
         "team1_logo": _logo_url(_get(match, "team1_logo", "")),
         "team2_logo": _logo_url(_get(match, "team2_logo", "")),
         "score1": match["team1_score"],
