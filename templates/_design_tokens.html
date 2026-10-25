@@ -49,6 +49,7 @@
 
   --color-white:#fff;
   --color-dark:#1b1f24;
+  --on-image-shadow:0 1px 3px rgba(0,0,0,.6);  /* 图片上的白字（地图条），深浅色模式都一样 */
 }
 
 /* ---------- 深色（默认） ---------- */
@@ -138,6 +139,24 @@
   --alert-success-bg:#e6f4ec;--alert-success-color:#185c38;--alert-success-border:#bfe0cc;
   --alert-error-bg:#fbeceb;--alert-error-color:#8a2a22;--alert-error-border:#f0c9c5;
   --alert-info-bg:#e9f1f9;--alert-info-color:#1d4f82;--alert-info-border:#c7dbef;
+}
+
+/* ---------- 旧名字（只为兼容个别还没改完的地方，全部指向上面的标准变量；新样式不要再用） ---------- */
+:root{
+  --panel-shadow:0 1px 2px var(--shadow);
+  --color-blue:var(--accent);
+  --color-win:var(--color-green);
+  --color-loss:var(--color-red);
+  --rating-good:var(--color-green);
+  --bg-secondary:var(--surface-soft);
+  --h-panel:var(--bg-card);
+  --h-panel-head:var(--surface-soft);
+  --h-panel-line:var(--border-color);
+  --h-panel-soft:var(--surface-soft);
+  --h-row:var(--bg-card);
+  --h-row-alt:var(--surface-soft);
+  --h-blue:var(--accent);
+  --h-shadow:var(--panel-shadow);
 }
 
 /* 样式文件还没下载完时，先铺好背景色，避免白屏闪一下 */

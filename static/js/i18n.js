@@ -1331,7 +1331,13 @@
     '搜索选手、战队、赛事...': 'Search players, teams, events...',
     '快捷导航': 'Quick navigation',
     '时间待定': 'Time TBD',
-    '分页': 'Pagination'
+    '分页': 'Pagination',
+    'BP 记录': 'Veto',
+    '禁图': 'BAN',
+    '决胜图': 'DECIDER',
+    '选边': 'Sides',
+    '上半场 / 下半场（蓝色 CT、橙色 T）': 'First half / second half (blue = CT, orange = T)',
+    '详细数据 →': 'Detailed stats →'
   };
   var partialTranslations = [
     // 对阵图保存失败的原因（前面会带“保存失败：”）

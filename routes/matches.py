@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from flask import jsonify, redirect, render_template, request, session, url_for
 
 from models import get_db
-from services.match_service import add_effective_event_status, supplement_temp_teams
+from services.match_service import add_effective_event_status, parse_bp_log, supplement_temp_teams
 from utils.helpers import (
     build_comment_tree,
     normalize_http_url,
@@ -812,9 +812,17 @@ def _render_match_detail(match_id):
             vote_data["user_voted"] = uv["voted_for"]
         conn.close()
 
+    # BP 记录拆成步骤（“T1 / T2”就是本场的队伍 1 / 队伍 2）
+    bp_view = parse_bp_log(
+        match["bp_process"],
+        ["T1", match["team1_name"], match["t1s"]],
+        ["T2", match["team2_name"], match["t2s"]],
+    )
+
     return render_template(
         "match_detail.html",
         match=match,
+        bp_view=bp_view,
         map_scores=map_scores,
         overall_t1=overall_t1,
         overall_t2=overall_t2,
