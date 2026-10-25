@@ -1305,6 +1305,9 @@ input[type='file']::file-selector-button {
 .team-chip > span, .team-chip > b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 a.team-chip:hover { color: var(--accent); }
 
+/* 作弊封禁印章图（选手列表、选手主页、个人主页共用；具体位置在各页面样式里） */
+.pac-avatar-overlay { pointer-events: none; user-select: none; object-fit: contain; opacity: .94; }
+
 /* 作弊者标记 */
 .cheater-badge {
   display: inline-flex;

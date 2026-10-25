@@ -1,0 +1,112 @@
+/* ==========================================================================
+   选手列表（/players）、MVP / EVP / TOP 10 荣誉页
+   ========================================================================== */
+
+/* ---------- 选手目录 ---------- */
+.player-team-filter { display: flex; align-items: center; gap: var(--space-sm); color: var(--text-secondary); font-size: var(--font-sm); }
+.player-team-filter select { width: 200px; }
+
+/* 首字母筛选：一排小格子，当前的高亮；放不下时横向滑动 */
+.player-initial-filter {
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+  padding: 3px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  scrollbar-width: none;
+}
+
+.player-initial-filter::-webkit-scrollbar { display: none; }
+
+.player-initial-filter a {
+  flex: 1 0 auto;
+  min-width: 32px;
+  height: 32px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 8px;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-sm);
+  font-weight: 600;
+}
+
+.player-initial-filter a:hover { color: var(--text-primary); background: var(--bg-hover); }
+.player-initial-filter a.active { color: var(--accent-contrast); background: var(--accent); }
+
+/* 选手卡片：头像在左，名字、注册日期在右；外校选手右上角一个地球 */
+.player-directory-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--space-sm); }
+
+.player-directory-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-md);
+  min-width: 0;
+  padding: var(--space-md);
+  color: var(--text-primary);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.player-directory-card:hover { color: var(--text-primary); background: var(--bg-hover); border-color: var(--border-strong); }
+.player-directory-card:hover strong { color: var(--accent); }
+
+.player-directory-avatar {
+  width: 52px;
+  height: 52px;
+  display: block;
+  object-fit: cover;
+  background: var(--surface-soft);
+  border-radius: 50%;
+}
+
+.player-directory-avatar-zirc { background-position: center 55%; background-repeat: no-repeat; background-size: 190%; }
+.player-directory-avatar-fallback { display: grid; place-items: center; color: var(--text-muted); font-size: var(--font-xl); font-weight: 700; }
+
+.player-directory-copy { display: grid; gap: 2px; min-width: 0; }
+.player-directory-copy strong { overflow: hidden; font-size: var(--font-md); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; transition: color var(--transition-fast); }
+.player-group-username { color: var(--text-muted); font-weight: 400; }
+.player-registered-date { color: var(--text-muted); font-size: var(--font-xs); }
+.player-country-slot { align-self: start; color: var(--text-muted); font-size: var(--font-sm); }
+.player-country-slot:empty { display: none; }
+
+/* 作弊封禁：红色印章盖在整张卡片上 */
+.player-directory-card.is-cheater .player-directory-avatar { filter: grayscale(1); }
+.player-directory-pac-overlay { position: absolute; z-index: 2; inset: 0; width: 100%; height: 100%; transform: scale(1.45) rotate(-4deg); }
+
+/* ---------- 荣誉页（MVP / EVP / TOP 10） ---------- */
+.player-awards-page { display: flex; flex-direction: column; gap: var(--site-gap); }
+.award-summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--site-gap); align-items: start; }
+.award-summary-row b { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+.award-summary-row-latest b { max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.award-empty-small { padding: var(--space-lg); }
+.award-year-table td.award-zero { color: var(--text-muted); }
+.award-year-table .award-player-link, .top10-table .award-player-link { font-weight: 600; }
+.award-total { font-weight: 700; }
+
+.top10-page-grid { display: grid; grid-template-columns: minmax(0, 1fr) var(--side-width); gap: var(--site-gap); align-items: start; }
+.top10-side-stack { display: flex; flex-direction: column; gap: var(--site-gap); }
+.top10-table th.top10-first-column, .top10-table td.top10-first-column { color: var(--color-gold); font-weight: 700; }
+
+@media (max-width: 900px) {
+  .award-summary-grid { grid-template-columns: minmax(0, 1fr); }
+  .top10-page-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 760px) {
+  .player-team-filter { width: 100%; }
+  .player-team-filter select { flex: 1 1 auto; width: auto; }
+  .player-initial-filter a { min-width: 40px; height: 40px; }   /* 手机上手指好点 */
+  .player-directory-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .player-directory-card { grid-template-columns: minmax(0, 1fr) auto; justify-items: start; gap: var(--space-sm); }
+  .player-directory-photo { grid-column: 1; }
+  .player-directory-copy { grid-column: 1 / -1; }
+  .player-country-slot { grid-column: 2; grid-row: 1; }
+  .player-directory-avatar { width: 44px; height: 44px; }
+}
