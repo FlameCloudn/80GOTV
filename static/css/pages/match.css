@@ -189,8 +189,10 @@
 }
 
 .bp-roll { display: inline-flex; align-items: baseline; gap: 6px; font-variant-numeric: tabular-nums; }
-.bp-roll b, .bp-order b { color: var(--text-secondary); font-weight: 600; }
-.bp-roll-win, .bp-roll-win b { color: var(--text-primary); font-weight: 700; }
+.bp-order b { color: var(--text-secondary); font-weight: 600; }
+/* Roll 点数：每一方“队名 + 点数”整组同一个深浅，赢的一方整组亮起来 */
+.bp-roll b { color: inherit; font-weight: 600; }
+.bp-roll-win { color: var(--text-primary); font-weight: 700; }
 .bp-note { padding: 0 var(--space-xs); color: var(--text-muted); font-size: var(--font-xs); }
 .bp-steps { display: grid; gap: 3px; }
 
@@ -274,7 +276,7 @@
 
 .ms-map-name {
   color: var(--color-white);
-  font-size: var(--font-lg);
+  font-size: var(--font-md);
   font-weight: 700;
   text-shadow: var(--on-image-shadow);
 }
