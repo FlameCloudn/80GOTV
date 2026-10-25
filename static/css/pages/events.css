@@ -1,0 +1,55 @@
+/* 赛事列表：左边日期块 + 名称、状态、赛制 */
+.events-view-tabs { align-self: flex-start; }
+.events-list-layout { display: flex; flex-direction: column; gap: var(--site-gap); }
+.events-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--site-gap); }
+.events-month { display: flex; flex-direction: column; gap: var(--space-sm); }
+.events-month-title { color: var(--text-muted); font-size: var(--font-sm); font-variant-numeric: tabular-nums; }
+
+.event-card {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-lg);
+  min-width: 0;
+  padding: var(--space-lg);
+  color: var(--text-primary);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.event-card:hover { color: var(--text-primary); border-color: var(--border-strong); background: var(--bg-hover); }
+.event-card:hover h3 { color: var(--accent); }
+
+.event-card-date {
+  flex: 0 0 auto;
+  width: 64px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 2px;
+  padding: var(--space-sm) 0;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: var(--radius-md);
+}
+
+.event-card-date b { font-size: var(--font-lg); font-weight: 700; font-variant-numeric: tabular-nums; }
+.event-card-date small { color: var(--text-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+.event-card-body { display: grid; align-content: center; gap: 6px; min-width: 0; }
+.event-card h3 { overflow: hidden; font-size: var(--font-lg); text-overflow: ellipsis; white-space: nowrap; transition: color var(--transition-fast); }
+.event-info { display: flex; align-items: center; flex-wrap: nowrap; gap: var(--space-sm); min-width: 0; }
+.event-list-date { min-width: 0; overflow: hidden; color: var(--text-secondary); font-size: var(--font-sm); text-overflow: ellipsis; white-space: nowrap; }
+.event-card .meta { color: var(--text-muted); font-size: var(--font-xs); }
+
+@media (max-width: 900px) {
+  .events-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 760px) {
+  .event-card { gap: var(--space-md); padding: var(--space-md); }
+  .event-card-date { width: 50px; }
+  .event-card-date b { font-size: var(--font-md); }
+  .event-card h3 { font-size: var(--font-md); }
+  .event-list-date { font-size: var(--font-xs); }
+}

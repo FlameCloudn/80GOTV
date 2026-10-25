@@ -1,23 +1,40 @@
 {% extends 'base.html' %}
-{% block layout_class %}event-detail-layout{% endblock %}
+{% block layout_class %}event-detail-layout no-side-layout{% endblock %}
 {% block title %}{{ event.name }} - 80GOTV{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ versioned_url('static/css/pages/event.css') }}">{% endblock %}
 {% block main %}
-<div class="event-header">
-  <h1>{{ event.name }}</h1>
-  <div class="event-meta">
-    <span class="status-badge status-{{ event.effective_event_status }}">
-      {% if event.effective_event_status == 'upcoming' %}即将开始
-      {% elif event.effective_event_status == 'ongoing' %}进行中
-      {% else %}已结束{% endif %}
-    </span>
-    <span>{{ event.start_date|date_display }} ~ {{ event.end_date|date_display }}</span>
-    <span>{{ event.format }}</span>
+<a href="/events" class="back-link btn-back">← 返回赛事列表</a>
+
+<section class="panel event-header">
+  <div class="event-header-main">
+    <div class="event-meta">
+      <span class="badge {% if event.effective_event_status == 'ongoing' %}badge-live{% elif event.effective_event_status == 'upcoming' %}badge-upcoming{% else %}badge-done{% endif %} status-badge status-{{ event.effective_event_status }}">
+        {% if event.effective_event_status == 'upcoming' %}即将开始
+        {% elif event.effective_event_status == 'ongoing' %}进行中
+        {% else %}已结束{% endif %}
+      </span>
+      <span>{{ event.start_date|date_display }} ~ {{ event.end_date|date_display }}</span>
+      <span>{{ event.format }}</span>
+    </div>
+    <h1 data-i18n-ignore>{{ event.name }}</h1>
+    {% if event.description %}<p class="event-description" data-i18n-ignore>{{ event.description }}</p>{% endif %}
+    <div class="event-header-actions">
+      <a href="{{ event_path(event) }}/stats" class="btn">赛事数据 →</a>
+    </div>
   </div>
-  <p>{{ event.description }}</p>
-  {% if event.registration_open or (event.effective_event_status == 'upcoming' and (registrations or individual_registration.count)) %}
+  <dl class="event-facts" aria-label="赛事信息">
+    <div><dt>赛制：</dt><dd>{{ event.format }}</dd></div>
+    <div><dt>队伍数：</dt><dd>{{ teams|length }}</dd></div>
+    <div><dt>比赛数：</dt><dd>{{ matches|length }}</dd></div>
+  </dl>
+  <span class="event-header-mark" aria-hidden="true"></span>
+</section>
+
+{% if event.registration_open or (event.effective_event_status == 'upcoming' and (registrations or individual_registration.count)) %}
+<section class="panel event-registration">
   {% if event.registration_open %}
   {% set event_login_next = event_path(event) %}
-  <div class="event-reg-banner">报名开放中
+  <div class="event-reg-banner"><strong>报名开放中</strong>
     {% if session.user_id and current_user and current_user.steam_id64 %}
     <button id="regOpenButton" type="button" onclick="showRegForm()" class="btn btn-primary"
             aria-haspopup="dialog" aria-controls="regOverlay" aria-expanded="false">创建队伍报名</button>
@@ -27,7 +44,7 @@
     <a href="/profile" class="btn btn-primary">去绑定</a>
     {% elif session.admin_id %}
     <span class="event-reg-hint">管理员账号不能报名，请使用选手账号登录</span>
-    <a href="/admin/logout" class="btn btn-secondary">退出管理员</a>
+    <a href="/admin/logout" class="btn">退出管理员</a>
     {% else %}
     <a href="{{ url_for('user_login', next=event_login_next) }}" class="btn btn-primary">登录后报名</a>
     {% endif %}
@@ -41,8 +58,8 @@
     {% include '_event_registration_list.html' %}
   </section>
   {% endif %}
-  {% endif %}
-</div>
+</section>
+{% endif %}
 
 {% if event.registration_open and session.user_id and current_user and current_user.steam_id64 %}
 <!-- 报名表单（弹窗） -->
@@ -78,7 +95,7 @@
       {% endfor %}
       <div class="event-modal-actions">
         <button type="submit" class="btn btn-primary">提交报名</button>
-        <button type="button" class="btn btn-secondary" onclick="hideRegForm()">取消</button>
+        <button type="button" class="btn" onclick="hideRegForm()">取消</button>
       </div>
     </form>
   </div>
@@ -112,63 +129,73 @@ function selectSlot(n){
 </script>
 {% endif %}
 
-<h3 class="section-title">参赛队伍</h3>
-<div class="teams-grid">
-  {% for t in teams %}
-  <div class="team-badge" data-tooltip>
-    {% if t.logo %}
-    <img class="event-team-logo" src="{{ t.logo|team_logo_url }}"
-         alt="{{ t.name }}" loading="lazy">
-    {% else %}
-    <div class="avatar event-team-logo-fallback" data-i18n-ignore>{{ (t.short_name or t.name)[0] }}</div>
-    {% endif %}
-    <span class="team-badge-name" data-i18n-ignore>{{ t.name }}</span>
-    {% if t.players %}
-    <div class="team-players-popup" data-i18n-ignore>
-      {% for p in t.players %}
-      {% set display_name = private_name_for_player(p.id, p.nickname) if private_name_for_player is defined else p.nickname %}
-      {% if p.id %}<a href="/players/{{ p.id }}" class="team-player-link">{% else %}<span class="team-player-link">{% endif %}
-        {% if p.avatar %}
-        <img class="team-player-avatar" src="{{ avatar_thumbnail_url(p.avatar) or '/static/avatars/default.png' }}" alt="{{ display_name }}"
-             loading="lazy" onerror="this.onerror=null;this.src='/static/avatars/default.png'">
-        {% else %}
-        <span class="team-player-avatar team-player-avatar-fallback" aria-hidden="true">{{ display_name[:1]|upper }}</span>
-        {% endif %}
-        <span>{{ display_name }}</span>
-      {% if p.id %}</a>{% else %}</span>{% endif %}
-      {% endfor %}
-    </div>
-    {% endif %}
-  </div>
-  {% endfor %}
-</div>
-
-<h3 class="section-title">比赛列表</h3>
-<div class="card-list">
-  {% for m in matches %}
-  {% set team1_is_assigned = m.team1_id or m.team1_players %}
-  {% set team2_is_assigned = m.team2_id or m.team2_players %}
-  <div class="event-match-flex">
-    <a class="card match-card" href="/matches/{{ m.slug or m.id }}">
-      <span class="team" data-i18n-ignore>{{ m.team1_name if team1_is_assigned else 'TBD' }}</span>
-      <span class="vs">
-        {% if m.effective_status == 'completed' %}
-          <b>{{ m.team1_score }} : {{ m.team2_score }}</b>
-        {% else %} 对阵 {% endif %}
-      </span>
-      <span class="team right" data-i18n-ignore>{{ m.team2_name if team2_is_assigned else 'TBD' }}</span>
-      <div class="meta">{{ m.bo_format or 'BO1' }} · {{ m.match_time|datetime_display if m.match_time else 'TBD' }}</div>
-    </a>
-    {% if m.effective_status not in ('completed', 'cancelled') %}
-      {% if session.get('user_id') %}
-      <a href="/bp/{{ m.id }}" class="event-bp-link">进入 BP</a>
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">参赛队伍 <span class="panel-count">{{ teams|length }}</span></h2></div>
+  <div class="teams-grid">
+    {% for t in teams %}
+    <div class="team-badge" data-tooltip tabindex="0">
+      {% if t.logo %}
+      <img class="event-team-logo" src="{{ t.logo|team_logo_url }}"
+           alt="{{ t.name }}" loading="lazy">
       {% else %}
-      <span class="event-bp-state">登录后进入 BP</span>
+      <div class="logo-fallback lg event-team-logo-fallback" data-i18n-ignore>{{ (t.short_name or t.name)[0] }}</div>
       {% endif %}
-    {% endif %}
+      <span class="team-badge-name" data-i18n-ignore>{{ t.name }}</span>
+      {% if t.players %}
+      <div class="team-players-popup" data-i18n-ignore>
+        {% for p in t.players %}
+        {% set display_name = private_name_for_player(p.id, p.nickname) if private_name_for_player is defined else p.nickname %}
+        {% if p.id %}<a href="/players/{{ p.id }}" class="team-player-link">{% else %}<span class="team-player-link">{% endif %}
+          {% if p.avatar %}
+          <img class="team-player-avatar" src="{{ avatar_thumbnail_url(p.avatar) or '/static/avatars/default.png' }}" alt="{{ display_name }}"
+               loading="lazy" onerror="this.onerror=null;this.src='/static/avatars/default.png'">
+          {% else %}
+          <span class="team-player-avatar team-player-avatar-fallback" aria-hidden="true">{{ display_name[:1]|upper }}</span>
+          {% endif %}
+          <span>{{ display_name }}</span>
+        {% if p.id %}</a>{% else %}</span>{% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
   </div>
-  {% endfor %}
-</div>
+  {% if not teams %}<div class="empty-state">暂无参赛队伍</div>{% endif %}
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">比赛列表 <span class="panel-count">{{ matches|length }}</span></h2></div>
+  <div class="card-list event-match-list">
+    {% for m in matches %}
+    {% set team1_is_assigned = m.team1_id or m.team1_players %}
+    {% set team2_is_assigned = m.team2_id or m.team2_players %}
+    {% set done = m.effective_status == 'completed' %}
+    {% set scored = done and m.team1_score is not none and m.team2_score is not none %}
+    {% set t1_won = scored and m.team1_score > m.team2_score %}
+    {% set t2_won = scored and m.team2_score > m.team1_score %}
+    <div class="event-match-flex">
+      <a class="card match-card" href="/matches/{{ m.slug or m.id }}">
+        <span class="team{% if t1_won %} won{% elif t2_won %} lost{% endif %}" data-i18n-ignore>{{ m.team1_name if team1_is_assigned else 'TBD' }}</span>
+        <span class="vs">
+          {% if done %}
+            <b>{{ m.team1_score }} : {{ m.team2_score }}</b>
+          {% else %} 对阵 {% endif %}
+        </span>
+        <span class="team right{% if t2_won %} won{% elif t1_won %} lost{% endif %}" data-i18n-ignore>{{ m.team2_name if team2_is_assigned else 'TBD' }}</span>
+        <div class="meta">{{ m.bo_format or 'BO1' }} · {{ m.match_time|datetime_display if m.match_time else 'TBD' }}</div>
+      </a>
+      {% if m.effective_status not in ('completed', 'cancelled') %}
+        {% if session.get('user_id') %}
+        <a href="/bp/{{ m.id }}" class="btn btn-sm event-bp-link">进入 BP</a>
+        {% else %}
+        <span class="event-bp-state">登录后进入 BP</span>
+        {% endif %}
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% if not matches %}<div class="empty-state">暂无比赛</div>{% endif %}
+</section>
 
 {% set bracket = event.bracket_data and event.bracket_data.strip() %}
 {% if bracket %}
@@ -194,12 +221,13 @@ function selectSlot(n){
 {% endfor %}
 {% endif %}
 
-<h3 class="section-title">对阵图<a href="{{ event_path(event) }}/stats" class="h-panel-link">赛事数据 →</a></h3>
+<section class="panel event-bracket-panel">
+<div class="panel-head"><h2 class="panel-title">对阵图</h2><a href="{{ event_path(event) }}/stats" class="panel-link h-panel-link">赛事数据 →</a></div>
 {% if tour.name or tour.type or tour.total_teams %}
 <div class="bracket-subtitle">
   {% if tour.name %}{{ tour.name }}{% endif %}
   {% if tour.type %}
-  <span class="bracket-type-tag">
+  <span class="badge badge-accent bracket-type-tag">
     {% if tour.type in ('double_elim','double_elimination','double') %}双败淘汰
     {% elif tour.type in ('single_elim','single_elimination','single') %}单败淘汰
     {% elif tour.type == 'swiss' %}瑞士轮
@@ -408,7 +436,7 @@ function selectSlot(n){
     {% endfor %}
   {% endif %}
   {# ── Elimination: canvas with SVG connectors ── #}
-  <div class="bracket-canvas">
+  <div class="bracket-canvas" data-format="{{ fmt_key }}">
     <svg class="bracket-connectors" viewBox="0 0 920 580" preserveAspectRatio="xMidYMid meet">
       {{ svg_connectors(fmt_key) }}
     </svg>
@@ -453,37 +481,38 @@ function selectSlot(n){
 {% endif %}
 </div>
 </div>
+</section>
 
 {% endif %}
 {% endif %}
 
 {% if event_map_pool %}
-<h3 class="section-title">赛事图池</h3>
-<div class="map-strips event-map-pool">
-  {% for map_name in event_map_pool %}
-  <div class="map-strip">
-    <div class="ms-top">
-      <span class="ms-top-wrap">
-        <img class="ms-top-img" src="{{ map_name|map_image }}" alt="{{ map_name|map_pool_label }}" loading="lazy">
-        <span class="ms-map-name">{{ map_name|map_pool_label }}</span>
-      </span>
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">赛事图池 <span class="panel-count">{{ event_map_pool|length }}</span></h2></div>
+  <div class="map-strips event-map-pool">
+    {% for map_name in event_map_pool %}
+    <div class="map-strip">
+      <div class="ms-top">
+        <span class="ms-top-wrap">
+          <img class="ms-top-img" src="{{ map_name|map_image }}" alt="{{ map_name|map_pool_label }}" loading="lazy">
+          <span class="ms-map-name">{{ map_name|map_pool_label }}</span>
+        </span>
+      </div>
     </div>
+    {% endfor %}
   </div>
-  {% endfor %}
-</div>
+</section>
 {% endif %}
 
-<a href="/events" class="btn-back">← 返回赛事列表</a>
-
 {% if award_players %}
-<section class="event-award-poster-section">
-  <h3 class="section-title">MVP / EVP 数据图</h3>
+<section class="panel event-award-poster-section">
+  <div class="panel-head"><h2 class="panel-title">MVP / EVP 数据图</h2></div>
   <div class="event-award-poster-grid">
     {% for player in award_players %}
     <figure class="event-award-poster-wrap">
       {% set award_display_name = private_name_for_player(player.id, player.nickname) if private_name_for_player is defined else player.nickname %}
       <img src="/events/{{ event.id }}/award-poster/{{ player.type }}/{{ player.id }}.png" alt="{{ award_display_name }} {{ player.type }} 数据图" loading="lazy">
-      <figcaption data-i18n-ignore>{{ player.type }}{% if player.type == 'EVP' and player.evp_rank %} #{{ player.evp_rank }}{% endif %} · {{ award_display_name }}</figcaption>
+      <figcaption data-i18n-ignore><span class="badge {% if player.type == 'MVP' %}badge-gold{% else %}badge-green{% endif %}">{{ player.type }}{% if player.type == 'EVP' and player.evp_rank %} #{{ player.evp_rank }}{% endif %}</span> {{ award_display_name }}</figcaption>
     </figure>
     {% endfor %}
   </div>
@@ -491,13 +520,4 @@ function selectSlot(n){
 {% endif %}
 {% endblock %}
 
-{% block side %}
-<section class="h-panel">
-  <div class="h-panel-title">赛事信息</div>
-  <div class="card small h-side-card">
-    <div><b>赛制：</b>{{ event.format }}</div>
-    <div><b>队伍数：</b>{{ teams|length }}</div>
-    <div><b>比赛数：</b>{{ matches|length }}</div>
-  </div>
-</section>
-{% endblock %}
+{% block side %}{% endblock %}

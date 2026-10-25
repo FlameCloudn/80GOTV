@@ -1145,6 +1145,47 @@ input[type='file']::file-selector-button {
 .score .loss, .loss { color: var(--color-red); }
 .score .sep { color: var(--text-muted); font-weight: 400; }
 
+/* 比赛条（赛事页、队伍页、搜索页共用）：队伍1 | 比分 | 队伍2 | 赛制与时间 */
+.card-list { display: flex; flex-direction: column; }
+
+.match-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) minmax(0, 200px);
+  align-items: center;
+  gap: var(--space-md);
+  min-height: 46px;
+  padding: 8px var(--space-lg);
+  color: var(--text-primary);
+  border-top: 1px solid var(--border-color);
+  transition: background var(--transition-fast);
+}
+
+.card-list > .match-card:first-child { border-top: 0; }
+.match-card:hover { color: var(--text-primary); background: var(--bg-hover); }
+.match-card .team { overflow: hidden; font-weight: 500; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+.match-card .team.right { text-align: left; }
+.match-card .team.won { font-weight: 700; }
+.match-card .team.lost { color: var(--text-muted); }
+
+.match-card .vs {
+  min-width: 64px;
+  padding: 3px 10px;
+  color: var(--text-muted);
+  background: var(--surface-soft);
+  border-radius: var(--radius-md);
+  font-size: var(--font-xs);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.match-card .vs b { color: var(--text-primary); font-size: var(--font-md); font-variant-numeric: tabular-nums; }
+.match-card .meta { overflow: hidden; color: var(--text-muted); font-size: var(--font-xs); text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+
+@media (max-width: 760px) {
+  .match-card { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); row-gap: 2px; padding: 8px var(--space-md); }
+  .match-card .meta { grid-column: 1 / -1; text-align: center; }
+}
+
 /* ---------- 11. 队标、头像 ---------- */
 .team-logo {
   flex: 0 0 auto;
