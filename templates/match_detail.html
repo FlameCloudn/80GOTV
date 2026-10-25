@@ -341,11 +341,10 @@
     <div class="mh-team-score {% if match.team2_score > match.team1_score %}won{% elif match.team2_score < match.team1_score %}lost{% endif %}">{{ match.team2_score }}</div>
     {% endif %}
   </div>
-  {% if match.effective_status in ('live', 'completed') %}
+  {% if match.effective_status == 'completed' %}
   <div class="mh-actions">
-    {% if match.effective_status == 'live' %}<a class="btn btn-sm" href="#data-live">数据直播</a>{% endif %}
-    {% if match.effective_status == 'completed' %}<a class="btn btn-sm" href="/matches/{{ match.id }}/report">比赛战报</a>{% endif %}
-    {% if match.effective_status == 'completed' %}<a class="btn btn-sm" href="/matches/{{ match.slug or match.id }}/poster">下载赛果海报</a>{% endif %}
+    <a class="btn btn-sm" href="/matches/{{ match.id }}/report">比赛战报</a>
+    <a class="btn btn-sm" href="/matches/{{ match.slug or match.id }}/poster">下载赛果海报</a>
   </div>
   {% endif %}
 </section>
