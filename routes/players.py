@@ -191,7 +191,7 @@ def _build_player_blocks(overall):
     player_category_cards = [
         {
             "title": "火力",
-            "desc": "综合击杀、伤害、多杀的火力输出",
+            "desc": "击杀、伤害和多杀，看能打出多少输出",
             "score": _pct(
                 rating_val * 0.4
                 + (overall["avg_kpr"] or 0) * 0.3
@@ -223,27 +223,27 @@ def _build_player_blocks(overall):
             ],
         },
         {
-            "title": "协作",
-            "desc": "补枪、救援队友的团队协作能力",
+            "title": "补枪",
+            "desc": "队友倒下后，能不能马上把对手补掉",
             "score": _pct(trade_kills / max(trade_kills + trade_deaths, 1) * 100, 60),
             "items": [
                 {
-                    "label": "补枪击杀/回合",
+                    "label": "每回合补枪",
                     "value": _fmt(trade_kills / rounds if rounds else 0),
                     "pct": _pct(trade_kills / rounds if rounds else 0, 0.25),
                 },
                 {
-                    "label": "补枪击杀占比",
+                    "label": "击杀中补枪占比",
                     "value": _fmt(trade_pct, 1, "%"),
                     "pct": _pct(trade_pct, 35),
                 },
                 {
-                    "label": "被补枪死亡/回合",
+                    "label": "每回合被补枪",
                     "value": _fmt(trade_deaths / rounds if rounds else 0),
                     "pct": _pct(trade_deaths / rounds if rounds else 0, 0.25),
                 },
                 {
-                    "label": "被补枪占比",
+                    "label": "死后被补枪比例",
                     "value": _fmt(trade_death_pct, 1, "%"),
                     "pct": _pct(trade_death_pct, 35),
                 },
@@ -256,18 +256,18 @@ def _build_player_blocks(overall):
         },
         {
             "title": "突破",
-            "desc": "率先对枪、为队伍打开局面的能力",
+            "desc": "第一个进点，替队伍打开局面",
             "score": _pct(
                 opening_success_rate * 0.5 + first_kills / rounds * 100 if rounds else 0, 60
             ),
             "items": [
                 {
-                    "label": "开局对枪参与率",
+                    "label": "首杀对枪参与率",
                     "value": _fmt(opening_attempts / rounds * 100 if rounds else 0, 1, "%"),
                     "pct": _pct(opening_attempts / rounds * 100 if rounds else 0, 35),
                 },
                 {
-                    "label": "被补率",
+                    "label": "死后被补枪比例",
                     "value": _fmt(trade_death_pct, 1, "%"),
                     "pct": _pct(trade_death_pct, 35),
                 },
@@ -277,7 +277,7 @@ def _build_player_blocks(overall):
                     "pct": _pct(trade_kills / rounds if rounds else 0, 0.25),
                 },
                 {
-                    "label": "每回合被补",
+                    "label": "每回合被补枪",
                     "value": _fmt(trade_deaths / rounds if rounds else 0),
                     "pct": _pct(trade_deaths / rounds if rounds else 0, 0.25),
                 },
@@ -285,11 +285,11 @@ def _build_player_blocks(overall):
         },
         {
             "title": "开局",
-            "desc": "首杀能力与开局对枪成功率",
+            "desc": "每回合第一次对枪（抢首杀）打不打得赢",
             "score": _pct(opening_success_rate, 75),
             "items": [
                 {
-                    "label": "开局成功率",
+                    "label": "首杀对枪胜率",
                     "value": _fmt(opening_success_rate, 1, "%"),
                     "pct": _pct(opening_success_rate, 75),
                 },
@@ -304,7 +304,7 @@ def _build_player_blocks(overall):
                     "pct": _pct(first_deaths / rounds if rounds else 0, 0.25),
                 },
                 {
-                    "label": "首杀/首死比",
+                    "label": "首杀首死比",
                     "value": _fmt(first_kills / first_deaths if first_deaths else 0),
                     "pct": _pct(first_kills / first_deaths if first_deaths else 0, 2),
                 },
@@ -312,7 +312,7 @@ def _build_player_blocks(overall):
         },
         {
             "title": "残局",
-            "desc": "1vn 残局处理能力",
+            "desc": "一打多的残局能力",
             "score": _pct(clutch_per_round * 100, 8),
             "items": [
                 {
@@ -321,17 +321,17 @@ def _build_player_blocks(overall):
                     "pct": _pct(overall["clutches_won"], max(maps, 1)),
                 },
                 {
-                    "label": "残局得分/回合",
+                    "label": "每回合残局分",
                     "value": _fmt(clutch_per_round),
                     "pct": _pct(clutch_per_round * 100, 6),
                 },
                 {
-                    "label": "下包数",
+                    "label": "下包次数",
                     "value": str(int(_num(overall["bomb_plants"]))),
                     "pct": _pct(overall["bomb_plants"], max(maps * 2, 1)),
                 },
                 {
-                    "label": "拆包数",
+                    "label": "拆包次数",
                     "value": str(int(_num(overall["bomb_defuses"]))),
                     "pct": _pct(overall["bomb_defuses"], max(maps, 1)),
                 },
@@ -339,7 +339,7 @@ def _build_player_blocks(overall):
         },
         {
             "title": "道具",
-            "desc": "投掷物伤害与闪光辅助",
+            "desc": "道具伤害和闪光帮队友",
             "score": _pct(
                 (overall["utility_damage_per_round"] or 0) * 8
                 + (_num(overall["enemies_flashed"]) / max(_num(overall["flash_count"]), 1)) * 20,
@@ -352,17 +352,17 @@ def _build_player_blocks(overall):
                     "pct": _pct(overall["utility_damage_per_round"], 10),
                 },
                 {
-                    "label": "总道具伤害",
+                    "label": "道具总伤害",
                     "value": str(int(utility_damage)),
                     "pct": _pct(utility_damage, max(rounds * 8, 1)),
                 },
                 {
-                    "label": "每回合致盲敌人",
+                    "label": "每回合闪白敌人",
                     "value": _fmt(_num(overall["enemies_flashed"]) / rounds if rounds else 0),
                     "pct": _pct(_num(overall["enemies_flashed"]) / rounds if rounds else 0, 0.9),
                 },
                 {
-                    "label": "闪光成功率",
+                    "label": "闪光命中率",
                     "value": _fmt(
                         _num(overall["enemies_flashed"])
                         / max(_num(overall["flash_count"]), 1)
@@ -420,7 +420,7 @@ def players_list():
         top10_page = build_top10_page(conn)
 
     query = """
-        SELECT p.*, t.name AS team_name, t.short_name AS team_short,
+        SELECT p.*, t.name AS team_name, t.short_name AS team_short, t.logo AS team_logo,
                (SELECT u.id FROM users u
                 WHERE u.steam_id64=p.steam_id
                 ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC
@@ -692,7 +692,7 @@ def player_detail(player_id):
     conn = get_db()
     player = conn.execute(
         """
-        SELECT p.*, t.name AS team_name, t.short_name AS team_short,
+        SELECT p.*, t.name AS team_name, t.short_name AS team_short, t.logo AS team_logo,
                (SELECT u.id FROM users u
                 WHERE u.steam_id64=p.steam_id
                 ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC
@@ -726,7 +726,7 @@ def player_detail(player_id):
         conn.commit()
         player = conn.execute(
             """
-            SELECT p.*, t.name AS team_name, t.short_name AS team_short,
+            SELECT p.*, t.name AS team_name, t.short_name AS team_short, t.logo AS team_logo,
                    (SELECT u.id FROM users u
                     WHERE u.steam_id64=p.steam_id
                     ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC
@@ -1238,7 +1238,7 @@ def player_stats_detail(player_id):
     conn = get_db()
     player = conn.execute(
         """
-        SELECT p.*, t.name AS team_name, t.short_name AS team_short,
+        SELECT p.*, t.name AS team_name, t.short_name AS team_short, t.logo AS team_logo,
                COALESCE((
                    SELECT NULLIF(TRIM(u.group_username), '')
                    FROM users u

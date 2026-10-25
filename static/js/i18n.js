@@ -154,10 +154,10 @@
     '统计总览': 'Statistics', 'RATING 趋势': 'RATING timeline', '数据统计': 'Statistics', '对': 'vs',
     '火力': 'Firepower', '协作': 'Trading', '突破': 'Entrying', '补枪': 'Trading', '开局': 'Opening', '残局': 'Clutches', '狙击': 'Sniping', '道具': 'Utility',
     '每回合击杀': 'Kills per round', '每回合伤害': 'Damage per round', 'K-D 差': 'K-D difference',
-    '影响力 RATING': 'Impact RATING', '多杀回合占比': 'Multi-kill rounds %', '爆头率': 'Headshot percentage', '每回合首杀': 'Opening kills per round',
+    '影响力 RATING': 'Impact RATING', '多杀回合占比': 'Rounds with a multi-kill', '爆头率': 'Headshot percentage', '每回合首杀': 'Opening kills per round',
     '每回合首死': 'Opening deaths per round', '开局对枪参与率': 'Opening attempts',
     '开局成功率': 'Opening success', '首杀后回合胜率': 'Win% after opening kill',
-    '被补率': 'Trade death rate', '每回合补枪': 'Trade kills / r', '每回合被补': 'Traded deaths / r',
+    '被补率': 'Trade death rate', '每回合补枪': 'Trade kills per round', '每回合被补': 'Traded deaths / r',
     '每回合补枪击杀': 'Trade kills per round', '每回合被补枪死亡': 'Trade deaths per round',
     '补枪击杀/回合': 'Trade kills / round', '被补枪死亡/回合': 'Trade deaths / round',
     '补枪击杀占比': 'Trade kills percentage', '被补枪死亡占比': 'Traded deaths percentage', '被补枪占比': 'Traded deaths %',
@@ -1339,7 +1339,31 @@
     '上半场 / 下半场（蓝色 CT、橙色 T）': 'First half / second half (blue = CT, orange = T)',
     '详细数据 →': 'Detailed stats →',
     '加时': 'Overtime',
-    '外校选手': 'Player from another school'
+    '外校选手': 'Player from another school',
+    '每回合被补枪': 'Traded deaths per round',
+    '击杀中补枪占比': 'Trade kills percentage',
+    '死后被补枪比例': 'Traded deaths percentage',
+    '首杀对枪参与率': 'Opening attempts',
+    '首杀对枪胜率': 'Opening success',
+    '首杀首死比': 'Opening kill ratio',
+    '每回合残局分': 'Clutch points per round',
+    '下包次数': 'Bomb plants',
+    '拆包次数': 'Bomb defuses',
+    '道具总伤害': 'Total utility damage',
+    '每回合闪白敌人': 'Enemies flashed per round',
+    '闪光命中率': 'Flash success',
+    '击杀、伤害和多杀，看能打出多少输出': 'Kills, damage and multi-kills',
+    '队友倒下后，能不能马上把对手补掉': 'Trading the enemy right after a teammate falls',
+    '第一个进点，替队伍打开局面': 'Going in first and opening up the round',
+    '每回合第一次对枪（抢首杀）打不打得赢': 'Winning the first duel of the round',
+    '一打多的残局能力': 'Winning 1vX situations',
+    '道具伤害和闪光帮队友': 'Utility damage and flashing for teammates',
+    '按每回合计算': 'Per round',
+    '选手数据': 'Player stats',
+    '生涯': 'Career',
+    '能力雷达图': 'Skill radar',
+    '我的备注': 'My note',
+    '仅你可见': 'Only you can see this'
   };
   var partialTranslations = [
     // 对阵图保存失败的原因（前面会带“保存失败：”）
@@ -1475,6 +1499,7 @@
   ];
   // 带数字或名字的句式：先于"零散词替换"执行，避免翻出"Page 1 次"这类半中半英的结果
   var zhToEnPatterns = [
+    [/(\d+)\s*张地图/g, '$1 maps'],
     // —— 整句优先：必须排在下面的通用句式之前 ——
     [/请先把\s*(\d+)\s*支队伍全部放入首轮/g, 'place all $1 teams in the first round first'],
     [/在\s*(\d+)\s*次机会内猜出今天的职业选手/g, 'Guess today’s pro player within $1 attempts'],

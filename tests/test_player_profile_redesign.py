@@ -287,7 +287,7 @@ class PlayerProfileRedesignTests(unittest.TestCase):
         )
 
     def test_player_styles_include_mobile_single_column_layout(self):
-        css_path = os.path.join(app.root_path, "static", "css", "player_profile_refresh.css")
+        css_path = os.path.join(app.root_path, "static", "css", "pages", "player.css")
         with open(css_path, encoding="utf-8") as css_file:
             css = css_file.read()
 
