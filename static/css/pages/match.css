@@ -295,8 +295,8 @@
   grid-template-rows: 26px 16px;
   align-items: center;
   column-gap: var(--space-md);
-  row-gap: 2px;
-  padding: 5px var(--space-md) 10.5px;
+  row-gap: 3px;
+  padding: 5px var(--space-md) 10px;
 }
 
 .ms-logo-left { grid-area: logo1; }
@@ -309,7 +309,8 @@
 .ms-score-right { grid-area: score2; justify-self: end; }
 .ms-stats-cell { grid-area: stats; justify-self: center; display: flex; align-items: center; }   /* 方块在格子里上下居中，不受文字基线影响 */
 .ms-half-cell { grid-area: halves; justify-self: center; display: flex; gap: 6px; white-space: nowrap; }
-.ms-logo, .ms-pick-cell { display: flex; justify-content: center; }
+/* 队标 + 选图这一组整体往下挪 3px，在卡片里上下更居中 */
+.ms-logo, .ms-pick-cell { position: relative; top: 3px; display: flex; justify-content: center; }
 .ms-icon { width: 26px; height: 26px; object-fit: contain; }
 
 /* 队名：往下挪 1px，和“数据”按钮的中线对齐（实测） */
@@ -343,13 +344,13 @@
 .ms-stats-btn {
   display: inline-flex;
   align-items: center;
-  height: 15px;
-  padding: 0 6px 1px;             /* 中文字本身偏下，底下多留 1px 让字在方块里上下居中 */
+  height: 16px;
+  padding: 0 7px 1px;             /* 中文字本身偏下，底下多留 1px 让字在方块里上下居中（中英文实测：上下空隙差 0.25px） */
   color: var(--text-secondary);
   background: var(--bg-hover);   /* 比卡片底色稍亮一点 */
   border: 1px solid var(--border-strong);
   border-radius: 3px;
-  font-size: 10px;                /* 和“选图”标签一样，14px 高的方块里放得下 */
+  font-size: 11px;
   line-height: 1;
   font-weight: 700;
   transition: color var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
@@ -358,7 +359,7 @@
 .ms-stats-btn:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
 
 /* 上下半场比分（加时另起一个括号）：数字颜色表示当时在 CT（蓝）还是 T（橙） */
-.ms-half-detail, .ms-ot-detail { color: var(--text-secondary); font-size: var(--font-sm); line-height: 16px; font-variant-numeric: tabular-nums; }
+.ms-half-detail, .ms-ot-detail { color: var(--text-secondary); font-size: var(--font-md); line-height: 16px; font-variant-numeric: tabular-nums; }
 .ms-half-detail .ct-side { color: var(--color-ct); }
 .ms-half-detail .t-side { color: var(--color-t); }
 
@@ -765,7 +766,7 @@
   .match-team-pop.right:hover .match-team-players-popup, .match-team-pop.right:focus-within .match-team-players-popup { transform: none; }
 
   .map-strips { padding: var(--space-sm); }
-  .ms-bottom { column-gap: var(--space-sm); padding: 5px var(--space-sm) 10.5px; }
+  .ms-bottom { column-gap: var(--space-sm); padding: 5px var(--space-sm) 10px; }
   .ms-full { display: none; }
   .ms-short { display: inline; }
 
