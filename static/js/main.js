@@ -106,7 +106,7 @@ function setSearchOpen(isOpen) {
   if (isOpen) {
     loadMobileSearchBrowse();
     if (searchInput) {
-      if (window.matchMedia('(max-width:760px)').matches) {
+      if (window.matchMedia('(max-width:960px)').matches) {
         searchInput.setAttribute('placeholder', ' ');
       }
       searchInput.focus();
@@ -301,7 +301,7 @@ if(hamburger && navLinks){
     toggle.setAttribute('aria-expanded', 'false');
 
     function isDesktop(){
-      return window.matchMedia('(min-width:761px)').matches;
+      return window.matchMedia('(min-width:961px)').matches;
     }
 
     function setOpen(open){
@@ -843,13 +843,13 @@ document.addEventListener('click', function(e) {
 // ==================== 顶部导航按实际宽度自动收纳 ====================
 // 登录后右侧多了通知、用户名、后台入口，英文菜单也更长，固定断点挡不住重叠。
 // 这里按真实宽度逐级收纳：1 级把次要入口收进“更多”，2 级压缩用户名和搜索框，
-// 3 级把赛果/赛事/论坛也收进“更多”。手机端（≤760px）用抽屉菜单，不参与。
+// 3 级把赛果/赛事/论坛也收进“更多”，4 级把搜索框收成放大镜按钮。窄屏（≤960px）顶栏用抽屉菜单，不参与。
 (function() {
   var navbar = document.querySelector('.navbar');
   var navLinks = document.getElementById('navLinks');
   var navInner = navbar && navbar.querySelector('.nav-inner');
   if (!navbar || !navLinks || !navInner) return;
-  var LEVEL_CLASSES = ['nav-fit-1', 'nav-fit-2', 'nav-fit-3'];
+  var LEVEL_CLASSES = ['nav-fit-1', 'nav-fit-2', 'nav-fit-3', 'nav-fit-4'];
   var pending = false;
 
   function navOverflows() {
@@ -865,7 +865,7 @@ document.addEventListener('click', function(e) {
 
   function fitNav() {
     pending = false;
-    if (window.innerWidth <= 760) {
+    if (window.matchMedia('(max-width:960px)').matches) {
       applyLevel(0);
       return;
     }

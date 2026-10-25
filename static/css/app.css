@@ -165,7 +165,8 @@ hr { height: 1px; margin: var(--space-lg) 0; border: 0; background: var(--border
 .search-toggle { order: 5; }
 .hamburger { order: 6; }
 
-@media (max-width: 760px) {
+/* 顶栏的“手机版”从 960px 开始用（照 HLTV 手机版）：平板竖着拿、窄窗口时登录后的工具区放不下，干脆换成抽屉菜单 */
+@media (max-width: 960px) {
   .search-toggle { order: 2; }
   .notif-bell { order: 3; }
 }
@@ -373,7 +374,7 @@ hr { height: 1px; margin: var(--space-lg) 0; border: 0; background: var(--border
   letter-spacing: .04em;
 }
 
-/* 导航按实际宽度自动收纳（main.js 加 nav-fit-1/2/3） */
+/* 导航按实际宽度自动收纳（main.js 逐级加 nav-fit-1/2/3/4） */
 .nav-more-compact { display: none; }
 .nav-more-compact .nav-more-extra { display: none; }
 
@@ -393,9 +394,32 @@ hr { height: 1px; margin: var(--space-lg) 0; border: 0; background: var(--border
 .navbar.nav-fit-3 .nav-links > .nav-forum-desktop { display: none; }
 .navbar.nav-fit-3 .nav-more-compact .nav-more-extra { display: block; }
 
-/* ---------- 4. 顶栏（手机） ---------- */
+/* 4 级（窄屏电脑、平板横放）：搜索框收成放大镜按钮，点开后在顶栏下方弹出 */
+.navbar.nav-fit-4 .search-toggle { display: inline-grid; order: 2; }
+.navbar.nav-fit-4 .search-toggle-back-icon { display: none; }
+.navbar.nav-fit-4 .search-form { display: none; }
+
+.navbar.nav-fit-4 .search-form.open {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: var(--space-lg);
+  z-index: 125;
+  display: block;
+  width: min(360px, calc(100vw - 2 * var(--space-lg)));
+  padding: var(--space-sm);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-raised);
+}
+
+/* ---------- 4. 顶栏（手机，≤960px） ---------- */
 @media (max-width: 760px) {
-  :root { --header-h: 48px; --site-gap: 12px; }
+  :root { --site-gap: 12px; }
+}
+
+@media (max-width: 960px) {
+  :root { --header-h: 48px; }
 
   .nav-inner {
     width: 100%;
@@ -626,7 +650,7 @@ hr { height: 1px; margin: var(--space-lg) 0; border: 0; background: var(--border
 .sd-sub { overflow: hidden; color: var(--text-muted); font-size: var(--font-xs); text-overflow: ellipsis; white-space: nowrap; }
 .search-dropdown-empty { padding: var(--space-md); color: var(--text-muted); font-size: var(--font-sm); text-align: center; }
 
-@media (max-width: 760px) {
+@media (max-width: 960px) {
   .search-form { display: none; width: auto; }
 
   .search-form.open {
