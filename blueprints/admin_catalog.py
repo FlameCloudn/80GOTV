@@ -39,6 +39,10 @@ def _team_form_values():
 def _team_validation_error(conn, name, short_name, exclude_id=None):
     if not name or not short_name:
         return "队名和简称不能为空"
+    if len(name) > 40:
+        return "队名不能超过 40 个字符"
+    if len(short_name) > 16:
+        return "简称不能超过 16 个字符"
     if _duplicate_value(conn, "teams", "name", name, exclude_id):
         return "已存在同名队伍"
     if _duplicate_value(conn, "teams", "short_name", short_name, exclude_id):

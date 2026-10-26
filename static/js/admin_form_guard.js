@@ -30,6 +30,10 @@
     // 上传文件：大小和格式（站内统一检查，见 site_dialogs.js 的 checkUploadFile）
     var fileProblem = el.type === 'file' && window.checkUploadFile ? window.checkUploadFile(el) : '';
     if (fileProblem) return fileProblem;
+    var maxBytes = Number(el.getAttribute('data-max-utf8-bytes'));
+    if (maxBytes > 0 && new Blob([el.value]).size > maxBytes) {
+      return t(el.getAttribute('data-msg-max-bytes'));
+    }
     var v = el.validity;
     if (v.valid) return '';
     var choose = el.tagName === 'SELECT' || el.type === 'radio' || el.type === 'checkbox';

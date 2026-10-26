@@ -17,6 +17,19 @@
   <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#16191d" media="(prefers-color-scheme: dark)">
   <title>{% block title %}80GOTV{% endblock %}</title>
+  {% set page_meta_title %}{% block meta_title %}{{ self.title()|striptags }}{% endblock %}{% endset %}
+  {% set page_meta_description %}{% block meta_description %}80GOTV CS2 赛事、比赛赛果、选手数据与社区资讯。{% endblock %}{% endset %}
+  {% set page_meta_description = page_meta_description|striptags|trim %}
+  {% set page_canonical_url = canonical_page_url(page if page is defined else none) %}
+  <meta name="description" content="{{ page_meta_description }}">
+  <link rel="canonical" href="{{ page_canonical_url }}">
+  <meta property="og:title" content="{{ page_meta_title|striptags|trim }}">
+  <meta property="og:description" content="{{ page_meta_description }}">
+  <meta property="og:url" content="{{ page_canonical_url }}">
+  <meta property="og:type" content="{% block og_type %}website{% endblock %}">
+  <meta property="og:image" content="{{ public_site_url(url_for('static', filename='logos/80gotv-mark.png')) }}">
+  <meta property="og:site_name" content="80GOTV">
+  <meta property="og:locale" content="zh_CN">
   <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="16x16 32x32 48x48">
   <script>
     // 提前应用主题，避免页面闪烁（必须在 CSS 之前执行）

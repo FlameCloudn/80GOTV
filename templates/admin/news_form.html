@@ -45,7 +45,7 @@
           </div>
         </div>
         <div id="editor" data-i18n-ignore class="news-editor" hidden></div>
-        <textarea name="content" id="contentTextarea" data-i18n-ignore rows="18" required aria-labelledby="contentLabel" placeholder="新闻正文内容...">{{ news.content if news else '' }}</textarea>
+        <textarea name="content" id="contentTextarea" data-i18n-ignore data-max-utf8-bytes="{{ max_news_content_bytes }}" data-msg-max-bytes="新闻正文不能超过 100KB" rows="18" required aria-labelledby="contentLabel" placeholder="新闻正文内容...">{{ news.content if news else '' }}</textarea>
       </div>
     </section>
 

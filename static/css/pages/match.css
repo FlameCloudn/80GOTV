@@ -8,6 +8,14 @@
    ========================================================================== */
 
 /* ---------- 1. 顶部横幅 ---------- */
+.match-detail-title {
+  margin: 0 0 var(--space-md);
+  font-size: var(--font-xl);
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
 .mh-banner,
 .match-stats-hero-card {
   position: relative;

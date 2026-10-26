@@ -17,11 +17,11 @@
       <div class="form-grid">
         <label class="field">
           <span class="field-label">队名 <span class="field-required">*</span></span>
-          <input type="text" name="name" value="{{ team.name if team else '' }}" required placeholder="例如：星辰电竞社">
+          <input type="text" name="name" value="{{ team.name if team else '' }}" maxlength="40" required placeholder="例如：星辰电竞社">
         </label>
         <label class="field">
           <span class="field-label">简称 <span class="field-required">*</span></span>
-          <input type="text" name="short_name" value="{{ team.short_name if team else '' }}" required placeholder="例如：STAR">
+          <input type="text" name="short_name" value="{{ team.short_name if team else '' }}" maxlength="16" required placeholder="例如：STAR">
         </label>
       </div>
     </section>

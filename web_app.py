@@ -35,6 +35,7 @@ from services.player_remark_service import (
 from services.team_logo_service import team_logo_url
 from utils.db_helpers import MAX_TEAM_LOGO_UPLOAD_BYTES, avatar_static_filename
 from utils.helpers import event_abbr, event_path, news_path, normalize_map_key, team_abbr
+from utils.seo import canonical_page_url, public_site_url
 from utils.web_helpers import safe_redirect_target, validate_admin_session
 
 logger = logging.getLogger("80gotv")
@@ -91,6 +92,8 @@ app.template_filter("event_abbr")(event_abbr)
 app.template_filter("bilibili_embed")(bilibili_embed_filter)
 app.jinja_env.globals["event_path"] = event_path
 app.jinja_env.globals["news_path"] = news_path
+app.jinja_env.globals["public_site_url"] = public_site_url
+app.jinja_env.globals["canonical_page_url"] = canonical_page_url
 app.jinja_env.globals["private_name_for_player"] = private_name_for_player
 app.jinja_env.globals["private_name_for_user"] = private_name_for_user
 app.jinja_env.globals["private_remark_for_player"] = private_remark_for_player

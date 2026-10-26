@@ -17,6 +17,8 @@ from utils.helpers import normalize_internal_path, sanitize_html
 from utils.web_helpers import admin_required as login_required
 from utils.web_helpers import csrf_required
 
+MAX_NEWS_CONTENT_BYTES = 100 * 1024
+
 RECENT_MATCHES_SQL = """SELECT m.id, m.event_id, m.match_time, m.team1_id, m.team2_id,
     m.team1_players, m.team2_players, m.team1_score, m.team2_score,
     t1.name AS team1_name, t2.name AS team2_name, t1.short_name AS t1s, t2.short_name AS t2s,
@@ -46,10 +48,14 @@ def _news_form_values():
 def _news_validation_error(conn, values, exclude_id=None):
     if not values["title"]:
         return "新闻标题不能为空"
+    if len(values["content"].encode("utf-8")) > MAX_NEWS_CONTENT_BYTES:
+        return "新闻正文不能超过 100KB"
     try:
         values["content"] = normalize_news_reference_blocks(conn, values["content"], request.host)
     except NewsReferenceError as error:
         return str(error)
+    if len(values["content"].encode("utf-8")) > MAX_NEWS_CONTENT_BYTES:
+        return "新闻正文不能超过 100KB"
     plain_content = re.sub(r"<[^>]+>", "", values["content"]).replace("&nbsp;", "").strip()
     if not plain_content:
         return "新闻正文不能为空"
@@ -80,7 +86,12 @@ def _news_validation_error(conn, values, exclude_id=None):
 def _render_news_form(conn, news, status=200):
     recent_matches = _recent_matches(conn)
     conn.close()
-    return render_template("admin/news_form.html", news=news, recent_matches=recent_matches), status
+    return render_template(
+        "admin/news_form.html",
+        news=news,
+        recent_matches=recent_matches,
+        max_news_content_bytes=MAX_NEWS_CONTENT_BYTES,
+    ), status
 
 
 @admin_bp.route("/news")

@@ -2,6 +2,8 @@
 {% set player_private_remark = private_remark_for_player(player.id) %}
 {% set player_display_name = player_private_remark or player.nickname %}
 {% block title %}{{ player_display_name }} - 80GOTV{% endblock %}
+{% block meta_title %}{{ player.nickname }} - 80GOTV{% endblock %}
+{% block meta_description %}{{ player.nickname }} 的 CS2 比赛记录与选手数据。{% endblock %}
 {% block layout_class %}player-profile-layout no-side-layout{% endblock %}
 {% block head %}<link rel="stylesheet" href="{{ versioned_url('static/css/pages/player.css') }}">{% endblock %}
 

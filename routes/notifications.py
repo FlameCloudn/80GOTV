@@ -25,10 +25,12 @@ def notifications_list():
 def notification_read(notif_id):
     """标记单条已读"""
     with db() as conn:
-        conn.execute(
+        updated = conn.execute(
             "UPDATE notifications SET is_read=1 WHERE id=? AND user_id=?",
             (notif_id, session["user_id"]),
-        )
+        ).rowcount
+        if updated != 1:
+            return jsonify({"success": False, "error": "通知不存在"}), 404
     return jsonify({"success": True})
 
 

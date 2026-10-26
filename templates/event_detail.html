@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% block layout_class %}event-detail-layout no-side-layout{% endblock %}
 {% block title %}{{ event.name }} - 80GOTV{% endblock %}
+{% block meta_description %}{{ (event.description or (event.name ~ ' 的 CS2 赛事信息、赛程与赛果。'))|striptags|truncate(160, true, '...') }}{% endblock %}
 {% block head %}<link rel="stylesheet" href="{{ versioned_url('static/css/pages/event.css') }}">{% endblock %}
 {% block main %}
 <a href="/events" class="back-link btn-back">← 返回赛事列表</a>

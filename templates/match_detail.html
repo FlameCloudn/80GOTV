@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% block title %}{{ match.team1_name }} vs {{ match.team2_name }} - 80GOTV{% endblock %}
+{% block meta_description %}{{ match.team1_name }} 对阵 {{ match.team2_name }}，{{ match.bo_format or 'BO1' }} 比赛信息、比分与数据。{% endblock %}
 {% block head %}<link rel="stylesheet" href="{{ versioned_url('static/css/pages/match.css') }}">{% endblock %}
 {% block layout_class %}match-detail-layout{% endblock %}
 
@@ -93,6 +94,7 @@
 {% endmacro %}
 
 {% block main %}
+<h1 class="match-detail-title" data-i18n-ignore>{{ match.team1_name }} vs {{ match.team2_name }}</h1>
 {% set shown_map_scores = map_scores|selectattr('display')|list %}
 {% set detail_map_scores = map_scores|rejectattr('name', 'equalto', 'TBA')|list %}
 {% set bo_upper = (match.bo_format or 'BO1')|upper %}

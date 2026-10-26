@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% block title %}{{ team.name }} - 80GOTV{% endblock %}
+{% block meta_description %}{{ (team.description or (team.name ~ ' 的 CS2 队伍资料、阵容与比赛记录。'))|striptags|truncate(160, true, '...') }}{% endblock %}
 {% block head %}<link rel="stylesheet" href="{{ versioned_url('static/css/pages/teams.css') }}">{% endblock %}
 {% block layout_class %}no-side-layout{% endblock %}
 

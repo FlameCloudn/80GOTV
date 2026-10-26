@@ -1,5 +1,7 @@
 {% extends 'base.html' %}
 {% block title %}{{ news.title }} - 80GOTV{% endblock %}
+{% block meta_description %}{{ (news.summary or news.content or news.title)|striptags|truncate(160, true, '...') }}{% endblock %}
+{% block og_type %}article{% endblock %}
 {% block head %}
 <link rel="stylesheet" href="{{ versioned_url('static/css/pages/news.css') }}">
 <link rel="stylesheet" href="{{ versioned_url('static/css/news-reference.css') }}">

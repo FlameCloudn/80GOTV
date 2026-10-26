@@ -53,6 +53,7 @@ def validate_image_content(file_stream, *, max_bytes=MAX_IMAGE_UPLOAD_BYTES):
         Image.DecompressionBombWarning,
         UnidentifiedImageError,
         OSError,
+        SyntaxError,
         ValueError,
     ):
         file_stream.seek(0)
