@@ -63,7 +63,7 @@ test('news reference inserts without erasing text, survives undo and repeated ed
   await editor.press('Control+z');
   await expect(editor.locator('.news-reference')).toHaveCount(0);
   await expect(editor).toContainText('Before the reference.');
-  await editor.press('Control+y');
+  await editor.press('Control+Shift+z');
   await expect(editor.locator('.news-reference')).toHaveCount(1);
   await saveAndReopen(page, title);
   const firstParagraphs = await editor.locator('p').allTextContents();
