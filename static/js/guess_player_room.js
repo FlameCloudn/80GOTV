@@ -7,11 +7,7 @@
   var form = document.getElementById('guessRoomForm');
   var query = document.getElementById('guessPlayerQuery');
   var playerId = document.getElementById('guessPlayerId');
-  var options = Array.prototype.slice.call(document.querySelectorAll('#guessPlayerOptions option'));
-  var optionMap = {};
-  options.forEach(function (option) {
-    optionMap[option.value.trim().toLocaleLowerCase()] = option.dataset.playerId;
-  });
+  var search = window.initGuessPlayerSearch();
   var pollTimer = null;
   var submitting = false;
 
@@ -51,7 +47,16 @@
       var row = document.createElement('tr');
       row.appendChild(clueCell(result.nickname, result.name_state));
       row.appendChild(clueCell(result.affiliation || '未知', result.team_state));
-      row.appendChild(clueCell(result.country_flag || '未知', result.country_state));
+      var country = clueCell(result.country_flag ? '' : '未知', result.country_state);
+      if (result.country_flag) {
+        var flag = document.createElement('span');
+        flag.className = 'guess-country-flag';
+        flag.textContent = result.country_flag;
+        flag.setAttribute('aria-label', result.country_name || result.country_flag);
+        country.title = result.country_name || '';
+        country.appendChild(flag);
+      }
+      row.appendChild(country);
       row.appendChild(numericCell(result.age == null ? '未知' : String(result.age), result.age_feedback));
       row.appendChild(clueCell(roleLabel(result.role), result.role_state));
       row.appendChild(numericCell(
@@ -128,17 +133,17 @@
   query.addEventListener('input', function () {
     query.removeAttribute('aria-invalid');
     window.dismissToast('guess-form');
-    playerId.value = optionMap[(query.value || '').trim().toLocaleLowerCase()] || '';
+    search.resolve();
   });
 
   form.addEventListener('submit', function (event) {
     event.preventDefault();
-    var resolvedId = optionMap[(query.value || '').trim().toLocaleLowerCase()] || '';
-    if (!resolvedId) {
+    if (!search.resolve()) {
       showFormError('请从候选列表中选择一名选手', true);
       query.focus();
       return;
     }
+    var resolvedId = playerId.value;
     if (submitting) return;
     submitting = true;
     window.dismissToast('guess-form');
@@ -159,6 +164,7 @@
     }).then(function (payload) {
       query.value = '';
       playerId.value = '';
+      search.reset();
       renderState(payload.state);
     }).catch(function (requestError) {
       showFormError(requestError.message || '提交失败', false);

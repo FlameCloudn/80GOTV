@@ -63,7 +63,20 @@
 .guess-results-table .clue-close { color: var(--color-white); background: var(--guess-close); }
 .guess-results-table .clue-wrong { color: var(--text-primary); background: var(--guess-wrong); }
 .guess-results-table .clue-neutral { color: var(--text-muted); background: var(--bg-hover); }
-.guess-country-flag { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 24px; font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif; font-size: var(--font-xl); line-height: 1; }
+@font-face {
+  font-family: "Twemoji Country Flags";
+  src: url("../fonts/country-flags/TwemojiCountryFlags.woff2") format("woff2");
+  font-display: swap;
+  unicode-range: U+1F1E6-1F1FF, U+1F3F4, U+E0061-E007A, U+E007F;
+}
+.guess-country-flag { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 24px; font-family: "Twemoji Country Flags", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; font-size: 22px; line-height: 1; }
+.guess-suggestions { position: absolute; z-index: 20; inset: 100% 0 auto; max-height: 288px; overflow-y: auto; margin: 4px 0 0; padding: 4px 0; list-style: none; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--bg-card); box-shadow: 0 4px 12px var(--shadow); }
+.guess-suggestions[hidden] { display: none; }
+.guess-suggestions li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 9px 12px; cursor: pointer; }
+.guess-suggestions li:hover, .guess-suggestions li[aria-selected="true"] { background: var(--bg-hover); }
+.guess-suggestions strong, .guess-suggestions small { min-width: 0; overflow-wrap: anywhere; }
+.guess-suggestions strong { font-size: var(--font-md); }
+.guess-suggestions small { color: var(--text-muted); font-size: var(--font-xs); text-align: right; }
 
 /* 高低箭头：纯边框画的小三角 */
 .guess-arrow { display: inline-block !important; width: 0 !important; height: 0 !important; margin-left: 6px; background: transparent !important; border-right: 5px solid transparent !important; border-left: 5px solid transparent !important; vertical-align: middle; }

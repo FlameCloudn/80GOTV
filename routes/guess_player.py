@@ -52,10 +52,18 @@ def _resolve_player(conn, pool_mode="pro"):
         ).fetchone()
     if not guessed and player_query:
         guessed = conn.execute(
-            f"""SELECT * FROM guess_players WHERE active=1{extra} AND
-               (LOWER(nickname)=LOWER(?) OR LOWER(full_name)=LOWER(?))""",
+            f"""SELECT * FROM guess_players WHERE active=1{extra}
+                AND LOWER(nickname)=LOWER(?) ORDER BY nickname=? DESC, id LIMIT 1""",
             (player_query, player_query),
         ).fetchone()
+        if not guessed:
+            real_names = conn.execute(
+                f"""SELECT * FROM guess_players WHERE active=1{extra}
+                    AND LOWER(full_name)=LOWER(?) LIMIT 2""",
+                (player_query,),
+            ).fetchall()
+            if len(real_names) == 1:
+                guessed = real_names[0]
     return guessed
 
 

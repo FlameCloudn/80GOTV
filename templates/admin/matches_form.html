@@ -479,18 +479,8 @@ function toggleSide(num) {
 }
 
 function toggleTestMode() {
-  var testMode = document.getElementById('testMode');
-  var participants = document.getElementById('matchParticipants');
-  if (!testMode || !participants) return;
-  var isTest = testMode.checked;
-  participants.hidden = isTest;
-  participants.querySelectorAll('input, select, textarea').forEach(function (control) {
-    control.disabled = isTest;
-  });
-  if (!isTest) {
-    toggleSide('1');
-    toggleSide('2');
-  }
+  toggleSide('1');
+  toggleSide('2');
 }
 
 // 观赛平台链接：每行“平台名 + 地址 + 删除”

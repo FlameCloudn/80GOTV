@@ -6,29 +6,17 @@
     if (!form) return;
 
     var query = document.getElementById('guessPlayerQuery');
-    var playerId = document.getElementById('guessPlayerId');
-    var options = Array.prototype.slice.call(
-      document.querySelectorAll('#guessPlayerOptions option')
-    );
-
-    function resolveSelection() {
-      var value = (query.value || '').trim().toLocaleLowerCase();
-      var match = options.find(function (option) {
-        return option.value.trim().toLocaleLowerCase() === value;
-      });
-      playerId.value = match ? match.dataset.playerId : '';
-      return Boolean(match);
-    }
+    var search = window.initGuessPlayerSearch();
 
     // 没从候选里选中：输入框标红、右上角提示；重新输入时去掉
     query.addEventListener('input', function () {
       query.removeAttribute('aria-invalid');
       window.dismissToast('guess-form');
-      resolveSelection();
+      search.resolve();
     });
 
     form.addEventListener('submit', function (event) {
-      if (!resolveSelection()) {
+      if (!search.resolve()) {
         event.preventDefault();
         query.setAttribute('aria-invalid', 'true');
         query.focus();

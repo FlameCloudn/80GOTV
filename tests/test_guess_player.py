@@ -333,9 +333,11 @@ class GuessPlayerTests(unittest.TestCase):
 
     def test_comparison_marks_close_age_and_higher_answer(self):
         conn = get_db()
-        guessed = conn.execute("SELECT * FROM guess_players WHERE nickname='NiKo'").fetchone()
-        answer = conn.execute("SELECT * FROM guess_players WHERE nickname='rain'").fetchone()
+        guessed = dict(conn.execute("SELECT * FROM guess_players WHERE nickname='NiKo'").fetchone())
+        answer = dict(conn.execute("SELECT * FROM guess_players WHERE nickname='rain'").fetchone())
         conn.close()
+        guessed.update(birth_date="", profile_age=29)
+        answer.update(birth_date="", profile_age=31)
 
         result = compare_players(guessed, answer, date(2026, 7, 14))
         self.assertEqual(result["age_feedback"]["state"], "close")

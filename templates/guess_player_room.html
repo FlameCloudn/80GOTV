@@ -91,5 +91,6 @@
 {% block side %}{% endblock %}
 {% block extra_js %}
 <script>window.guessRoomInitialState = {{ state|tojson }};</script>
+<script src="{{ versioned_url('static/js/guess_player_search.js') }}"></script>
 <script src="{{ versioned_url('static/js/guess_player_room.js') }}"></script>
 {% endblock %}

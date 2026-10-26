@@ -1637,7 +1637,53 @@
     '请按 Ctrl+C 复制进服指令：': 'Press Ctrl+C to copy the connect command:',
     '已撤销上一步 BP': 'The last BP step was undone',
     '撤销失败': 'Undo failed',
-    '网络错误，撤销失败': 'Network error, undo failed'
+    '网络错误，撤销失败': 'Network error, undo failed',
+    '当前筛选下暂无可对比数据': 'No comparable data for the current filters',
+    '比赛添加成功': 'Match added', '比赛更新成功': 'Match updated', '比赛删除成功': 'Match deleted',
+    '队伍添加成功': 'Team added', '队伍更新成功': 'Team updated', '队伍删除成功': 'Team deleted',
+    '选手添加成功': 'Player added', '选手更新成功': 'Player updated', '选手删除成功': 'Player deleted',
+    '赛事添加成功': 'Event added', '赛事更新成功': 'Event updated', '赛事删除成功': 'Event deleted',
+    '新闻添加成功': 'News added', '新闻更新成功': 'News updated', '新闻删除成功': 'News deleted',
+    '对阵图保存成功': 'Bracket saved',
+    '比赛保存失败': 'Match save failed', '数据保存失败': 'Stats save failed',
+    '对阵图保存失败': 'Bracket save failed', '删除失败': 'Deletion failed', '导入失败': 'Import failed',
+    '队名和简称不能为空': 'Team name and short name are required',
+    '已存在同名队伍': 'A team with this name already exists',
+    '已存在相同简称的队伍': 'A team with this short name already exists',
+    '选手昵称不能为空': 'Player nickname is required',
+    '已存在同名选手': 'A player with this nickname already exists',
+    'Steam ID 必须为 17 位数字': 'Steam ID must contain 17 digits',
+    '该 Steam ID 已绑定其他选手': 'This Steam ID is linked to another player',
+    '所选队伍无效': 'The selected team is invalid', '所选队伍不存在': 'The selected team does not exist',
+    '请选择赛事': 'Select an event', '所选赛事不存在': 'The selected event does not exist',
+    '比赛时间不能为空': 'Match time is required', 'BO 格式无效': 'Invalid best-of format',
+    '两支队伍不能相同': 'The two teams must be different',
+    '两边不能选择同一名选手': 'The same player cannot play on both sides',
+    '相同赛事、时间和参赛方的比赛已存在': 'A match with the same event, time and participants already exists',
+    '比分尚未达到该赛制的获胜条件': 'The score has not reached the winning condition for this format',
+    '比赛保存失败，请稍后重试': 'The match could not be saved. Please try again later.',
+    '比赛结束失败，所有变更均未保存，请稍后重试': 'The match could not be completed. No changes were saved. Please try again later.',
+    '重新开启失败，所有变更均未保存，请稍后重试': 'The match could not be reopened. No changes were saved. Please try again later.',
+    '比赛已重新开启': 'Match reopened', '比赛未发生变化': 'The match was not changed',
+    '已结束比赛的 Demo 数据不可修改': 'Demo stats cannot be changed after the match has finished',
+    '请选择本场已有地图': 'Select a map from this match',
+    '该地图比分尚未确认，不能按旧的 30 回合默认值保存': 'The map score has not been confirmed; the old default of 30 rounds cannot be used',
+    '请至少选择一个 .dem 文件': 'Select at least one .dem file',
+    '请选择至少一个有效 Demo，未保存任何导入数据': 'Select at least one valid demo. No imported data was saved.',
+    'Demo 数据格式无效，整批导入未保存': 'Invalid demo data format. The entire import was not saved.',
+    '赛事名和简称不能为空': 'Event name and short name are required',
+    '开始时间和结束时间不能为空': 'Start and end times are required',
+    '结束时间不能早于开始时间': 'The end time cannot be earlier than the start time',
+    '赛事状态无效': 'Invalid event status',
+    '该网址名称是其他赛事使用过的旧地址': 'This URL name was previously used by another event',
+    '新闻标题不能为空': 'News title is required', '新闻正文不能为空': 'News body is required',
+    '已存在同标题新闻': 'A news article with this title already exists',
+    '关联比赛不存在': 'The linked match does not exist',
+    '跳转地址只能填写本站路径或 80gotv.cn 地址': 'The redirect must be a path on this site or an 80gotv.cn URL',
+    '跳转地址不能指向当前新闻自身': 'The redirect cannot point to this article itself',
+    '该队伍仍被选手、比赛或赛事数据使用，不能直接删除': 'This team is still used by player, match or event records and cannot be deleted',
+    '该选手仍被账号、比赛或荣誉数据使用，不能直接删除': 'This player is still used by account, match or award records and cannot be deleted',
+    '该赛事仍有比赛或报名数据，不能直接删除': 'This event still has matches or registrations and cannot be deleted'
   };
   var partialTranslations = [
     // 对阵图保存失败的原因（前面会带“保存失败：”）
@@ -1797,6 +1843,12 @@
     [/领先\s*(\d+)\s*项/g, 'Better in $1 stats'],
     // —— 整句优先：必须排在下面的通用句式之前 ——
     // 后台新版（2026-10-26）：带数字的整句
+    [/^(\d{4}-\d{2}-\d{2})\s*的比赛$/g, 'Matches on $1'],
+    [/^(.+)\s+数据已保存$/g, '$1 stats saved'],
+    [/^比赛已结束，新增保存\s*(\d+)\s*条 Game Log$/g, 'Match completed; $1 new Game Log entries saved'],
+    [/^批量导入完成：\s*(\d+)\s*个 Demo 已导入$/g, 'Bulk import complete: $1 demos imported'],
+    [/^当前比赛最多只能上传\s*(\d+)\s*个 Demo$/g, 'This match allows up to $1 demo uploads'],
+    [/^地图编号超出当前比赛范围：\s*(\d+)$/g, 'Map number is outside this match: $1'],
     [/^([\d.]+)\s*小时$/g, '$1 h'],
     [/^更新于\s*/g, 'Updated '],
     [/^查看队伍管理，共\s*(\d+)\s*支队伍$/g, 'Open team management ($1 teams)'],
@@ -1986,6 +2038,10 @@
     var deletionLabel = trimmed.match(/^删除(赛事|队伍|选手|新闻)\s+([\s\S]+)$/);
     if (deletionLabel) {
       return value.replace(trimmed, translations['删除' + deletionLabel[1]] + ' ' + deletionLabel[2]);
+    }
+    var failedAction = trimmed.match(/^(比赛保存失败|数据保存失败|对阵图保存失败|删除失败|导入失败)[:：]\s*([\s\S]+)$/);
+    if (failedAction) {
+      return value.replace(trimmed, translations[failedAction[1]] + ': ' + translateZhToEn(failedAction[2]));
     }
     if (translations[trimmed]) return formatDatesForLanguage(value.replace(trimmed, translations[trimmed]));
     if (PART_SEPARATOR.test(trimmed)) {
