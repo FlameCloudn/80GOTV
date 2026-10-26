@@ -1,0 +1,18 @@
+{#- 数据统计各页共用的标签导航；数据统计首页（/stats）和排行子页（/stats/overview/...）都从这里引入 -#}
+{% macro stats_tabs(active_tab, qs_base) %}
+{% set tabs = [('overview', '总览'), ('players', '选手'), ('matches', '比赛'), ('events', '赛事'), ('maps', '地图'), ('compare', '对比')] %}
+<nav class="tabs stats-tabs" aria-label="数据统计导航">
+  {% for tab_id, tab_label in tabs %}
+  <a href="/stats?tab={{ tab_id }}&{{ qs_base }}" class="tab{% if active_tab == tab_id %} active{% endif %}"{% if active_tab == tab_id %} aria-current="page"{% endif %}>{{ tab_label }}</a>
+  {% endfor %}
+</nav>
+{% endmacro %}
+
+{#- 一行选手：头像 + 名字（排行表格的第一列） -#}
+{% macro player_cell(pid, nickname, avatar) %}
+{% set display_name = private_name_for_player(pid, nickname) %}
+<a href="/players/{{ pid }}" class="cell-entity dense-player">
+  {% if avatar %}<img class="avatar xs" src="{{ avatar_thumbnail_url(avatar) }}" alt="" loading="lazy">{% else %}<span class="avatar xs" data-i18n-ignore>{{ display_name[:1] }}</span>{% endif %}
+  <b data-i18n-ignore>{{ display_name }}</b>
+</a>
+{% endmacro %}

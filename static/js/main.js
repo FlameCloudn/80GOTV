@@ -31,7 +31,8 @@ function mobileSearchCard(item, type) {
   var label = item.nickname || item.name || '未命名';
   var meta = '';
   var image = '';
-  var initials = label.trim().slice(0, 2).toUpperCase();
+  // 队伍、赛事的占位缩写由后台统一算好（规则见 utils/helpers.py 的 team_abbr / event_abbr）
+  var initials = item.abbr || label.trim().slice(0, 2).toUpperCase();
   if (type === 'players') {
     if (item.group_username) label += ' @' + item.group_username;
     meta = item.team || '选手';
@@ -106,7 +107,7 @@ function setSearchOpen(isOpen) {
   if (isOpen) {
     loadMobileSearchBrowse();
     if (searchInput) {
-      if (window.matchMedia('(max-width:760px)').matches) {
+      if (window.matchMedia('(max-width:960px)').matches) {
         searchInput.setAttribute('placeholder', ' ');
       }
       searchInput.focus();
@@ -225,68 +226,42 @@ if (searchToggle && searchForm) {
   });
 })();
 
-// ==================== 移动端汉堡菜单 ====================
+// ==================== 手机抽屉菜单 ====================
+// 手机上 #navPanel（导航 + 账号 + 主题 + 语言）变成右侧抽屉，顶栏下面盖一层半透明遮罩。
 const hamburger = document.getElementById('hamburger');
 const navLinks = document.getElementById('navLinks');
-let mobileNavUnderlay = null;
+const navPanel = document.getElementById('navPanel') || navLinks;
+const siteNavbar = document.querySelector('.navbar');
 
-function ensureMobileNavUnderlay(){
-  if (mobileNavUnderlay || !hamburger) return mobileNavUnderlay;
-  const navInner = hamburger.closest('.nav-inner');
-  if (!navInner) return null;
-
-  const shell = document.createElement('div');
-  const clone = navInner.cloneNode(true);
-  shell.className = 'mobile-nav-underlay-shell';
-  shell.setAttribute('aria-hidden', 'true');
-  shell.setAttribute('inert', '');
-  clone.querySelectorAll('[id]').forEach(function(el){
-    el.removeAttribute('id');
-  });
-  const clonedLinks = clone.querySelector('.nav-links');
-  const clonedMenuButton = clone.querySelector('.hamburger');
-  if (clonedLinks) clonedLinks.classList.remove('open');
-  if (clonedMenuButton) clonedMenuButton.setAttribute('aria-expanded', 'false');
-  shell.appendChild(clone);
-  shell.addEventListener('click', function(e){
-    e.preventDefault();
-    e.stopPropagation();
-    closeMenu();
-  });
-  document.body.appendChild(shell);
-  mobileNavUnderlay = shell;
-  return mobileNavUnderlay;
-}
-
-function setMobileNavUnderlayVisible(isVisible){
-  const shell = isVisible ? ensureMobileNavUnderlay() : mobileNavUnderlay;
-  if (shell) shell.classList.toggle('visible', isVisible);
+function setMenuOpen(isOpen){
+  if (!hamburger || !navLinks) return;
+  navLinks.classList.toggle('open', isOpen);
+  if (siteNavbar) siteNavbar.classList.toggle('menu-open', isOpen);
+  document.documentElement.classList.toggle('menu-open', isOpen);
+  hamburger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  hamburger.setAttribute('aria-label', isOpen ? '关闭菜单' : '打开菜单');
 }
 
 function closeMenu(){
-  navLinks.classList.remove('open');
-  hamburger.setAttribute('aria-expanded', 'false');
-  hamburger.setAttribute('aria-label', '打开菜单');
+  setMenuOpen(false);
   setSearchOpen(false);
-  setMobileNavUnderlayVisible(false);
-  navLinks.querySelectorAll('.nav-dropdown.expanded').forEach(function(item){
-    item.classList.remove('expanded');
-  });
-  navLinks.querySelectorAll('.nav-dropdown-toggle').forEach(function(toggle){
-    toggle.setAttribute('aria-expanded', 'false');
+}
+
+if (searchToggle) {
+  // 打开搜索时先收起抽屉，两个浮层不叠在一起
+  searchToggle.addEventListener('click', function(){
+    if (searchForm && searchForm.classList.contains('open')) setMenuOpen(false);
   });
 }
+
 if(hamburger && navLinks){
   hamburger.addEventListener('click', ()=>{
     if (navLinks.classList.contains('open')) {
       closeMenu();
       return;
     }
-    ensureMobileNavUnderlay();
-    navLinks.classList.add('open');
-    hamburger.setAttribute('aria-expanded', 'true');
-    hamburger.setAttribute('aria-label', '关闭菜单');
-    setMobileNavUnderlayVisible(true);
+    setSearchOpen(false);
+    setMenuOpen(true);
   });
 
   // 点击菜单项后关闭菜单
@@ -296,20 +271,14 @@ if(hamburger && navLinks){
     });
   });
 
-  // 点击外部关闭菜单
+  // 点击抽屉外面（包括遮罩）关闭菜单
   document.addEventListener('click', (e)=>{
-    var menuTools = [
-      document.getElementById('searchToggle'),
-      document.getElementById('searchForm'),
-      document.getElementById('themeToggle'),
-      document.querySelector('.user-nav')
-    ];
-    var clickedMenuTool = menuTools.some(function(el) {
-      return el && el.contains(e.target);
-    });
-    if(!hamburger.contains(e.target) && !navLinks.contains(e.target) && !clickedMenuTool){
-      closeMenu();
-    }
+    if (!navLinks.classList.contains('open')) return;
+    var searchToggleButton = document.getElementById('searchToggle');
+    var insideMenu = navPanel.contains(e.target) || hamburger.contains(e.target) ||
+      (searchToggleButton && searchToggleButton.contains(e.target)) ||
+      (searchForm && searchForm.contains(e.target));
+    if (!insideMenu) closeMenu();
   });
 
   document.addEventListener('keydown', function(e){
@@ -333,7 +302,7 @@ if(hamburger && navLinks){
     toggle.setAttribute('aria-expanded', 'false');
 
     function isDesktop(){
-      return window.matchMedia('(min-width:761px)').matches;
+      return window.matchMedia('(min-width:961px)').matches;
     }
 
     function setOpen(open){
@@ -495,7 +464,9 @@ function escapeHtml(str) {
 }
 
 // ==================== 评论 AJAX 提交 ====================
-function buildCommentHTML(c) {
+// actionUrl：这条评论所在的提交地址（/comment/类型/编号）；新评论下面的回复框也要发到这里，
+// 不写的话浏览器会发到当前页面地址，服务器拒收（405），页面就只会提示“网络错误”
+function buildCommentHTML(c, actionUrl) {
   var avatarHtml;
   if (c.avatar) {
     avatarHtml = '<img src="/static/avatars/' + c.avatar + '" class="comment-avatar-img" alt="">';
@@ -517,7 +488,7 @@ function buildCommentHTML(c) {
   var adminBadge = ((c.username || '').toLowerCase() == 'flamecloud_') ? '<span class="admin-badge-small">ADMIN</span> ' : '';
   var cheaterBadge = c.is_cheater ? '<span class="cheater-badge" title="该用户已被标记为作弊者">作弊者</span>' : '';
   var replyForm = window._curUserId ?
-    '<form class="reply-form" id="reply-form-' + c.id + '" style="display:none">' +
+    '<form method="post" action="' + escapeHtml(actionUrl || '') + '" class="reply-form" id="reply-form-' + c.id + '" style="display:none">' +
     '<input type="hidden" name="csrf_token" value="' + (window._csrfToken || '') + '">' +
     '<input type="hidden" name="parent_id" value="' + c.id + '">' +
     '<textarea name="content" rows="2" class="reply-textarea" placeholder="回复 @' + escapeHtml(c.username) + '..."></textarea>' +
@@ -556,7 +527,7 @@ function submitComment(form) {
       showToast(res.error, 'error');
       return;
     }
-    var html = buildCommentHTML(res.comment);
+    var html = buildCommentHTML(res.comment, form.getAttribute('action'));
     var isReply = res.comment.parent_id != null && res.comment.parent_id > 0;
     if (isReply) {
       // 回复：插入到父评论下方
@@ -593,6 +564,9 @@ function submitComment(form) {
       var tmp = document.createElement('div');
       tmp.innerHTML = html;
       list.insertBefore(tmp.firstElementChild, list.firstChild);
+      // 有了第一条评论，“暂无评论”就去掉
+      var emptyHint = list.parentNode.querySelector(':scope > .empty-state');
+      if (emptyHint) emptyHint.remove();
     }
     // 清空输入
     form.querySelector('textarea').value = '';
@@ -875,13 +849,15 @@ document.addEventListener('click', function(e) {
 // ==================== 顶部导航按实际宽度自动收纳 ====================
 // 登录后右侧多了通知、用户名、后台入口，英文菜单也更长，固定断点挡不住重叠。
 // 这里按真实宽度逐级收纳：1 级把次要入口收进“更多”，2 级压缩用户名和搜索框，
-// 3 级把赛果/赛事/论坛也收进“更多”。手机端（≤760px）用抽屉菜单，不参与。
+// 3 级把赛果/赛事/论坛也收进“更多”，4 级把搜索框收成放大镜按钮。
+// 窄屏（≤960px）顶栏用抽屉菜单，只量顶栏上那几个常用入口：放不下的整个藏起来，不露半截。
 (function() {
   var navbar = document.querySelector('.navbar');
   var navLinks = document.getElementById('navLinks');
   var navInner = navbar && navbar.querySelector('.nav-inner');
   if (!navbar || !navLinks || !navInner) return;
-  var LEVEL_CLASSES = ['nav-fit-1', 'nav-fit-2', 'nav-fit-3'];
+  var navQuick = navbar.querySelector('.nav-quick');
+  var LEVEL_CLASSES = ['nav-fit-1', 'nav-fit-2', 'nav-fit-3', 'nav-fit-4'];
   var pending = false;
 
   function navOverflows() {
@@ -895,10 +871,21 @@ document.addEventListener('click', function(e) {
     });
   }
 
+  // 窄屏顶栏的常用入口：先全部显示，放不下就从最后一个开始藏（抽屉菜单里都有）
+  function fitQuickLinks() {
+    if (!navQuick) return;
+    var links = Array.prototype.slice.call(navQuick.querySelectorAll('a'));
+    links.forEach(function(link) { link.hidden = false; });
+    for (var i = links.length - 1; i > 0 && navQuick.scrollWidth > navQuick.clientWidth + 1; i -= 1) {
+      links[i].hidden = true;
+    }
+  }
+
   function fitNav() {
     pending = false;
-    if (window.innerWidth <= 760) {
+    if (window.matchMedia('(max-width:960px)').matches) {
       applyLevel(0);
+      fitQuickLinks();
       return;
     }
     var level = 0;
@@ -922,7 +909,7 @@ document.addEventListener('click', function(e) {
   // 切换语言时菜单文字会变长或变短，文字一变就重新量
   if (window.MutationObserver) {
     var observer = new MutationObserver(scheduleFit);
-    [navLinks, navbar.querySelector('.user-nav')].forEach(function(node) {
+    [navLinks, navQuick, navbar.querySelector('.user-nav')].forEach(function(node) {
       if (node) observer.observe(node, { childList: true, characterData: true, subtree: true });
     });
   }

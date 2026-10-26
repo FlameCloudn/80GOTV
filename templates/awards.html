@@ -1,55 +1,47 @@
 {% extends 'base.html' %}
 {% block title %}荣誉堂 - 80GOTV{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ versioned_url('static/css/pages/dashboard.css') }}">{% endblock %}
+{% block layout_class %}no-side-layout{% endblock %}
 {% block main %}
 <header class="page-head">
   <div><span class="page-head-kicker" data-i18n-ignore>AWARDS</span><h1>荣誉堂</h1></div>
 </header>
 {% if event_groups %}
+{#- 每个赛事一张卡：冠军队伍（金色底）在上，MVP / EVP 选手在下 -#}
 <div class="awards-grid">
   {% for (event_id, event_slug, event_name, event_date), group in event_groups %}
-  <div class="award-event-card">
-    <div class="award-event-header">
-      <a href="/events/{{ event_slug or event_id }}" class="award-event-name">{{ event_name }}</a>
-      <span class="award-event-date">{{ event_date|date_display if event_date else '' }}</span>
+  <section class="panel award-event-card">
+    <div class="panel-head">
+      <a href="/events/{{ event_slug or event_id }}" class="panel-title award-event-name" data-i18n-ignore>{{ event_name }}</a>
+      <span class="panel-count">{{ event_date|date_display if event_date else '' }}</span>
     </div>
 
-    {% if group.champions %}
-    <div class="award-champions">
-      {% for c in group.champions %}
-      <div class="award-champ-row">
-        <span class="award-icon">👑</span>
-        <a href="{{ url_for('team_detail', team_id=c.team_id) }}" class="award-champ-team" data-i18n-ignore>{{ c.team_name }}</a>
-        <span class="award-badge champ-badge">冠军</span>
-      </div>
-      {% endfor %}
-    </div>
-    {% endif %}
+    {% for c in group.champions %}
+    <a class="award-champion" href="{{ url_for('team_detail', team_id=c.team_id) }}">
+      {% if c.logo %}<img class="team-logo lg" src="{{ c.logo|team_logo_url }}" alt="" loading="lazy">{% else %}<span class="logo-fallback lg" data-i18n-ignore>{{ c.team_name|team_abbr(c.team_short) }}</span>{% endif %}
+      <span class="award-champion-name" data-i18n-ignore>{{ c.team_name }}</span>
+      <span class="badge badge-gold">冠军</span>
+    </a>
+    {% endfor %}
 
     {% if group.medals %}
-    <div class="award-medals">
+    <div class="list award-medals">
       {% for m in group.medals %}
-      <div class="award-medal-row">
-        {% if m.avatar %}
-        <img src="{{ avatar_thumbnail_url(m.avatar) }}" class="award-avatar" alt="{{ private_name_for_player(m.player_id, m.nickname) }}" loading="lazy">
-        {% else %}
-        <span class="award-avatar-fb">{{ private_name_for_player(m.player_id, m.nickname)[0] }}</span>
-        {% endif %}
-        <div class="award-medal-info">
-          <a href="/players/{{ m.player_id }}" class="award-medal-player">{{ private_name_for_player(m.player_id, m.nickname) }}</a>
-          {% if m.team_short %}<span class="award-medal-team">{{ m.team_short }}</span>{% endif %}
-        </div>
-        <span class="award-badge {% if m.type == 'MVP' %}mvp-badge{% else %}evp-badge{% endif %}">{{ m.type }}</span>
-      </div>
+      {% set name = private_name_for_player(m.player_id, m.nickname) %}
+      <a class="list-row award-medal-row" href="/players/{{ m.player_id }}">
+        {% if m.avatar %}<img src="{{ avatar_thumbnail_url(m.avatar) }}" class="avatar sm" alt="" loading="lazy">{% else %}<span class="avatar sm" data-i18n-ignore>{{ name[0] }}</span>{% endif %}
+        <span class="grow title" data-i18n-ignore>{{ name }}</span>
+        {% if m.team_short %}<span class="meta" data-i18n-ignore>{{ m.team_short }}</span>{% endif %}
+        <span class="badge {% if m.type == 'MVP' %}badge-gold{% else %}badge-purple{% endif %}" data-i18n-ignore>{{ m.type }}</span>
+      </a>
       {% endfor %}
     </div>
     {% endif %}
-  </div>
+  </section>
   {% endfor %}
 </div>
 {% else %}
-<div class="empty-state">暂无荣誉记录</div>
+<div class="panel empty-state">暂无荣誉记录</div>
 {% endif %}
 {% endblock %}
-
-{% block layout_class %}no-side-layout{% endblock %}
 {% block side %}{% endblock %}

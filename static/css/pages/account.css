@@ -1,0 +1,74 @@
+/* ==========================================================================
+   个人相关页面：个人主页（/profile）、通知、搜索结果、预测排行
+   ========================================================================== */
+
+/* ---------- 1. 个人主页 ---------- */
+.profile-hero { display: flex; align-items: center; gap: var(--space-lg); padding: var(--space-xl); }
+.profile-hero-text { display: grid; gap: var(--space-xs); flex: 1 1 auto; min-width: 0; }
+.profile-hero-text h1 { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); font-size: var(--font-xl); }
+.profile-hero-meta { display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-lg); color: var(--text-muted); font-size: var(--font-sm); }
+
+/* 头像：圆角方块；作弊封禁的那张遮罩图盖在上面 */
+.profile-avatar { position: relative; display: grid; place-items: center; flex: 0 0 auto; width: 80px; height: 80px; overflow: hidden; color: var(--text-muted); background: var(--surface-soft); border-radius: var(--radius-lg); font-size: var(--font-2xl); font-weight: 700; }
+.profile-avatar > img:first-child { width: 100%; height: 100%; object-fit: cover; }
+.profile-avatar .pac-avatar-overlay { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.profile-avatar.small { width: 56px; height: 56px; border-radius: var(--radius-md); font-size: var(--font-xl); }
+
+.profile-event-row .grow { display: grid; gap: 2px; }
+.profile-event-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; color: var(--text-muted); font-size: var(--font-xs); }
+.profile-event-row.is-active { box-shadow: inset 3px 0 0 var(--live); }
+.panel > .profile-stat-grid { border: 0; border-top-left-radius: 0; border-top-right-radius: 0; }
+.profile-stat-grid .stat-value { overflow: hidden; font-size: var(--font-lg); text-overflow: ellipsis; white-space: nowrap; }
+.profile-avatar-form { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-md); }
+.profile-field { flex: 1 1 240px; max-width: 360px; }
+.profile-form-actions { justify-content: flex-start; }
+.profile-facts > div { padding-right: var(--space-lg); padding-left: var(--space-lg); }
+
+/* ---------- 2. 通知：一条一行，未读的左边一条蓝色竖线、文字加粗 ---------- */
+.notif-list { overflow: hidden; }
+.notif-item { display: flex; align-items: center; gap: var(--space-md); padding: var(--space-md) var(--space-lg); color: var(--text-primary); border-top: 1px solid var(--border-color); transition: background var(--transition-fast); }
+.notif-item:first-child { border-top: 0; }
+.notif-item:hover { color: var(--text-primary); background: var(--bg-hover); }
+.notif-item.unread { box-shadow: inset 3px 0 0 var(--accent); }
+.notif-type { display: grid; place-items: center; flex: 0 0 36px; width: 36px; height: 36px; background: var(--surface-soft); border-radius: 50%; font-size: var(--font-lg); }
+.notif-body { display: grid; gap: 2px; flex: 1 1 auto; min-width: 0; }
+.notif-message { overflow-wrap: anywhere; color: var(--text-secondary); font-size: var(--font-md); }
+.notif-item.unread .notif-message { color: var(--text-primary); font-weight: 600; }
+.notif-time { color: var(--text-muted); font-size: var(--font-xs); }
+.notif-mark-read { flex: 0 0 auto; }
+
+/* ---------- 3. 搜索结果 ---------- */
+.search-news .grow { display: grid; gap: 2px; }
+.search-summary { overflow: hidden; color: var(--text-muted); font-size: var(--font-xs); text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- 4. 预测排行：左边积分榜，右边热门预测比赛 ---------- */
+.pred-layout { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); align-items: start; gap: var(--site-gap); }
+.pred-rank { display: inline-grid; place-items: center; min-width: 24px; height: 24px; padding: 0 4px; color: var(--text-secondary); background: var(--surface-soft); border-radius: var(--radius-sm); font-size: var(--font-xs); font-weight: 700; }
+.pred-rank.top-1 { color: var(--color-gold); background: var(--gold-soft); }
+.pred-rank.top-2 { color: var(--text-primary); background: var(--bg-hover); }
+.pred-rank.top-3 { color: var(--color-t); background: var(--t-soft); }
+.pred-perfect { margin-left: 6px; }
+.pred-accuracy.is-good { color: var(--color-green); }
+.pred-accuracy.is-mid { color: var(--color-gold); }
+.pred-accuracy.is-bad { color: var(--color-red); }
+.pred-points { color: var(--accent); }
+.pred-match-row { align-items: center; }
+.pred-match-main { display: grid; gap: 4px; flex: 1 1 auto; min-width: 0; }
+.pred-match-main small { color: var(--text-muted); font-size: var(--font-xs); }
+.pred-match-main strong { overflow: hidden; font-size: var(--font-md); text-overflow: ellipsis; white-space: nowrap; }
+.pred-vs { margin: 0 4px; color: var(--text-muted); font-size: var(--font-xs); font-weight: 600; }
+.pred-vote-bar { display: flex; gap: 2px; height: 6px; overflow: hidden; border-radius: var(--radius-pill); }
+.pred-vote-bar i { display: block; height: 100%; }
+.pred-vote-bar .a { background: var(--accent); }
+.pred-vote-bar .b { background: var(--color-t); }
+
+@media (max-width: 900px) {
+  .pred-layout { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 760px) {
+  .profile-hero { flex-wrap: wrap; gap: var(--space-md); padding: var(--space-lg); }
+  .profile-avatar { width: 64px; height: 64px; }
+  .notif-item { flex-wrap: wrap; padding: var(--space-md); }
+  .notif-mark-read { margin-left: calc(36px + var(--space-md)); }
+}

@@ -283,7 +283,9 @@ def _move_individual_registration_to_reserve(conn, event_id, user_id):
 def events_list():
     """赛事列表"""
     status_filter = request.args.get("status", "")
-    view_mode = request.args.get("view", "")  # calendar
+    view_mode = request.args.get("view", "")  # calendar / list
+    if not view_mode and not status_filter:
+        view_mode = "calendar"  # 不带筛选打开时默认按日历（按月分组）显示
 
     conn = get_db()
     events = conn.execute("""

@@ -192,7 +192,7 @@ class PlayerMissingMetricRouteTests(stats_tests.StatsDatabaseCase):
                 self.assertIsNotNone(cards["火力"]["score"])
                 opening = {item["label"]: item["value"] for item in cards["开局"]["items"]}
                 self.assertEqual(opening["每回合首杀"], "0.20")
-                self.assertEqual(opening["开局成功率"], "-")
+                self.assertEqual(opening["首杀对枪胜率"], "-")
                 self.assertEqual(opening["每回合首死"], "-")
 
     def test_unknown_scores_render_as_dash_while_bar_geometry_remains_numeric(self):
@@ -213,11 +213,12 @@ class PlayerMissingMetricRouteTests(stats_tests.StatsDatabaseCase):
         for detail in (False, True):
             with self.subTest(detail=detail, value="unknown"):
                 _, html = self._page(detail)
-                values = re.findall(r"<td>([\w-]+)</td>", html)
+                values = re.findall(r"<td(?:\s[^>]*)?>([\w-]+)</td>", html)
                 self.assertNotIn("None-None-None", values)
                 self.assertIn("-----", values)
         self._set_metrics(0, rounds_played=20)
         for detail in (False, True):
             with self.subTest(detail=detail, value="zero"):
                 _, html = self._page(detail)
-                self.assertTrue("<td>0-0-0</td>" in html)
+                values = re.findall(r"<td(?:\s[^>]*)?>([\w-]+)</td>", html)
+                self.assertIn("0-0-0", values)

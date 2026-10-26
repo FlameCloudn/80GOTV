@@ -1,0 +1,28 @@
+/* ==========================================================================
+   数据看板（/dashboard）、荣誉堂（/awards）
+   ========================================================================== */
+
+/* ---------- 1. 数据看板：上面两个大数字，下面 2×2 四张图 ---------- */
+.dashboard-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.dashboard-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--site-gap); }
+.chart-card { min-width: 0; }
+.chart-canvas-wrap { position: relative; height: 280px; padding: var(--space-md) var(--space-lg) var(--space-lg); }
+
+/* ---------- 2. 荣誉堂：每个赛事一张卡 ---------- */
+.awards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); align-items: start; gap: var(--site-gap); }
+.award-event-card { overflow: hidden; }
+.award-event-name { min-width: 0; overflow: hidden; color: var(--text-primary); text-overflow: ellipsis; white-space: nowrap; }
+.award-event-name:hover { color: var(--accent); }
+
+/* 冠军：金色浅底一整条，队标 + 队名 + “冠军” */
+.award-champion { display: flex; align-items: center; gap: var(--space-md); padding: var(--space-md) var(--space-lg); color: var(--text-primary); background: var(--gold-soft); border-bottom: 1px solid var(--border-color); }
+.award-champion:hover { color: var(--text-primary); }
+.award-champion:hover .award-champion-name { color: var(--color-gold); }
+.award-champion-name { flex: 1 1 auto; min-width: 0; overflow: hidden; font-size: var(--font-lg); font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.award-medals > .award-medal-row:first-child { border-top: 0; }
+
+@media (max-width: 760px) {
+  .dashboard-grid { grid-template-columns: minmax(0, 1fr); }
+  .chart-canvas-wrap { height: 240px; padding: var(--space-sm) var(--space-md) var(--space-md); }
+  .awards-grid { grid-template-columns: minmax(0, 1fr); }
+}

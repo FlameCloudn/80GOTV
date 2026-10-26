@@ -173,7 +173,7 @@ class PlayerProfileRedesignTests(unittest.TestCase):
         self.assertIn('class="pd-summary"', html)
         self.assertIn('class="pd-filters"', html)
         self.assertIn('class="pd-category-grid"', html)
-        self.assertIn("<th>比分</th>", html)
+        self.assertIn('<th class="num">比分</th>', html)  # 比分列表头和数字一起居中
         self.assertIn("13 : 9", html)
         self.assertNotIn(">狙击<", html)
         self.assertNotIn("每回合狙击击杀", html)
@@ -287,7 +287,7 @@ class PlayerProfileRedesignTests(unittest.TestCase):
         )
 
     def test_player_styles_include_mobile_single_column_layout(self):
-        css_path = os.path.join(app.root_path, "static", "css", "player_profile_refresh.css")
+        css_path = os.path.join(app.root_path, "static", "css", "pages", "player.css")
         with open(css_path, encoding="utf-8") as css_file:
             css = css_file.read()
 

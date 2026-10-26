@@ -186,7 +186,7 @@ class FrontApiRegressionTests(unittest.TestCase):
             conn.commit()
         home = self.client.get("/")
         self.assertEqual(home.status_code, 200)
-        self.assertRegex(home.get_data(as_text=True), r"<small[^>]*>-</small>")
+        self.assertRegex(home.get_data(as_text=True), r'<b class="num [^"]*">-</b>')
         profile = self.client.get(f"/players/{self.players[0]}")
         self.assertEqual(profile.status_code, 200)
         self.assertRegex(

@@ -15,7 +15,7 @@ from utils.demo_parser import normalize_map_name
 from utils.filters import date_display_filter
 from utils.match_utils import get_sql_match_completed
 from utils.rate_limiter import rate_limit
-from utils.stats_display import optional_number
+from utils.stats_display import optional_number, resolve_match_team_side
 from utils.web_helpers import csrf_required, safe_redirect_target, user_required
 from web_app import app
 
@@ -132,6 +132,37 @@ def _player_side_expr(side):
     }
 
 
+def _recent_matches_with_teams(rows, conn, player_id):
+    matches = [supplement_temp_teams(row, conn) for row in rows]
+    if not matches:
+        return matches
+    by_id = {match["id"]: match for match in matches}
+    placeholders = ",".join("?" for _ in by_id)
+    records = conn.execute(
+        f"""SELECT match_id, team_id, match_team_side FROM match_stats
+            WHERE player_id=? AND match_id IN ({placeholders})
+              AND COALESCE(data_status, 'final') <> 'superseded'""",
+        (player_id, *by_id),
+    ).fetchall()
+    sides = {match_id: set() for match_id in by_id}
+    for record in records:
+        side = resolve_match_team_side(dict(record), by_id[record["match_id"]])
+        if side is not None:
+            sides[record["match_id"]].add(side)
+    for match in matches:
+        known_sides = sides[match["id"]]
+        side = next(iter(known_sides)) if len(known_sides) == 1 else None
+        match["stat_team_side"] = side
+        match["stat_team_id"] = (
+            match.get("team1_id")
+            if side == "t1"
+            else match.get("team2_id")
+            if side == "t2"
+            else None
+        )
+    return matches
+
+
 def _build_player_blocks(overall):
     rounds = _num(overall["rounds_played"])
     maps = int(overall["maps"] or 0)
@@ -195,7 +226,7 @@ def _build_player_blocks(overall):
     player_category_cards = [
         {
             "title": "火力",
-            "desc": "综合击杀、伤害、多杀的火力输出",
+            "desc": "击杀、伤害和多杀，看能打出多少输出",
             "score": _pct(
                 _num(rating_val) * 0.4
                 + (overall["avg_kpr"] or 0) * 0.3
@@ -219,7 +250,7 @@ def _build_player_blocks(overall):
                     "pct": _pct(multi_round_pct, 30),
                 },
                 {
-                    "label": "影响力",
+                    "label": "Impact",
                     "value": _fmt(overall["avg_impact"]),
                     "pct": _pct(overall["avg_impact"], 1.5),
                 },
@@ -227,27 +258,27 @@ def _build_player_blocks(overall):
             ],
         },
         {
-            "title": "协作",
-            "desc": "补枪、救援队友的团队协作能力",
+            "title": "补枪",
+            "desc": "队友倒下后，能不能马上把对手补掉",
             "score": _pct(trade_kills / max(trade_kills + trade_deaths, 1) * 100, 60),
             "items": [
                 {
-                    "label": "补枪击杀/回合",
+                    "label": "每回合补枪",
                     "value": _fmt(trade_kills / rounds if rounds else 0),
                     "pct": _pct(trade_kills / rounds if rounds else 0, 0.25),
                 },
                 {
-                    "label": "补枪击杀占比",
+                    "label": "击杀中补枪占比",
                     "value": _fmt(trade_pct, 1, "%"),
                     "pct": _pct(trade_pct, 35),
                 },
                 {
-                    "label": "被补枪死亡/回合",
+                    "label": "每回合被补枪",
                     "value": _fmt(trade_deaths / rounds if rounds else 0),
                     "pct": _pct(trade_deaths / rounds if rounds else 0, 0.25),
                 },
                 {
-                    "label": "被补枪占比",
+                    "label": "死后被补枪比例",
                     "value": _fmt(trade_death_pct, 1, "%"),
                     "pct": _pct(trade_death_pct, 35),
                 },
@@ -260,18 +291,18 @@ def _build_player_blocks(overall):
         },
         {
             "title": "突破",
-            "desc": "率先对枪、为队伍打开局面的能力",
+            "desc": "第一个进点，替队伍打开局面",
             "score": _pct(
                 opening_success_rate * 0.5 + first_kills / rounds * 100 if rounds else 0, 60
             ),
             "items": [
                 {
-                    "label": "开局对枪参与率",
+                    "label": "首杀对枪参与率",
                     "value": _fmt(opening_attempts / rounds * 100 if rounds else 0, 1, "%"),
                     "pct": _pct(opening_attempts / rounds * 100 if rounds else 0, 35),
                 },
                 {
-                    "label": "被补率",
+                    "label": "死后被补枪比例",
                     "value": _fmt(trade_death_pct, 1, "%"),
                     "pct": _pct(trade_death_pct, 35),
                 },
@@ -281,7 +312,7 @@ def _build_player_blocks(overall):
                     "pct": _pct(trade_kills / rounds if rounds else 0, 0.25),
                 },
                 {
-                    "label": "每回合被补",
+                    "label": "每回合被补枪",
                     "value": _fmt(trade_deaths / rounds if rounds else 0),
                     "pct": _pct(trade_deaths / rounds if rounds else 0, 0.25),
                 },
@@ -289,11 +320,11 @@ def _build_player_blocks(overall):
         },
         {
             "title": "开局",
-            "desc": "首杀能力与开局对枪成功率",
+            "desc": "每回合第一次对枪（抢首杀）打不打得赢",
             "score": _pct(opening_success_rate, 75),
             "items": [
                 {
-                    "label": "开局成功率",
+                    "label": "首杀对枪胜率",
                     "value": _fmt(opening_success_rate, 1, "%"),
                     "pct": _pct(opening_success_rate, 75),
                 },
@@ -308,7 +339,7 @@ def _build_player_blocks(overall):
                     "pct": _pct(first_deaths / rounds if rounds else 0, 0.25),
                 },
                 {
-                    "label": "首杀/首死比",
+                    "label": "首杀首死比",
                     "value": _fmt(first_kills / first_deaths if first_deaths else 0),
                     "pct": _pct(first_kills / first_deaths if first_deaths else 0, 2),
                 },
@@ -316,7 +347,7 @@ def _build_player_blocks(overall):
         },
         {
             "title": "残局",
-            "desc": "1vn 残局处理能力",
+            "desc": "一打多的残局能力",
             "score": _pct(clutch_per_round * 100, 8),
             "items": [
                 {
@@ -325,17 +356,17 @@ def _build_player_blocks(overall):
                     "pct": _pct(overall["clutches_won"], max(maps, 1)),
                 },
                 {
-                    "label": "残局得分/回合",
+                    "label": "每回合残局分",
                     "value": _fmt(clutch_per_round),
                     "pct": _pct(clutch_per_round * 100, 6),
                 },
                 {
-                    "label": "下包数",
+                    "label": "下包次数",
                     "value": str(int(_num(overall["bomb_plants"]))),
                     "pct": _pct(overall["bomb_plants"], max(maps * 2, 1)),
                 },
                 {
-                    "label": "拆包数",
+                    "label": "拆包次数",
                     "value": str(int(_num(overall["bomb_defuses"]))),
                     "pct": _pct(overall["bomb_defuses"], max(maps, 1)),
                 },
@@ -343,7 +374,7 @@ def _build_player_blocks(overall):
         },
         {
             "title": "道具",
-            "desc": "投掷物伤害与闪光辅助",
+            "desc": "道具伤害和闪光帮队友",
             "score": _pct(
                 (overall["utility_damage_per_round"] or 0) * 8
                 + (_num(overall["enemies_flashed"]) / max(_num(overall["flash_count"]), 1)) * 20,
@@ -356,17 +387,17 @@ def _build_player_blocks(overall):
                     "pct": _pct(overall["utility_damage_per_round"], 10),
                 },
                 {
-                    "label": "总道具伤害",
+                    "label": "道具总伤害",
                     "value": str(int(utility_damage)),
                     "pct": _pct(utility_damage, max(rounds * 8, 1)),
                 },
                 {
-                    "label": "每回合致盲敌人",
+                    "label": "每回合闪白敌人",
                     "value": _fmt(_num(overall["enemies_flashed"]) / rounds if rounds else 0),
                     "pct": _pct(_num(overall["enemies_flashed"]) / rounds if rounds else 0, 0.9),
                 },
                 {
-                    "label": "闪光成功率",
+                    "label": "闪光命中率",
                     "value": _fmt(
                         _num(overall["enemies_flashed"])
                         / max(_num(overall["flash_count"]), 1)
@@ -398,7 +429,7 @@ def _build_player_blocks(overall):
         {"label": "每回合道具伤害", "value": _fmt(overall["utility_damage_per_round"])},
         {"label": "每回合补枪队友", "value": _fmt(trade_kills / rounds if rounds else 0)},
         {"label": "地图数", "value": str(maps)},
-        {"label": "影响力 RATING", "value": _fmt(overall["avg_impact"])},
+        {"label": "Impact", "value": _fmt(overall["avg_impact"])},
     ]
 
     def missing(*fields):
@@ -419,7 +450,7 @@ def _build_player_blocks(overall):
 
     category_inputs = {
         "火力": ("avg_rating", "avg_kpr", "total_kills", "rounds_played", "avg_adr"),
-        "协作": ("trade_kills", "trade_deaths"),
+        "补枪": ("trade_kills", "trade_deaths"),
         "突破": ("first_kills", "first_deaths", "rounds_played"),
         "开局": ("first_kills", "first_deaths"),
         "残局": ("clutches_won", "rounds_played"),
@@ -435,29 +466,26 @@ def _build_player_blocks(overall):
         "每回合击杀": ("total_kills", "rounds_played", "avg_kpr"),
         "每回合伤害": ("avg_adr",),
         "多杀回合占比": multi_inputs,
-        "影响力": ("avg_impact",),
+        "Impact": ("avg_impact",),
         "RATING 2.0": ("avg_rating",),
-        "补枪击杀/回合": ("trade_kills", "rounds_played"),
-        "补枪击杀占比": ("trade_kills", "total_kills"),
-        "被补枪死亡/回合": ("trade_deaths", "rounds_played"),
-        "被补枪占比": ("trade_deaths", "total_deaths"),
+        "击杀中补枪占比": ("trade_kills", "total_kills"),
+        "每回合被补枪": ("trade_deaths", "rounds_played"),
+        "死后被补枪比例": ("trade_deaths", "total_deaths"),
         "每回合助攻": ("total_assists", "rounds_played"),
-        "开局对枪参与率": ("first_kills", "first_deaths", "rounds_played"),
-        "被补率": ("trade_deaths", "total_deaths"),
+        "首杀对枪参与率": ("first_kills", "first_deaths", "rounds_played"),
         "每回合补枪": ("trade_kills", "rounds_played"),
-        "每回合被补": ("trade_deaths", "rounds_played"),
-        "开局成功率": ("first_kills", "first_deaths"),
+        "首杀对枪胜率": ("first_kills", "first_deaths"),
         "每回合首杀": ("first_kills", "rounds_played"),
         "每回合首死": ("first_deaths", "rounds_played"),
-        "首杀/首死比": ("first_kills", "first_deaths"),
+        "首杀首死比": ("first_kills", "first_deaths"),
         "残局获胜": ("clutches_won",),
-        "残局得分/回合": ("clutches_won", "rounds_played"),
-        "下包数": ("bomb_plants",),
-        "拆包数": ("bomb_defuses",),
+        "每回合残局分": ("clutches_won", "rounds_played"),
+        "下包次数": ("bomb_plants",),
+        "拆包次数": ("bomb_defuses",),
         "每回合道具伤害": ("utility_damage", "rounds_played", "utility_damage_per_round"),
-        "总道具伤害": ("utility_damage",),
-        "每回合致盲敌人": ("enemies_flashed", "rounds_played"),
-        "闪光成功率": ("enemies_flashed", "flash_count"),
+        "道具总伤害": ("utility_damage",),
+        "每回合闪白敌人": ("enemies_flashed", "rounds_played"),
+        "闪光命中率": ("enemies_flashed", "flash_count"),
     }
     for card in player_category_cards:
         if missing(*category_inputs[card["title"]]):
@@ -480,7 +508,7 @@ def _build_player_blocks(overall):
         "每回合被队友补枪": ("trade_deaths", "rounds_played"),
         "每回合道具伤害": ("utility_damage", "rounds_played", "utility_damage_per_round"),
         "每回合补枪队友": ("trade_kills", "rounds_played"),
-        "影响力 RATING": ("avg_impact",),
+        "Impact": ("avg_impact",),
     }
     for item in player_statistics:
         if missing(*statistic_inputs.get(item["label"], ())):
@@ -509,7 +537,7 @@ def players_list():
         top10_page = build_top10_page(conn)
 
     query = f"""
-        SELECT p.*, t.name AS team_name, t.short_name AS team_short,
+        SELECT p.*, t.name AS team_name, t.short_name AS team_short, t.logo AS team_logo,
                (SELECT u.id FROM users u
                 WHERE u.steam_id64=p.steam_id
                 ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC
@@ -659,108 +687,135 @@ def player_private_remark(player_id):
     return redirect(url_for("player_detail", player_id=player_id))
 
 
+# 对比页的数据项（照 HLTV 对比页一项一行）：(显示名, 取值键, 小数位, 后缀, 越大越好)
+COMPARE_FIELDS = (
+    ("Rating", "rating", 2, "", True),
+    ("KPR", "kpr", 2, "", True),
+    ("DPR", "dpr", 2, "", False),
+    ("KAST", "kast", 1, "%", True),
+    ("Impact", "impact", 2, "", True),
+    ("ADR", "adr", 1, "", True),
+    ("K/D", "kd", 2, "", True),
+    ("爆头率", "hs", 1, "%", True),
+    ("每回合助攻", "apr", 2, "", True),
+    ("每回合首杀", "opk", 2, "", True),
+    ("每回合闪光助攻", "fapr", 2, "", True),
+)
+
+
+def _compare_values(summary):
+    """把选手的生涯汇总换成对比用的数值；没有数据返回空字典。"""
+    if not summary or not summary["maps"]:
+        return {}
+    rounds = optional_number(summary["rounds_played"])
+    kills = optional_number(summary["total_kills"])
+    deaths = optional_number(summary["total_deaths"])
+
+    def per_round(total):
+        value = optional_number(total)
+        return value / rounds if value is not None and rounds is not None and rounds > 0 else None
+
+    return {
+        "rating": optional_number(summary["avg_rating"]),
+        "kpr": optional_number(summary["avg_kpr"]) if per_round(kills) is not None else None,
+        "dpr": optional_number(summary["avg_dpr"]) if per_round(deaths) is not None else None,
+        "kast": optional_number(summary["avg_kast"]),
+        "impact": optional_number(summary["avg_impact"]),
+        "adr": optional_number(summary["avg_adr"]),
+        "kd": kills / deaths if kills is not None and deaths is not None and deaths > 0 else None,
+        "hs": optional_number(summary["avg_hs"]),
+        "apr": per_round(summary["total_assists"]),
+        "opk": per_round(summary["first_kills"]),
+        "fapr": per_round(summary["flash_assists"]),
+    }
+
+
+def _compare_player(conn, player_id):
+    """读一名选手的资料和生涯汇总；没选或选手不存在返回 None。"""
+    if not player_id:
+        return None
+    player = conn.execute(
+        """SELECT p.*, t.name AS team_name, t.logo AS team_logo
+           FROM players p LEFT JOIN teams t ON p.team_id=t.id
+           WHERE p.id=?""",
+        (player_id,),
+    ).fetchone()
+    if not player:
+        return None
+    summary_metrics = {
+        "rounds_played": "rounds_played",
+        "avg_rating": "rating",
+        "avg_kpr": "kills",
+        "avg_dpr": "deaths",
+        "avg_kast": "kast",
+        "avg_impact": "impact",
+        "avg_adr": "adr",
+        "avg_hs": "headshot_percentage",
+        "total_kills": "kills",
+        "total_deaths": "deaths",
+        "total_assists": "assists",
+        "first_kills": "first_kills",
+        "flash_assists": "flash_assists",
+    }
+    select_metrics = ", ".join(
+        f"{summary_metric_sql(column, raw_column)} AS {column}"
+        for column, raw_column in summary_metrics.items()
+    )
+    summary = conn.execute(
+        f"""SELECT s.maps, {select_metrics}
+           FROM player_performance_summary s
+           WHERE s.player_id=?""",
+        (player_id,),
+    ).fetchone()
+    maps = (summary["maps"] if summary else 0) or 0
+    return {"player": player, "maps": maps, "values": _compare_values(summary)}
+
+
+def _compare_rows(mine, theirs):
+    """一侧的每一行：显示的数字 + 和对面比的结果（better 占优 / worse 落后 / 空 = 一样或没得比）。"""
+    rows = []
+    for label, key, digits, suffix, higher_better in COMPARE_FIELDS:
+        row = {"label": label, "fixed": label.isascii(), "value": "-", "state": ""}
+        value = optional_number(mine.get(key))
+        other = optional_number(theirs.get(key))
+        if value is not None:
+            value = round(value, digits)
+            row["value"] = f"{value:.{digits}f}{suffix}"
+            other = round(other, digits) if other is not None else None
+            if other is not None and value != other:
+                row["state"] = "better" if (value > other) == higher_better else "worse"
+        rows.append(row)
+    return rows
+
+
+def _compare_card(slot, field, mine, theirs):
+    """左右两张卡之一：选手、地图数、每项数据，以及两边都有数据时领先了几项。"""
+    card = {"slot": slot, "field": field, "player": None, "maps": 0, "rows": [], "lead": None}
+    if not mine:
+        return card
+    other_values = theirs["values"] if theirs else {}
+    rows = _compare_rows(mine["values"], other_values)
+    card.update(player=mine["player"], maps=mine["maps"], rows=rows)
+    if any(
+        optional_number(value) is not None and optional_number(other_values.get(key)) is not None
+        for key, value in mine["values"].items()
+    ):
+        card["lead"] = sum(1 for row in rows if row["state"] == "better")
+    return card
+
+
 @app.route("/players/compare")
 def player_compare():
-    """选手对比工具"""
-    id1 = request.args.get("id1", type=int)
-    id2 = request.args.get("id2", type=int)
+    """选手对比（照 HLTV）：左右两张卡，每项数据一行，占优的一方加粗。"""
     conn = get_db()
     all_players = conn.execute(
         "SELECT p.*, t.name AS team_name FROM players p LEFT JOIN teams t ON p.team_id=t.id ORDER BY p.nickname"
     ).fetchall()
-    p1 = p2 = stats1 = stats2 = compare_bars = None
-
-    if id1 and id2:
-        p1 = conn.execute(
-            "SELECT p.*, t.name AS team_name FROM players p LEFT JOIN teams t ON p.team_id=t.id WHERE p.id=?",
-            (id1,),
-        ).fetchone()
-        p2 = conn.execute(
-            "SELECT p.*, t.name AS team_name FROM players p LEFT JOIN teams t ON p.team_id=t.id WHERE p.id=?",
-            (id2,),
-        ).fetchone()
-        if p1 and p2:
-
-            def _get_stats(pid):
-                r = conn.execute(
-                    """SELECT maps AS m, avg_rating AS r, avg_adr AS a,
-                              avg_kast AS k, avg_impact AS i, avg_hs AS h,
-                              total_kills*1.0/NULLIF(total_deaths,0) AS kd,
-                              avg_kpr AS kpr
-                       FROM player_performance_summary
-                       WHERE player_id=?""",
-                    (pid,),
-                ).fetchone()
-                return r or {
-                    "m": 0,
-                    "r": 0,
-                    "a": 0,
-                    "k": 0,
-                    "i": 0,
-                    "h": 0,
-                    "kd": 0,
-                    "kpr": 0,
-                }
-
-            r1, r2 = _get_stats(id1), _get_stats(id2)
-            stats1 = [
-                {"label": "RATING", "value": round(r1["r"] or 0, 2)},
-                {"label": "K/D", "value": round(r1["kd"] or 0, 2)},
-                {"label": "ADR", "value": round(r1["a"] or 0, 1)},
-                {"label": "KAST%", "value": str(round(r1["k"] or 0, 1)) + "%"},
-                {"label": "影响力", "value": round(r1["i"] or 0, 2)},
-                {"label": "HS%", "value": str(round(r1["h"] or 0, 1)) + "%"},
-                {"label": "KPR", "value": round(r1["kpr"] or 0, 2)},
-                {"label": "地图数", "value": r1["m"] or 0},  # 这里的数字是地图数，不是比赛场次
-            ]
-            stats2 = [
-                {"label": "RATING", "value": round(r2["r"] or 0, 2)},
-                {"label": "K/D", "value": round(r2["kd"] or 0, 2)},
-                {"label": "ADR", "value": round(r2["a"] or 0, 1)},
-                {"label": "KAST%", "value": str(round(r2["k"] or 0, 1)) + "%"},
-                {"label": "影响力", "value": round(r2["i"] or 0, 2)},
-                {"label": "HS%", "value": str(round(r2["h"] or 0, 1)) + "%"},
-                {"label": "KPR", "value": round(r2["kpr"] or 0, 2)},
-                {"label": "地图数", "value": r2["m"] or 0},  # 这里的数字是地图数，不是比赛场次
-            ]
-
-            # 水平对比条（百分比相对）
-            def _pct(v1, v2):
-                t = v1 + v2
-                if t == 0:
-                    return 50, 50
-                return round(v1 / t * 100), round(v2 / t * 100)
-
-            def _nv(d, k, default=0):
-                return (d[k] or default) if d else default
-
-            compare_bars = []
-            for key, label, v1, v2 in [
-                ("r", "RATING", _nv(r1, "r"), _nv(r2, "r")),
-                ("kd", "K/D", _nv(r1, "kd"), _nv(r2, "kd")),
-                ("a", "ADR", _nv(r1, "a"), _nv(r2, "a")),
-                ("k", "KAST", _nv(r1, "k"), _nv(r2, "k")),
-                ("i", "Impact", _nv(r1, "i"), _nv(r2, "i")),
-                ("h", "HS%", _nv(r1, "h"), _nv(r2, "h")),
-            ]:
-                pa, pb = _pct(v1, v2)
-                compare_bars.append(
-                    {
-                        "label": label,
-                        "s1": {"val": str(round(v1, 2) if v1 else "-"), "pct": pa},
-                        "s2": {"val": str(round(v2, 2) if v2 else "-"), "pct": pb},
-                    }
-                )
+    side_a = _compare_player(conn, request.args.get("id1", type=int))
+    side_b = _compare_player(conn, request.args.get("id2", type=int))
     conn.close()
-    return render_template(
-        "player_compare.html",
-        all_players=all_players,
-        p1=p1,
-        p2=p2,
-        stats1=stats1,
-        stats2=stats2,
-        compare_bars=compare_bars,
-    )
+    cards = [_compare_card("a", "id1", side_a, side_b), _compare_card("b", "id2", side_b, side_a)]
+    return render_template("player_compare.html", all_players=all_players, cards=cards)
 
 
 @app.route("/players/<int:player_id>")
@@ -782,7 +837,7 @@ def player_detail(player_id):
     conn = get_db()
     player = conn.execute(
         """
-        SELECT p.*, t.name AS team_name, t.short_name AS team_short,
+        SELECT p.*, t.name AS team_name, t.short_name AS team_short, t.logo AS team_logo,
                (SELECT u.id FROM users u
                 WHERE u.steam_id64=p.steam_id
                 ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC
@@ -816,7 +871,7 @@ def player_detail(player_id):
         conn.commit()
         player = conn.execute(
             """
-            SELECT p.*, t.name AS team_name, t.short_name AS team_short,
+            SELECT p.*, t.name AS team_name, t.short_name AS team_short, t.logo AS team_logo,
                    (SELECT u.id FROM users u
                     WHERE u.steam_id64=p.steam_id
                     ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC
@@ -919,10 +974,6 @@ def player_detail(player_id):
     recent_matches = conn.execute(
         f"""
         SELECT m.*,
-               CASE WHEN SUM(CASE WHEN ms.team_id=COALESCE(m.team1_id, -1) THEN 1 ELSE 0 END) > 0
-                    THEN COALESCE(m.team1_id, -1)
-                    ELSE COALESCE(m.team2_id, -2)
-               END AS stat_team_id,
                SUM(ms.kills) AS kills, SUM(ms.deaths) AS deaths, SUM(ms.assists) AS assists,
                {weighted_average_sql("ms.rating", "ms.rounds_played")} AS rating,
                {weighted_average_sql("ms.adr", "ms.rounds_played")} AS adr,
@@ -940,7 +991,7 @@ def player_detail(player_id):
     """,
         (player_id, *stat_params),
     ).fetchall()
-    recent_matches = [supplement_temp_teams(m, conn) for m in recent_matches]
+    recent_matches = _recent_matches_with_teams(recent_matches, conn, player_id)
 
     record_rows = conn.execute(
         f"""
@@ -1131,7 +1182,7 @@ def player_detail(player_id):
                     "pct": _pct(kills - deaths + 50, 100),
                 },
                 {
-                    "label": "影响力 RATING",
+                    "label": "Impact",
                     "value": _fmt(overall["avg_impact"]),
                     "pct": _pct(overall["avg_impact"], 1.5),
                 },
@@ -1294,7 +1345,7 @@ def player_detail(player_id):
         {"label": "每回合道具伤害", "value": _fmt(overall["utility_damage_per_round"])},
         {"label": "每回合补枪队友", "value": _fmt(trade_kills / rounds if rounds else 0)},
         {"label": "比赛数", "value": str(maps)},
-        {"label": "影响力 RATING", "value": _fmt(overall["avg_impact"])},
+        {"label": "Impact", "value": _fmt(overall["avg_impact"])},
     ]
 
     # Keep the profile and the detailed statistics page on the exact same
@@ -1333,7 +1384,7 @@ def player_stats_detail(player_id):
     conn = get_db()
     player = conn.execute(
         """
-        SELECT p.*, t.name AS team_name, t.short_name AS team_short,
+        SELECT p.*, t.name AS team_name, t.short_name AS team_short, t.logo AS team_logo,
                COALESCE((
                    SELECT NULLIF(TRIM(u.group_username), '')
                    FROM users u
@@ -1414,10 +1465,6 @@ def player_stats_detail(player_id):
     recent_matches = conn.execute(
         f"""
         SELECT m.*,
-               CASE WHEN SUM(CASE WHEN ms.team_id=COALESCE(m.team1_id, -1) THEN 1 ELSE 0 END) > 0
-                    THEN COALESCE(m.team1_id, -1)
-                    ELSE COALESCE(m.team2_id, -2)
-               END AS stat_team_id,
                SUM(ms.kills) AS kills,
                SUM(ms.deaths) AS deaths,
                SUM(ms.assists) AS assists,
@@ -1437,7 +1484,7 @@ def player_stats_detail(player_id):
     """,
         params,
     ).fetchall()
-    recent_matches = [supplement_temp_teams(m, conn) for m in recent_matches]
+    recent_matches = _recent_matches_with_teams(recent_matches, conn, player_id)
 
     chart_rows = conn.execute(
         f"""

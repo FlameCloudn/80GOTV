@@ -3,7 +3,9 @@
 """
 
 import html as html_mod
+import os
 import re
+from functools import lru_cache
 from urllib.parse import urlsplit
 
 from flask import session
@@ -195,8 +197,22 @@ def map_image_url(name):
     return f"/resources/maps/{fn_str}.webp"
 
 
+_LANDSCAPE_SMALL_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "resources",
+    "map_landscapes",
+    "small",
+)
+
+
+@lru_cache(maxsize=64)
+def _has_small_landscape(file_stem):
+    """有没有压缩过的小景观图（800 宽、几十 KB，网页背景用它就够了）。"""
+    return os.path.isfile(os.path.join(_LANDSCAPE_SMALL_DIR, f"{file_stem}.webp"))
+
+
 def map_background_url(name):
-    """地图名 → /resources/map_landscapes/xxx.png（景观图）"""
+    """地图名 → 景观图地址：优先用小图 /resources/map_landscapes/small/xxx.webp，没有再用原图 png。"""
     key = normalize_map_key(name)
     if not key or key in ("tba", "tbd"):
         return "/resources/maps/tba.webp"
@@ -204,7 +220,55 @@ def map_background_url(name):
     fn_str = str(fn or "").lower()
     if not fn_str:
         return "/resources/maps/tba.webp"
+    if _has_small_landscape(fn_str):
+        return f"/resources/map_landscapes/small/{fn_str}.webp"
     return f"/resources/map_landscapes/{fn_str}.png"
+
+
+# ============ 占位缩写（没有队标时圆圈里写的字） ============
+
+_TEMP_TEAM_RE = re.compile(r"^(?:team|队伍)\s*(\d+)$", re.IGNORECASE)
+_EVENT_YEAR_RE = re.compile(r"^(?:19|20)(\d{2})$")
+_EVENT_EDITION_RE = re.compile(r"^S(\d{1,2})$", re.IGNORECASE)
+
+
+def team_abbr(name, short_name=""):
+    """队伍占位缩写：临时队伍 TEAM X → TX；有 4 个字以内的简称就用简称；
+    都没有时 “Team 某某” → T + 第二个词首字母，其余取名字前两个字。"""
+    name = " ".join(str(name or "").split())
+    short = str(short_name or "").strip()
+    if name.upper() == "TBD":
+        return "?"
+    temp_match = _TEMP_TEAM_RE.match(name)
+    if temp_match:
+        return "T" + temp_match.group(1)
+    if short and len(short) <= 4 and short.upper() != "TBD":
+        return short
+    words = name.split(" ")
+    if len(words) >= 2 and words[0].casefold() == "team":
+        return ("T" + words[1][0]).upper()
+    return name[:2].upper()
+
+
+def event_abbr(name, short_name=""):
+    """赛事占位缩写：有 4 个字以内的简称就用简称；否则取名字里第一个词的前两个字母
+    + 年份后两位（没有年份就用届数），如 2026 Summer 80 Major → SU26、80CS Challenge S1 → CH1。"""
+    short = str(short_name or "").strip()
+    if short and len(short) <= 4:
+        return short.upper()
+    word, year, edition = "", "", ""
+    for token in str(name or "").split():
+        year_match = _EVENT_YEAR_RE.match(token)
+        edition_match = _EVENT_EDITION_RE.match(token)
+        if year_match:
+            year = year or year_match.group(1)
+        elif edition_match:
+            edition = edition or edition_match.group(1)
+        elif not word and token.isalpha():
+            word = token
+    if not word:
+        word = re.sub(r"[\d\s_]+", "", str(name or "")) or "?"
+    return word[:2].upper() + (year or edition)
 
 
 def normalize_http_url(value):

@@ -7,11 +7,17 @@
 {{ url_for('matches_list', event=new_event or none, date=new_date or none, month=new_month or none) }}
 {%- endmacro %}
 {% block title %}比赛 - 80GOTV{% endblock %}
-{% block layout_class %}matches-layout-shell{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ versioned_url('static/css/pages/schedule.css') }}">{% endblock %}
+{% block layout_class %}matches-layout-shell no-side-layout{% endblock %}
 {% block main %}
-<div class="matches-page-layout">
-  <aside class="matches-date-sidebar">
-    <div class="match-calendar">
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>MATCHES</span><h1>比赛</h1></div>
+  <p class="page-head-meta">直播中与即将开始</p>
+</header>
+
+<div class="schedule-layout">
+  <aside class="schedule-side matches-date-sidebar">
+    <div class="panel match-calendar">
       <div class="match-calendar-head">
         <a href="{{ filter_url(month=prev_month.strftime('%Y-%m')) }}" aria-label="上一月">‹</a>
         {% set month_names = ['一月','二月','三月','四月','五月','六月','七月','八月','九月','十月','十一月','十二月'] %}
@@ -29,6 +35,7 @@
         <a
           href="{{ filter_url(date=day.isoformat(), month=day.strftime('%Y-%m')) }}"
           class="{% if day.month != calendar_month.month %}muted{% endif %}{% if selected_date and day == selected_date %} active{% endif %}{% if day == today %} today{% endif %}"
+          {% if selected_date and day == selected_date %}aria-current="date"{% endif %}
         >{{ day.day }}</a>
         {% endfor %}
         </div>
@@ -47,11 +54,12 @@
         </select>
       </form>
     </div>
-    <section class="h-panel match-side-panel">
-      <div class="h-panel-title">比赛筛选</div>
-      <nav class="match-side-filter" aria-label="比赛筛选">
+
+    <section class="panel match-side-panel">
+      <div class="panel-head"><h2 class="panel-title">比赛筛选</h2></div>
+      <nav class="filter-nav match-side-filter" aria-label="比赛筛选">
         <div class="match-filter-group">
-          <div class="match-filter-label">赛事</div>
+          <div class="filter-nav-label match-filter-label">赛事</div>
           <a href="{{ filter_url(event='') }}" class="{% if not event_filter %}active{% endif %}">
             <span class="match-filter-name">全部赛事</span>
           </a>
@@ -66,19 +74,28 @@
     </section>
   </aside>
 
-  <section class="matches-list-panel">
-    <div class="hltv-list-head">
-      <span>{% if selected_date %}{{ selected_date|date_display }} 的比赛{% else %}近期比赛{% endif %}</span>
-      <small>直播中与即将开始</small>
+  <section class="panel schedule-main matches-list-panel">
+    <div class="panel-head hltv-list-head">
+      <h2 class="panel-title">{% if selected_date %}{{ selected_date|date_display }} 的比赛{% else %}近期比赛{% endif %}</h2>
+      {% if matches %}<small class="panel-count">{{ matches|length }} 场</small>{% endif %}
     </div>
     <div class="match-schedule-list">
+      {% set ns = namespace(group=None) %}
       {% for m in matches %}
+      {% set live = m.effective_status == 'live' %}
+      {% set group = 'live' if live else ((m.match_time or '')[:10] or 'tbd') %}
+      {% if group != ns.group %}
+      <div class="schedule-day-head{% if live %} live{% endif %}">
+        {% if live %}直播中{% elif group == 'tbd' %}时间待定{% else %}{{ m.match_time|date_display }}{% endif %}
+      </div>
+      {% set ns.group = group %}
+      {% endif %}
       {% set team1_is_assigned = m.team1_id or m.team1_players %}
       {% set team2_is_assigned = m.team2_id or m.team2_players %}
       <a class="match-schedule-row" href="/matches/{{ m.slug or m.id }}">
         <div class="match-schedule-time">
-          {% if m.effective_status == 'live' %}
-          <span class="match-live-label">直播中</span>
+          {% if live %}
+          <span class="badge badge-live match-live-label">直播中</span>
           {% elif m.match_time %}
           <span class="match-time-text">{{ m.match_time|time_display }}</span>
           {% else %}
@@ -90,17 +107,17 @@
         <div class="match-schedule-teams">
           <div class="match-schedule-team">
             {% if team1_is_assigned and m.team1_logo %}
-            <img class="match-team-logo" src="{{ m.team1_logo|team_logo_url }}" alt="" loading="lazy">
+            <img class="team-logo match-team-logo" src="{{ m.team1_logo|team_logo_url }}" alt="" loading="lazy">
             {% else %}
-            <span class="match-team-mark" data-i18n-ignore>{{ (m.t1s or m.team1_name or 'T1')[:2]|upper if team1_is_assigned else '?' }}</span>
+            <span class="logo-fallback match-team-mark" data-i18n-ignore>{{ m.team1_name|team_abbr(m.t1s) if team1_is_assigned else '?' }}</span>
             {% endif %}
             <span class="team-name" data-i18n-ignore>{{ m.team1_name if team1_is_assigned else 'TBD' }}</span>
           </div>
           <div class="match-schedule-team">
             {% if team2_is_assigned and m.team2_logo %}
-            <img class="match-team-logo" src="{{ m.team2_logo|team_logo_url }}" alt="" loading="lazy">
+            <img class="team-logo match-team-logo" src="{{ m.team2_logo|team_logo_url }}" alt="" loading="lazy">
             {% else %}
-            <span class="match-team-mark" data-i18n-ignore>{{ (m.t2s or m.team2_name or 'T2')[:2]|upper if team2_is_assigned else '?' }}</span>
+            <span class="logo-fallback match-team-mark" data-i18n-ignore>{{ m.team2_name|team_abbr(m.t2s) if team2_is_assigned else '?' }}</span>
             {% endif %}
             <span class="team-name" data-i18n-ignore>{{ m.team2_name if team2_is_assigned else 'TBD' }}</span>
           </div>
@@ -108,12 +125,12 @@
 
         <div class="match-schedule-meta">
           {% if m.event_name %}
-          <span data-i18n-ignore>{{ m.event_name }}</span>
+          <span class="match-schedule-event" data-i18n-ignore>{{ m.event_name }}</span>
           {% else %}
-          <span>未分组赛事</span>
+          <span class="match-schedule-event">未分组赛事</span>
           {% endif %}
           {% if m.match_time %}
-          <span>{{ m.match_time|date_display }}</span>
+          <span class="match-schedule-date">{{ m.match_time|date_display }}</span>
           {% endif %}
         </div>
       </a>
@@ -121,7 +138,7 @@
     </div>
 
     {% if not matches %}
-    <div class="card empty-state" data-front-empty>
+    <div class="empty-state" data-front-empty>
       {% if completed_on_selected_date %}
       这天的比赛已结束，请到 <a href="{{ url_for('results_list', event=event_filter or none) }}">赛果</a> 查看。
       {% else %}

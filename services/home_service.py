@@ -44,6 +44,7 @@ def load_home_feed(conn, today=None):
         f"""
         SELECT m.*, t1.name AS team1_name, t2.name AS team2_name,
                t1.short_name AS t1s, t2.short_name AS t2s, e.name AS event_name,
+               t1.logo AS team1_logo, t2.logo AS team2_logo,
                {_SQL_EFFECTIVE_STATUS}
         FROM matches m
         LEFT JOIN teams t1 ON m.team1_id=t1.id
@@ -63,6 +64,7 @@ def load_home_feed(conn, today=None):
     recent = conn.execute(f"""
         SELECT m.*, t1.name AS team1_name, t2.name AS team2_name,
                t1.short_name AS t1s, t2.short_name AS t2s,
+               t1.logo AS team1_logo, t2.logo AS team2_logo,
                {_SQL_EFFECTIVE_STATUS}
         FROM matches m
         LEFT JOIN teams t1 ON m.team1_id=t1.id
@@ -73,7 +75,7 @@ def load_home_feed(conn, today=None):
     recent = [supplement_temp_teams(match, conn) for match in recent]
 
     top_players = conn.execute(f"""
-        SELECT p.nickname, p.id, t.short_name AS team,
+        SELECT p.nickname, p.id, p.avatar, t.short_name AS team,
                {summary_metric_sql("avg_rating", "rating")} AS avg_rating
         FROM player_performance_summary s
         JOIN players p ON s.player_id=p.id

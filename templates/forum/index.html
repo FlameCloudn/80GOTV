@@ -1,63 +1,8 @@
 {% extends "base.html" %}
 {% from "_user_badges.html" import cheater_badge %}
 {% block title %}社区论坛{% endblock %}
-{% block head %}
-<style>
-.forum-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
-
-.forum-category-nav{display:flex;align-items:stretch;gap:0;margin-bottom:10px;border:1px solid var(--h-panel-line);background:var(--h-panel);overflow-x:auto}
-.forum-category-nav a{flex:0 0 auto;padding:9px 12px;border-right:1px solid var(--h-panel-line);color:var(--text-secondary);font-size:12px;white-space:nowrap}
-.forum-category-nav a:last-child{border-right:0}
-.forum-category-nav a.active{background:var(--accent);color:#fff;font-weight:700}
-.forum-category-nav .count{opacity:.65;margin-left:4px}
-.forum-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:10px;flex-wrap:wrap}
-.forum-toolbar h2{font-size:17px;margin:0}
-
-.forum-search{display:flex;gap:var(--space-sm);align-items:center}
-.forum-search input[type="search"]{width:190px;padding:5px 9px;background:var(--bg-primary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:0;font-size:12px;font-family:inherit}
-.forum-search input[type="search"]:focus{outline:none;border-color:var(--accent)}
-.forum-search .btn{width:auto!important;flex:0 0 auto}
-.forum-actions{display:flex;align-items:center;gap:6px}
-.forum-sort{display:flex;border:1px solid var(--h-panel-line);background:var(--h-panel)}
-.forum-sort a{padding:6px 10px;color:var(--text-secondary);font-size:12px;border-right:1px solid var(--h-panel-line);white-space:nowrap}
-.forum-sort a:last-child{border-right:0}
-.forum-sort a.active{background:var(--h-panel-head);color:var(--text-primary);font-weight:700}
-
-.thread-list{display:flex;flex-direction:column;gap:0;border:1px solid var(--h-panel-line);border-radius:0;overflow:hidden;background:var(--h-panel)}
-.thread-row{display:flex;align-items:center;padding:10px 12px;background:var(--h-panel);border:0;border-bottom:1px solid var(--h-panel-line);border-radius:0;gap:10px;transition:background var(--transition-fast);cursor:pointer}
-.thread-row:hover{background:var(--bg-hover);box-shadow:none;transform:none}
-.thread-row.pinned{border-left:3px solid var(--accent);background:var(--bg-hover)}
-.thread-row:last-child{border-bottom:0}
-.thread-pin{flex-shrink:0;font-size:14px}
-.thread-info{flex:1;min-width:0}
-.thread-title{font-size:13px;margin:0 0 5px;display:flex;align-items:center;gap:6px;min-width:0}
-.thread-title a{color:var(--text-primary)}
-.thread-title>a:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.thread-category{flex:0 0 auto;padding:2px 5px;background:var(--h-panel-head);border:1px solid var(--h-panel-line);color:var(--text-secondary)!important;font-size:10px;font-weight:600}
-.thread-state{flex:0 0 auto;font-size:10px;color:var(--text-muted)}
-.thread-meta{font-size:12px;color:var(--text-muted)}
-.thread-handle{margin-left:4px;opacity:.7}
-.thread-stats{text-align:center;flex-shrink:0;min-width:56px}
-.thread-stats .num{font-size:14px;font-weight:600}
-.thread-stats .label{font-size:11px;color:var(--text-muted)}
-.thread-last{font-size:12px;color:var(--text-muted);text-align:right;flex-shrink:0;min-width:110px;line-height:1.5}
-
-.empty-state{text-align:center;padding:var(--space-3xl);color:var(--text-muted)}
-.pagination{display:flex;justify-content:center;gap:var(--space-sm);margin-top:var(--space-lg)}
-.pagination a,.pagination span{padding:var(--space-sm) var(--space-md);background:var(--bg-card);border:1px solid var(--border-color);border-radius:0;font-size:13px;color:var(--text-primary)}
-.pagination a:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
-.pagination .current{background:var(--accent);color:#fff;border-color:var(--accent)}
-@media(max-width:700px){
-  .forum-toolbar{align-items:stretch}
-  .forum-search{width:100%}
-  .forum-search input[type="search"]{width:auto;flex:1;min-width:0}
-  .forum-actions{width:100%;justify-content:space-between}
-  .forum-actions>.btn{width:auto!important;flex:1 1 auto;text-align:center}
-  .thread-last{display:none}
-  .thread-row{padding:9px 10px}
-}
-</style>
-{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ versioned_url('static/css/pages/forum.css') }}">{% endblock %}
+{% block layout_class %}no-side-layout{% endblock %}
 {% block main %}
 {% set qs_parts = [] %}
 {% if search_query %}{% set _ = qs_parts.append('q=' + search_query|urlencode) %}{% endif %}
@@ -66,95 +11,96 @@
 {% if mine_only %}{% set _ = qs_parts.append('mine=1') %}{% endif %}
 {% set qs = qs_parts|join('&') %}
 
-<nav class="forum-category-nav" aria-label="论坛版块">
-  <a href="{{ url_for('forum_index', q=search_query or None, sort=sort_by if sort_by != 'latest' else None, mine=1 if mine_only else None) }}" class="{% if not category_filter %}active{% endif %}">全部版块</a>
-  {% for category in categories %}
-  <a href="{{ url_for('forum_index', category=category.slug, q=search_query or None, sort=sort_by if sort_by != 'latest' else None, mine=1 if mine_only else None) }}" class="{% if category_filter == category.slug %}active{% endif %}">
-    {{ category.name }}<span class="count">{{ category.thread_count }}</span>
-  </a>
-  {% endfor %}
-</nav>
-
-<div class="forum-toolbar">
-  <form class="forum-search" method="get" action="{{ url_for('forum_index') }}">
-    {% if category_filter %}<input type="hidden" name="category" value="{{ category_filter }}">{% endif %}
-    {% if sort_by != 'latest' %}<input type="hidden" name="sort" value="{{ sort_by }}">{% endif %}
-    {% if mine_only %}<input type="hidden" name="mine" value="1">{% endif %}
-    <input type="search" name="q" placeholder="搜索标题和内容..." value="{{ search_query or '' }}">
-    <button type="submit" class="btn btn-primary" style="font-size:12px;padding:4px 12px">搜索</button>
-    {% if search_query %}<a href="{{ url_for('forum_index', category=category_filter or None, sort=sort_by if sort_by != 'latest' else None, mine=1 if mine_only else None) }}" class="btn btn-secondary" style="font-size:12px;padding:4px 10px">清除</a>{% endif %}
-  </form>
-  <div class="forum-actions">
-    <div class="forum-sort" aria-label="帖子排序">
-      <a href="{{ url_for('forum_index', q=search_query or None, category=category_filter or None, mine=1 if mine_only else None) }}" class="{% if sort_by == 'latest' %}active{% endif %}">最新回复</a>
-      <a href="{{ url_for('forum_index', q=search_query or None, category=category_filter or None, sort='newest', mine=1 if mine_only else None) }}" class="{% if sort_by == 'newest' %}active{% endif %}">最新发布</a>
-      <a href="{{ url_for('forum_index', q=search_query or None, category=category_filter or None, sort='popular', mine=1 if mine_only else None) }}" class="{% if sort_by == 'popular' %}active{% endif %}">热门讨论</a>
-    </div>
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>FORUM</span><h1>社区论坛</h1></div>
+  <div class="page-actions">
     {% if session.user_id %}
-    <a href="{{ url_for('forum_index', mine=None if mine_only else 1, q=search_query or None, category=category_filter or None, sort=sort_by if sort_by != 'latest' else None) }}" class="btn btn-secondary{% if mine_only %} active{% endif %}">{{ '全部帖子' if mine_only else '我的帖子' }}</a>
+    <a href="{{ url_for('forum_index', mine=None if mine_only else 1, q=search_query or None, category=category_filter or None, sort=sort_by if sort_by != 'latest' else None) }}" class="btn{% if mine_only %} active{% endif %}">{{ '全部帖子' if mine_only else '我的帖子' }}</a>
     <a href="{{ url_for('forum_new_thread') }}" class="btn btn-primary">发新帖</a>
     {% else %}
     <a href="{{ url_for('user_login') }}" class="btn btn-primary">登录发帖</a>
     {% endif %}
   </div>
-</div>
+</header>
 
-<div class="forum-layout">
-  <div class="forum-main">
-    {% if threads %}
-    <div class="thread-list">
-      {% for t in threads %}
-      {% set thread_private_remark = private_remark_for_user(t.user_id) %}
-      {% set thread_display_name = thread_private_remark or t.username or t.group_username %}
-      {% set last_reply_private_remark = private_remark_for_user(t.last_reply_user_id) %}
-      {% set last_reply_display_name = last_reply_private_remark or t.last_reply_username %}
-      <div class="thread-row{% if t.is_pinned %} pinned{% endif %}" onclick="location.href='{{ url_for('forum_thread', thread_id=t.id) }}'">
-        {% if t.is_pinned %}<span class="thread-pin" title="置顶">置顶</span>{% endif %}
-        <div class="thread-info">
-          <div class="thread-title">
-            <a class="thread-category" href="{{ url_for('forum_index', category=t.category_slug) }}" onclick="event.stopPropagation()">{{ t.category_name }}</a>
-            {% if t.is_locked %}<span class="thread-state">已锁定</span>{% endif %}
-            <a href="{{ url_for('forum_thread', thread_id=t.id) }}" data-i18n-ignore>{{ t.title }}</a>
-          </div>
-          <div class="thread-meta">
-            <span data-i18n-ignore>{{ thread_display_name }}</span>{% if not thread_private_remark and t.group_username %} <span class="thread-handle" data-i18n-ignore>@{{ t.group_username }}</span>{% endif %}{{ cheater_badge(t.is_cheater) }}
-            · {{ t.created_at|datetime_display }} · {{ t.view_count }} 浏览
-          </div>
-        </div>
-        <div class="thread-stats">
-          <div class="num">{{ t.reply_count }}</div>
-          <div class="label">回复</div>
-        </div>
-        <div class="thread-last">
-          {% if t.last_reply_username %}
-          <span data-i18n-ignore>{{ last_reply_display_name }}{% if not last_reply_private_remark and t.last_reply_group_username %} <span class="thread-handle">@{{ t.last_reply_group_username }}</span>{% endif %}</span>{{ cheater_badge(t.last_reply_is_cheater) }}<br>{{ t.last_reply_at|datetime_display if t.last_reply_at else '' }}
-          {% else %}
-          —
-          {% endif %}
-        </div>
-      </div>
-      {% endfor %}
-    </div>
-    {% else %}
-    <div class="empty-state">
-      {% if search_query %}没有找到包含「{{ search_query }}」的帖子
-      {% elif mine_only %}你还没有发表帖子
-      {% elif category_filter %}这个版块还没有帖子
-      {% else %}暂无帖子，快来发第一个吧{% endif %}
-    </div>
-    {% endif %}
+<section class="panel forum-panel">
+  {#- 版块：一排标签，后面是帖子数 -#}
+  <nav class="tabs forum-tabs" aria-label="论坛版块">
+    <a href="{{ url_for('forum_index', q=search_query or None, sort=sort_by if sort_by != 'latest' else None, mine=1 if mine_only else None) }}" class="tab{% if not category_filter %} active{% endif %}">全部版块</a>
+    {% for category in categories %}
+    <a href="{{ url_for('forum_index', category=category.slug, q=search_query or None, sort=sort_by if sort_by != 'latest' else None, mine=1 if mine_only else None) }}" class="tab{% if category_filter == category.slug %} active{% endif %}">{{ category.name }}<span class="forum-tab-count">{{ category.thread_count }}</span></a>
+    {% endfor %}
+  </nav>
 
-    {% if total_pages > 1 %}
-    <div class="pagination">
-      {% if page > 1 %}<a href="?page={{ page - 1 }}{% if qs %}&{{ qs }}{% endif %}">上一页</a>{% endif %}
-      {% for p in range(1, total_pages + 1) %}
-        {% if p == page %}<span class="current">{{ p }}</span>
-        {% else %}<a href="?page={{ p }}{% if qs %}&{{ qs }}{% endif %}">{{ p }}</a>{% endif %}
-      {% endfor %}
-      {% if page < total_pages %}<a href="?page={{ page + 1 }}{% if qs %}&{{ qs }}{% endif %}">下一页</a>{% endif %}
+  <div class="forum-toolbar">
+    <form class="forum-search" method="get" action="{{ url_for('forum_index') }}">
+      {% if category_filter %}<input type="hidden" name="category" value="{{ category_filter }}">{% endif %}
+      {% if sort_by != 'latest' %}<input type="hidden" name="sort" value="{{ sort_by }}">{% endif %}
+      {% if mine_only %}<input type="hidden" name="mine" value="1">{% endif %}
+      <input type="search" name="q" placeholder="搜索标题和内容..." value="{{ search_query or '' }}" aria-label="搜索标题和内容">
+      <button type="submit" class="btn btn-primary">搜索</button>
+      {% if search_query %}<a href="{{ url_for('forum_index', category=category_filter or None, sort=sort_by if sort_by != 'latest' else None, mine=1 if mine_only else None) }}" class="btn">清除</a>{% endif %}
+    </form>
+    <div class="segmented forum-sort" aria-label="帖子排序">
+      <a href="{{ url_for('forum_index', q=search_query or None, category=category_filter or None, mine=1 if mine_only else None) }}" class="{% if sort_by == 'latest' %}active{% endif %}">最新回复</a>
+      <a href="{{ url_for('forum_index', q=search_query or None, category=category_filter or None, sort='newest', mine=1 if mine_only else None) }}" class="{% if sort_by == 'newest' %}active{% endif %}">最新发布</a>
+      <a href="{{ url_for('forum_index', q=search_query or None, category=category_filter or None, sort='popular', mine=1 if mine_only else None) }}" class="{% if sort_by == 'popular' %}active{% endif %}">热门讨论</a>
     </div>
-    {% endif %}
   </div>
 
-</div>
+  {% if threads %}
+  {#- 帖子列表（照 HLTV 论坛）：标题和作者 | 回复数 | 最后回复 -#}
+  <div class="forum-list-head" aria-hidden="true"><span>帖子</span><span>回复</span><span>最后回复</span></div>
+  <div class="forum-threads">
+    {% for t in threads %}
+    {% set thread_private_remark = private_remark_for_user(t.user_id) %}
+    {% set thread_display_name = thread_private_remark or t.username or t.group_username %}
+    {% set last_reply_private_remark = private_remark_for_user(t.last_reply_user_id) %}
+    {% set last_reply_display_name = last_reply_private_remark or t.last_reply_username %}
+    <div class="forum-thread{% if t.is_pinned %} pinned{% endif %}">
+      <div class="forum-thread-main">
+        <div class="forum-thread-title">
+          {% if t.is_pinned %}<span class="badge badge-square forum-pin">置顶</span>{% endif %}
+          <a class="badge badge-square forum-category" href="{{ url_for('forum_index', category=t.category_slug) }}">{{ t.category_name }}</a>
+          {% if t.is_locked %}<span class="forum-locked">已锁定</span>{% endif %}
+          <a class="forum-thread-link" href="{{ url_for('forum_thread', thread_id=t.id) }}" data-i18n-ignore>{{ t.title }}</a>
+        </div>
+        <div class="forum-thread-meta">
+          <span data-i18n-ignore>{{ thread_display_name }}</span>{% if not thread_private_remark and t.group_username %} <span class="forum-handle" data-i18n-ignore>@{{ t.group_username }}</span>{% endif %}{{ cheater_badge(t.is_cheater) }}
+          <span class="forum-dot">·</span>{{ t.created_at|datetime_display }}<span class="forum-dot">·</span>{{ t.view_count }} 浏览
+        </div>
+      </div>
+      <div class="forum-thread-replies"><b>{{ t.reply_count }}</b><span>回复</span></div>
+      <div class="forum-thread-last">
+        {% if t.last_reply_username %}
+        <span data-i18n-ignore>{{ last_reply_display_name }}{% if not last_reply_private_remark and t.last_reply_group_username %} <span class="forum-handle">@{{ t.last_reply_group_username }}</span>{% endif %}</span>{{ cheater_badge(t.last_reply_is_cheater) }}
+        <small>{{ t.last_reply_at|datetime_display if t.last_reply_at else '' }}</small>
+        {% else %}
+        <span class="forum-none">—</span>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state">
+    {% if search_query %}没有找到包含「{{ search_query }}」的帖子
+    {% elif mine_only %}你还没有发表帖子
+    {% elif category_filter %}这个版块还没有帖子
+    {% else %}暂无帖子，快来发第一个吧{% endif %}
+  </div>
+  {% endif %}
+</section>
+
+{% if total_pages > 1 %}
+<nav class="pagination" aria-label="翻页">
+  {% if page > 1 %}<a href="?page={{ page - 1 }}{% if qs %}&{{ qs }}{% endif %}">上一页</a>{% endif %}
+  {% for p in range(1, total_pages + 1) %}
+    {% if p == page %}<span class="current">{{ p }}</span>
+    {% else %}<a href="?page={{ p }}{% if qs %}&{{ qs }}{% endif %}">{{ p }}</a>{% endif %}
+  {% endfor %}
+  {% if page < total_pages %}<a href="?page={{ page + 1 }}{% if qs %}&{{ qs }}{% endif %}">下一页</a>{% endif %}
+</nav>
+{% endif %}
 {% endblock %}
+{% block side %}{% endblock %}

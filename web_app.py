@@ -34,7 +34,7 @@ from services.player_remark_service import (
 )
 from services.team_logo_service import team_logo_url
 from utils.db_helpers import avatar_static_filename
-from utils.helpers import event_path, news_path, normalize_map_key
+from utils.helpers import event_abbr, event_path, news_path, normalize_map_key, team_abbr
 from utils.web_helpers import safe_redirect_target, validate_admin_session
 
 logger = logging.getLogger("80gotv")
@@ -85,6 +85,8 @@ app.template_filter("map_display_cn")(map_display_cn_filter)
 app.template_filter("map_pool_label")(map_pool_label_filter)
 app.template_filter("rating_class")(rating_class_filter)
 app.template_filter("registration_team_abbr")(registration_team_abbr_filter)
+app.template_filter("team_abbr")(team_abbr)
+app.template_filter("event_abbr")(event_abbr)
 app.template_filter("bilibili_embed")(bilibili_embed_filter)
 app.jinja_env.globals["event_path"] = event_path
 app.jinja_env.globals["news_path"] = news_path

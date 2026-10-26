@@ -1,32 +1,31 @@
 {% extends 'base.html' %}
 {% block title %}通知 - 80GOTV{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ versioned_url('static/css/pages/account.css') }}">{% endblock %}
+{% block layout_class %}no-side-layout narrow-layout{% endblock %}
 {% block main %}
 <header class="page-head">
   <div><span class="page-head-kicker" data-i18n-ignore>NOTIFICATIONS</span><h1>通知</h1></div>
-  {% if notifications %}<button class="ui-btn" type="button" onclick="markAllRead()">全部已读</button>{% endif %}
+  {% if notifications %}<button class="btn btn-sm" type="button" onclick="markAllRead()">全部已读</button>{% endif %}
 </header>
 
 {% if notifications %}
-<div class="notif-list h-panel">
+{#- 一条通知一行：左边类型图标，中间内容和时间，未读的有蓝色竖条和“标记已读” -#}
+<section class="panel notif-list">
   {% for n in notifications %}
-  <a href="{{ n.link or '#' }}" class="notif-item {% if not n.is_read %}unread{% endif %}" data-id="{{ n.id }}">
-    <div class="notif-type" aria-hidden="true">
-      {% if n.type == 'reply' %}💬
-      {% elif n.type == 'system' %}📢
-      {% else %}🔔{% endif %}
-    </div>
-    <div class="notif-body">
-      <p>{{ n.message }}</p>
+  <a href="{{ n.link or '#' }}" class="notif-item{% if not n.is_read %} unread{% endif %}" data-id="{{ n.id }}">
+    <span class="notif-type" aria-hidden="true">{% if n.type == 'reply' %}💬{% elif n.type == 'system' %}📢{% else %}🔔{% endif %}</span>
+    <span class="notif-body">
+      <span class="notif-message">{{ n.message }}</span>
       <span class="notif-time">{{ n.created_at|datetime_display }}</span>
-    </div>
+    </span>
     {% if not n.is_read %}
-    <button class="notif-mark-read ui-btn ui-btn--sm" type="button" onclick="event.preventDefault();markRead({{ n.id }}, this.closest('.notif-item'))">标记已读</button>
+    <button class="notif-mark-read btn btn-sm" type="button" onclick="event.preventDefault();markRead({{ n.id }}, this.closest('.notif-item'))">标记已读</button>
     {% endif %}
   </a>
   {% endfor %}
-</div>
+</section>
 {% else %}
-<div class="empty-state">暂无通知</div>
+<div class="panel empty-state">暂无通知</div>
 {% endif %}
 
 <script>
@@ -63,6 +62,4 @@ function markAllRead() {
 }
 </script>
 {% endblock %}
-
-{% block layout_class %}no-side-layout{% endblock %}
 {% block side %}{% endblock %}

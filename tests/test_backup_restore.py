@@ -3,6 +3,7 @@ import shlex
 import shutil
 import sqlite3
 import tempfile
+import time
 import unittest
 import zipfile
 from contextlib import closing
@@ -62,6 +63,80 @@ class BackupRestoreTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             restore_to_empty_directory(backup, target)
         self.assertTrue((target / "keep.txt").exists())
+
+    def test_restore_retries_a_temporary_windows_rename_failure(self):
+        with patch("services.backup_service.BASE_DIR", str(self.root)):
+            backup = create_backup_file(self.root / "backups")
+        target = self.root / "retry-restore"
+        original_rename = Path.rename
+        attempts = []
+
+        def rename(source, destination):
+            attempts.append(destination)
+            if len(attempts) == 1:
+                error = PermissionError("temporary rename denial")
+                error.winerror = 5
+                raise error
+            return original_rename(source, destination)
+
+        with patch.object(Path, "rename", rename):
+            restored = restore_to_empty_directory(backup, target)
+        self.assertEqual(restored, target)
+        self.assertGreaterEqual(len(attempts), 2)
+        self.assertLessEqual(len(attempts), 4)
+        with closing(sqlite3.connect(restored / "database" / "cs_site.db")) as conn:
+            self.assertEqual(conn.execute("SELECT value FROM sample").fetchone()[0], "latest")
+        self.assertTrue(backup.is_file())
+
+    def test_restore_stops_after_bounded_windows_rename_failures(self):
+        with patch("services.backup_service.BASE_DIR", str(self.root)):
+            backup = create_backup_file(self.root / "backups")
+        target = self.root / "denied-restore"
+        error = PermissionError("persistent rename denial")
+        error.winerror = 5
+        with patch.object(Path, "rename", side_effect=error) as rename:
+            with patch.object(time, "sleep") as sleep:
+                with self.assertRaises(PermissionError):
+                    restore_to_empty_directory(backup, target)
+        self.assertEqual(rename.call_count, 4)
+        self.assertEqual(sleep.call_count, 3)
+        self.assertFalse(target.exists())
+        self.assertTrue(backup.is_file())
+        with closing(sqlite3.connect(self.database)) as conn:
+            self.assertEqual(conn.execute("SELECT value FROM sample").fetchone()[0], "latest")
+
+    def test_restore_does_not_retry_when_another_process_creates_target(self):
+        with patch("services.backup_service.BASE_DIR", str(self.root)):
+            backup = create_backup_file(self.root / "backups")
+        target = self.root / "concurrent-restore"
+
+        def create_target_then_fail(source, destination):
+            destination.mkdir()
+            (destination / "keep.txt").write_text("keep", encoding="utf-8")
+            error = PermissionError("target appeared")
+            error.winerror = 5
+            raise error
+
+        with patch.object(
+            Path, "rename", autospec=True, side_effect=create_target_then_fail
+        ) as rename:
+            with patch.object(time, "sleep") as sleep:
+                with self.assertRaises(PermissionError):
+                    restore_to_empty_directory(backup, target)
+        self.assertEqual(rename.call_count, 1)
+        sleep.assert_not_called()
+        self.assertEqual((target / "keep.txt").read_text(encoding="utf-8"), "keep")
+
+    def test_restore_does_not_retry_other_permission_failures(self):
+        with patch("services.backup_service.BASE_DIR", str(self.root)):
+            backup = create_backup_file(self.root / "backups")
+        error = PermissionError("unrelated permission denial")
+        with patch.object(Path, "rename", side_effect=error) as rename:
+            with patch.object(time, "sleep") as sleep:
+                with self.assertRaises(PermissionError):
+                    restore_to_empty_directory(backup, self.root / "other-denial")
+        self.assertEqual(rename.call_count, 1)
+        sleep.assert_not_called()
 
     def test_database_only_restore_replaces_live_database(self):
         with patch("services.backup_service.BASE_DIR", str(self.root)):

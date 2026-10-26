@@ -1,31 +1,32 @@
 {#
-  全站设计变量（颜色 / 字号 / 间距）——唯一来源。
+  全站设计变量（颜色 / 字号 / 间距 / 圆角）——前台唯一来源。
 
-  所有页面（包括登录页、战报页这类不继承 base.html 的独立页面）都引入这个文件，
-  这样改一处颜色，全站一起变，不会再出现"某个页面自己一套配色"。
+  所有前台页面（包括登录、战报这类不继承 base.html 的独立页面）都引入这个文件。
+  直接写在页面里（不是外部文件），浏览器一打开就有颜色，不会先白一下。
 
-  规则：
-  1. 新样式只用上半部分的"标准变量"。
-  2. 下半部分的"旧名字"只是为了兼容老样式，全部指向标准变量，不要再新增使用。
-  3. 这段样式直接写在页面里（不是外部文件），浏览器一打开就能拿到颜色，避免闪白。
+  配色原则（第三版前台）：
+  - 平实：中性灰底 + 一个沉稳的蓝色做强调；胜负、阵营、荣誉用低饱和的语义色。
+  - 不新增零散颜色：样式里只用这里的变量；需要浅色底时用 *-soft 版本。
 #}
 <style id="design-tokens">
-/* ---------- 不随主题变化 ---------- */
 :root{
-  /* 版心宽度 */
-  --max-width:1100px;        /* 普通页面 */
+  /* 版心 */
+  --max-width:1200px;        /* 普通页面 */
   --narrow-width:920px;      /* 小游戏、对比这类工具页 */
-  --form-width:720px;        /* 单列表单页 */
-  --site-gap:10px;
+  --form-width:640px;        /* 单列表单页 */
+  --side-width:300px;        /* 右侧栏 */
+  --site-gap:16px;           /* 栏与栏、面板与面板之间 */
+  --header-h:56px;
 
   /* 字体与字号 */
-  --site-font-family:'Segoe UI',Arial,'Helvetica Neue','Microsoft YaHei','PingFang SC',sans-serif;
-  --site-font-size:13px;
-  --font-xs:11px;            /* 辅助说明、时间 */
-  --font-sm:12px;            /* 面板标题、按钮、表头 */
-  --font-md:13px;            /* 正文 */
-  --font-lg:16px;            /* 页面标题 */
-  --font-xl:20px;            /* 详情页大标题 */
+  --site-font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Hiragino Sans GB','Microsoft YaHei','Noto Sans SC',sans-serif;
+  --font-xs:12px;            /* 时间、角标、表头 */
+  --font-sm:13px;            /* 次要文字 */
+  --font-md:14px;            /* 正文 */
+  --font-lg:16px;            /* 面板里的小标题 */
+  --font-xl:20px;            /* 页面标题 */
+  --font-2xl:26px;           /* 详情页大标题 */
+  --font-3xl:34px;           /* 大比分 */
 
   /* 间距 */
   --space-xs:4px;
@@ -35,110 +36,129 @@
   --space-xl:20px;
   --space-2xl:24px;
   --space-3xl:32px;
-  --front-pad-x:12px;
-  --front-pad-y:8px;
 
-  /* 形状与动效：全站直角 */
-  --radius-sm:0;
-  --radius-md:0;
-  --radius-lg:0;
-  --radius-xl:0;
-  --control-h:32px;          /* 按钮、输入框统一高度 */
-  --transition-fast:0.15s;
-  --transition-base:0.25s;
+  /* 形状与动效 */
+  --radius-sm:4px;
+  --radius-md:6px;
+  --radius-lg:10px;
+  --radius-pill:999px;
+  --control-h:34px;          /* 按钮、输入框统一高度 */
+  --row-h:40px;              /* 列表一行 */
+  --transition-fast:.12s;
+  --transition-base:.2s;
 
-  /* 固定语义色 */
   --color-white:#fff;
-  --color-dark:#333840;
-  --live:#1db954;
+  --color-dark:#1b1f24;
+  --on-image-shadow:0 1px 3px rgba(0,0,0,.6);  /* 图片上的白字（地图条），深浅色模式都一样 */
 }
 
-/* ---------- 暗色（默认） ---------- */
+/* ---------- 深色（默认） ---------- */
 :root,:root[data-theme='dark']{
   color-scheme:dark;
   /* 底色 */
-  --bg-primary:#171d24;      /* 页面背景 */
-  --bg-card:#222a33;         /* 面板 */
-  --bg-hover:#2a343e;        /* 悬停 */
-  --surface-soft:#27313b;    /* 面板内的浅色块 */
-  --bg-input:#171d24;        /* 输入框 */
-  --h-panel-head:#29343f;    /* 面板标题栏 */
-  --nav-bg:#202832;
+  --bg-primary:#121418;      /* 页面背景 */
+  --bg-card:#1a1d22;         /* 面板 */
+  --bg-hover:#22262c;        /* 悬停 */
+  --surface-soft:#1f2328;    /* 面板里的浅色块、表头 */
+  --bg-input:#15181c;        /* 输入框 */
+  --nav-bg:#16191d;          /* 顶栏 */
   /* 文字 */
-  --text-primary:#edf2f6;
-  --text-secondary:#c5ced7;
-  --text-muted:#96a4b1;
-  --text-link:#7eb0d4;
-  --text-link-hover:#a0c6e2;
+  --text-primary:#e7e9ec;
+  --text-secondary:#b6bcc4;
+  --text-muted:#8b939d;
+  --text-link:#8cb4dc;
+  --text-link-hover:#b0cdea;
   /* 线条 */
-  --border-color:#3a4652;
-  --border-strong:#526171;
+  --border-color:#2a2f36;
+  --border-strong:#3a414a;
   /* 强调色 */
-  --accent:#5e96be;
-  --accent-hover:#76a9cd;
-  --accent-soft:rgba(94,150,190,.14);
+  --accent:#6b9fd1;
+  --accent-hover:#86b2dc;
+  --accent-soft:rgba(107,159,209,.14);
+  --accent-contrast:#0f1318; /* 强调色底上的文字 */
   /* 语义色 */
-  --color-green:#22c55e;     /* 胜利、正向数据 */
-  --color-red:#ef4444;       /* 失败、负向数据、删除 */
-  --color-gold:#d4a72c;      /* MVP、冠军 */
-  --color-ct:#5b9bd5;        /* CT 阵营 */
-  --color-t:#e0a23c;         /* T 阵营 */
-  --color-purple:#b69ae0;    /* 选手荣誉里的冠军头衔 */
+  --color-green:#4cae7c;     /* 胜利、正向数据 */
+  --color-red:#df6a5f;       /* 失败、负向数据、删除 */
+  --color-gold:#d1a64b;      /* MVP、冠军 */
+  --color-purple:#a990d9;    /* EVP、荣誉头衔 */
+  --color-ct:#6aa6db;        /* CT 阵营 */
+  --color-t:#dda24c;         /* T 阵营 */
+  --live:#ef5b52;            /* 直播中 */
+  --green-soft:rgba(76,174,124,.14);
+  --red-soft:rgba(223,106,95,.14);
+  --gold-soft:rgba(209,166,75,.15);
+  --purple-soft:rgba(169,144,217,.15);
+  --live-soft:rgba(239,91,82,.15);
+  --ct-soft:rgba(106,166,219,.13);   /* CT 阵营的浅底（记分板表头、回合格） */
+  --t-soft:rgba(221,162,76,.13);     /* T 阵营的浅底 */
+  /* 表现条分档（照 HLTV 表现图：低于平均→琥珀，平均→橄榄，再往上依次变绿、变青；Rating 固定蓝） */
+  --perf-low:#cf9a48;
+  --perf-avg:#939c2b;
+  --perf-good:#5f9a3e;
+  --perf-great:#22966a;
+  --perf-top:#178d99;
+  --perf-rating:#3d7cbd;
   /* 阴影与遮罩 */
-  --shadow:rgba(0,0,0,.28);
-  --shadow-raised:0 1px 2px rgba(0,0,0,.34),0 8px 22px rgba(0,0,0,.2);
-  --overlay:rgba(10,14,20,.72);
-  --logo-outline:rgba(255,255,255,.28);  /* 深色模式下队标外圈的淡亮边，防止深色队标和背景混在一起 */
+  --shadow:rgba(0,0,0,.35);
+  --shadow-raised:0 12px 32px rgba(0,0,0,.45);
+  --overlay:rgba(8,10,13,.62);
+  --logo-outline:rgba(255,255,255,.22);  /* 深色队标外圈的淡亮边 */
   /* 提示条 */
-  --alert-success-bg:#1a3a2a;--alert-success-color:#7ddb8f;--alert-success-border:#2d5a3d;
-  --alert-error-bg:#3a1a1a;--alert-error-color:#f5a5a5;--alert-error-border:#5a2d2d;
-  --alert-info-bg:#1a2a3a;--alert-info-color:#8ab4d8;--alert-info-border:#2d3d5a;
-  /* 状态标签 */
-  --status-upcoming-bg:#1565c0;--status-upcoming-color:#bbdefb;
-  --status-live-bg:#e65100;--status-live-color:#ffe0b2;
-  --status-ongoing-bg:#e65100;--status-ongoing-color:#ffe0b2;
-  --status-completed-bg:#424242;--status-completed-color:#bdbdbd;
+  --alert-success-bg:#17301f;--alert-success-color:#86d6a4;--alert-success-border:#2b5238;
+  --alert-error-bg:#351b19;--alert-error-color:#f2aaa3;--alert-error-border:#5c2f2b;
+  --alert-info-bg:#172534;--alert-info-color:#9cc3e6;--alert-info-border:#2a4560;
 }
 
-/* ---------- 亮色 ---------- */
+/* ---------- 浅色 ---------- */
 :root[data-theme='light']{
   color-scheme:light;
-  --bg-primary:#d8dee5;
+  --bg-primary:#f3f4f6;
   --bg-card:#ffffff;
-  --bg-hover:#f1f4f7;
-  --surface-soft:#f6f8fa;
+  --bg-hover:#f2f4f7;
+  --surface-soft:#f7f8fa;
   --bg-input:#ffffff;
-  --h-panel-head:#e9eef3;
-  --nav-bg:#f8f9fa;
-  --text-primary:#17212b;
-  --text-secondary:#445364;
-  --text-muted:#687889;
-  --text-link:#316f9f;
-  --text-link-hover:#24587f;
-  --border-color:#c5ced8;
-  --border-strong:#aeb7c2;
-  --accent:#337cac;
-  --accent-hover:#28678f;
-  --accent-soft:rgba(51,124,172,.1);
-  --color-green:#0f8a35;
-  --color-red:#d63232;
-  --color-gold:#b8860b;
+  --nav-bg:#ffffff;
+  --text-primary:#1b1f24;
+  --text-secondary:#4a525c;
+  --text-muted:#6b7480;
+  --text-link:#2a65a0;
+  --text-link-hover:#1d4f82;
+  --border-color:#e3e6ea;
+  --border-strong:#cbd1d8;
+  --accent:#2d6aa5;
+  --accent-hover:#245a8e;
+  --accent-soft:rgba(45,106,165,.09);
+  --accent-contrast:#ffffff;
+  --color-green:#23844f;
+  --color-red:#c1443a;
+  --color-gold:#9c7312;
+  --color-purple:#7451ad;
   --color-ct:#2f6fa3;
-  --color-t:#c07a12;
-  --color-purple:#7c5aa7;
-  --shadow:rgba(39,51,64,.12);
-  --shadow-raised:0 1px 2px rgba(21,31,43,.12),0 8px 20px rgba(21,31,43,.04);
-  --overlay:rgba(25,31,38,.55);
-  --alert-success-bg:#d4edda;--alert-success-color:#155724;--alert-success-border:#c3e6cb;
-  --alert-error-bg:#f8d7da;--alert-error-color:#721c24;--alert-error-border:#f5c6cb;
-  --alert-info-bg:#d1ecf1;--alert-info-color:#0c5460;--alert-info-border:#bee5eb;
-  --status-upcoming-bg:#2196f3;--status-upcoming-color:#fff;
-  --status-live-bg:#ff9800;--status-live-color:#fff;
-  --status-ongoing-bg:#ff9800;--status-ongoing-color:#fff;
-  --status-completed-bg:#757575;--status-completed-color:#fff;
+  --color-t:#b06d12;
+  --live:#d63a30;
+  --green-soft:rgba(35,132,79,.10);
+  --red-soft:rgba(193,68,58,.10);
+  --gold-soft:rgba(156,115,18,.11);
+  --purple-soft:rgba(116,81,173,.10);
+  --live-soft:rgba(214,58,48,.10);
+  --ct-soft:rgba(47,111,163,.09);
+  --t-soft:rgba(176,109,18,.10);
+  --perf-low:#e0a440;
+  --perf-avg:#7f890e;
+  --perf-good:#518823;
+  --perf-great:#00845a;
+  --perf-top:#00707b;
+  --perf-rating:#0d5c9a;
+  --shadow:rgba(16,24,40,.08);
+  --shadow-raised:0 12px 32px rgba(16,24,40,.14);
+  --overlay:rgba(20,24,30,.45);
+  --logo-outline:transparent;
+  --alert-success-bg:#e6f4ec;--alert-success-color:#185c38;--alert-success-border:#bfe0cc;
+  --alert-error-bg:#fbeceb;--alert-error-color:#8a2a22;--alert-error-border:#f0c9c5;
+  --alert-info-bg:#e9f1f9;--alert-info-color:#1d4f82;--alert-info-border:#c7dbef;
 }
 
-/* ---------- 旧名字（只做兼容，全部指向上面的标准变量） ---------- */
+/* ---------- 旧名字（只为兼容个别还没改完的地方，全部指向上面的标准变量；新样式不要再用） ---------- */
 :root{
   --panel-shadow:0 1px 2px var(--shadow);
   --color-blue:var(--accent);
@@ -146,33 +166,14 @@
   --color-loss:var(--color-red);
   --rating-good:var(--color-green);
   --bg-secondary:var(--surface-soft);
-  --nav-border:var(--border-color);
-  --nav-text:var(--text-primary);
-  --nav-hover:var(--bg-hover);
-  --nav-muted:var(--text-muted);
-  --h-page:var(--bg-primary);
   --h-panel:var(--bg-card);
-  --h-panel-soft:var(--surface-soft);
+  --h-panel-head:var(--surface-soft);
   --h-panel-line:var(--border-color);
+  --h-panel-soft:var(--surface-soft);
   --h-row:var(--bg-card);
   --h-row-alt:var(--surface-soft);
   --h-blue:var(--accent);
   --h-shadow:var(--panel-shadow);
-  --hltv-page:var(--bg-primary);
-  --hltv-panel:var(--bg-card);
-  --hltv-panel-2:var(--surface-soft);
-  --hltv-head:var(--h-panel-head);
-  --hltv-line:var(--border-color);
-  --hltv-line-dark:var(--border-strong);
-  --hltv-blue:var(--accent);
-  --hltv-green:var(--color-green);
-  --hltv-red:var(--color-red);
-  --hltv-nav:var(--nav-bg);
-  --hltv-nav-2:var(--nav-bg);
-  --hltv-shadow:var(--panel-shadow);
-  --front-shadow:var(--shadow-raised);
-  --front-soft-shadow:var(--panel-shadow);
-  --front-blue-soft:var(--accent-soft);
 }
 
 /* 样式文件还没下载完时，先铺好背景色，避免白屏闪一下 */

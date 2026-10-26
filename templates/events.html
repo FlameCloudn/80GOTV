@@ -1,9 +1,43 @@
 {% extends 'base.html' %}
 {% block title %}{% if status_filter=='ongoing' %}进行中赛事{% elif status_filter=='completed' %}历史赛事{% elif status_filter=='upcoming' %}即将开始{% else %}赛事列表{% endif %} - 80GOTV{% endblock %}
-{% block head %}
-<link rel="stylesheet" href="{{ versioned_url('static/css/events-layout.css') }}">
-{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ versioned_url('static/css/pages/events.css') }}">{% endblock %}
+{% block layout_class %}events-layout no-side-layout{% endblock %}
+
+{% macro event_card(e) %}
+<a class="event-card event-list-row" href="{{ event_path(e) }}">
+  <span class="event-card-date" aria-hidden="true">
+    <b>{{ e.start_date[5:7] if e.start_date else '--' }}.{{ e.start_date[8:10] if e.start_date else '--' }}</b>
+    <small>{{ e.start_date[:4] if e.start_date else '' }}</small>
+  </span>
+  <span class="event-card-body">
+    <h3 data-i18n-ignore>{{ e.name }}</h3>
+    <span class="event-info">
+      <span class="event-list-status badge {% if e.effective_event_status == 'ongoing' %}badge-live{% elif e.effective_event_status == 'upcoming' %}badge-upcoming{% else %}badge-done{% endif %} status-{{ e.effective_event_status }}">
+        {% if e.effective_event_status == 'upcoming' %}即将开始
+        {% elif e.effective_event_status == 'ongoing' %}进行中
+        {% else %}已结束{% endif %}
+      </span>
+      {% set start_day = e.start_date|date_display %}{% set end_day = e.end_date|date_display %}
+      <span class="event-list-date">{{ start_day }}{% if end_day and end_day != start_day %} ~ {{ end_day }}{% endif %}</span>
+    </span>
+    <span class="meta">{{ e.format }} · {{ e.team_count }} 支队伍 · {{ e.match_count }} 场比赛</span>
+  </span>
+</a>
+{% endmacro %}
+
 {% block main %}
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>EVENTS</span><h1>赛事</h1></div>
+  <p class="page-head-meta">共 {{ events|length }} 个赛事</p>
+</header>
+
+<nav class="segmented events-view-tabs" aria-label="赛事筛选">
+  <a href="/events?view=list"{% if not status_filter and view_mode != 'calendar' %} aria-current="page"{% endif %}>全部赛事</a>
+  <a href="/events?status=ongoing"{% if status_filter == 'ongoing' %} aria-current="page"{% endif %}>进行中</a>
+  <a href="/events?status=completed"{% if status_filter == 'completed' %} aria-current="page"{% endif %}>历史赛事</a>
+  <a href="/events"{% if view_mode == 'calendar' %} aria-current="page"{% endif %}>日历</a>
+</nav>
+
 <div class="events-list-layout">
 {% if view_mode == 'calendar' %}
 {# ── 日历视图：按月分组 ── #}
@@ -14,51 +48,20 @@
   {% set _ = months[ym].append(e) %}
 {% endfor %}
 {% for ym, month_events in months.items()|sort(reverse=True) %}
-<h3 class="section-title">{{ ym }}</h3>
-<div class="card-list h-compact-list">
-  {% for e in month_events %}
-  <a class="card event-card event-list-row" href="{{ event_path(e) }}">
-    <h3 data-i18n-ignore>{{ e.name }}</h3>
-    <div class="event-info">
-      <span class="event-list-status status-badge status-{{ e.effective_event_status }}">
-        {% if e.effective_event_status == 'upcoming' %}即将开始
-        {% elif e.effective_event_status == 'ongoing' %}进行中
-        {% else %}已结束{% endif %}
-      </span>
-      <span class="event-list-date">{{ e.start_date|date_display }} ~ {{ e.end_date|date_display }}</span>
-    </div>
-    <div class="meta">{{ e.format }} · {{ e.team_count }} 支队伍 · {{ e.match_count }} 场比赛</div>
-  </a>
-  {% endfor %}
-</div>
+<section class="events-month">
+  <h2 class="section-title events-month-title">{{ ym }}</h2>
+  <div class="events-grid">
+    {% for e in month_events %}{{ event_card(e) }}{% endfor %}
+  </div>
+</section>
 {% endfor %}
 {% else %}
-<div class="card-list h-compact-list">
-  {% for e in events %}
-  <a class="card event-card event-list-row" href="{{ event_path(e) }}">
-    <h3 data-i18n-ignore>{{ e.name }}</h3>
-    <div class="event-info">
-      <span class="event-list-status status-badge status-{{ e.effective_event_status }}">
-        {% if e.effective_event_status == 'upcoming' %}即将开始
-        {% elif e.effective_event_status == 'ongoing' %}进行中
-        {% else %}已结束{% endif %}
-      </span>
-      <span class="event-list-date">{{ e.start_date|date_display }} ~ {{ e.end_date|date_display }}</span>
-    </div>
-    <div class="meta">{{ e.format }} · {{ e.team_count }} 支队伍 · {{ e.match_count }} 场比赛</div>
-  </a>
-  {% endfor %}
+<div class="events-grid">
+  {% for e in events %}{{ event_card(e) }}{% endfor %}
 </div>
-{% if not events %}<div class="card empty-state">暂无赛事</div>{% endif %}
 {% endif %}
+{% if not events %}<div class="panel empty-state">暂无赛事</div>{% endif %}
 </div>
 {% endblock %}
 
-{% block side %}
-<section class="h-panel">
-<div class="h-panel-title">赛事统计</div>
-<div class="card small h-side-card">
-  <p style="font-size:13px;color:var(--text-muted)">共 {{ events|length }} 个赛事</p>
-</div>
-</section>
-{% endblock %}
+{% block side %}{% endblock %}

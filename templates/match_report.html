@@ -1,44 +1,80 @@
 {% extends 'base.html' %}
 {% block title %}{{ match.team1_name }} vs {{ match.team2_name }} 战报 - 80GOTV{% endblock %}
-{% block head %}
-<link rel="stylesheet" href="{{ versioned_url('static/css/match_report.css') }}">
-{% endblock %}
-{% block layout_class %}no-side-layout{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ versioned_url('static/css/pages/match.css') }}">{% endblock %}
+{% block layout_class %}no-side-layout narrow-layout{% endblock %}
+
+{% macro report_logo(logo, short_name) %}
+  {% if logo %}<img class="team-logo lg" src="{{ logo|team_logo_url }}" alt="{{ short_name }}" loading="lazy">{% else %}<span class="logo-fallback lg" data-i18n-ignore>{{ short_name|team_abbr(short_name) }}</span>{% endif %}
+{% endmacro %}
+
+{#- 两队对比一行：数值在两端，名称在中间上方，下面一根两色条 -#}
+{% macro compare_row(label, left, right) %}
+{% set left_num = left|float %}
+{% set right_num = right|float %}
+{% set total = left_num + right_num %}
+{% set left_pct = (left_num / total * 100) if total else 50 %}
+<div class="match-detailed-compare-row">
+  <span class="match-detailed-compare-left">{{ left }}</span>
+  <b>{{ label }}</b>
+  <div class="match-detailed-compare-track">
+    <i class="t1" style="width:{{ left_pct }}%"></i>
+    <i class="t2" style="width:{{ 100 - left_pct }}%"></i>
+  </div>
+  <span class="match-detailed-compare-right">{{ right }}</span>
+</div>
+{% endmacro %}
+
 {% block main %}
 <header class="page-head">
   <div><span class="page-head-kicker" data-i18n-ignore>MATCH REPORT</span><h1>比赛战报</h1></div>
-  <a class="page-head-link" href="/matches/{{ match.slug or match.id }}">← 返回比赛</a>
+  <a class="back-link page-head-link" href="/matches/{{ match.slug or match.id }}">← 返回比赛</a>
 </header>
 
-<section class="report-hero h-panel">
-  <div class="report-event-name" data-i18n-ignore>{{ match.event_name or '' }}</div>
-  <div class="report-teams-row">
+<section class="panel report-hero">
+  <div class="report-team">
+    {{ report_logo(match.t1_logo, match.t1s) }}
     <span class="report-team-name" data-i18n-ignore>{{ match.team1_name }}</span>
-    <span class="report-score">{{ match.team1_score }} : {{ match.team2_score }}</span>
+  </div>
+  <div class="report-hero-mid">
+    <div class="report-event-name" data-i18n-ignore>{{ match.event_name or '' }}</div>
+    <div class="report-score">
+      <span class="{% if match.team1_score is not none and match.team2_score is not none and match.team1_score > match.team2_score %}score-win{% elif match.team1_score is not none and match.team2_score is not none and match.team1_score < match.team2_score %}score-lose{% endif %}">{{ match.team1_score if match.team1_score is not none else '-' }}</span>
+      <span class="sep">:</span>
+      <span class="{% if match.team1_score is not none and match.team2_score is not none and match.team2_score > match.team1_score %}score-win{% elif match.team1_score is not none and match.team2_score is not none and match.team2_score < match.team1_score %}score-lose{% endif %}">{{ match.team2_score if match.team2_score is not none else '-' }}</span>
+    </div>
+    <div class="report-meta">{{ match.bo_format }} · {{ match.match_time|datetime_display if match.match_time else '' }}</div>
+  </div>
+  <div class="report-team">
+    {{ report_logo(match.t2_logo, match.t2s) }}
     <span class="report-team-name" data-i18n-ignore>{{ match.team2_name }}</span>
   </div>
-  <div class="report-meta">{{ match.bo_format }} · {{ match.match_time|datetime_display if match.match_time else '' }}</div>
 </section>
 
 {% if mvp %}
-<section class="mvp-card h-panel">
-  <div class="mvp-label" data-i18n-ignore>MATCH MVP</div>
-  <div class="mvp-name" data-i18n-ignore>{{ private_name_for_player(mvp.player_id, mvp.nickname) }}</div>
+{% set mvp_name = private_name_for_player(mvp.player_id, mvp.nickname) %}
+<section class="panel mvp-card">
+  <a class="mvp-player" href="/players/{{ mvp.player_id }}">
+    {% if mvp.avatar %}<img class="avatar lg" src="{{ url_for('static', filename='avatars/' + mvp.avatar) }}" alt="" loading="lazy">{% else %}<span class="avatar lg" aria-hidden="true">{{ mvp_name[:1]|upper }}</span>{% endif %}
+    <span class="mvp-player-text">
+      <span class="mvp-label" data-i18n-ignore>MATCH MVP</span>
+      <span class="mvp-name" data-i18n-ignore>{{ mvp_name }}</span>
+    </span>
+  </a>
   <div class="mvp-stats">
     <div class="mvp-stat">
-      <div class="mvp-stat-val {{ mvp.rating|rating_class }}">{{ "%.2f"|format(mvp.rating) }}</div>
+      <div class="mvp-stat-val {{ mvp.rating|rating_class }}">{{ "%.2f"|format(mvp.rating) if mvp.rating is not none else '-' }}</div>
       <div class="mvp-stat-label">RATING</div>
     </div>
     <div class="mvp-stat">
-      <div class="mvp-stat-val">{{ mvp.kills }}-{{ mvp.deaths }}</div>
+      <div class="mvp-stat-val">{{ mvp.kills if mvp.kills is not none else '-' }}-{{ mvp.deaths if mvp.deaths is not none else '-' }}</div>
       <div class="mvp-stat-label">K-D</div>
     </div>
     <div class="mvp-stat">
-      <div class="mvp-stat-val">{{ "%.1f"|format(mvp.adr) }}</div>
+      <div class="mvp-stat-val">{{ "%.1f"|format(mvp.adr) if mvp.adr is not none else '-' }}</div>
       <div class="mvp-stat-label">ADR</div>
     </div>
     <div class="mvp-stat">
-      <div class="mvp-stat-val">{{ "%.1f"|format(mvp.kast) }}%</div>
+      <div class="mvp-stat-val">{{ ("%.1f"|format(mvp.kast)) ~ '%' if mvp.kast is not none else '-' }}</div>
       <div class="mvp-stat-label">KAST</div>
     </div>
   </div>
@@ -46,82 +82,70 @@
 {% endif %}
 
 {% if map_reports %}
-<section class="h-panel">
-  <div class="h-panel-title">地图战况</div>
-  {% for mr in map_reports %}
-  <div class="map-report-card">
-    <div class="map-report-header">
-      <span class="map-report-name">图{{ mr.idx }}：{{ mr.name|map_display }}</span>
-      {% if mr.played %}
-      <span class="map-report-score">
-        <span class="{% if mr.t1_winner %}win{% elif mr.t2_winner %}lose{% endif %}">{{ mr.t1 }}</span>
-        &thinsp;:&thinsp;
-        <span class="{% if mr.t2_winner %}win{% elif mr.t1_winner %}lose{% endif %}">{{ mr.t2 }}</span>
-      </span>
-      {% else %}
-      <span class="map-report-score is-pending">待定</span>
-      {% endif %}
-    </div>
-    {% if mr.played and (mr.t1_best or mr.t2_best) %}
-    <div class="map-report-best">
-      {% for best, team_tag in [(mr.t1_best, match.t1s), (mr.t2_best, match.t2s)] %}
-      {% if best %}
-      <div class="best-player-card">
-        <span class="best-player-rating {{ best.rating|rating_class }}">{{ "%.2f"|format(best.rating) }}</span>
-        <div>
-          <div class="best-player-team" data-i18n-ignore>{{ team_tag }}</div>
-          <div class="best-player-name" data-i18n-ignore>{{ private_name_for_player(best.player_id, best.nickname) }}</div>
-          <div class="best-player-stats">
-            <span>K-D {{ best.kills }}-{{ best.deaths }}</span>
-            <span>ADR {{ "%.1f"|format(best.adr) }}</span>
-          </div>
-        </div>
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">地图战况</h2></div>
+  <div class="report-maps">
+    {% for mr in map_reports %}
+    <article class="map-report-card{% if not mr.played %} is-pending{% endif %}">
+      <div class="ms-top" style="background-image:url('{{ mr.name|map_image }}')">
+        <span class="ms-map-name">{{ mr.name|map_display }}</span>
       </div>
-      {% endif %}
-      {% endfor %}
-    </div>
-    {% endif %}
+      <div class="map-report-body">
+        <span class="map-report-index">图{{ mr.idx }}</span>
+        {% if mr.played %}
+        <span class="map-report-score">
+          <span class="{% if mr.t1_winner %}win{% elif mr.t2_winner %}lose{% endif %}">{{ mr.t1 }}</span>
+          <span class="sep">:</span>
+          <span class="{% if mr.t2_winner %}win{% elif mr.t1_winner %}lose{% endif %}">{{ mr.t2 }}</span>
+        </span>
+        {% else %}
+        <span class="map-report-score is-pending">待定</span>
+        {% endif %}
+        {% if mr.played and (mr.t1_best or mr.t2_best) %}
+        <div class="map-report-best">
+          {% for best, team_tag in [(mr.t1_best, match.t1s), (mr.t2_best, match.t2s)] %}
+          {% if best %}
+          <a class="best-player-card" href="/players/{{ best.player_id }}">
+            <span class="best-player-rating {{ best.rating|rating_class }}">{{ "%.2f"|format(best.rating) if best.rating is not none else '-' }}</span>
+            <span class="best-player-main">
+              <span class="best-player-team" data-i18n-ignore>{{ team_tag }}</span>
+              <span class="best-player-name" data-i18n-ignore>{{ private_name_for_player(best.player_id, best.nickname) }}</span>
+              <span class="best-player-stats"><span>K-D {{ best.kills if best.kills is not none else '-' }}-{{ best.deaths if best.deaths is not none else '-' }}</span><span>ADR {{ "%.1f"|format(best.adr) if best.adr is not none else '-' }}</span></span>
+            </span>
+          </a>
+          {% endif %}
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    </article>
+    {% endfor %}
   </div>
-  {% endfor %}
 </section>
 {% endif %}
 
-<section class="h-panel">
-  <div class="h-panel-title">队伍数据对比</div>
-  <div class="team-compare-grid">
-    <div class="team-compare-val t1">{{ team_stats.t1_k }}</div>
-    <div class="team-compare-label">总击杀</div>
-    <div class="team-compare-val t2">{{ team_stats.t2_k }}</div>
-
-    <div class="team-compare-val t1">{{ team_stats.t1_d }}</div>
-    <div class="team-compare-label">总死亡</div>
-    <div class="team-compare-val t2">{{ team_stats.t2_d }}</div>
-
-    <div class="team-compare-val t1">{{ team_stats.t1_adr }}</div>
-    <div class="team-compare-label">场均 ADR</div>
-    <div class="team-compare-val t2">{{ team_stats.t2_adr }}</div>
-
-    <div class="team-compare-val t1">{{ team_stats.t1_rating }}</div>
-    <div class="team-compare-label">场均 RATING</div>
-    <div class="team-compare-val t2">{{ team_stats.t2_rating }}</div>
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">队伍数据对比</h2></div>
+  <div class="report-compare">
+    <div class="match-detailed-compare-teams">
+      <span>{{ report_logo(match.t1_logo, match.t1s) }}<b data-i18n-ignore>{{ match.team1_name }}</b></span>
+      <span><b data-i18n-ignore>{{ match.team2_name }}</b>{{ report_logo(match.t2_logo, match.t2s) }}</span>
+    </div>
+    {{ compare_row('总击杀', team_stats.t1_k, team_stats.t2_k) }}
+    {{ compare_row('总死亡', team_stats.t1_d, team_stats.t2_d) }}
+    {{ compare_row('场均 ADR', team_stats.t1_adr, team_stats.t2_adr) }}
+    {{ compare_row('场均 RATING', team_stats.t1_rating, team_stats.t2_rating) }}
   </div>
-  {% set total = team_stats.t1_k + team_stats.t2_k %}
-  {% if total > 0 %}
-  {% set t1_pct = (team_stats.t1_k / total * 100)|round %}
-  <div class="team-compare-bar-wrap" aria-hidden="true">
-    <div class="team-compare-bar-t1" style="width:{{ t1_pct }}%"></div>
-    <div class="team-compare-bar-t2" style="width:{{ 100 - t1_pct }}%"></div>
-  </div>
-  {% endif %}
 </section>
 
 {% if timeline %}
-<section class="h-panel">
-  <div class="h-panel-title">比赛日志</div>
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">比赛日志</h2><span class="panel-count">{{ timeline|length }}</span></div>
   <div class="timeline" data-i18n-ignore>
   {% for item in timeline %}
-    <div class="timeline-row">
+    <div class="timeline-row timeline-{{ item.type }}">
       <span class="timeline-round">{% if item.map_name %}{{ item.map_name|map_display }} · {% endif %}R{{ item.round }}</span>
+      <span class="timeline-text">
       {% if item.type == 'round' %}
         <span>Round over - Winner:</span>
         <span class="timeline-{{ item.side }}">{{ item.side|upper }}</span>
@@ -132,9 +156,10 @@
       {% else %}
         <span class="timeline-{{ item.killer_side|lower }}">{{ item.killer or '-' }}</span>
         {% if item.assister %}<span>+ {{ item.assister }}</span>{% endif %}
-        <span>{{ item.weapon or '' }}</span>
+        <span class="timeline-weapon">{{ item.weapon or '' }}</span>
         <span class="timeline-{{ item.victim_side|lower }}">{{ item.victim or '?' }}</span>
       {% endif %}
+      </span>
     </div>
   {% endfor %}
   </div>
@@ -142,10 +167,10 @@
 {% endif %}
 
 <div class="report-footer-actions">
-  <a href="/matches/{{ match.slug or match.id }}" class="ui-btn ui-btn--primary">查看完整数据</a>
-  <a href="/matches/{{ match.slug or match.id }}/poster" class="ui-btn">下载赛果海报</a>
-  <button class="ui-btn" type="button" data-copy="markdown">复制 Markdown</button>
-  <button class="ui-btn" type="button" data-copy="bbcode">复制 BBcode</button>
+  <a href="/matches/{{ match.slug or match.id }}" class="btn btn-primary">查看完整数据</a>
+  <a href="/matches/{{ match.slug or match.id }}/poster" class="btn">下载赛果海报</a>
+  <button class="btn" type="button" data-copy="markdown">复制 Markdown</button>
+  <button class="btn" type="button" data-copy="bbcode">复制 BBcode</button>
   <span id="copyToast" class="report-copy-toast" role="status" hidden>已复制</span>
 </div>
 {% endblock %}

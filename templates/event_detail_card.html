@@ -81,7 +81,7 @@
         <img class="bmp-team-mark" src="{{ t1_logo|team_logo_url }}"
              alt="{{ t1_name }}" loading="lazy">
         {% elif mt1 %}
-        <span class="bmp-team-mark bmp-team-mark-fallback">{{ t1_short[:1]|upper }}</span>
+        <span class="bmp-team-mark bmp-team-mark-fallback">{{ t1_name|team_abbr(t1_short) }}</span>
         {% endif %}
       </span>
       <span class="bmp-score">
@@ -98,7 +98,7 @@
         <img class="bmp-team-mark" src="{{ t2_logo|team_logo_url }}"
              alt="{{ t2_name }}" loading="lazy">
         {% elif mt2 %}
-        <span class="bmp-team-mark bmp-team-mark-fallback">{{ t2_short[:1]|upper }}</span>
+        <span class="bmp-team-mark bmp-team-mark-fallback">{{ t2_name|team_abbr(t2_short) }}</span>
         {% endif %}
       </span>
       <span class="bmp-team-label bmp-team-label-right" data-i18n-ignore>{{ t2_short[:8] }}</span>

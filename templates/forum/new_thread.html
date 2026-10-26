@@ -1,34 +1,37 @@
 {% extends "base.html" %}
 {% block title %}发表新帖 - 论坛{% endblock %}
+{% block layout_class %}no-side-layout narrow-layout{% endblock %}
 {% block main %}
-<div class="form-container">
-  <div class="form-card h-panel">
-    <div class="h-panel-title">发表新帖</div>
-    <form method="post" class="ui-panel-body">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <div class="form-group">
-        <label>版块</label>
-        <select name="category_id" required>
-          {% for category in categories %}
-          <option value="{{ category.id }}"{% if request.form.get('category_id', '')|string == category.id|string %} selected{% endif %}>{{ category.name }} · {{ category.description }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="form-group">
-        <label>标题</label>
-        <input type="text" name="title" maxlength="120" placeholder="一句话概括你的帖子..." value="{{ request.form.get('title', '') }}" required>
-        <div class="form-hint">最多 120 字</div>
-      </div>
-      <div class="form-group">
-        <label>内容</label>
-        <textarea name="content" placeholder="详细描述你的观点..." required>{{ request.form.get('content', '') }}</textarea>
-        <div class="form-hint">最多 10000 字，支持纯文本</div>
-      </div>
-      <div class="form-actions">
-        <a href="{{ url_for('forum_index') }}" class="ui-btn">取消</a>
-        <button type="submit" class="ui-btn ui-btn--primary">发布帖子</button>
-      </div>
-    </form>
-  </div>
-</div>
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>FORUM</span><h1>发表新帖</h1></div>
+  <a class="page-head-link" href="{{ url_for('forum_index') }}">返回论坛</a>
+</header>
+<section class="panel">
+  <form method="post" class="panel-body form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label class="field">
+      <span class="field-label">版块</span>
+      <select name="category_id" required>
+        {% for category in categories %}
+        <option value="{{ category.id }}"{% if request.form.get('category_id', '')|string == category.id|string %} selected{% endif %}>{{ category.name }} · {{ category.description }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="field">
+      <span class="field-label">标题</span>
+      <input type="text" name="title" maxlength="120" placeholder="一句话概括你的帖子..." value="{{ request.form.get('title', '') }}" required>
+      <span class="field-hint">最多 120 字</span>
+    </label>
+    <label class="field">
+      <span class="field-label">内容</span>
+      <textarea name="content" rows="12" placeholder="详细描述你的观点..." required>{{ request.form.get('content', '') }}</textarea>
+      <span class="field-hint">最多 10000 字，支持纯文本</span>
+    </label>
+    <div class="form-actions">
+      <a href="{{ url_for('forum_index') }}" class="btn">取消</a>
+      <button type="submit" class="btn btn-primary">发布帖子</button>
+    </div>
+  </form>
+</section>
 {% endblock %}
+{% block side %}{% endblock %}

@@ -64,7 +64,7 @@ class StatsUiRegressionTests(unittest.TestCase):
     def test_bracket_uses_current_team_rosters_and_only_marks_real_winners(self):
         detail = (ROOT / "templates/event_detail.html").read_text(encoding="utf-8")
         card = (ROOT / "templates/event_detail_card.html").read_text(encoding="utf-8")
-        css = (ROOT / "static/css/style_v2.css").read_text(encoding="utf-8")
+        css = (ROOT / "static/css/pages/event.css").read_text(encoding="utf-8")
 
         self.assertIn("'db_id': t.db_id", detail)
         self.assertIn("team_players_map.get(t1_db_key)", card)
@@ -92,7 +92,7 @@ class StatsUiRegressionTests(unittest.TestCase):
         self.assertIn("data-i18n-ignore>Lineups</div>", popup_template)
 
     def test_bracket_popup_roster_columns_are_equal_and_mirrored(self):
-        css = (ROOT / "static/css/hltv_refresh.css").read_text(encoding="utf-8")
+        css = (ROOT / "static/css/pages/event.css").read_text(encoding="utf-8")
         popup_rule = re.search(r"\.bracket-match-popup\s*\{([^}]*)\}", css)
         players_rule = re.search(r"\.bracket-match-popup \.bmp-players\s*\{([^}]*)\}", css)
         left_rule = re.search(r"\.bracket-match-popup \.bp-player-row\s*\{([^}]*)\}", css)
@@ -124,7 +124,7 @@ class StatsUiRegressionTests(unittest.TestCase):
     def test_event_bp_does_not_change_row_width_and_has_no_time_window(self):
         route = (ROOT / "routes/events.py").read_text(encoding="utf-8")
         template = (ROOT / "templates/event_detail.html").read_text(encoding="utf-8")
-        css = (ROOT / "static/css/hltv_refresh.css").read_text(encoding="utf-8")
+        css = (ROOT / "static/css/pages/event.css").read_text(encoding="utf-8")
 
         self.assertIn("BP is manually started", route)
         self.assertNotIn("timedelta(minutes=20)", route)
@@ -133,12 +133,13 @@ class StatsUiRegressionTests(unittest.TestCase):
         self.assertIn("position: absolute", css)
 
     def test_match_detail_mobile_stacks_sidebar_below_main_content(self):
-        css = (ROOT / "static/css/mobile_hltv.css").read_text(encoding="utf-8")
+        css = (ROOT / "static/css/app.css").read_text(encoding="utf-8")
+        mobile = re.search(r"@media \(max-width: 1080px\) \{([^@]*)\}", css)
 
-        self.assertIn("body .layout.match-detail-layout {", css)
-        self.assertIn("grid-template-columns: minmax(0, 1fr) !important", css)
-        self.assertIn("body .layout.match-detail-layout .side-col {", css)
-        self.assertIn("flex-direction: column !important", css)
+        self.assertIsNotNone(mobile)
+        assert mobile is not None
+        self.assertIn(".layout { grid-template-columns: minmax(0, 1fr); }", mobile.group(1))
+        self.assertIn(".side-col { position: static; }", mobile.group(1))
 
     def test_english_mode_hides_untranslated_first_paint(self):
         base = (ROOT / "templates/base.html").read_text(encoding="utf-8")
@@ -152,16 +153,16 @@ class StatsUiRegressionTests(unittest.TestCase):
         self.assertIn("classList.remove('i18n-pending')", i18n)
 
     def test_result_date_is_kept_on_one_line(self):
-        css = (ROOT / "static/css/hltv_refresh.css").read_text(encoding="utf-8")
+        css = (ROOT / "static/css/pages/schedule.css").read_text(encoding="utf-8")
         result_time_rule = re.search(r"\.result-time\s*\{([^}]*)\}", css)
 
         self.assertIsNotNone(result_time_rule)
         assert result_time_rule is not None
-        self.assertIn("white-space: nowrap !important", result_time_rule.group(1))
-        self.assertIn("word-break: keep-all !important", result_time_rule.group(1))
+        self.assertIn("white-space: nowrap", result_time_rule.group(1))
+        self.assertIn("word-break: keep-all", result_time_rule.group(1))
 
     def test_compare_picker_uses_compact_fixed_avatar_grid(self):
-        css = (ROOT / "static/css/stats_hltv.css").read_text(encoding="utf-8")
+        css = (ROOT / "static/css/pages/stats.css").read_text(encoding="utf-8")
         slot_rule = re.search(r"\.stats-compare-slot\s*\{([^}]*)\}", css)
         avatar_rule = re.search(
             r"\.stats-compare-slot img,\s*"
@@ -180,19 +181,19 @@ class StatsUiRegressionTests(unittest.TestCase):
 
     def test_overview_labels_render_before_centered_numbers(self):
         template = (ROOT / "templates/stats.html").read_text(encoding="utf-8")
-        css = (ROOT / "static/css/stats_overview_refresh.css").read_text(encoding="utf-8")
+        css = (ROOT / "static/css/pages/stats.css").read_text(encoding="utf-8")
 
         self.assertIn(
             "<div><span>选手</span><b>{{ overview.total_players }}</b></div>",
             template,
         )
         number_rule = re.search(
-            r"\.stats-hltv-shell \.overview-summary-grid > div > b\s*\{([^}]*)\}",
+            r"\.overview-summary-grid > div > b\s*\{([^}]*)\}",
             css,
         )
         self.assertIsNotNone(number_rule)
         assert number_rule is not None
-        self.assertIn("font-size: 24px !important", number_rule.group(1))
+        self.assertIn("font-size: var(--font-2xl)", number_rule.group(1))
         self.assertIn("text-align: center", number_rule.group(1))
 
 

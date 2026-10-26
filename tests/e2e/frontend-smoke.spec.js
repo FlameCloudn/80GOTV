@@ -15,6 +15,30 @@ for (const path of ['/', '/matches', '/players', '/login']) {
   });
 }
 
+test('public home loads the v3 stylesheet and quick navigation', async ({ page }, testInfo) => {
+  const response = await page.goto('/');
+  expect(response.ok()).toBeTruthy();
+
+  const appStylesheet = page.locator('head link[rel="stylesheet"][href*="app.css"]');
+  await expect(appStylesheet).toHaveCount(1);
+  await expect(appStylesheet).toHaveAttribute('href', /app\.css\?v=\d+$/);
+  await expect(page.locator('head link[rel="stylesheet"][href*="style_v2.css"]')).toHaveCount(0);
+
+  const quickNav = page.locator('header.navbar nav.nav-quick');
+  await expect(quickNav).toHaveCount(1);
+  await expect(quickNav).toHaveAttribute('aria-label', /快捷导航|Quick navigation/);
+  await expect(quickNav.locator('a')).toHaveCount(4);
+  for (const href of ['/news', '/matches', '/results', '/events']) {
+    await expect(quickNav.locator(`a[href="${href}"]`)).toHaveCount(1);
+  }
+  if (testInfo.project.name === 'mobile') {
+    await expect(quickNav).toBeVisible();
+  } else {
+    await expect(quickNav).toBeHidden();
+  }
+  await page.screenshot({ path: testInfo.outputPath('home-v3-navigation.png'), fullPage: true });
+});
+
 test('desktop dropdown supports ArrowDown and Escape', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop');
   await page.goto('/');
@@ -58,8 +82,8 @@ test('desktop admin can enable test match mode without participants', async ({ p
 test('feedback dialog opens, closes, and restores focus', async ({ page }, testInfo) => {
   await page.goto('/__e2e__/admin-session');
   await page.goto('/');
-  const stylesheetHref = await page.locator('link[href*="hltv_refresh.css"]').getAttribute('href');
-  expect(stylesheetHref).toMatch(/hltv_refresh\.css\?v=\d+$/);
+  const stylesheetHref = await page.locator('link[href*="app.css"]').getAttribute('href');
+  expect(stylesheetHref).toMatch(/app\.css\?v=\d+$/);
   const opener = page.locator('#fbBtn');
   const dialog = page.locator('#fbOverlay');
   await expect(opener).toBeVisible();
@@ -167,6 +191,57 @@ test('mobile menu closes with Escape and touch targets are large enough', async 
   expect(letterHeight).toBeGreaterThanOrEqual(40);
 });
 
+test('mobile event filters keep labels on one line in Chinese and English', async ({ page }, testInfo) => {
+  for (const width of [360, 390]) {
+    await page.setViewportSize({ width, height: 780 });
+    for (const language of ['zh', 'en']) {
+      await page.goto('/');
+      await page.evaluate(value => localStorage.setItem('siteLang', value), language);
+      await page.reload();
+      await expect(page.locator('html')).toHaveAttribute('lang', language === 'zh' ? 'zh-CN' : 'en');
+
+      for (const filter of [
+        { path: '/matches?month=2026-10', selector: '.mobile-match-event-filter', label: '赛事' },
+        { path: '/results', selector: '.mobile-result-event-filter', label: '赛事' },
+      ]) {
+        await page.goto(filter.path);
+        const form = page.locator(filter.selector);
+        const label = form.locator('label');
+        const select = form.locator('select');
+        await expect(form).toBeVisible();
+        await expect(label).toHaveText(language === 'zh' ? filter.label : 'Events');
+
+        const geometry = await form.evaluate(element => {
+          const labelElement = element.querySelector('label');
+          const selectElement = element.querySelector('select');
+          const range = document.createRange();
+          range.selectNodeContents(labelElement);
+          const formRect = element.getBoundingClientRect();
+          const labelRect = labelElement.getBoundingClientRect();
+          const selectRect = selectElement.getBoundingClientRect();
+          return {
+            labelLines: range.getClientRects().length,
+            labelRight: labelRect.right,
+            selectLeft: selectRect.left,
+            selectRight: selectRect.right,
+            selectWidth: selectRect.width,
+            formRight: formRect.right,
+          };
+        });
+        expect(geometry.labelLines, `${width}px ${language} ${filter.path} label lines`).toBe(1);
+        expect(geometry.labelRight).toBeLessThanOrEqual(geometry.selectLeft);
+        expect(geometry.selectWidth).toBeGreaterThan(0);
+        expect(geometry.selectRight).toBeLessThanOrEqual(geometry.formRight + 1);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+
+        if (filter.path.startsWith('/matches')) {
+          await page.screenshot({ path: testInfo.outputPath(`matches-filter-${width}-${language}.png`), fullPage: true });
+        }
+      }
+    }
+  }
+});
+
 test('live player rows and weapon images stay stable between polls', async ({ page }, testInfo) => {
   const errors = [];
   let matchImageRequests = 0;
@@ -180,7 +255,7 @@ test('live player rows and weapon images stay stable between polls', async ({ pa
   const fixtureResponse = await page.request.get('/__e2e__/live-fixture');
   expect(fixtureResponse.ok()).toBeTruthy();
   const fixture = await fixtureResponse.json();
-  await page.goto(`/matches/${fixture.match_id}/live`);
+  await page.goto(`/matches/${fixture.match_id}`);
 
   const firstRow = page.locator('#team1Players .player-row').first();
   await expect(firstRow).toContainText('Player One');
@@ -264,7 +339,7 @@ test('English games and stats use translated common and dynamic labels', async (
   await expect(page.locator('#e2eDynamicI18nLabel')).toHaveText('Start challenge →');
 
   await page.goto('/stats');
-  await expect(page.locator('.stats-page-heading h1')).toHaveText('Statistics');
+  await expect(page.locator('.page-head h1')).toHaveText('Statistics');
   await expect(page.locator('.overview-quick-title')).toHaveText('Quick navigation');
   await expect(page.locator('.overview-summary-grid')).toContainText('Map stats');
   await page.screenshot({ path: testInfo.outputPath('i18n-stats.png'), fullPage: true });
@@ -348,5 +423,6 @@ test('desktop home side columns use the same compact width', async ({ page }, te
   expect(left).not.toBeNull();
   expect(right).not.toBeNull();
   expect(Math.abs(left.width - right.width)).toBeLessThanOrEqual(1);
-  expect(left.width).toBeLessThanOrEqual(220);
+  // 第三版首页两侧栏固定 240px（左右等宽）
+  expect(left.width).toBeLessThanOrEqual(240);
 });

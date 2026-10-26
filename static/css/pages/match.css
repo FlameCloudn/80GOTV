@@ -1,0 +1,1394 @@
+/* ==========================================================================
+   比赛详情页：比赛页（/matches/<id>）和比赛数据页（/matches/<id>/stats）
+   --------------------------------------------------------------------------
+   1. 顶部横幅与队伍名单弹窗     5. 比赛数据表
+   2. 地图比分卡                 6. 赛前预测
+   3. 直播与回放、直播画面        7. 比赛数据页（总览 / 表现）
+   4. 历史交锋                   8. 侧栏、手机
+   ========================================================================== */
+
+/* ---------- 1. 顶部横幅 ---------- */
+.mh-banner,
+.match-stats-hero-card {
+  position: relative;
+  z-index: 2;   /* 队伍名单弹窗要盖住下面的面板 */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-lg) var(--space-xl);
+  padding: var(--space-2xl) var(--space-xl) var(--space-xl);
+  /* 纯色底，顶部中间一束很淡的强调色光，比分区域更聚焦 */
+  background:
+    radial-gradient(ellipse 45% 85% at 50% 0%, var(--accent-soft), transparent 72%),
+    var(--bg-card);
+}
+
+.mh-banner.is-live { box-shadow: inset 0 3px 0 var(--live); }
+
+.mh-team,
+.match-stats-hero-team {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+  text-align: center;
+}
+
+.mh-team-name,
+.match-stats-hero-team strong {
+  max-width: 100%;
+  font-size: var(--font-lg);
+  font-weight: 700;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.mh-team-score {
+  font-size: var(--font-3xl);
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.mh-team-score.won, .score-win { color: var(--color-green); }
+.mh-team-score.lost, .score-lose { color: var(--color-red); }
+
+.mh-mid,
+.match-stats-hero-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  text-align: center;
+}
+
+.mh-event,
+.match-stats-hero-event {
+  max-width: 260px;
+  margin-bottom: var(--space-xs);
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mh-event:hover, .match-stats-hero-event:hover { color: var(--accent); }
+.mh-time { font-size: var(--font-2xl); font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.mh-date, .match-stats-hero-meta { color: var(--text-muted); font-size: var(--font-sm); }
+.mh-status { margin-top: var(--space-sm); color: var(--text-secondary); font-size: var(--font-sm); }
+
+.mh-actions,
+.match-stats-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-sm);
+}
+
+.mh-actions { grid-column: 1 / -1; }
+.match-stats-hero-actions { margin-top: var(--space-md); }
+
+/* 鼠标移到队标上，弹出这场比赛的上场名单 */
+.match-team-pop {
+  position: relative;
+  display: inline-flex;
+  padding: 4px;
+  border-radius: var(--radius-md);
+  cursor: default;
+}
+
+.match-team-players-popup {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  z-index: 30;
+  width: 220px;
+  display: grid;
+  gap: 2px;
+  padding: 6px;
+  text-align: left;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-raised);
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-50%, 4px);
+  transition: opacity var(--transition-fast), transform var(--transition-fast), visibility var(--transition-fast);
+}
+
+.match-team-pop:hover .match-team-players-popup,
+.match-team-pop:focus-within .match-team-players-popup {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+}
+
+.match-pop-team-name {
+  margin-bottom: 2px;
+  padding: 4px 8px 6px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-color);
+  font-size: var(--font-xs);
+  font-weight: 600;
+}
+
+.match-player-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 5px 8px;
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-sm);
+}
+
+.match-player-link:hover { color: var(--text-primary); background: var(--bg-hover); }
+
+.match-player-avatar {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  display: inline-grid;
+  place-items: center;
+  object-fit: cover;
+  color: var(--text-secondary);
+  background: var(--surface-soft);
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* ---------- 2. 地图比分卡 ---------- */
+.mh-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--site-gap);
+  align-items: start;
+}
+
+.mh-side-stack { display: flex; flex-direction: column; gap: var(--site-gap); min-width: 0; }
+
+/* BP 记录：每一步一行，禁图红、选图绿、决胜图金 */
+.bp-log { display: grid; gap: var(--space-sm); padding: var(--space-md); }
+
+.bp-intro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px var(--space-md);
+  padding: 0 var(--space-xs) var(--space-sm);
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-color);
+  font-size: var(--font-xs);
+}
+
+.bp-roll { display: inline-flex; align-items: baseline; gap: 6px; font-variant-numeric: tabular-nums; }
+.bp-order b { color: var(--text-secondary); font-weight: 600; }
+/* Roll 点数：每一方“队名 + 点数”整组同一个深浅，赢的一方整组亮起来 */
+.bp-roll b { color: inherit; font-weight: 600; }
+.bp-roll-win { color: var(--text-primary); font-weight: 700; }
+.bp-note { padding: 0 var(--space-xs); color: var(--text-muted); font-size: var(--font-xs); }
+.bp-steps { display: grid; gap: 3px; }
+
+.bp-step {
+  display: grid;
+  grid-template-columns: 18px 60px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: 30px;
+  padding: 0 var(--space-sm);
+  background: var(--surface-soft);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-sm);
+}
+
+.bp-num { color: var(--text-muted); font-size: var(--font-xs); text-align: center; font-variant-numeric: tabular-nums; }
+
+.bp-act {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-xs);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.bp-step.is-ban .bp-act { color: var(--color-red); background: var(--red-soft); }
+.bp-step.is-pick .bp-act { color: var(--color-green); background: var(--green-soft); }
+.bp-step.is-left .bp-act { color: var(--color-gold); background: var(--gold-soft); }
+.bp-step.is-ban .bp-map { color: var(--text-secondary); }
+.bp-step.is-pick .bp-map, .bp-step.is-left .bp-map { font-weight: 600; }
+.bp-map { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bp-team { color: var(--text-muted); font-size: var(--font-xs); text-align: right; white-space: nowrap; }
+.bp-sides { display: grid; gap: 2px; padding-top: var(--space-sm); border-top: 1px solid var(--border-color); }
+.bp-sides-title { padding: 0 var(--space-xs) 2px; color: var(--text-muted); font-size: var(--font-xs); font-weight: 600; }
+
+.bp-side-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: 28px;
+  padding: 0 var(--space-sm);
+  font-size: var(--font-sm);
+}
+
+/* 认不出格式的 BP 记录：原样显示文字 */
+.mh-veto {
+  padding: var(--space-md) var(--space-lg);
+  color: var(--text-secondary);
+  font-size: var(--font-xs);
+  line-height: 1.8;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.map-strips { display: grid; gap: var(--space-sm); padding: var(--space-md); }
+
+.map-strip {
+  overflow: hidden;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+/* 地图图片条：HLTV 的地图图原样显示，地图名居中（图中间那条色带就是给地图名留的） */
+.ms-top {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 var(--space-md);
+  background-color: var(--surface-soft);
+  background-position: center;
+  background-size: cover;   /* 宽屏时和“宽度铺满”一样；手机上窄，改成铺满整条，不留空隙 */
+  background-repeat: no-repeat;
+}
+
+.ms-map-name {
+  color: var(--color-white);
+  font-size: var(--font-md);
+  font-weight: 700;
+  text-shadow: var(--on-image-shadow);
+}
+
+/* 结果区（照 HLTV）：两行对齐
+   第一行：队标 · 队名 · 数据 · 队名 · 队标
+   第二行：选图 · 比分 · 半场比分 · 比分 · 选图 */
+.ms-bottom {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto minmax(0, 1fr) 36px;   /* 队标列固定宽，几张卡的队名对齐 */
+  grid-template-areas:
+    "logo1 name1 stats name2 logo2"
+    "pick1 score1 halves score2 pick2";
+  /* 按看得见的像素等分（实测）：地图条下沿 → “数据”方块 → 第二行的字（比分、半场比分）→ 卡片下沿，三段空白一样长；
+     “数据”方块和比分数字一样高（约 14px）。第一行 26px 和队标一样高，第二行 16px。 */
+  grid-template-rows: 26px 16px;
+  align-items: center;
+  column-gap: var(--space-md);
+  row-gap: 3px;
+  padding: 5px var(--space-md) 10px;
+}
+
+.ms-logo-left { grid-area: logo1; }
+.ms-logo-right { grid-area: logo2; }
+.ms-name-left { grid-area: name1; }
+.ms-name-right { grid-area: name2; justify-self: end; text-align: right; }
+.ms-pick-left { grid-area: pick1; }
+.ms-pick-right { grid-area: pick2; }
+.ms-score-left { grid-area: score1; }
+.ms-score-right { grid-area: score2; justify-self: end; }
+.ms-stats-cell { grid-area: stats; justify-self: center; display: flex; align-items: center; }   /* 方块在格子里上下居中，不受文字基线影响 */
+.ms-half-cell { grid-area: halves; justify-self: center; display: flex; gap: 6px; white-space: nowrap; }
+/* 队标 + 选图这一组整体往下挪 3px，在卡片里上下更居中 */
+.ms-logo, .ms-pick-cell { position: relative; top: 3px; display: flex; justify-content: center; }
+.ms-icon { width: 26px; height: 26px; object-fit: contain; }
+
+/* 队名：往下挪 1px，和“数据”按钮的中线对齐（实测） */
+.ms-name { position: relative; top: 1px; min-width: 0; overflow: hidden; color: var(--text-primary); font-size: var(--font-md); font-weight: 600; line-height: 20px; text-overflow: ellipsis; white-space: nowrap; }
+.ms-name.won { font-weight: 700; }
+.ms-name.lost { color: var(--text-secondary); font-weight: 500; }
+.ms-short { display: none; }
+
+/* 比分：队名的 1.3 倍大，和半场比分在同一行居中对齐 */
+.ms-score { font-size: calc(var(--font-md) * 1.35); font-weight: 800; line-height: 16px; font-variant-numeric: tabular-nums; }
+.ms-score.win { color: var(--color-green); }
+.ms-score.lose { color: var(--color-red); }
+
+/* 选图：队标下面的小蓝标签 */
+.ms-pick {
+  display: inline-flex;
+  align-items: center;
+  height: 14px;
+  padding: 0 5px;
+  color: var(--accent-contrast);
+  background: var(--accent);
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .03em;
+}
+
+/* “数据”方框按钮（对应 HLTV 的 STATS） */
+.ms-stats-placeholder { display: none; }
+
+.ms-stats-btn {
+  display: inline-flex;
+  align-items: center;
+  height: 16px;
+  padding: 0 7px 1px;             /* 中文字本身偏下，底下多留 1px 让字在方块里上下居中（中英文实测：上下空隙差 0.25px） */
+  color: var(--text-secondary);
+  background: var(--bg-hover);   /* 比卡片底色稍亮一点 */
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 700;
+  transition: color var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.ms-stats-btn:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+
+/* 上下半场比分（加时另起一个括号）：数字颜色表示当时在 CT（蓝）还是 T（橙） */
+.ms-half-detail, .ms-ot-detail { color: var(--text-secondary); font-size: var(--font-md); line-height: 16px; font-variant-numeric: tabular-nums; }
+.ms-half-detail .ct-side { color: var(--color-ct); }
+.ms-half-detail .t-side { color: var(--color-t); }
+
+/* 还没打的图：地图图变灰，比分显示 -，队名变淡 */
+.map-strip.is-pending .ms-top,
+.map-strip-tbd .ms-top { filter: grayscale(1); opacity: .75; }
+.map-strip.is-pending .ms-score { color: var(--text-muted); }
+.map-strip.is-pending .ms-name { color: var(--text-secondary); font-weight: 500; }
+
+/* ---------- 3. 直播与回放、直播画面 ---------- */
+.mh-watch-row { font-size: var(--font-sm); }
+
+.mh-watch-row::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  background: var(--text-muted);
+  -webkit-mask: var(--watch-icon) center / contain no-repeat;
+  mask: var(--watch-icon) center / contain no-repeat;
+}
+
+.mh-watch-row:hover::before { background: var(--accent); }
+.mh-watch-row.is-stream { --watch-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 4.5v15l12.5-7.5z'/%3E%3C/svg%3E"); }
+.mh-watch-row.is-demo { --watch-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 4v11M7 10.5l5 5 5-5M5 20h14'/%3E%3C/svg%3E"); }
+
+.match-stream {
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: var(--color-dark);
+}
+
+.match-stream iframe { display: block; width: 100%; height: 100%; border: 0; }
+
+.stream-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: 0;
+  color: var(--color-white);
+  background: none;
+  border: 0;
+}
+
+.stream-play-icon {
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  color: var(--accent-contrast);
+  background: var(--accent);
+  border-radius: 50%;
+  transition: transform var(--transition-fast), background var(--transition-fast);
+}
+
+/* 实心三角形（稍微往右挪一点，看起来才居中） */
+.stream-play-icon::before {
+  content: '';
+  width: 24px;
+  height: 24px;
+  margin-left: 3px;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 4.5v15l12.5-7.5z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 4.5v15l12.5-7.5z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.stream-placeholder:hover .stream-play-icon { background: var(--accent-hover); transform: scale(1.06); }
+.stream-play-text { font-weight: 600; }
+.stream-play-hint { font-size: var(--font-xs); opacity: .6; }
+
+/* ---------- 4. 历史交锋 ---------- */
+.mh-h2h-row {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) minmax(0, 220px);
+  gap: var(--space-md);
+}
+
+.mh-h2h-date { color: var(--text-muted); font-size: var(--font-xs); font-variant-numeric: tabular-nums; }
+.mh-h2h-score { text-align: center; white-space: nowrap; }
+.mh-h2h-score b { margin: 0 6px; font-variant-numeric: tabular-nums; }
+.mh-h2h-event { overflow: hidden; color: var(--text-muted); font-size: var(--font-xs); text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- 5. 比赛数据表 ---------- */
+.match-data-panel .panel-head { flex-wrap: wrap; }
+.match-data-panel > .tabs { padding: 0 var(--space-sm); }
+.detail-tab-link { margin-left: auto; color: var(--text-link); }
+.detail-tab-link:hover { color: var(--text-link-hover); }
+
+.detail-panel,
+.match-stats-content { display: none; }
+
+.detail-panel.active,
+.match-stats-content.active { display: block; }
+
+.detail-panel-body { display: grid; gap: var(--space-md); padding: var(--space-md); }
+.detail-panel-body > .empty-state { padding: var(--space-lg); border: 1px dashed var(--border-color); border-radius: var(--radius-md); }
+
+.stats-table {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.stats-table .table th,
+.stats-table .table td { text-align: center; font-variant-numeric: tabular-nums; }
+.stats-table .table td { height: 38px; padding: 4px 10px; }
+.stats-table .table th { padding: 0 10px; }
+
+/* 第一列（选手名）横向滚动时固定在左边 */
+.stats-table .table th:first-child,
+.stats-table .table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  min-width: 150px;
+  text-align: left;
+}
+
+.stats-table .table td:first-child { background: var(--bg-card); font-weight: 500; }
+.stats-table .table tbody tr:hover td:first-child { background: var(--bg-hover); }
+
+.stats-team-head { color: var(--text-primary); font-size: var(--font-sm); }
+/* 队标和队名放进一个横排小盒子里，上下居中对齐（不再靠 vertical-align 手调） */
+.stats-team-label { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; vertical-align: middle; }
+.stats-team-label > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stats-team-label .logo-fallback { position: relative; top: 1px; }  /* 字母圆牌和大写队名的笔画中心差 1px，往下挪齐 */
+
+/* 双方 / T / CT：默认只显示“双方”的列 */
+.stats-table .col-t, .stats-table .col-ct { display: none; }
+.stats-table.side-t .col-overall, .stats-table.side-t .col-ct { display: none; }
+.stats-table.side-t .col-t { display: table-cell; }
+.stats-table.side-ct .col-overall, .stats-table.side-ct .col-t { display: none; }
+.stats-table.side-ct .col-ct { display: table-cell; }
+
+.stats-table th.sort-desc, .stats-table th.sort-asc { color: var(--text-primary); }
+.stats-table th.sort-desc::after { content: ' ↓'; color: var(--accent); }
+.stats-table th.sort-asc::after { content: ' ↑'; color: var(--accent); }
+.kd-pos { color: var(--color-green); }
+.kd-neg { color: var(--color-red); }
+
+/* ---------- 6. 赛前预测 ---------- */
+.vote-body { display: grid; gap: var(--space-md); padding: var(--space-lg); }
+
+.vote-bar {
+  display: flex;
+  gap: 2px;
+  height: 8px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--surface-soft);
+}
+
+.vote-bar-fill { height: 100%; transition: width var(--transition-base); }
+.vote-bar-t1 { background: var(--accent); }
+.vote-bar-t2 { background: var(--color-t); }
+
+.vote-labels {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-top: 6px;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.vote-label-t1 { color: var(--accent); }
+.vote-label-t2 { color: var(--color-t); text-align: right; }
+.vote-score-inputs { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
+.vote-score-inputs .vote-score-inp { width: 64px; text-align: center; }
+.vote-score-hint { color: var(--text-muted); font-size: var(--font-xs); }
+.vote-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-sm); }
+.vote-btn { height: 38px; }
+.vote-btn-t1:hover { color: var(--accent); border-color: var(--accent); }
+.vote-btn-t2:hover { color: var(--color-t); border-color: var(--color-t); }
+.vote-voted-hint, .vote-login-hint { color: var(--text-secondary); font-size: var(--font-sm); }
+
+/* ---------- 7. 比赛数据页 ---------- */
+.match-stats-hero-score {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-md);
+  font-size: var(--font-3xl);
+  font-weight: 800;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.match-stats-hero-score .sep { color: var(--text-muted); font-weight: 400; }
+
+.match-stats-content { padding: var(--space-lg); }
+.match-stats-content.active { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-xl); }
+.match-stats-content > .empty-state { padding: var(--space-2xl) 0; }
+.match-stats-content h3 { font-size: var(--font-md); }
+
+/* 每张图一张小卡片，点一下切换下面数据表的地图 */
+.match-stats-map-strip { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
+
+.match-stat-map-card {
+  position: relative;
+  flex: 1 1 160px;
+  max-width: 260px;
+  height: 64px;
+  overflow: hidden;
+  padding: 0;
+  color: var(--color-white);
+  text-align: left;
+  background: var(--surface-soft) var(--map-bg) center / cover no-repeat;
+  border: 2px solid transparent;
+  border-radius: var(--radius-md);
+  transition: border-color var(--transition-fast);
+}
+
+.match-stat-map-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, var(--overlay), transparent);
+}
+
+.match-stat-map-card:hover { border-color: var(--border-strong); }
+.match-stat-map-card.active { border-color: var(--accent); }
+
+.match-stat-map-meta {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  padding: 0 var(--space-md);
+  text-shadow: 0 1px 2px var(--shadow);
+}
+
+.match-stat-map-meta b { font-size: var(--font-lg); font-variant-numeric: tabular-nums; }
+.match-stat-map-meta small { opacity: .85; }
+
+/* 概况卡 + 五项最佳 */
+.match-stats-overview-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 280px) minmax(0, 1fr);
+  gap: var(--space-md);
+  align-items: start;
+}
+
+.match-stat-summary-card {
+  overflow: hidden;
+  background: var(--surface-soft);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.match-stat-event { padding: var(--space-md) var(--space-lg) 0; font-weight: 600; }
+.match-stat-date { padding: 0 var(--space-lg); color: var(--text-muted); font-size: var(--font-xs); }
+
+.match-stat-mini-score {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-sm);
+  margin: var(--space-md) var(--space-lg);
+  padding: var(--space-sm) 0;
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.match-stat-mini-score > div { display: flex; align-items: baseline; gap: var(--space-sm); min-width: 0; }
+.match-stat-mini-score > div:last-child { flex-direction: row-reverse; }
+.match-stat-mini-score b { overflow: hidden; color: var(--text-secondary); font-size: var(--font-sm); text-overflow: ellipsis; white-space: nowrap; }
+.match-stat-mini-score strong { font-size: var(--font-xl); font-variant-numeric: tabular-nums; }
+.match-stat-mini-score > span { color: var(--text-muted); font-size: var(--font-xs); }
+.match-stat-breakdown > div { padding: 6px var(--space-lg); }
+.match-stat-breakdown dd { font-variant-numeric: tabular-nums; }
+
+.match-stat-highlight-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--space-sm);
+}
+
+.match-stat-highlight {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--space-md);
+  color: var(--text-primary);
+  background: var(--surface-soft);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.match-stat-highlight:hover { color: var(--text-primary); background: var(--bg-hover); border-color: var(--border-strong); }
+.match-stat-highlight-team { color: var(--text-muted); font-size: var(--font-xs); }
+.match-stat-highlight-name { overflow: hidden; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.match-stat-highlight b { margin-top: var(--space-xs); font-size: var(--font-2xl); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.match-stat-highlight small { color: var(--text-muted); }
+
+/* 地图记录：每张图一个色块，颜色对应赢图的队伍 */
+.match-stat-rounds-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm) var(--space-md); margin-bottom: var(--space-sm); }
+.match-stat-rounds-head h3 { margin-right: auto; }
+.match-stat-legend { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); font-size: var(--font-xs); }
+.match-stat-legend::before { content: ''; width: 10px; height: 10px; border-radius: 2px; background: currentColor; }
+.match-stat-legend.t1-win::before { background: var(--accent); }
+.match-stat-legend.t2-win::before { background: var(--color-t); }
+.match-stat-roundline { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.match-stat-roundline span {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  color: var(--text-muted);
+  background: var(--surface-soft);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-sm);
+  font-weight: 700;
+}
+
+.match-stat-roundline .t1-win { color: var(--accent-contrast); background: var(--accent); border-color: var(--accent); }
+.match-stat-roundline .t2-win { color: var(--accent-contrast); background: var(--color-t); border-color: var(--color-t); }
+
+/* 表现：每人一根评分条，竖线是 1.00 的位置（条宽 = 评分 ÷ 1.8） */
+.match-stat-performance h3 { margin-bottom: var(--space-sm); }
+.match-rating-bars { display: grid; gap: 2px; }
+
+.match-rating-row {
+  display: grid;
+  grid-template-columns: minmax(90px, 160px) minmax(0, 1fr) 48px;
+  align-items: center;
+  gap: var(--space-md);
+  min-height: 30px;
+  padding: 0 var(--space-sm);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-sm);
+}
+
+.match-rating-row:hover { color: var(--text-primary); background: var(--bg-hover); }
+.match-rating-row > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.match-rating-row i {
+  position: relative;
+  display: block;
+  height: 8px;
+  background: var(--surface-soft);
+  border-radius: var(--radius-pill);
+}
+
+.match-rating-row i::after {
+  content: '';
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  left: 55.56%;
+  width: 1px;
+  background: var(--border-strong);
+}
+
+.match-rating-row em { display: block; height: 100%; border-radius: inherit; background: currentColor; opacity: .85; }
+.match-rating-row em.rt-3 { color: var(--text-muted); }
+.match-rating-row b { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* 两队简表 */
+.match-stat-team-tables { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-md); }
+.match-stat-team-tables h3 { margin-bottom: var(--space-sm); }
+.match-mini-table-wrap { border: 1px solid var(--border-color); border-radius: var(--radius-md); }
+
+/* ---------- 8. 侧栏、手机 ---------- */
+.sidebar-event-item { gap: var(--space-sm); font-size: var(--font-sm); }
+.sidebar-event-status { flex: 0 0 auto; }
+.sidebar-event-status.upcoming { color: var(--accent); background: var(--accent-soft); border-color: transparent; }
+.sidebar-event-status.completed, .sidebar-event-status.cancelled { color: var(--text-muted); }
+.sidebar-event-name { flex: 1 1 auto; min-width: 0; }
+
+@media (max-width: 900px) {
+  .mh-columns { grid-template-columns: minmax(0, 1fr); }
+  .match-stats-overview-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 760px) {
+  .mh-banner,
+  .match-stats-hero-card {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: var(--space-md) var(--space-sm);
+    padding: var(--space-lg) var(--space-md);
+  }
+
+  .mh-banner .team-logo.xl, .mh-banner .logo-fallback.xl,
+  .match-stats-hero-card .team-logo.xl, .match-stats-hero-card .logo-fallback.xl { width: 48px; height: 48px; font-size: var(--font-lg); }
+  .mh-team-name, .match-stats-hero-team strong { font-size: var(--font-sm); }
+  .mh-team-score { font-size: var(--font-2xl); }
+  .mh-time { font-size: var(--font-xl); }
+  .mh-event, .match-stats-hero-event { max-width: 130px; font-size: var(--font-xs); }
+  .mh-date, .mh-status, .match-stats-hero-meta { font-size: var(--font-xs); }
+  .match-stats-hero-score { font-size: var(--font-2xl); }
+
+  /* 手机上名单弹窗贴着队伍那一侧展开，不会伸出屏幕 */
+  .match-team-pop.left .match-team-players-popup { left: 0; transform: translateY(4px); }
+  .match-team-pop.right .match-team-players-popup { left: auto; right: 0; transform: translateY(4px); }
+  .match-team-pop.left:hover .match-team-players-popup, .match-team-pop.left:focus-within .match-team-players-popup,
+  .match-team-pop.right:hover .match-team-players-popup, .match-team-pop.right:focus-within .match-team-players-popup { transform: none; }
+
+  .map-strips { padding: var(--space-sm); }
+  .ms-bottom { column-gap: var(--space-sm); padding: 5px var(--space-sm) 10px; }
+  .ms-full { display: none; }
+  .ms-short { display: inline; }
+
+  .mh-h2h-row { grid-template-columns: auto minmax(0, 1fr); row-gap: 0; }
+  .mh-h2h-score { text-align: right; }
+  .mh-h2h-event { grid-column: 1 / -1; text-align: left; }
+
+  .detail-panel-body { padding: var(--space-sm); }
+  .stats-table .table th:first-child, .stats-table .table td:first-child { min-width: 112px; }
+  .match-stats-content { padding: var(--space-md); }
+  .match-stat-team-tables { grid-template-columns: minmax(0, 1fr); }
+  .match-stat-map-card { max-width: none; }
+  .match-rating-row { grid-template-columns: minmax(70px, 110px) minmax(0, 1fr) 42px; gap: var(--space-sm); }
+}
+
+/* ---------- 9. 比赛详细数据页（/matches/<id>/detailed） ---------- */
+.match-detailed-page > .tabs { padding: 0 var(--space-sm); }
+
+/* 地图选择：HLTV 地图图原样、地图名居中；比分和选图写在图下面 */
+.match-detailed-map-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: var(--space-sm);
+  padding: var(--space-lg) var(--space-lg) 0;
+}
+
+.match-detailed-map-card {
+  display: grid;
+  overflow: hidden;
+  color: var(--text-primary);
+  background: var(--surface-soft);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.match-detailed-map-card:hover { color: var(--text-primary); border-color: var(--border-strong); }
+.match-detailed-map-card.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.match-detailed-map-card.muted { opacity: .55; }
+
+.match-detailed-map-cover {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  background-color: var(--accent-soft);
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+.match-detailed-map-cover span { color: var(--color-white); font-size: var(--font-sm); font-weight: 700; text-shadow: var(--on-image-shadow); }
+.match-detailed-all-card .match-detailed-map-cover span { color: var(--accent); text-shadow: none; }
+.match-detailed-map-card.muted .match-detailed-map-cover { filter: grayscale(1); }
+.match-detailed-map-info { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-sm); padding: 6px var(--space-md); }
+.match-detailed-map-info b { font-size: var(--font-md); font-variant-numeric: tabular-nums; }
+.match-detailed-map-info small { overflow: hidden; color: var(--text-muted); text-overflow: ellipsis; white-space: nowrap; }
+
+.match-detailed-page > .empty-state { margin: var(--space-lg) var(--space-lg) 0; border: 1px dashed var(--border-color); border-radius: var(--radius-md); }
+.match-detailed-content { display: none; padding: var(--space-lg); }
+.match-detailed-content.active { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2xl); }
+
+/* 小节标题：左边标题，右边图例 / 切换 */
+.match-detailed-section-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm) var(--space-md); margin-bottom: var(--space-md); }
+.match-detailed-section-head h3 { font-size: var(--font-md); }
+.match-detailed-section-head small { color: var(--text-muted); }
+.match-detailed-legend { display: inline-flex; gap: var(--space-md); color: var(--text-secondary); font-size: var(--font-xs); }
+.match-detailed-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.match-detailed-legend span::before { content: ''; width: 10px; height: 10px; border-radius: 2px; }
+.match-detailed-legend .t1::before { background: var(--accent); }
+.match-detailed-legend .t2::before { background: var(--color-t); }
+
+/* 概况卡 + 六项最佳 */
+.match-detailed-overview-grid { display: grid; grid-template-columns: minmax(0, 340px) minmax(0, 1fr); gap: var(--space-lg); align-items: start; }
+
+.match-detailed-summary {
+  overflow: hidden;
+  background: var(--surface-soft);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.match-detailed-event { display: block; padding: var(--space-md) var(--space-lg) 0; color: var(--text-primary); font-weight: 600; }
+.match-detailed-event:hover { color: var(--accent); }
+.match-detailed-date { padding: 0 var(--space-lg); color: var(--text-muted); font-size: var(--font-xs); }
+
+.match-detailed-score-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-sm);
+  margin: var(--space-md) var(--space-lg) 0;
+  padding: var(--space-md) 0;
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.match-detailed-score-team { display: grid; justify-items: center; gap: 6px; min-width: 0; font-size: var(--font-sm); font-weight: 600; text-align: center; }
+.match-detailed-score-team span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.match-detailed-score-mid { display: grid; justify-items: center; gap: 2px; text-align: center; }
+.match-detailed-score-nums { display: flex; align-items: baseline; gap: 6px; font-size: var(--font-2xl); font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.match-detailed-score-nums span { color: var(--text-muted); font-weight: 400; }
+.match-detailed-score-mid small { margin-top: 4px; color: var(--text-muted); }
+.match-detailed-score-mid strong { font-size: var(--font-sm); }
+.match-detailed-breakdown > div { padding: 6px var(--space-lg); }
+.match-detailed-breakdown dd { font-variant-numeric: tabular-nums; }
+.match-detailed-summary .match-detailed-more { width: calc(100% - 2 * var(--space-lg)); margin: var(--space-sm) var(--space-lg) var(--space-lg); }
+
+.match-detailed-highlights { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-sm); }
+
+.match-detailed-highlight {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-md);
+  min-height: 64px;
+  padding: var(--space-sm) var(--space-lg);
+  color: var(--text-primary);
+  background: var(--surface-soft);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.match-detailed-highlight:hover { color: var(--text-primary); background: var(--bg-hover); border-color: var(--border-strong); }
+.match-detailed-highlight-main { display: grid; min-width: 0; }
+.match-detailed-highlight-main b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.match-detailed-highlight-main small { color: var(--text-muted); }
+.match-detailed-highlight strong { font-size: var(--font-xl); font-variant-numeric: tabular-nums; }
+
+/* 评分条：条宽 = 评分 ÷ 1.6，竖线是 1.00 的位置；蓝色队伍 1、橙色队伍 2 */
+.match-detailed-rating-area { display: grid; gap: 2px; }
+
+.match-detailed-rating-row {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr) 48px;
+  align-items: center;
+  gap: var(--space-md);
+  min-height: 30px;
+  padding: 0 var(--space-sm);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-sm);
+}
+
+.match-detailed-rating-row:hover { color: var(--text-primary); background: var(--bg-hover); }
+.match-detailed-rating-row > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.match-detailed-rating-row i { position: relative; display: block; height: 10px; background: var(--surface-soft); border-radius: var(--radius-pill); }
+.match-detailed-rating-row i::after { content: ''; position: absolute; top: -3px; bottom: -3px; left: 62.5%; width: 1px; background: var(--border-strong); }
+.match-detailed-rating-row em { display: block; height: 100%; border-radius: inherit; }
+.match-detailed-rating-row em.t1 { background: var(--accent); }
+.match-detailed-rating-row em.t2 { background: var(--color-t); }
+.match-detailed-rating-row b { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* 刻度和文字说明：左右让出名字列和数值列，和条对齐 */
+.match-detailed-rating-scale,
+.match-detailed-rating-labels {
+  position: relative;
+  height: 18px;
+  margin: 4px calc(48px + var(--space-md) + var(--space-sm)) 0 calc(150px + var(--space-md) + var(--space-sm));
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.match-detailed-rating-scale span, .match-detailed-rating-labels span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
+.match-detailed-rating-scale span:nth-child(1), .match-detailed-rating-labels span:nth-child(1) { left: 0; transform: none; }
+.match-detailed-rating-scale span:nth-child(2) { left: 31.25%; }
+.match-detailed-rating-scale span:nth-child(3), .match-detailed-rating-labels span:nth-child(2) { left: 62.5%; }
+.match-detailed-rating-scale span:nth-child(4), .match-detailed-rating-labels span:nth-child(3) { left: 100%; transform: translateX(-100%); }
+.match-detailed-rating-labels span:nth-child(1) { color: var(--color-red); }
+.match-detailed-rating-labels span:nth-child(3) { color: var(--color-green); }
+
+/* 两队数据表 */
+.match-detailed-team-tables { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-lg); }
+.match-detailed-team-title { display: flex; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-sm); font-size: var(--font-md); }
+.match-detailed-table-wrap { border: 1px solid var(--border-color); border-radius: var(--radius-md); }
+.match-detailed-table-wrap .table th:first-child,
+.match-detailed-table-wrap .table td:first-child { position: sticky; left: 0; z-index: 1; min-width: 170px; }
+.match-detailed-table-wrap .table td:first-child { background: var(--bg-card); }
+.match-detailed-table-wrap .table tbody tr:hover td:first-child { background: var(--bg-hover); }
+.match-detailed-table-wrap .table td small { color: var(--text-muted); font-size: var(--font-xs); }
+.match-detailed-table-wrap th.sort-desc, .match-detailed-table-wrap th.sort-asc { color: var(--text-primary); }
+.match-detailed-table-wrap th.sort-desc::after { content: ' ↓'; color: var(--accent); }
+.match-detailed-table-wrap th.sort-asc::after { content: ' ↑'; color: var(--accent); }
+.dense-player b { font-weight: 600; }
+.match-detailed-empty-cell { padding: var(--space-lg); }
+
+/* 双方 / T / CT：默认只显示“双方”的列 */
+.match-detailed-page .md-col-t, .match-detailed-page .md-col-ct { display: none; }
+.match-detailed-page.match-detailed-side-t .md-col-overall, .match-detailed-page.match-detailed-side-t .md-col-ct { display: none; }
+.match-detailed-page.match-detailed-side-t .md-col-t { display: table-cell; }
+.match-detailed-page.match-detailed-side-ct .md-col-overall, .match-detailed-page.match-detailed-side-ct .md-col-t { display: none; }
+.match-detailed-page.match-detailed-side-ct .md-col-ct { display: table-cell; }
+
+/* 表现总览：击杀 / 死亡 / 助攻，两队对比条 */
+.match-detailed-compare-panel {
+  display: grid;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg) var(--space-lg);
+  background: var(--surface-soft);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.match-detailed-compare-teams { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); }
+.match-detailed-compare-teams > span { display: inline-flex; align-items: center; gap: var(--space-sm); font-weight: 600; }
+
+.match-detailed-compare-row {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) 56px;
+  grid-template-areas: ". label ." "left track right";
+  align-items: center;
+  column-gap: var(--space-md);
+  row-gap: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.match-detailed-compare-row > b { grid-area: label; justify-self: center; color: var(--text-secondary); font-size: var(--font-xs); font-weight: 600; }
+.match-detailed-compare-left { grid-area: left; font-weight: 700; }
+.match-detailed-compare-right { grid-area: right; font-weight: 700; text-align: right; }
+.match-detailed-compare-track { grid-area: track; display: flex; gap: 2px; height: 10px; overflow: hidden; border-radius: var(--radius-pill); }
+.match-detailed-compare-track i { display: block; height: 100%; }
+.match-detailed-compare-track .t1 { background: var(--accent); }
+.match-detailed-compare-track .t2 { background: var(--color-t); }
+
+/* 对位击杀：每格“蓝 : 橙”= 这一行的人杀了这一列的人几次 : 被这一列的人杀了几次；谁多那格就染上谁的淡色 */
+.match-detailed-matrix-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm); margin-bottom: var(--space-md); }
+.match-detailed-matrix-tabs button small { margin-left: 5px; color: var(--text-muted); font-size: var(--font-xs); }
+.match-detailed-matrix-wrap { border: 1px solid var(--border-color); border-radius: var(--radius-md); }
+.match-detailed-matrix thead th { color: var(--text-primary); font-size: var(--font-sm); }
+.match-detailed-matrix tbody th { color: var(--text-primary); background: var(--surface-soft); border-bottom: 1px solid var(--border-color); font-size: var(--font-sm); white-space: nowrap; }
+.match-detailed-matrix .kill-cell { text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.kill-cell .t1 { color: var(--accent); font-weight: 700; }
+.kill-cell .t2 { color: var(--color-t); font-weight: 700; }
+.kill-sep { margin: 0 4px; color: var(--text-muted); }
+.kill-cell.t1-ahead { background: var(--accent-soft); }
+.kill-cell.t2-ahead { background: var(--gold-soft); }
+
+/* 选手表现总览（照 HLTV）：左队一列、右队一列；每张卡 = 头像 + 7 根“和平均比”的条，竖线是平均 */
+.match-detailed-player-overview .match-detailed-section-head small { color: var(--text-muted); font-size: var(--font-xs); }
+.perf-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-lg); }
+.perf-column { display: grid; align-content: start; gap: var(--space-sm); min-width: 0; }
+
+.perf-team {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  background: var(--surface-soft);
+  border: 1px solid var(--border-color);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-md);
+}
+
+.perf-team.t2 { border-left-color: var(--color-t); }
+.perf-team-name { min-width: 0; overflow: hidden; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.perf-team-rating { margin-left: auto; color: var(--text-muted); font-size: var(--font-xs); white-space: nowrap; }
+.perf-team-rating b { color: var(--text-primary); font-size: var(--font-sm); font-variant-numeric: tabular-nums; }
+
+.perf-card { overflow: hidden; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); }
+.perf-card-head { display: flex; align-items: center; gap: var(--space-sm); min-height: 36px; padding: 0 var(--space-md); background: var(--surface-soft); border-bottom: 1px solid var(--border-color); }
+.perf-card-head a { min-width: 0; overflow: hidden; color: var(--text-link); font-size: var(--font-md); font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.perf-card-head a:hover { color: var(--text-link-hover); }
+.perf-kd { margin-left: auto; color: var(--text-muted); font-size: var(--font-xs); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.perf-kd b { margin-left: 2px; color: var(--text-secondary); }
+.perf-kd b.up { color: var(--color-green); }
+.perf-kd b.down { color: var(--color-red); }
+
+.perf-card-body { display: grid; grid-template-columns: 120px minmax(0, 1fr); align-items: center; gap: var(--space-lg); padding: var(--space-md); }
+.perf-photo { display: block; width: 120px; height: 120px; overflow: hidden; background: var(--surface-soft); border-radius: var(--radius-md); }
+.perf-photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.perf-photo span { display: grid; place-items: center; width: 100%; height: 100%; color: var(--text-muted); font-size: var(--font-3xl); font-weight: 700; }
+
+/* 条形图：左边一列名称，右边是条 + 紧跟在条后面的数字；条的满长 = 右边扣掉留给数字的位置 */
+.perf-chart {
+  --label-w: 52px;
+  --value-w: 48px;
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--label-w) minmax(0, 1fr);
+  grid-auto-rows: 16px;
+  align-items: center;
+  column-gap: var(--space-sm);
+  row-gap: 3px;
+  padding-bottom: 18px;
+}
+
+.perf-label { color: var(--text-secondary); font-size: var(--font-xs); line-height: 16px; text-align: right; white-space: nowrap; }
+.perf-track { display: flex; align-items: center; height: 16px; padding-right: var(--value-w); }
+.perf-track i { flex: 0 0 auto; height: 10px; border-radius: 1px; }
+.perf-track b {
+  position: relative;
+  z-index: 1;
+  margin-left: 3px;
+  padding: 0 2px;
+  color: var(--text-primary);
+  background: var(--bg-card);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.perf-track .perf-rating + b { font-weight: 800; }
+.perf-low { background: var(--perf-low); }
+.perf-avg { background: var(--perf-avg); }
+.perf-good { background: var(--perf-good); }
+.perf-great { background: var(--perf-great); }
+.perf-top { background: var(--perf-top); }
+.perf-rating { background: var(--perf-rating); }
+
+/* 平均线：从第一根条上面一点画到最后一根条下面，位置 = 名称列 + 间隔 + 条的满长 × 平均所占比例 */
+.perf-avg-line,
+.perf-avg-label { position: absolute; left: calc(var(--label-w) + var(--space-sm) + (100% - var(--label-w) - var(--space-sm) - var(--value-w)) * var(--avg)); }
+.perf-avg-line { top: -3px; bottom: 15px; width: 2px; margin-left: -1px; background: var(--text-muted); }
+.perf-avg-label { bottom: 0; color: var(--text-muted); font-size: var(--font-xs); line-height: 14px; transform: translateX(-50%); white-space: nowrap; }
+
+@media (max-width: 900px) {
+  .match-detailed-overview-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 760px) {
+  .match-detailed-map-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: var(--space-md) var(--space-md) 0; }
+  .match-detailed-page > .empty-state { margin: var(--space-md) var(--space-md) 0; }
+  .match-detailed-content { padding: var(--space-md); }
+  .match-detailed-highlights { grid-template-columns: minmax(0, 1fr); }
+  .match-detailed-rating-row { grid-template-columns: 84px minmax(0, 1fr) 40px; gap: var(--space-sm); }
+  .match-detailed-rating-scale, .match-detailed-rating-labels { margin: 4px calc(40px + var(--space-sm) + var(--space-sm)) 0 calc(84px + var(--space-sm) + var(--space-sm)); }
+  .match-detailed-table-wrap .table th:first-child, .match-detailed-table-wrap .table td:first-child { min-width: 130px; }
+  .perf-columns { grid-template-columns: minmax(0, 1fr); }
+  .perf-card-body { grid-template-columns: 72px minmax(0, 1fr); gap: var(--space-md); }
+  .perf-photo { width: 72px; height: 72px; }
+  .perf-photo span { font-size: var(--font-2xl); }
+  .perf-chart { --label-w: 46px; --value-w: 46px; }
+}
+
+/* ---------- 10. 比赛战报页（/matches/<id>/report） ---------- */
+.page-head-link { margin-left: auto; }
+
+/* 顶部：两队队标在两边，比分在中间（和比赛页横幅同一种底） */
+.report-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-lg);
+  padding: var(--space-2xl) var(--space-xl);
+  background:
+    radial-gradient(ellipse 45% 85% at 50% 0%, var(--accent-soft), transparent 72%),
+    var(--bg-card);
+}
+
+.report-team { display: grid; justify-items: center; gap: var(--space-sm); min-width: 0; text-align: center; }
+.report-team-name { max-width: 100%; font-size: var(--font-lg); font-weight: 700; overflow-wrap: anywhere; }
+.report-hero-mid { display: grid; justify-items: center; gap: 4px; text-align: center; }
+.report-event-name { color: var(--text-secondary); font-size: var(--font-sm); font-weight: 600; }
+.report-score { display: flex; align-items: baseline; gap: var(--space-md); font-size: var(--font-3xl); font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.report-score .sep, .map-report-score .sep { color: var(--text-muted); font-weight: 400; }
+.report-meta { color: var(--text-muted); font-size: var(--font-sm); }
+
+/* MVP：金色上边，头像 + 名字在左，四项数据在右 */
+.mvp-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg) var(--space-2xl);
+  padding: var(--space-lg) var(--space-xl);
+  border-top: 3px solid var(--color-gold);
+}
+
+.mvp-player { display: flex; align-items: center; gap: var(--space-md); color: var(--text-primary); }
+.mvp-player:hover { color: var(--text-primary); }
+.mvp-player:hover .mvp-name { color: var(--accent); }
+.mvp-player-text { display: grid; gap: 2px; }
+.mvp-label { color: var(--color-gold); font-size: var(--font-xs); font-weight: 700; letter-spacing: .12em; }
+.mvp-name { font-size: var(--font-xl); font-weight: 700; }
+.mvp-stats { display: flex; flex-wrap: wrap; gap: var(--space-xl); }
+.mvp-stat { min-width: 64px; text-align: center; }
+.mvp-stat-val { font-size: var(--font-xl); font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.mvp-stat-label { color: var(--text-muted); font-size: var(--font-xs); letter-spacing: .04em; }
+
+/* 地图战况：每张图上面是 HLTV 地图条，下面是比分和两队本图最佳 */
+.report-maps { display: grid; gap: var(--space-md); padding: var(--space-lg); }
+.map-report-card { overflow: hidden; border: 1px solid var(--border-color); border-radius: var(--radius-md); }
+.map-report-card.is-pending .ms-top { filter: grayscale(1); opacity: .75; }
+
+.map-report-body {
+  display: grid;
+  grid-template-columns: auto auto;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+}
+
+.map-report-index { color: var(--text-muted); font-size: var(--font-sm); font-weight: 600; }
+.map-report-score { display: inline-flex; align-items: baseline; gap: 6px; font-size: var(--font-xl); font-weight: 800; font-variant-numeric: tabular-nums; }
+.map-report-score .win { color: var(--color-green); }
+.map-report-score .lose { color: var(--color-red); }
+.map-report-score.is-pending { color: var(--text-muted); font-size: var(--font-sm); font-weight: 500; }
+.map-report-best { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-sm); }
+
+.best-player-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  min-width: 0;
+  padding: var(--space-sm) var(--space-md);
+  color: var(--text-primary);
+  background: var(--surface-soft);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  transition: border-color var(--transition-fast);
+}
+
+.best-player-card:hover { color: var(--text-primary); border-color: var(--border-strong); }
+.best-player-rating { flex: 0 0 auto; min-width: 44px; font-size: var(--font-xl); font-weight: 800; font-variant-numeric: tabular-nums; }
+.best-player-main { display: grid; min-width: 0; }
+.best-player-team { color: var(--text-muted); font-size: var(--font-xs); }
+.best-player-name { overflow: hidden; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.best-player-stats { display: flex; flex-wrap: wrap; gap: 4px var(--space-md); color: var(--text-secondary); font-size: var(--font-xs); font-variant-numeric: tabular-nums; }
+
+/* 队伍数据对比：和详细数据页的“表现总览”同一种对比条 */
+.report-compare { display: grid; gap: var(--space-md); padding: var(--space-md) var(--space-lg) var(--space-lg); }
+
+/* 比赛日志：一行一件事，CT 蓝 T 橙 */
+.timeline { max-height: 420px; overflow-y: auto; padding: var(--space-sm) 0; font-size: var(--font-sm); }
+
+.timeline-row {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: var(--space-md);
+  padding: 5px var(--space-lg);
+  border-top: 1px solid var(--border-color);
+}
+
+.timeline-row:first-child { border-top: 0; }
+.timeline-row.timeline-round { background: var(--surface-soft); }
+.timeline-round { color: var(--text-muted); font-size: var(--font-xs); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.timeline-text { display: flex; flex-wrap: wrap; gap: 4px 6px; min-width: 0; color: var(--text-secondary); }
+.timeline-text .timeline-ct { color: var(--color-ct); font-weight: 600; }
+.timeline-text .timeline-t { color: var(--color-t); font-weight: 600; }
+.timeline-weapon { color: var(--text-muted); }
+
+.report-footer-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
+.report-copy-toast { color: var(--color-green); font-size: var(--font-sm); }
+
+@media (max-width: 760px) {
+  .report-hero { gap: var(--space-sm); padding: var(--space-lg) var(--space-md); }
+  .report-hero .team-logo.lg, .report-hero .logo-fallback.lg { width: 40px; height: 40px; }
+  .report-team-name { font-size: var(--font-sm); }
+  .report-score { font-size: var(--font-2xl); }
+  .mvp-card { padding: var(--space-md); }
+  .mvp-stats { width: 100%; justify-content: space-between; gap: var(--space-sm); }
+  .mvp-stat { min-width: 0; }
+  .report-maps { padding: var(--space-md); }
+  .map-report-body { padding: var(--space-sm) var(--space-md); }
+  .map-report-best { grid-template-columns: minmax(0, 1fr); }
+  .timeline-row { grid-template-columns: minmax(0, 1fr); gap: 2px; padding: 6px var(--space-md); }
+}
+
+/* ---------- 11. 比赛数据直播（HLTV 记分板，比赛进行中嵌在比赛页里） ---------- */
+/* 结构：比分条 → 队伍 1 选手表 → 回合记录 → 队伍 2 选手表 → 比赛日志 + 小地图 → 更新时间、炸弹状态 */
+.scorebot { overflow: hidden; }
+
+/* 右上角状态牌：前面一个小圆点；连上绿、断开红、暂停黄 */
+.sb-status { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; color: var(--text-muted); background: var(--surface-soft); border-radius: var(--radius-pill); font-size: var(--font-xs); white-space: nowrap; }
+.sb-status::before { content: ""; width: 7px; height: 7px; background: currentColor; border-radius: 50%; }
+.sb-status.online { color: var(--color-green); background: var(--green-soft); }
+.sb-status.offline { color: var(--color-red); background: var(--red-soft); }
+.sb-status.paused { color: var(--color-gold); background: var(--gold-soft); }
+
+/* 比分条：两边队标、队名、阵营，中间大比分（按阵营上色）+ 回合 · 地图 · 倒计时 */
+.sb-head { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: var(--space-lg); padding: var(--space-lg) var(--space-xl); border-bottom: 1px solid var(--border-color); }
+.sb-head-team { display: flex; align-items: center; gap: var(--space-sm); min-width: 0; }
+.sb-head-team.right { justify-content: flex-end; }
+.sb-head-name { min-width: 0; overflow: hidden; font-size: var(--font-lg); font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.sb-head-center { display: grid; justify-items: center; gap: 6px; }
+.sb-score { display: flex; align-items: baseline; gap: var(--space-md); font-size: var(--font-3xl); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.sb-colon { color: var(--text-muted); font-weight: 400; }
+.side-score { display: inline-block; }
+.side-score.ct { color: var(--color-ct); }
+.side-score.t { color: var(--color-t); }
+.score-flash { animation: sb-score-flash .45s ease-out; }
+@keyframes sb-score-flash { from { opacity: .5; transform: scale(1.25); } to { opacity: 1; transform: scale(1); } }
+.sb-meta { display: flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: var(--font-xs); white-space: nowrap; }
+.sb-timer { display: inline-flex; align-items: center; gap: 4px; color: var(--text-primary); font-weight: 700; font-variant-numeric: tabular-nums; }
+.sb-timer img { width: 13px; height: 13px; }
+
+/* 选手表：左边一条阵营色；表头带阵营浅底；10 列和表头上下对齐 */
+.sb-team-block { border-left: 3px solid var(--border-strong); }
+.sb-team-block.side-ct { border-left-color: var(--color-ct); }
+.sb-team-block.side-t { border-left-color: var(--color-t); }
+.sb-thead,
+.scorebot .player-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 120px 28px 52px 68px 66px 34px 34px 34px 48px;
+  align-items: center;
+  column-gap: var(--space-sm);
+  padding: 0 var(--space-lg);
+  text-align: center;
+}
+
+.sb-thead { min-height: 36px; color: var(--text-muted); background: var(--surface-soft); border-bottom: 1px solid var(--border-color); font-size: var(--font-xs); }
+.sb-team-block.side-ct .sb-thead { background: var(--ct-soft); }
+.sb-team-block.side-t .sb-thead { background: var(--t-soft); }
+.sb-thead-team { display: flex; align-items: center; gap: var(--space-sm); min-width: 0; color: var(--text-primary); font-size: var(--font-sm); font-weight: 700; text-align: left; }
+.sb-thead-team > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scorebot .player-row { min-height: 42px; border-bottom: 1px solid var(--border-color); font-size: var(--font-sm); font-variant-numeric: tabular-nums; transition: opacity var(--transition-base); }
+.sb-rows .player-row:last-child { border-bottom: 0; }
+.scorebot .player-row.dead { opacity: .42; }
+.p-name { display: flex; align-items: center; gap: var(--space-sm); min-width: 0; text-align: left; }
+.p-avatar { display: grid; place-items: center; flex: 0 0 26px; width: 26px; height: 26px; overflow: hidden; color: var(--text-muted); background: var(--surface-soft); border-radius: var(--radius-sm); font-size: var(--font-xs); font-weight: 700; }
+.p-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.p-nick { min-width: 0; overflow: hidden; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.p-hp { display: flex; align-items: center; gap: 6px; }
+.hp-num { flex: 0 0 26px; font-weight: 700; text-align: right; }
+.hp-bar { flex: 1 1 auto; height: 6px; overflow: hidden; background: var(--bg-hover); border-radius: var(--radius-pill); }
+.hp-fill { display: block; width: 0; height: 100%; background: var(--color-green); border-radius: inherit; transition: width var(--transition-base); }
+.hp-fill.low { background: var(--color-gold); }
+.hp-fill.crit { background: var(--color-red); }
+.p-armor, .p-pistol, .p-weapon { display: flex; align-items: center; justify-content: center; min-width: 0; height: 20px; }
+.p-armor img { width: 18px; height: 18px; object-fit: contain; }
+.p-pistol img { max-width: 44px; max-height: 15px; object-fit: contain; }
+.p-weapon img { max-width: 62px; max-height: 18px; object-fit: contain; }
+.p-money { color: var(--text-secondary); }
+.scorebot .p-stat, .scorebot .p-adr { font-weight: 600; }
+.sb-thead .p-stat, .sb-thead .p-adr { font-weight: 400; }
+
+/* 白色的武器、护甲、炸弹图标：浅色主题下压成深灰，深色主题原样 */
+:root[data-theme='light'] .scorebot .sb-mono { filter: brightness(0) opacity(.7); }
+
+/* 回合记录：两排各 24 格（上队伍 1、下队伍 2），中间空一格画半场竖线；赢的回合放胜利方式图标 */
+.round-board { display: grid; justify-content: center; gap: 4px; padding: var(--space-sm) var(--space-lg); background: var(--surface-soft); border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); }
+.round-lane { display: grid; grid-template-columns: 28px max-content; align-items: center; gap: var(--space-md); }
+.round-team { display: grid; place-items: center; }
+.round-divider { height: 1px; margin-left: calc(28px + var(--space-md)); background: var(--border-color); }
+.round-lane-cells {
+  display: grid;
+  grid-template-columns: repeat(12, 22px) 9px repeat(12, 22px);
+  column-gap: 2px;
+  width: max-content;
+  background: linear-gradient(var(--border-strong), var(--border-strong)) center / 1px 100% no-repeat;
+}
+
+.round-cell { display: grid; place-items: center; width: 22px; height: 22px; border-radius: var(--radius-sm); }
+.round-cell:nth-child(13) { grid-column-start: 14; }
+.round-cell.empty::before { content: ""; width: 4px; height: 4px; background: var(--border-strong); border-radius: 50%; }
+.round-cell.won.ct { background: var(--ct-soft); }
+.round-cell.won.t { background: var(--t-soft); }
+.round-result { width: 16px; height: 16px; object-fit: contain; }
+
+/* 加时：每 6 回合一段，只在打了加时后出现 */
+.overtime-board { display: none; padding: var(--space-sm) var(--space-lg); background: var(--surface-soft); border-bottom: 1px solid var(--border-color); }
+.overtime-board.active { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-lg); }
+.overtime-strip { display: flex; align-items: center; gap: 2px; }
+.overtime-title { margin-right: var(--space-xs); color: var(--text-muted); font-size: var(--font-xs); font-weight: 700; }
+.ot-round-cell { display: grid; place-items: center; width: 22px; height: 22px; background: var(--bg-card); border-radius: var(--radius-sm); }
+.ot-round-result { width: 16px; height: 16px; object-fit: contain; }
+
+/* 比赛日志 + 小地图 */
+.sb-lower { display: grid; grid-template-columns: minmax(0, 1fr) 264px; border-top: 1px solid var(--border-color); }
+.sb-log { display: flex; flex-direction: column; min-width: 0; }
+.sb-sub-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); min-height: 38px; padding: 0 var(--space-lg); border-bottom: 1px solid var(--border-color); font-size: var(--font-sm); font-weight: 700; }
+.sb-sub-head > span:last-child { color: var(--text-muted); font-weight: 400; }
+.kill-feed-list { height: 226px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.kill-line { display: flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 var(--space-lg) 0 calc(var(--space-lg) - 3px); border-bottom: 1px solid var(--border-color); border-left: 3px solid transparent; font-size: var(--font-sm); }
+.kill-line.round-over.ct { border-left-color: var(--color-ct); }
+.kill-line.round-over.t { border-left-color: var(--color-t); }
+.kill-line.bomb-planted { border-left-color: var(--color-gold); }
+.kill-line .event-text { min-width: 0; overflow: hidden; color: var(--text-secondary); text-overflow: ellipsis; white-space: nowrap; }
+.kill-name, .round-winner { flex: 0 0 auto; font-weight: 700; }
+.kill-name.ct, .round-winner.ct { color: var(--color-ct); }
+.kill-name.t, .round-winner.t { color: var(--color-t); }
+.kill-round { flex: 0 0 auto; margin-left: auto; color: var(--text-muted); font-size: var(--font-xs); }
+.reason-icon, .plant-icon { flex: 0 0 16px; width: 16px; height: 16px; object-fit: contain; }
+[data-feed-placeholder] .kill-round { margin-left: 0; }
+
+/* 小地图：深底（地图本身是深色线稿，深浅主题都一样），只画当前回合的阵亡点 */
+.radar { position: relative; width: 264px; height: 264px; overflow: hidden; background: var(--color-dark); border-left: 1px solid var(--border-color); }
+.radar-image { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; filter: brightness(1.7) contrast(1.15); }
+.radar #killMarkers { position: absolute; inset: 0; pointer-events: none; }
+.kill-marker { position: absolute; width: 14px; height: 14px; transform: translate(-50%, -50%); }
+.kill-marker::before, .kill-marker::after { content: ""; position: absolute; top: 0; left: 6px; width: 2px; height: 14px; background: currentColor; }
+.kill-marker::before { transform: rotate(45deg); }
+.kill-marker::after { transform: rotate(-45deg); }
+.kill-marker.ct { color: var(--color-ct); }
+.kill-marker.t { color: var(--color-t); }
+
+/* 底栏：更新时间、炸弹状态（下了包变成 T 的颜色） */
+.sb-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); min-height: 38px; padding: 0 var(--space-lg); color: var(--text-muted); border-top: 1px solid var(--border-color); font-size: var(--font-xs); }
+.bomb { display: inline-flex; align-items: center; gap: 6px; }
+.bomb img { width: 16px; height: 16px; object-fit: contain; }
+.bomb.active { color: var(--color-t); font-weight: 700; }
+
+@media (max-width: 760px) {
+  .sb-head { gap: var(--space-sm); padding: var(--space-md); }
+  .sb-head-team, .sb-head-team.right { flex-direction: column; justify-content: center; gap: 4px; }
+  .sb-head-team.right { flex-direction: column-reverse; }
+  .sb-head-name { max-width: 100%; font-size: var(--font-sm); }
+  .sb-score { font-size: var(--font-2xl); }
+  .sb-thead,
+  .scorebot .player-row { grid-template-columns: minmax(0, 1fr) 60px 44px 26px 26px 36px; column-gap: 6px; padding: 0 var(--space-md); }
+  .sb-thead .p-armor, .sb-thead .p-pistol, .sb-thead .p-money, .sb-thead .p-stat.a,
+  .scorebot .player-row .p-armor, .scorebot .player-row .p-pistol, .scorebot .player-row .p-money, .scorebot .player-row .p-stat.a { display: none; }
+  .scorebot .player-row { min-height: 38px; font-size: var(--font-xs); }
+  .p-avatar { flex-basis: 22px; width: 22px; height: 22px; }
+  .hp-num { flex-basis: 22px; }
+  .p-weapon img { max-width: 42px; max-height: 14px; }
+  .round-board { justify-content: stretch; padding: var(--space-sm) var(--space-md); }
+  .round-lane { grid-template-columns: 22px minmax(0, 1fr); gap: var(--space-sm); }
+  .round-divider { margin-left: calc(22px + var(--space-sm)); }
+  .round-lane-cells { grid-template-columns: repeat(12, minmax(0, 1fr)) 5px repeat(12, minmax(0, 1fr)); column-gap: 1px; width: 100%; }
+  .round-cell { width: 100%; height: 16px; }
+  .round-result { width: 12px; height: 12px; }
+  .sb-lower { grid-template-columns: minmax(0, 1fr); }
+  .kill-feed-list { height: 190px; }
+  .kill-line { padding-right: var(--space-md); padding-left: calc(var(--space-md) - 3px); font-size: var(--font-xs); }
+  .radar { justify-self: center; width: min(100%, 300px); height: auto; aspect-ratio: 1; border-top: 1px solid var(--border-color); border-left: 0; }
+  .sb-foot { padding: 0 var(--space-md); }
+}

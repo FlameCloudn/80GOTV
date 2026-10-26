@@ -2,89 +2,120 @@
 {% set player_private_remark = private_remark_for_player(player.id) %}
 {% set player_display_name = player_private_remark or player.nickname %}
 {% block title %}{{ player_display_name }} - 80GOTV{% endblock %}
-{% block layout_class %}player-profile-layout{% endblock %}
-{% block head %}
-<link rel="stylesheet" href="{{ versioned_url('static/css/player_profile_refresh.css') }}">
-{% endblock %}
+{% block layout_class %}player-profile-layout no-side-layout{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ versioned_url('static/css/pages/player.css') }}">{% endblock %}
+
+{#- 能力雷达：6 项能力值（0~100）画成六边形；轴的方向是固定的 6 个角 -#}
+{% macro skill_radar(cards) %}
+{% set axes = [(0, -1), (0.866, -0.5), (0.866, 0.5), (0, 1), (-0.866, 0.5), (-0.866, -0.5)] %}
+{% set cx, cy, r = 140, 110, 78 %}
+<svg class="pp-radar" viewBox="0 0 280 220" role="img" aria-label="能力雷达图">
+  {% for level in (0.25, 0.5, 0.75, 1) %}
+  <polygon class="pp-radar-grid" points="{% for ax in axes %}{{ '%.1f'|format(cx + ax[0] * r * level) }},{{ '%.1f'|format(cy + ax[1] * r * level) }} {% endfor %}"></polygon>
+  {% endfor %}
+  {% for ax in axes %}
+  <line class="pp-radar-axis" x1="{{ cx }}" y1="{{ cy }}" x2="{{ '%.1f'|format(cx + ax[0] * r) }}" y2="{{ '%.1f'|format(cy + ax[1] * r) }}"></line>
+  {% endfor %}
+  {% if cards|rejectattr('score', 'none')|list|length == cards|length %}
+  <polygon class="pp-radar-shape" points="{% for card in cards %}{% set ax = axes[loop.index0] %}{% set k = card.score / 100 %}{{ '%.1f'|format(cx + ax[0] * r * k) }},{{ '%.1f'|format(cy + ax[1] * r * k) }} {% endfor %}"></polygon>
+  {% endif %}
+  {% for card in cards %}
+  {% set ax = axes[loop.index0] %}
+  {% if card.score is not none %}
+  {% set k = card.score / 100 %}
+  <circle class="pp-radar-dot" cx="{{ '%.1f'|format(cx + ax[0] * r * k) }}" cy="{{ '%.1f'|format(cy + ax[1] * r * k) }}" r="2.6"></circle>
+  {% endif %}
+  <text class="pp-radar-label" x="{{ '%.1f'|format(cx + ax[0] * (r + 18)) }}" y="{{ '%.1f'|format(cy + ax[1] * (r + 14) + 4) }}" text-anchor="{{ 'middle' if ax[0] == 0 else ('start' if ax[0] > 0 else 'end') }}">{{ card.title }}</text>
+  {% endfor %}
+</svg>
+{% endmacro %}
 
 {% block main %}
-<section class="pp-hero">
-  <div class="pp-section-tag">选手</div>
-  <div class="pp-portrait">
-    {% if player.avatar %}
-    <img src="{{ url_for('static', filename='avatars/' + player.avatar) }}" alt="{{ player_display_name }}" loading="eager">
-    {% else %}
-    <div class="pp-portrait-fallback">{{ player_display_name[:1] }}</div>
-    {% endif %}
-    {% if player.is_cheater %}
-    <img src="{{ url_for('static', filename='images/pac_cheating_overlay.png') }}" class="pac-avatar-overlay pp-pac-overlay" alt="作弊封禁" loading="lazy">
-    {% endif %}
-  </div>
-
-  <div class="pp-identity">
-    <header class="pp-name-row">
-      <div>
-        <h1 data-i18n-ignore>{{ player_display_name }}</h1>
-        {% if not player_private_remark and player.is_bashizhong_student != 0 and player.group_username %}
-        <span class="user-group-handle" data-i18n-ignore>@{{ player.group_username }}</span>
-        {% endif %}
-      </div>
-      {% if player.is_bashizhong_student == 0 %}
-      <span class="player-origin-marker" aria-label="外校选手">🌐</span>
+<section class="pp-hero"{% if player.team_logo %} style="--team-mark: url('{{ player.team_logo|team_logo_url }}')"{% endif %}>
+  <div class="pp-hero-top">
+    <div class="pp-portrait">
+      {% if player.avatar %}
+      <img src="{{ url_for('static', filename='avatars/' + player.avatar) }}" alt="{{ player_display_name }}" loading="eager">
+      {% else %}
+      <div class="pp-portrait-fallback">{{ player_display_name[:1] }}</div>
       {% endif %}
-    </header>
+      {% if player.is_cheater %}
+      <img src="{{ url_for('static', filename='images/pac_cheating_overlay.png') }}" class="pac-avatar-overlay pp-pac-overlay" alt="作弊封禁" loading="lazy">
+      {% endif %}
+    </div>
 
-    {% if session.user_id and player.linked_user_id and session.user_id != player.linked_user_id %}
-    <form class="pp-private-remark" method="post" action="{{ url_for('player_private_remark', player_id=player.id) }}">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <label for="player-private-remark-{{ player.id }}">我的备注</label>
-      <input id="player-private-remark-{{ player.id }}" name="remark" value="{{ player_private_remark }}" maxlength="40" placeholder="仅你可见">
-      <button type="submit">保存</button>
-      {% if player_private_remark %}<button type="submit" name="action" value="delete" class="is-muted">删除</button>{% endif %}
-    </form>
-    {% endif %}
-
-    <dl class="pp-facts">
+    <div class="pp-identity">
+      <div class="pp-tags">
+        <span class="badge badge-accent pp-section-tag">选手</span>
+        {% if player.is_bashizhong_student == 0 %}<span class="badge player-origin-marker" aria-label="外校选手" title="外校选手">🌐 外校选手</span>{% endif %}
+      </div>
+      <h1 data-i18n-ignore>{{ player_display_name }}</h1>
+      {% if not player_private_remark and player.is_bashizhong_student != 0 and player.group_username %}
+      <span class="user-group-handle" data-i18n-ignore>@{{ player.group_username }}</span>
+      {% endif %}
       {% if player.team_name %}
-      <div>
-        <dt>当前队伍</dt>
-        <dd data-i18n-ignore><a href="{{ url_for('team_detail', team_id=player.team_id) }}">{{ player.team_name }}</a></dd>
-      </div>
+      <a class="pp-team-chip" href="{{ url_for('team_detail', team_id=player.team_id) }}">
+        <span class="pp-team-chip-label">当前队伍</span>
+        {% if player.team_logo %}<img class="team-logo md" src="{{ player.team_logo|team_logo_url }}" alt="" loading="lazy">{% endif %}
+        <b data-i18n-ignore>{{ player.team_name }}</b>
+      </a>
       {% endif %}
-      <div>
-        <dt>比赛数</dt>
-        <dd>{{ player_summary.matches }}</dd>
-      </div>
-      <div>
-        <dt>地图数</dt>
-        <dd>{{ player_summary.maps }}</dd>
-      </div>
-      {% if player_summary.maps %}
-      <div>
-        <dt>RATING 2.0</dt>
-        <dd class="{{ player_summary.rating|rating_class }}">{{ "%.2f"|format(player_summary.rating) if player_summary.rating is not none else '-' }}</dd>
-      </div>
+      {% if session.user_id and player.linked_user_id and session.user_id != player.linked_user_id %}
+      <form class="pp-private-remark" method="post" action="{{ url_for('player_private_remark', player_id=player.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label for="player-private-remark-{{ player.id }}">我的备注</label>
+        <input id="player-private-remark-{{ player.id }}" name="remark" value="{{ player_private_remark }}" maxlength="40" placeholder="仅你可见">
+        <button type="submit" class="btn btn-primary btn-sm">保存</button>
+        {% if player_private_remark %}<button type="submit" name="action" value="delete" class="btn btn-sm is-muted">删除</button>{% endif %}
+      </form>
       {% endif %}
-      {% if match_record.finished %}
-      <div>
-        <dt>胜负</dt>
-        <dd><span class="pp-win">{{ match_record.wins }}</span> - <span class="pp-loss">{{ match_record.losses }}</span></dd>
-      </div>
-      {% endif %}
-      {% if achievement_count %}
-      <div>
-        <dt>选手荣誉</dt>
-        <dd>{{ achievement_count }}</dd>
-      </div>
-      {% endif %}
-      {% if player.steam_id %}
-      <div>
-        <dt>SteamID</dt>
-        <dd data-i18n-ignore>{{ player.steam_id }}</dd>
-      </div>
-      {% endif %}
-    </dl>
+    </div>
   </div>
+
+  {# 一排大数字：RATING、比赛、地图、胜负、荣誉 #}
+  <dl class="pp-facts">
+    {% if player_summary.maps %}
+    <div class="pp-fact-rating">
+      <dt>RATING 2.0</dt>
+      <dd class="{{ player_summary.rating|rating_class }}">{{ "%.2f"|format(player_summary.rating) if player_summary.rating is not none else '-' }}</dd>
+    </div>
+    {% endif %}
+    <div>
+      <dt>比赛数</dt>
+      <dd>{{ player_summary.matches }}</dd>
+    </div>
+    <div>
+      <dt>地图数</dt>
+      <dd>{{ player_summary.maps }}</dd>
+    </div>
+    {% if match_record.finished %}
+    <div>
+      <dt>胜负</dt>
+      <dd><span class="pp-win">{{ match_record.wins }}</span> - <span class="pp-loss">{{ match_record.losses }}</span></dd>
+    </div>
+    {% endif %}
+    {% if achievement_count %}
+    <div>
+      <dt>选手荣誉</dt>
+      <dd>{{ achievement_count }}</dd>
+    </div>
+    {% endif %}
+  </dl>
+
+  {# 次要资料：一行小字 #}
+  {% if player.steam_id or nickname_history or (not player_private_remark and player.is_bashizhong_student != 0 and player.group_username) %}
+  <dl class="pp-meta">
+    {% if not player_private_remark and player.is_bashizhong_student != 0 and player.group_username %}
+    <div><dt>群内昵称</dt><dd data-i18n-ignore>{{ player.group_username }}</dd></div>
+    {% endif %}
+    {% if player.steam_id %}
+    <div><dt>SteamID</dt><dd data-i18n-ignore>{{ player.steam_id }}</dd></div>
+    {% endif %}
+    {% if nickname_history %}
+    <div><dt>历史昵称</dt><dd data-i18n-ignore>{% for item in nickname_history %}{{ item.nickname }}{% if not loop.last %}、{% endif %}{% endfor %}</dd></div>
+    {% endif %}
+  </dl>
+  {% endif %}
 </section>
 
 {% if medals or championships %}
@@ -104,39 +135,38 @@
 </section>
 {% endif %}
 
-<nav class="pp-tabs profile-tabs" data-profile-tabs data-tab-group="player-profile" aria-label="选手资料导航">
-  <a href="#info" class="active" data-tab-target="info" aria-selected="true">资料</a>
-  <a href="#teams" data-tab-target="teams" aria-selected="false">队伍</a>
-  <a href="#matches" data-tab-target="matches" aria-selected="false">比赛</a>
-  <a href="#achievements" data-tab-target="achievements" aria-selected="false">荣誉</a>
-  <a href="#trophies" data-tab-target="trophies" aria-selected="false">冠军</a>
+<nav class="tabs pp-tabs profile-tabs" data-profile-tabs data-tab-group="player-profile" aria-label="选手资料导航">
+  <a href="#info" class="tab active" data-tab-target="info" aria-selected="true">资料</a>
+  <a href="#teams" class="tab" data-tab-target="teams" aria-selected="false">队伍</a>
+  <a href="#matches" class="tab" data-tab-target="matches" aria-selected="false">比赛</a>
+  <a href="#achievements" class="tab" data-tab-target="achievements" aria-selected="false">荣誉</a>
+  <a href="#trophies" class="tab" data-tab-target="trophies" aria-selected="false">冠军</a>
 </nav>
 
 <section id="info" class="pp-overview profile-tab-panel active" data-tab-panel="info" data-tab-group="player-profile">
   <div class="pp-panel pp-overview-panel">
-    <div class="pp-overview-column">
+    <div class="pp-overview-column pp-skills">
       <h2>数据统计</h2>
       {% if player_summary.maps %}
-      <div class="pp-stat-lead">
-        <span>RATING 2.0</span>
-        <b class="{{ player_summary.rating|rating_class }}">{{ "%.2f"|format(player_summary.rating) if player_summary.rating is not none else '-' }}</b>
-      </div>
-      <div class="pp-skill-list">
-        {% for card in player_category_cards %}
-        <div>
-          <span>{{ card.title }}</span>
-          <b>{{ card.score if card.score is not none else '-' }}<small>/100</small></b>
-          <i style="--pct:{{ card.score or 0 }}%"></i>
+      <div class="pp-skill-body">
+        {% if player_category_cards|length == 6 %}{{ skill_radar(player_category_cards) }}{% endif %}
+        <div class="pp-skill-list">
+          {% for card in player_category_cards %}
+          <div title="{{ card.desc or '' }}">
+            <span>{{ card.title }}</span>
+            <b>{{ card.score if card.score is not none else '-' }}<small>/100</small></b>
+            <i style="--pct:{{ card.score or 0 }}%"></i>
+          </div>
+          {% endfor %}
         </div>
-        {% endfor %}
       </div>
-      <a href="/stats/players/{{ player.id }}" class="pp-complete-link">
+      <a href="/stats/players/{{ player.id }}" class="btn btn-block pp-complete-link">
         <span>查看</span>
         <span data-i18n-ignore>{{ player_display_name }}</span>
         <span>的完整数据</span>
       </a>
       {% else %}
-      <div class="h-empty">暂无比赛数据</div>
+      <div class="empty-state">暂无比赛数据</div>
       {% endif %}
     </div>
 
@@ -144,21 +174,21 @@
       <h2>近期比赛</h2>
       <div class="pp-match-list">
         {% for m in recent_matches %}
-        {% set is_t1 = m.stat_team_id == m.team1_id or m.stat_team_id == -1 %}
-        {% set is_t2 = m.stat_team_id == m.team2_id or m.stat_team_id == -2 %}
-        {% set opp = m.t2s if is_t1 else m.t1s %}
-        {% set has_score = m.team1_score is not none and m.team2_score is not none %}
+        {% set is_t1 = m.stat_team_side == 't1' %}
+        {% set is_t2 = m.stat_team_side == 't2' %}
+        {% set opp = m.t2s if is_t1 else m.t1s if is_t2 else none %}
+        {% set has_score = (is_t1 or is_t2) and m.team1_score is not none and m.team2_score is not none and m.team1_score != m.team2_score %}
         {% set won = has_score and ((is_t1 and m.team1_score > m.team2_score) or (is_t2 and m.team2_score > m.team1_score)) %}
-        {% set player_score = m.team1_score if is_t1 else m.team2_score %}
-        {% set opponent_score = m.team2_score if is_t1 else m.team1_score %}
+        {% set player_score = m.team1_score if is_t1 else m.team2_score if is_t2 else none %}
+        {% set opponent_score = m.team2_score if is_t1 else m.team1_score if is_t2 else none %}
         <a href="/matches/{{ m.slug or m.id }}" class="pp-match-row {{ 'win' if won else 'loss' if has_score else '' }}">
-          <span class="pp-match-opponent">对 <b data-i18n-ignore>{{ opp or 'TBD' }}</b></span>
+          <span class="pp-match-opponent"><span class="pp-vs">VS</span> <b data-i18n-ignore>{{ opp or 'TBD' }}</b></span>
           <span class="pp-match-event" data-i18n-ignore>{{ m.event_name or '' }}</span>
           <time>{{ m.match_time|date_display }}</time>
           <strong>{{ player_score if player_score is not none else '-' }} : {{ opponent_score if opponent_score is not none else '-' }}</strong>
         </a>
         {% endfor %}
-        {% if not recent_matches %}<div class="h-empty">暂无比赛</div>{% endif %}
+        {% if not recent_matches %}<div class="empty-state">暂无比赛</div>{% endif %}
       </div>
     </div>
   </div>
@@ -167,14 +197,18 @@
 <section id="teams" class="pp-panel profile-tab-panel" data-tab-panel="teams" data-tab-group="player-profile" hidden>
   <h2>队伍</h2>
   {% if player.team_name %}
-  <div class="pp-team-current">
-    <a href="{{ url_for('team_detail', team_id=player.team_id) }}" data-i18n-ignore><b>{{ player.team_name }}</b></a>
-    {% if player.team_short %}<span data-i18n-ignore>{{ player.team_short }}</span>{% endif %}
-  </div>
+  <a class="pp-team-current" href="{{ url_for('team_detail', team_id=player.team_id) }}">
+    {% if player.team_logo %}<img class="team-logo lg" src="{{ player.team_logo|team_logo_url }}" alt="" loading="lazy">{% else %}<span class="logo-fallback lg" data-i18n-ignore>{{ player.team_name|team_abbr(player.team_short) }}</span>{% endif %}
+    <span class="pp-team-current-text">
+      <b data-i18n-ignore>{{ player.team_name }}</b>
+      {% if player.team_short %}<span data-i18n-ignore>{{ player.team_short }}</span>{% endif %}
+    </span>
+  </a>
   {% else %}
-  <div class="h-empty">无队伍</div>
+  <div class="empty-state">无队伍</div>
   {% endif %}
   {% if teammates %}
+  <h3 class="pp-subhead">队友</h3>
   <div class="pp-teammates">
     {% for p in teammates %}
     {% set teammate_name = private_name_for_player(p.id, p.nickname) %}
@@ -189,43 +223,43 @@
 
 <section id="matches" class="pp-panel profile-tab-panel" data-tab-panel="matches" data-tab-group="player-profile" hidden>
   <h2>比赛</h2>
-  <div class="pp-table-wrap">
-    <table class="pp-table">
-      <thead><tr><th>日期</th><th>赛事</th><th>对阵</th><th>K-D-A</th><th>比分</th><th>RATING</th></tr></thead>
+  <div class="table-wrap pp-table-wrap">
+    <table class="table pp-table">
+      <thead><tr><th>日期</th><th>赛事</th><th>对阵</th><th class="num">K-D-A</th><th class="center">比分</th><th class="num">RATING</th></tr></thead>
       <tbody>
         {% for m in recent_matches %}
         <tr>
-          <td>{{ m.match_time|date_display }}</td>
-          <td data-i18n-ignore>{{ m.event_name or '-' }}</td>
+          <td class="pp-table-date">{{ m.match_time|date_display }}</td>
+          <td class="truncate" data-i18n-ignore>{{ m.event_name or '-' }}</td>
           <td>
             <a href="/matches/{{ m.slug or m.id }}">
               <span data-i18n-ignore>{{ m.t1s or 'TBD' }}</span>
-              <span>对</span>
+              <span class="pp-vs">VS</span>
               <span data-i18n-ignore>{{ m.t2s or 'TBD' }}</span>
             </a>
           </td>
-          <td>{{ m.kills if m.kills is not none else '-' }}-{{ m.deaths if m.deaths is not none else '-' }}-{{ m.assists if m.assists is not none else '-' }}</td>
-          <td>{{ m.team1_score if m.team1_score is not none else '-' }} : {{ m.team2_score if m.team2_score is not none else '-' }}</td>
-          <td class="{{ m.rating|rating_class }}"><b>{{ "%.2f"|format(m.rating) if m.rating is not none else '-' }}</b></td>
+          <td class="num">{{ m.kills if m.kills is not none else '-' }}-{{ m.deaths if m.deaths is not none else '-' }}-{{ m.assists if m.assists is not none else '-' }}</td>
+          <td class="center num">{{ m.team1_score if m.team1_score is not none else '-' }} : {{ m.team2_score if m.team2_score is not none else '-' }}</td>
+          <td class="num {{ m.rating|rating_class }}"><b>{{ "%.2f"|format(m.rating) if m.rating is not none else '-' }}</b></td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
-  {% if not recent_matches %}<div class="h-empty">暂无比赛</div>{% endif %}
+  {% if not recent_matches %}<div class="empty-state">暂无比赛</div>{% endif %}
 </section>
 
 <section id="achievements" class="pp-panel profile-tab-panel" data-tab-panel="achievements" data-tab-group="player-profile" hidden>
   <h2>荣誉</h2>
   <div class="pp-achievement-list">
     {% for m in medals %}
-    <a href="/events/{{ m.event_slug or m.event_id }}">
+    <a href="/events/{{ m.event_slug or m.event_id }}" class="pp-achievement pp-honor-{{ m.type|lower }}">
       <b>{{ m.type }}{% if m.type == 'EVP' and m.evp_rank %} #{{ m.evp_rank }}{% endif %}</b>
       <span data-i18n-ignore>{{ m.event_name or '' }}</span>
       <small>{{ m.event_date|date_display if m.event_date else '' }}</small>
     </a>
     {% endfor %}
-    {% if not medals %}<div class="h-empty">暂无荣誉</div>{% endif %}
+    {% if not medals %}<div class="empty-state">暂无荣誉</div>{% endif %}
   </div>
 </section>
 
@@ -233,35 +267,15 @@
   <h2>冠军</h2>
   <div class="pp-achievement-list">
     {% for c in championships %}
-    <a href="/events/{{ c.event_slug or c.event_id }}">
+    <a href="/events/{{ c.event_slug or c.event_id }}" class="pp-achievement pp-honor-title">
       <b>冠军</b>
       <span data-i18n-ignore>{{ c.event_name or '' }}</span>
       <small>{{ c.event_date|date_display if c.event_date else '' }}</small>
     </a>
     {% endfor %}
-    {% if not championships %}<div class="h-empty">暂无冠军记录</div>{% endif %}
+    {% if not championships %}<div class="empty-state">暂无冠军记录</div>{% endif %}
   </div>
 </section>
 {% endblock %}
 
-{% block side %}
-<div class="h-panel pp-side-panel">
-  <h3 class="h-panel-title">选手信息</h3>
-  <div class="player-side-info">
-    {% if player.team_name %}<div><span>队伍</span><b data-i18n-ignore>{{ player.team_name }}</b></div>{% endif %}
-    <div><span>昵称</span><b data-i18n-ignore>{{ player_display_name }}</b></div>
-    {% if not player_private_remark and player.is_bashizhong_student != 0 and player.group_username %}<div><span>群内昵称</span><b data-i18n-ignore>{{ player.group_username }}</b></div>{% endif %}
-    {% if match_record.finished %}<div><span>胜负</span><b><span class="pp-win">{{ match_record.wins }}</span> - <span class="pp-loss">{{ match_record.losses }}</span></b></div>{% endif %}
-  </div>
-</div>
-{% if nickname_history %}
-<div class="h-panel pp-side-panel">
-  <h3 class="h-panel-title">历史昵称</h3>
-  <div class="player-nick-list">
-    {% for item in nickname_history %}
-    <span data-i18n-ignore>{{ item.nickname }}</span>
-    {% endfor %}
-  </div>
-</div>
-{% endif %}
-{% endblock %}
+{% block side %}{% endblock %}

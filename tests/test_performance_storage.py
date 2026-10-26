@@ -328,7 +328,7 @@ class PerformanceStorageTests(unittest.TestCase):
         self.assertEqual(players.status_code, 200)
 
     def test_versioned_assets_are_immutable(self):
-        response = self.client.get("/static/css/style_v2.css?v=performance-test")
+        response = self.client.get("/static/css/app.css?v=performance-test")
         self.assertEqual(response.status_code, 200)
         self.assertIn("immutable", response.headers["Cache-Control"])
         response.close()

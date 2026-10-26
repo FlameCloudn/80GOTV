@@ -7,12 +7,12 @@
 {% block main %}
 <div class="game-page player-bingo">
   <div class="game-breadcrumb"><a href="{{ url_for('games_page') }}">游戏</a><span>/</span><strong>选手 Bingo</strong></div>
-  <nav class="game-mode-tabs" aria-label="选手 Bingo 模式">
+  <nav class="segmented game-mode-tabs" aria-label="选手 Bingo 模式">
     <a href="{{ url_for('player_bingo_page') }}" class="{{ 'active' if mode == 'daily' else '' }}">每日挑战</a>
     <a href="{{ url_for('player_bingo_practice_page') }}" class="{{ 'active' if mode == 'practice' else '' }}">自由游玩</a>
   </nav>
 
-  <header class="game-heading h-panel">
+  <header class="game-heading panel">
     <div>
       <span class="game-kicker">{{ '无限题板' if mode == 'practice' else '每日题板 #' ~ game.challenge_number }}</span>
       <h1>选手 Bingo</h1>
@@ -21,7 +21,7 @@
     <div class="bingo-score"><strong>{{ game.lines }}</strong><span>连线</span><b>{{ game.mistakes }}</b><span>失误</span></div>
   </header>
 
-  <section class="bingo-panel h-panel">
+  <section class="bingo-panel panel">
     <div class="bingo-scroll">
       <table class="bingo-board" aria-label="3 乘 3 选手 Bingo 题板">
         <thead>
@@ -74,14 +74,14 @@
       <datalist id="bingoPlayerOptions" data-i18n-ignore>
         {% for player in players %}<option value="{{ player.nickname }}" data-player-id="{{ player.id }}">{{ player.full_name }}</option>{% endfor %}
       </datalist>
-      <button type="submit" id="bingoSubmit" disabled>填入格子</button>
+      <button type="submit" class="btn btn-primary" id="bingoSubmit" disabled>填入格子</button>
       <p id="bingoFormError" role="alert"></p>
     </form>
     {% endif %}
   </section>
 
   {% if game.finished %}
-  <section class="game-result h-panel is-win">
+  <section class="game-result panel is-win">
     <div><span>完成题板</span><strong>9/9 格 · {{ game.lines }} 条连线</strong></div>
     <small>{{ game.mistakes }} 次失误</small>
   </section>
@@ -90,11 +90,11 @@
   {% if mode == 'practice' %}
   <form method="post" action="{{ url_for('player_bingo_practice_new') }}" class="game-new-round">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <button type="submit">{{ '再来一盘' if game.finished else '换一张题板' }}</button>
+    <button type="submit" class="btn{{ ' btn-primary' if game.finished else '' }}">{{ '再来一盘' if game.finished else '换一张题板' }}</button>
   </form>
   {% else %}
-  <section class="game-stats h-panel">
-    <div class="h-panel-title">我的记录</div>
+  <section class="game-stats panel">
+    <div class="panel-head"><h2 class="panel-title">我的记录</h2></div>
     <div class="game-stat-grid">
       <div><strong>{{ statistics.games }}</strong><span>参与天数</span></div>
       <div><strong>{{ statistics.completed }}</strong><span>完成题板</span></div>

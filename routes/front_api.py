@@ -33,7 +33,7 @@ from services.public_data_service import (
 from services.team_logo_service import team_logo_url
 from utils.db_helpers import avatar_static_filename
 from utils.filters import date_display_filter, datetime_display_filter, time_display_filter
-from utils.helpers import event_path, news_path
+from utils.helpers import event_abbr, event_path, news_path, team_abbr
 from utils.match_utils import (
     get_sql_effective_status,
     get_sql_match_completed,
@@ -61,7 +61,7 @@ PUBLIC_FEATURES = [
             {"name": "比赛列表", "page": "/matches", "api": "/api/front/matches"},
             {"name": "赛果列表", "page": "/results", "api": "/api/front/results"},
             {"name": "比赛详情", "page": "/matches/<id>", "api": "/api/front/matches/<id>"},
-            {"name": "数据直播", "page": "/matches/<id>/live", "api": "/api/live/<id>"},
+            {"name": "数据直播", "page": "/matches/<id>#data-live", "api": "/api/live/<id>"},
             {"name": "赛前投票", "page": "/matches/<id>", "api": "/matches/<id>/vote"},
             {"name": "BP 房间", "page": "/bp/<id>", "api": "/api/bp/<id>/state"},
         ],
@@ -204,6 +204,8 @@ def _match_payload(match):
         "team2": _text(_get(match, "team2_name", "TBD") or "TBD"),
         "team1_full": _text(_get(match, "team1_name", "TBD")),
         "team2_full": _text(_get(match, "team2_name", "TBD")),
+        "team1_short": _text(_get(match, "t1s", "")),
+        "team2_short": _text(_get(match, "t2s", "")),
         "team1_logo": _logo_url(_get(match, "team1_logo", "")),
         "team2_logo": _logo_url(_get(match, "team2_logo", "")),
         "score1": match["team1_score"],
@@ -254,6 +256,7 @@ def _event_payload(row):
         "url": event_path(row),
         "name": _text(row["name"]),
         "short_name": _text(_get(row, "short_name", "")),
+        "abbr": event_abbr(row["name"], _get(row, "short_name", "")),
         "description": _text(_get(row, "description", "")),
         "format": _text(_get(row, "format", "")),
         "status": _text(status),
@@ -303,6 +306,7 @@ def _team_payload(row):
         "url": url_for("team_detail", team_id=row["id"]),
         "name": _text(row["name"]),
         "short_name": _text(_get(row, "short_name", "")),
+        "abbr": team_abbr(row["name"], _get(row, "short_name", "")),
         "description": _text(_get(row, "description", "")),
         "logo": _logo_url(_get(row, "logo", "")),
         "players": _get(row, "players", 0),

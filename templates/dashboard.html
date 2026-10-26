@@ -1,42 +1,37 @@
 {% extends 'base.html' %}
 {% block title %}数据仪表盘 - 80GOTV{% endblock %}
-{% block head %}
-<link rel="stylesheet" href="{{ versioned_url('static/css/dashboard_awards.css') }}">
-{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ versioned_url('static/css/pages/dashboard.css') }}">{% endblock %}
+{% block layout_class %}no-side-layout{% endblock %}
 {% block main %}
 <header class="page-head">
   <div><span class="page-head-kicker" data-i18n-ignore>DASHBOARD</span><h1>数据看板</h1></div>
 </header>
 
-<div class="dashboard-summary">
-  <div class="dashboard-summary-item"><span>MVP 数量</span><b>{{ medal_totals.mvp_count or 0 }}</b></div>
-  <div class="dashboard-summary-item"><span>EVP 数量</span><b>{{ medal_totals.evp_count or 0 }}</b></div>
+<div class="stat-grid dashboard-summary">
+  <div class="stat"><span class="stat-label">MVP 数量</span><span class="stat-value">{{ medal_totals.mvp_count or 0 }}</span></div>
+  <div class="stat"><span class="stat-label">EVP 数量</span><span class="stat-value">{{ medal_totals.evp_count or 0 }}</span></div>
 </div>
 
+{#- 四张图：Rating 分布、MVP 排行、EVP 排行、各赛事比赛数 -#}
 <div class="dashboard-grid">
-  <section class="chart-card h-panel">
-    <div class="h-panel-title">选手生涯 RATING 分布</div>
+  <section class="panel chart-card">
+    <div class="panel-head"><h2 class="panel-title">选手生涯 RATING 分布</h2></div>
     <div class="chart-canvas-wrap"><canvas id="chartRating"></canvas></div>
   </section>
-
-  <section class="chart-card h-panel">
-    <div class="h-panel-title">MVP 数量排行 TOP 5</div>
+  <section class="panel chart-card">
+    <div class="panel-head"><h2 class="panel-title">MVP 数量排行 TOP 5</h2></div>
     <div class="chart-canvas-wrap"><canvas id="chartMvpMedals"></canvas></div>
   </section>
-
-  <section class="chart-card h-panel">
-    <div class="h-panel-title">EVP 数量排行 TOP 5</div>
+  <section class="panel chart-card">
+    <div class="panel-head"><h2 class="panel-title">EVP 数量排行 TOP 5</h2></div>
     <div class="chart-canvas-wrap"><canvas id="chartEvpMedals"></canvas></div>
   </section>
-
-  <section class="chart-card h-panel">
-    <div class="h-panel-title">赛事比赛数量</div>
+  <section class="panel chart-card">
+    <div class="panel-head"><h2 class="panel-title">赛事比赛数量</h2></div>
     <div class="chart-canvas-wrap"><canvas id="chartEvents"></canvas></div>
   </section>
 </div>
 {% endblock %}
-
-{% block layout_class %}no-side-layout{% endblock %}
 {% block side %}{% endblock %}
 
 {% block extra_js %}
@@ -63,7 +58,7 @@
       labels: buckets.map(function(b){ return b.bucket; }),
       datasets: [{
         label: '人数', data: buckets.map(function(b){ return b.cnt; }),
-        backgroundColor: accentColor, borderRadius: 0
+        backgroundColor: accentColor, borderRadius: 4
       }]
     },
     options: {
@@ -85,7 +80,7 @@
           label: label,
           data: rows.map(function(t){ return t[valueKey] || 0; }),
           backgroundColor: color,
-          borderRadius: 0
+          borderRadius: 4
         }]
       },
       options: {
@@ -120,7 +115,7 @@
     },
     options: {
       ...commonOptions,
-      plugins: { legend: { position: 'right', labels: { color: textColor } } }
+      plugins: { legend: { position: 'right', labels: { color: textColor, usePointStyle: true, pointStyle: 'rectRounded' } } }
     }
   });
 

@@ -6,6 +6,7 @@ import shutil
 import sqlite3
 import sys
 import tempfile
+import time
 import zipfile
 from pathlib import Path, PurePosixPath
 
@@ -61,7 +62,19 @@ def restore_to_empty_directory(backup, target):
             conn.close()
         if result != "ok":
             raise RuntimeError(f"恢复后的数据库检查失败：{result}")
-        staging.rename(target)
+        # Only retry Windows rename denials; never replace a newly created target.
+        for attempt in range(4):
+            try:
+                staging.rename(target)
+                break
+            except PermissionError as error:
+                if (
+                    getattr(error, "winerror", None) not in (5, 32)
+                    or target.exists()
+                    or attempt == 3
+                ):
+                    raise
+                time.sleep(0.05 * (attempt + 1))
     finally:
         if staging.exists():
             shutil.rmtree(staging, ignore_errors=True)

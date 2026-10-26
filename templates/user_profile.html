@@ -1,49 +1,49 @@
 {% extends 'base.html' %}
 {% from "_user_badges.html" import cheater_badge %}
 {% block title %}个人主页 - 80GOTV{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ versioned_url('static/css/pages/account.css') }}">{% endblock %}
 {% block main %}
-<div class="player-header">
-  <span class="profile-avatar-overlay-wrap">
+{#- 头部：头像（作弊封禁的盖一层图）、用户名 @群昵称、绑定的选手和 Steam -#}
+<section class="panel profile-hero">
+  <span class="profile-avatar profile-avatar-overlay-wrap">
     {% if user.avatar %}
-      <img src="{{ url_for('static', filename='avatars/' + user.avatar) }}" class="avatar-xl" alt="" loading="lazy">
+    <img src="{{ url_for('static', filename='avatars/' + user.avatar) }}" alt="" loading="lazy">
     {% else %}
-      <span class="avatar-xl">{{ user.username[0] }}</span>
+    <span data-i18n-ignore>{{ user.username[0] }}</span>
     {% endif %}
     {% if user.is_cheater %}
-      <img src="{{ url_for('static', filename='images/pac_cheating_overlay.png') }}" class="pac-avatar-overlay profile-pac-overlay" alt="作弊封禁" loading="lazy">
+    <img src="{{ url_for('static', filename='images/pac_cheating_overlay.png') }}" class="pac-avatar-overlay profile-pac-overlay" alt="作弊封禁" loading="lazy">
     {% endif %}
   </span>
-  <div class="player-info">
+  <div class="profile-hero-text">
     <h1>
       <span data-i18n-ignore>{{ user.username }}{% if user.is_bashizhong_student != 0 and user.group_username %} <span class="user-group-handle">@{{ user.group_username }}</span>{% endif %}</span>
       {{ cheater_badge(user.is_cheater) }}
     </h1>
-    <div class="meta">
+    <div class="profile-hero-meta">
       {% if player %}<span><span data-i18n-ignore>{{ player.nickname }}</span> · {% if player.team_name %}<span data-i18n-ignore>{{ player.team_name }}</span>{% else %}<span>无队伍</span>{% endif %}</span>{% endif %}
       {% if user.steam_id64 %}<span>Steam64: {{ user.steam_id64 }}</span>{% endif %}
-      {% if user.is_bashizhong_student == 1 %}<a href="#group-username-settings" class="ui-btn ui-btn--sm">修改群昵称</a>{% endif %}
     </div>
   </div>
-</div>
+  {% if user.is_bashizhong_student == 1 %}<a href="#group-username-settings" class="btn btn-sm">修改群昵称</a>{% endif %}
+</section>
 
 {# 参加的赛事 #}
 {% if events_participated %}
-<section class="h-panel">
-  <div class="h-panel-title">我的赛事</div>
-  <div class="profile-event-list">
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">我的赛事</h2></div>
+  <div class="list">
     {% for ev in events_participated %}
-    <div class="profile-event-row{% if ev.is_active %} is-active{% endif %}">
-      <div class="profile-event-main">
-        <strong data-i18n-ignore>{{ ev.name }}</strong>
-        <small>
+    <div class="list-row profile-event-row{% if ev.is_active %} is-active{% endif %}">
+      <span class="grow">
+        <span class="title" data-i18n-ignore>{{ ev.name }}</span>
+        <span class="profile-event-meta">
           {{ ev.start_date|date_display if ev.start_date else '-' }} ~ {{ ev.end_date|date_display if ev.end_date else '-' }}
           · {{ ev.match_count }} 场比赛
-          {% if ev.is_active %}<span class="profile-event-live"> · 进行中</span>{% endif %}
-        </small>
-      </div>
-      <a href="{{ event_path(ev) }}" class="ui-btn {% if ev.is_active %}ui-btn--primary{% endif %}">
-        {% if ev.is_active %}查看/BP{% else %}查看赛事{% endif %}
-      </a>
+          {% if ev.is_active %}<span class="badge badge-live">进行中</span>{% endif %}
+        </span>
+      </span>
+      <a href="{{ event_path(ev) }}" class="btn btn-sm{% if ev.is_active %} btn-primary{% endif %}">{% if ev.is_active %}查看/BP{% else %}查看赛事{% endif %}</a>
     </div>
     {% endfor %}
   </div>
@@ -51,108 +51,97 @@
 {% endif %}
 
 {% if player %}
-<section class="h-panel">
-  <div class="h-panel-title">选手信息<a href="/players/{{ player.id }}" class="h-panel-link">查看选手数据 →</a></div>
-  <div class="stats-grid profile-stat-grid">
-    <div class="stat-card">
-      <div class="stat-value" data-i18n-ignore>{{ player.nickname }}</div>
-      <div class="stat-label">游戏昵称</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-value">{% if player.team_name %}<span data-i18n-ignore>{{ player.team_name }}</span>{% else %}无{% endif %}</div>
-      <div class="stat-label">所属队伍</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-value">{{ player.steam_id or '-' }}</div>
-      <div class="stat-label">Steam ID</div>
-    </div>
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">选手信息</h2><a href="/players/{{ player.id }}" class="panel-link">查看选手数据 →</a></div>
+  <div class="stat-grid profile-stat-grid">
+    <div class="stat"><span class="stat-label">游戏昵称</span><span class="stat-value" data-i18n-ignore>{{ player.nickname }}</span></div>
+    <div class="stat"><span class="stat-label">所属队伍</span><span class="stat-value">{% if player.team_name %}<span data-i18n-ignore>{{ player.team_name }}</span>{% else %}无{% endif %}</span></div>
+    <div class="stat"><span class="stat-label">Steam ID</span><span class="stat-value">{{ player.steam_id or '-' }}</span></div>
   </div>
 </section>
 {% endif %}
 
-<section class="h-panel">
-  <div class="h-panel-title">修改头像</div>
-  <form method="post" enctype="multipart/form-data" class="ui-panel-body ui-form-row ui-form-row--center">
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">修改头像</h2></div>
+  <form method="post" enctype="multipart/form-data" class="panel-body profile-avatar-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <input type="hidden" name="action" value="avatar">
-    {% if user.avatar %}
-    <img src="{{ url_for('static', filename='avatars/' + user.avatar) }}" class="profile-avatar-preview" alt="" loading="lazy">
-    {% else %}
-    <span class="profile-avatar-preview profile-avatar-fallback">{{ user.username[0] }}</span>
-    {% endif %}
-    <input type="file" name="avatar" accept="image/*" class="ui-file">
-    <button type="submit" class="ui-btn ui-btn--primary">上传头像</button>
+    <span class="profile-avatar small">
+      {% if user.avatar %}<img src="{{ url_for('static', filename='avatars/' + user.avatar) }}" alt="" loading="lazy">{% else %}<span data-i18n-ignore>{{ user.username[0] }}</span>{% endif %}
+    </span>
+    <input type="file" name="avatar" accept="image/*">
+    <button type="submit" class="btn btn-primary">上传头像</button>
   </form>
 </section>
 
 {% if user.is_bashizhong_student == 1 %}
-<section class="h-panel" id="group-username-settings">
-  <div class="h-panel-title">修改群昵称</div>
-  <div class="ui-panel-body">
+<section class="panel" id="group-username-settings">
+  <div class="panel-head"><h2 class="panel-title">修改群昵称</h2></div>
+  <div class="panel-body form">
     {% if not user.group_username %}
-    <div class="ui-alert ui-alert--error">群昵称为必填项，填写后才能继续使用其他网站功能。</div>
+    <div class="alert alert-error">群昵称为必填项，填写后才能继续使用其他网站功能。</div>
     {% endif %}
-    <form method="post" class="ui-form-row">
+    <form method="post" class="form-row">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="action" value="group_username">
-      <label class="ui-field" for="groupUsername">
-        <span class="ui-label">群昵称 <span class="ui-required">*</span></span>
+      <label class="field profile-field" for="groupUsername">
+        <span class="field-label">群昵称 <span class="field-required">*</span></span>
         <input id="groupUsername" type="text" name="group_username" value="{{ user.group_username or '' }}" required maxlength="40"
                {% if not user.group_username %}autofocus{% endif %} placeholder="例如：Crinia_">
-        <span class="ui-hint">保存后显示为“选手昵称 @群昵称”；可以随时修改，但不能留空。</span>
       </label>
-      <button type="submit" class="ui-btn ui-btn--primary ui-btn--with-hint">保存群昵称</button>
+      <button type="submit" class="btn btn-primary">保存群昵称</button>
     </form>
+    <span class="field-hint">保存后显示为“选手昵称 @群昵称”；可以随时修改，但不能留空。</span>
   </div>
 </section>
 {% endif %}
 
-<section class="h-panel">
-  <div class="h-panel-title">修改昵称</div>
-  <form method="post" class="ui-panel-body ui-form-row">
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">修改昵称</h2></div>
+  <form method="post" class="panel-body form-row">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <input type="hidden" name="action" value="nickname">
-    <label class="ui-field">
-      <span class="ui-label">新昵称</span>
+    <label class="field profile-field">
+      <span class="field-label">新昵称</span>
       <input type="text" name="nickname" value="{{ user.username }}" required minlength="2" maxlength="20">
     </label>
-    <button type="submit" class="ui-btn ui-btn--primary">修改昵称</button>
+    <button type="submit" class="btn btn-primary">修改昵称</button>
   </form>
 </section>
 
-<section class="h-panel">
-  <div class="h-panel-title">修改密码</div>
-  <form method="post" class="ui-panel-body ui-form ui-form--narrow">
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">修改密码</h2></div>
+  <form method="post" class="panel-body form form-narrow">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <input type="hidden" name="action" value="password">
-    <label class="ui-field">
-      <span class="ui-label">当前密码</span>
+    <label class="field">
+      <span class="field-label">当前密码</span>
       <input type="password" name="old_password" required autocomplete="current-password">
     </label>
-    <label class="ui-field">
-      <span class="ui-label">新密码</span>
+    <label class="field">
+      <span class="field-label">新密码</span>
       <input type="password" name="new_password" required minlength="8" autocomplete="new-password">
     </label>
-    <label class="ui-field">
-      <span class="ui-label">确认新密码</span>
+    <label class="field">
+      <span class="field-label">确认新密码</span>
       <input type="password" name="new_password2" required minlength="8" autocomplete="new-password">
     </label>
-    <button type="submit" class="ui-btn ui-btn--primary">修改密码</button>
+    <div class="form-actions profile-form-actions"><button type="submit" class="btn btn-primary">修改密码</button></div>
   </form>
 </section>
 {% endblock %}
 
 {% block side %}
-<section class="h-panel">
-  <div class="h-panel-title">账户信息</div>
-  <div class="card small h-side-card">
-    <div><b>用户名：</b><span data-i18n-ignore>{{ user.username }}</span></div>
-    {% if user.is_bashizhong_student != 0 and user.group_username %}<div><b>群昵称：</b><span data-i18n-ignore>{{ user.group_username }}</span></div>{% endif %}
-    <div><b>来源：</b>{% if user.is_bashizhong_student == 1 %}八十中{% elif user.is_bashizhong_student == 0 %}外校{% else %}待设置{% endif %}</div>
-    {% if user.is_cheater %}<div><b>标记：</b>{{ cheater_badge(user.is_cheater) }}</div>{% endif %}
-    <div><b>Steam64 ID：</b>{{ user.steam_id64 or '未绑定' }}</div>
-    <div><b>注册时间：</b>{{ user.created_at|date_display if user.created_at else '-' }}</div>
-    <div><b>身份：</b>{{ '参赛选手' if player else '游客' }}</div>
-  </div>
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">账户信息</h2></div>
+  <dl class="facts profile-facts">
+    <div><dt>用户名</dt><dd data-i18n-ignore>{{ user.username }}</dd></div>
+    {% if user.is_bashizhong_student != 0 and user.group_username %}<div><dt>群昵称</dt><dd data-i18n-ignore>{{ user.group_username }}</dd></div>{% endif %}
+    <div><dt>来源</dt><dd>{% if user.is_bashizhong_student == 1 %}八十中{% elif user.is_bashizhong_student == 0 %}外校{% else %}待设置{% endif %}</dd></div>
+    {% if user.is_cheater %}<div><dt>标记</dt><dd>{{ cheater_badge(user.is_cheater) }}</dd></div>{% endif %}
+    <div><dt>Steam64 ID</dt><dd>{{ user.steam_id64 or '未绑定' }}</dd></div>
+    <div><dt>注册时间</dt><dd>{{ user.created_at|date_display if user.created_at else '-' }}</dd></div>
+    <div><dt>身份</dt><dd>{{ '参赛选手' if player else '游客' }}</dd></div>
+  </dl>
 </section>
 {% endblock %}

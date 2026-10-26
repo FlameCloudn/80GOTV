@@ -1,5 +1,7 @@
 {% extends 'base.html' %}
 {% block title %}队伍 - 80GOTV{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ versioned_url('static/css/pages/teams.css') }}">{% endblock %}
+{% block layout_class %}no-side-layout{% endblock %}
 {% block main %}
 <header class="page-head">
   <div><span class="page-head-kicker" data-i18n-ignore>TEAMS</span><h1>队伍</h1></div>
@@ -7,26 +9,41 @@
 </header>
 
 {% if teams %}
-<div class="card-list h-compact-list team-list">
+{#- 每支队伍一张卡：队标、队名、简称和人数、简介，下面一排队员小头像（照 HLTV 排名页的阵容条） -#}
+<div class="team-grid">
   {% for t in teams %}
-  <a class="card team-list-row" href="{{ url_for('team_detail', team_id=t.id) }}">
-    {% if t.logo %}
-    <img src="{{ t.logo|team_logo_url }}" alt="" class="avatar-lg team-list-logo" loading="lazy">
-    {% else %}
-    <div class="avatar-lg" data-i18n-ignore>{{ t.name[0] }}</div>
-    {% endif %}
-    <div class="team-list-main">
-      <strong data-i18n-ignore>{{ t.name }}</strong>
-      {% if t.short_name %}<span class="team-list-tag" data-i18n-ignore>{{ t.short_name }}</span>{% endif %}
-      {% if t.description %}<small data-i18n-ignore>{{ t.description[:100] }}</small>{% endif %}
-    </div>
+  {% set roster = rosters.get(t.id, []) %}
+  <a class="panel team-list-row team-card" href="{{ url_for('team_detail', team_id=t.id) }}">
+    <span class="team-card-head">
+      {% if t.logo %}
+      <img class="team-card-logo" src="{{ t.logo|team_logo_url }}" alt="" loading="lazy">
+      {% else %}
+      <span class="team-card-logo is-fallback" data-i18n-ignore>{{ t.name|team_abbr(t.short_name) }}</span>
+      {% endif %}
+      <span class="team-card-title">
+        <strong data-i18n-ignore>{{ t.name }}</strong>
+        <small>{% if t.short_name %}<span data-i18n-ignore>{{ t.short_name }}</span><span class="team-card-dot">·</span>{% endif %}<span>{{ roster|length }} 名队员</span></small>
+      </span>
+    </span>
+    {% if t.description %}<span class="team-card-desc" data-i18n-ignore>{{ t.description[:100] }}</span>{% endif %}
+    <span class="team-card-roster">
+      {% for p in roster[:5] %}
+      {% set pname = private_name_for_player(p.id, p.nickname) %}
+      {% if p.avatar %}
+      <img src="{{ url_for('static', filename='avatars/' ~ p.avatar) }}" alt="{{ pname }}" title="{{ pname }}" loading="lazy" data-i18n-ignore>
+      {% else %}
+      <span title="{{ pname }}" data-i18n-ignore>{{ pname[:1] }}</span>
+      {% endif %}
+      {% else %}
+      <em>暂无队员</em>
+      {% endfor %}
+      {% if roster|length > 5 %}<em>+{{ roster|length - 5 }}</em>{% endif %}
+    </span>
   </a>
   {% endfor %}
 </div>
 {% else %}
-<div class="empty-state">暂无队伍</div>
+<div class="panel empty-state">暂无队伍</div>
 {% endif %}
 {% endblock %}
-
-{% block layout_class %}no-side-layout{% endblock %}
 {% block side %}{% endblock %}

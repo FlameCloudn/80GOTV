@@ -8,7 +8,8 @@ from datetime import datetime, timedelta
 from flask import jsonify, redirect, render_template, request, session, url_for
 
 from models import get_db
-from services.match_service import add_effective_event_status, supplement_temp_teams
+from services.match_service import add_effective_event_status, parse_bp_log, supplement_temp_teams
+from services.perf_overview_service import build_perf_overview, load_metric_averages
 from utils.helpers import (
     build_comment_tree,
     normalize_http_url,
@@ -25,6 +26,7 @@ from utils.match_utils import (
     parse_map_halves,
 )
 from utils.rate_limiter import rate_limit
+from utils.stats_display import optional_number
 from utils.web_helpers import csrf_required
 from web_app import app
 
@@ -812,9 +814,17 @@ def _render_match_detail(match_id):
             vote_data["user_voted"] = uv["voted_for"]
         conn.close()
 
+    # BP 记录拆成步骤（“T1 / T2”就是本场的队伍 1 / 队伍 2）
+    bp_view = parse_bp_log(
+        match["bp_process"],
+        ["T1", match["team1_name"], match["t1s"]],
+        ["T2", match["team2_name"], match["t2s"]],
+    )
+
     return render_template(
         "match_detail.html",
         match=match,
+        bp_view=bp_view,
         map_scores=map_scores,
         overall_t1=overall_t1,
         overall_t2=overall_t2,
@@ -837,39 +847,8 @@ def _render_match_detail(match_id):
 
 @app.route("/matches/<int:match_id>/live")
 def match_live(match_id):
-    """独立比赛数据直播页。"""
-    conn = get_db()
-    match = conn.execute(
-        f"""
-        SELECT m.*, t1.name AS team1_name, t2.name AS team2_name,
-               t1.short_name AS t1s, t2.short_name AS t2s,
-               t1.logo AS t1_logo, t2.logo AS t2_logo,
-               e.name AS event_name, {get_sql_effective_status()}
-        FROM matches m LEFT JOIN teams t1 ON m.team1_id=t1.id
-        LEFT JOIN teams t2 ON m.team2_id=t2.id LEFT JOIN events e ON m.event_id=e.id
-        WHERE m.id=?
-    """,
-        (match_id,),
-    ).fetchone()
-    if not match:
-        conn.close()
-        return "比赛不存在", 404
-    match = supplement_temp_teams(match, conn)
-    conn.close()
-
-    watch_urls = []
-    if row_get(match, "watch_urls"):
-        try:
-            watch_urls = json.loads(match["watch_urls"])
-        except (json.JSONDecodeError, TypeError):
-            pass
-    watch_urls = [
-        {"name": str(item.get("name", "")), "url": safe_url}
-        for item in watch_urls
-        if isinstance(item, dict)
-        if (safe_url := normalize_http_url(item.get("url")))
-    ]
-    return render_template("match_live.html", match=match, watch_urls=watch_urls)
+    """旧的独立直播页已删除：数据直播就在比赛页里，旧链接直接跳过去。"""
+    return redirect(url_for("match_detail", slug=match_id) + "#data-live")
 
 
 def _safe_float(value, default=0.0):
@@ -891,10 +870,30 @@ def _safe_int(value, default=0):
 
 
 def _avg_values(values, digits=2):
-    values = [float(v) for v in values if v is not None]
+    values = [number for value in values if (number := optional_number(value)) is not None]
     if not values:
-        return 0
+        return None
     return round(sum(values) / len(values), digits)
+
+
+def _optional_int(value):
+    number = optional_number(value)
+    return int(number) if number is not None else None
+
+
+def _optional_round(value, digits):
+    number = optional_number(value)
+    return round(number, digits) if number is not None else None
+
+
+def _sum_known(values):
+    known = [value for value in values if value is not None]
+    return sum(known) if known else None
+
+
+def _match_rating_sort_key(row):
+    rating = row["rating"]
+    return rating is not None, rating if rating is not None else 0
 
 
 def _rating_bar_width(value):
@@ -904,52 +903,22 @@ def _rating_bar_width(value):
     return max(4, min(100, round((rating / 1.6) * 100, 1)))
 
 
-def _metric_pct(value, target, floor=4):
-    number = _safe_float(value)
-    if target <= 0 or number <= 0:
-        return 0
-    return max(floor, min(100, round(number / target * 100, 1)))
-
-
-def _metric_tier(value, excellent, good, normal, poor, higher_better=True):
-    number = _safe_float(value)
-    if higher_better:
-        if number >= excellent:
-            return "tier-excellent"
-        if number >= good:
-            return "tier-good"
-        if number >= normal:
-            return "tier-normal"
-        if number >= poor:
-            return "tier-poor"
-        return "tier-bad"
-    if number <= excellent:
-        return "tier-excellent"
-    if number <= good:
-        return "tier-good"
-    if number <= normal:
-        return "tier-normal"
-    if number <= poor:
-        return "tier-poor"
-    return "tier-bad"
-
-
 def _build_match_player_row(data, team_side, team_short, team_name):
-    kills = _safe_int(data.get("kills"))
-    deaths = _safe_int(data.get("deaths"))
-    assists = _safe_int(data.get("assists"))
-    hs_pct = _safe_float(data.get("headshot_percentage"))
-    first_kills = _safe_int(data.get("first_kills"))
-    first_deaths = _safe_int(data.get("first_deaths"))
-    rating = _safe_float(data.get("rating"))
+    kills = _optional_int(data.get("kills"))
+    deaths = _optional_int(data.get("deaths"))
+    assists = _optional_int(data.get("assists"))
+    hs_pct = optional_number(data.get("headshot_percentage"))
+    first_kills = _optional_int(data.get("first_kills"))
+    first_deaths = _optional_int(data.get("first_deaths"))
+    rating = optional_number(data.get("rating"))
+    multi = [_optional_int(data.get(f"multi{size}k")) for size in range(2, 6)]
     multi_kills = (
-        _safe_int(data.get("multi2k"))
-        + _safe_int(data.get("multi3k"))
-        + _safe_int(data.get("multi4k"))
-        + _safe_int(data.get("multi5k"))
+        sum(value for value in multi if value is not None)
+        if all(value is not None for value in multi)
+        else None
     )
-    mk_rating = _safe_float(data.get("impact"))
-    rws = _safe_float(data.get("rws", data.get("rws_basic")))
+    mk_rating = optional_number(data.get("impact"))
+    rws = optional_number(data.get("rws", data.get("rws_basic")))
     return {
         "player_id": data.get("player_id"),
         "nickname": data.get("nickname") or "Unknown",
@@ -962,54 +931,45 @@ def _build_match_player_row(data, team_side, team_short, team_name):
         "kills": kills,
         "deaths": deaths,
         "assists": assists,
-        "adr": round(_safe_float(data.get("adr")), 1),
-        "kast": round(_safe_float(data.get("kast")), 1),
-        "rating": round(rating, 2),
-        "impact": round(_safe_float(data.get("impact")), 2),
-        "kpr": round(_safe_float(data.get("kpr")), 2),
-        "dpr": round(_safe_float(data.get("dpr")), 2),
-        "mk_rating": round(mk_rating, 2),
+        "adr": _optional_round(data.get("adr"), 1),
+        "kast": _optional_round(data.get("kast"), 1),
+        "rating": _optional_round(rating, 2),
+        "impact": _optional_round(data.get("impact"), 2),
+        "kpr": _optional_round(data.get("kpr"), 2),
+        "dpr": _optional_round(data.get("dpr"), 2),
+        "mk_rating": _optional_round(mk_rating, 2),
         "multi_kills": multi_kills,
-        "headshot_percentage": round(hs_pct, 1),
-        "headshot_kills": int(round(kills * hs_pct / 100)) if kills else 0,
+        "headshot_percentage": _optional_round(hs_pct, 1),
+        "headshot_kills": int(round(kills * hs_pct / 100))
+        if kills is not None and hs_pct is not None
+        else None,
         "first_kills": first_kills,
         "first_deaths": first_deaths,
-        "opening_diff": first_kills - first_deaths,
-        "clutches_won": _safe_int(data.get("clutches_won")),
-        "clutch_1v1": _safe_int(data.get("clutch_1v1")),
-        "clutch_1v2": _safe_int(data.get("clutch_1v2")),
-        "clutch_1v3": _safe_int(data.get("clutch_1v3")),
-        "clutch_1v4": _safe_int(data.get("clutch_1v4")),
-        "clutch_1v5": _safe_int(data.get("clutch_1v5")),
-        "trade_kills": _safe_int(data.get("trade_kills")),
-        "trade_deaths": _safe_int(data.get("trade_deaths")),
-        "enemies_flashed": _safe_int(data.get("enemies_flashed")),
-        "utility_damage": round(_safe_float(data.get("utility_damage")), 1),
-        "rounds_played": _safe_int(data.get("rounds_played")),
-        "damage_delta_per_round": round(_safe_float(data.get("damage_delta_per_round")), 2),
-        "rws": round(rws, 2),
-        "t_kills": _safe_int(data.get("t_kills")),
-        "t_deaths": _safe_int(data.get("t_deaths")),
-        "t_adr": round(_safe_float(data.get("t_adr")), 1),
-        "t_rating": round(_safe_float(data.get("t_rating")), 2),
-        "ct_kills": _safe_int(data.get("ct_kills")),
-        "ct_deaths": _safe_int(data.get("ct_deaths")),
-        "ct_adr": round(_safe_float(data.get("ct_adr")), 1),
-        "ct_rating": round(_safe_float(data.get("ct_rating")), 2),
+        "opening_diff": first_kills - first_deaths
+        if first_kills is not None and first_deaths is not None
+        else None,
+        "clutches_won": _optional_int(data.get("clutches_won")),
+        "clutch_1v1": _optional_int(data.get("clutch_1v1")),
+        "clutch_1v2": _optional_int(data.get("clutch_1v2")),
+        "clutch_1v3": _optional_int(data.get("clutch_1v3")),
+        "clutch_1v4": _optional_int(data.get("clutch_1v4")),
+        "clutch_1v5": _optional_int(data.get("clutch_1v5")),
+        "trade_kills": _optional_int(data.get("trade_kills")),
+        "trade_deaths": _optional_int(data.get("trade_deaths")),
+        "enemies_flashed": _optional_int(data.get("enemies_flashed")),
+        "utility_damage": _optional_round(data.get("utility_damage"), 1),
+        "rounds_played": _optional_int(data.get("rounds_played")),
+        "damage_delta_per_round": _optional_round(data.get("damage_delta_per_round"), 2),
+        "rws": _optional_round(rws, 2),
+        "t_kills": _optional_int(data.get("t_kills")),
+        "t_deaths": _optional_int(data.get("t_deaths")),
+        "t_adr": _optional_round(data.get("t_adr"), 1),
+        "t_rating": _optional_round(data.get("t_rating"), 2),
+        "ct_kills": _optional_int(data.get("ct_kills")),
+        "ct_deaths": _optional_int(data.get("ct_deaths")),
+        "ct_adr": _optional_round(data.get("ct_adr"), 1),
+        "ct_rating": _optional_round(data.get("ct_rating"), 2),
         "rating_bar": _rating_bar_width(rating),
-        "kpr_bar": _metric_pct(data.get("kpr"), 1.0),
-        "dpr_bar": _metric_pct(data.get("dpr"), 1.0),
-        "kast_bar": _metric_pct(data.get("kast"), 100),
-        "mk_bar": _metric_pct(mk_rating, 1.5),
-        "rws_bar": _metric_pct(rws, 20),
-        "adr_bar": _metric_pct(data.get("adr"), 120),
-        "kpr_tier": _metric_tier(data.get("kpr"), 0.85, 0.75, 0.65, 0.55),
-        "dpr_tier": _metric_tier(data.get("dpr"), 0.55, 0.62, 0.70, 0.80, higher_better=False),
-        "kast_tier": _metric_tier(data.get("kast"), 80, 75, 70, 65),
-        "impact_tier": _metric_tier(mk_rating, 1.25, 1.10, 0.95, 0.80),
-        "rws_tier": _metric_tier(rws, 18, 14, 10, 6),
-        "adr_tier": _metric_tier(data.get("adr"), 90, 80, 70, 60),
-        "rating_tier": _metric_tier(rating, 1.25, 1.10, 0.95, 0.80),
     }
 
 
@@ -1019,37 +979,37 @@ def _display_rows_from_raw(rows, team_side, team_short, team_name):
         data = dict(row)
         data["maps"] = 1
         result.append(_build_match_player_row(data, team_side, team_short, team_name))
-    result.sort(key=lambda item: item["rating"], reverse=True)
+    result.sort(key=_match_rating_sort_key, reverse=True)
     return result
 
 
 def _aggregate_match_rows(rows, team_side, team_short, team_name):
     grouped = defaultdict(
         lambda: {
-            "kills": 0,
-            "deaths": 0,
-            "assists": 0,
-            "first_kills": 0,
-            "first_deaths": 0,
-            "clutches_won": 0,
-            "clutch_1v1": 0,
-            "clutch_1v2": 0,
-            "clutch_1v3": 0,
-            "clutch_1v4": 0,
-            "clutch_1v5": 0,
-            "trade_kills": 0,
-            "trade_deaths": 0,
-            "enemies_flashed": 0,
-            "utility_damage": 0,
-            "rounds_played": 0,
-            "t_kills": 0,
-            "t_deaths": 0,
-            "ct_kills": 0,
-            "ct_deaths": 0,
-            "multi2k": 0,
-            "multi3k": 0,
-            "multi4k": 0,
-            "multi5k": 0,
+            "kills": None,
+            "deaths": None,
+            "assists": None,
+            "first_kills": None,
+            "first_deaths": None,
+            "clutches_won": None,
+            "clutch_1v1": None,
+            "clutch_1v2": None,
+            "clutch_1v3": None,
+            "clutch_1v4": None,
+            "clutch_1v5": None,
+            "trade_kills": None,
+            "trade_deaths": None,
+            "enemies_flashed": None,
+            "utility_damage": None,
+            "rounds_played": None,
+            "t_kills": None,
+            "t_deaths": None,
+            "ct_kills": None,
+            "ct_deaths": None,
+            "multi2k": None,
+            "multi3k": None,
+            "multi4k": None,
+            "multi5k": None,
             "maps": 0,
             "adr_values": [],
             "kast_values": [],
@@ -1099,27 +1059,31 @@ def _aggregate_match_rows(rows, team_side, team_short, team_name):
             "multi4k",
             "multi5k",
         ):
-            item[key] += _safe_int(row_get(row, key, 0))
-        item["utility_damage"] += _safe_float(row_get(row, "utility_damage", 0))
+            value = _optional_int(row_get(row, key))
+            if value is not None:
+                item[key] = (item[key] or 0) + value
+        utility_damage = optional_number(row_get(row, "utility_damage"))
+        if utility_damage is not None:
+            item["utility_damage"] = (item["utility_damage"] or 0) + utility_damage
         weight = max(1, _safe_int(row_get(row, "rounds_played", 0)))
         for _ in range(weight):
-            item["adr_values"].append(_safe_float(row_get(row, "adr", 0)))
-            item["kast_values"].append(_safe_float(row_get(row, "kast", 0)))
-            item["rating_values"].append(_safe_float(row_get(row, "rating", 0)))
-            item["impact_values"].append(_safe_float(row_get(row, "impact", 0)))
-            item["kpr_values"].append(_safe_float(row_get(row, "kpr", 0)))
-            item["dpr_values"].append(_safe_float(row_get(row, "dpr", 0)))
-            item["rws_values"].append(_safe_float(row_get(row, "rws_basic", 0)))
+            item["adr_values"].append(optional_number(row_get(row, "adr")))
+            item["kast_values"].append(optional_number(row_get(row, "kast")))
+            item["rating_values"].append(optional_number(row_get(row, "rating")))
+            item["impact_values"].append(optional_number(row_get(row, "impact")))
+            item["kpr_values"].append(optional_number(row_get(row, "kpr")))
+            item["dpr_values"].append(optional_number(row_get(row, "dpr")))
+            item["rws_values"].append(optional_number(row_get(row, "rws_basic")))
         for _ in range(max(1, _safe_int(row_get(row, "kills", 0)))):
-            item["hs_values"].append(_safe_float(row_get(row, "headshot_percentage", 0)))
+            item["hs_values"].append(optional_number(row_get(row, "headshot_percentage")))
         for _ in range(weight):
-            item["swing_values"].append(_safe_float(row_get(row, "damage_delta_per_round", 0)))
+            item["swing_values"].append(optional_number(row_get(row, "damage_delta_per_round")))
         if _safe_float(row_get(row, "t_rating", 0)) or _safe_int(row_get(row, "t_kills", 0)):
-            item["t_adr_values"].append(_safe_float(row_get(row, "t_adr", 0)))
-            item["t_rating_values"].append(_safe_float(row_get(row, "t_rating", 0)))
+            item["t_adr_values"].append(optional_number(row_get(row, "t_adr")))
+            item["t_rating_values"].append(optional_number(row_get(row, "t_rating")))
         if _safe_float(row_get(row, "ct_rating", 0)) or _safe_int(row_get(row, "ct_kills", 0)):
-            item["ct_adr_values"].append(_safe_float(row_get(row, "ct_adr", 0)))
-            item["ct_rating_values"].append(_safe_float(row_get(row, "ct_rating", 0)))
+            item["ct_adr_values"].append(optional_number(row_get(row, "ct_adr")))
+            item["ct_rating_values"].append(optional_number(row_get(row, "ct_rating")))
 
     result = []
     for item in grouped.values():
@@ -1168,7 +1132,7 @@ def _aggregate_match_rows(rows, team_side, team_short, team_name):
             "ct_rating": _avg_values(item["ct_rating_values"], 2),
         }
         result.append(_build_match_player_row(data, team_side, team_short, team_name))
-    result.sort(key=lambda item: item["rating"], reverse=True)
+    result.sort(key=_match_rating_sort_key, reverse=True)
     return result
 
 
@@ -1176,11 +1140,11 @@ def _team_summary(rows):
     return {
         "rating": _avg_values([row["rating"] for row in rows], 2),
         "adr": _avg_values([row["adr"] for row in rows], 1),
-        "kills": sum(row["kills"] for row in rows),
-        "deaths": sum(row["deaths"] for row in rows),
-        "assists": sum(row["assists"] for row in rows),
-        "first_kills": sum(row["first_kills"] for row in rows),
-        "clutches": sum(row["clutches_won"] for row in rows),
+        "kills": _sum_known(row["kills"] for row in rows),
+        "deaths": _sum_known(row["deaths"] for row in rows),
+        "assists": _sum_known(row["assists"] for row in rows),
+        "first_kills": _sum_known(row["first_kills"] for row in rows),
+        "clutches": _sum_known(row["clutches_won"] for row in rows),
     }
 
 
@@ -1340,6 +1304,8 @@ def _add_demo_stat_aliases(lookup, rows, kill_events):
             continue
         scored = []
         for row in rows:
+            if row.get("kills") is None or row.get("deaths") is None:
+                continue
             score = abs(_safe_int(row.get("kills")) - item["kills"]) + abs(
                 _safe_int(row.get("deaths")) - item["deaths"]
             )
@@ -1507,6 +1473,7 @@ def _build_match_detailed_context(match_id):
     player_ids = sorted({row["player_id"] for row in stats})
     player_aliases = _build_player_alias_map(conn, player_ids)
     persisted_kill_events = _load_persisted_kill_events(conn, match_id)
+    metric_averages = load_metric_averages(conn)
     conn.close()
 
     t1_key = match["team1_id"] if match["team1_id"] else -1
@@ -1577,7 +1544,7 @@ def _build_match_detailed_context(match_id):
                 "team1_stats": team1_rows,
                 "team2_stats": team2_rows,
                 "performance_rows": sorted(
-                    team1_rows + team2_rows, key=lambda item: item["rating"], reverse=True
+                    team1_rows + team2_rows, key=_match_rating_sort_key, reverse=True
                 ),
                 "summary": {"t1": _team_summary(team1_rows), "t2": _team_summary(team2_rows)},
             }
@@ -1587,7 +1554,7 @@ def _build_match_detailed_context(match_id):
     team2_all_raw = [row for row in stats if _stat_belongs_to_match_side(row, "t2", t2_key)]
     overall_t1 = _aggregate_match_rows(team1_all_raw, "t1", match["t1s"], match["team1_name"])
     overall_t2 = _aggregate_match_rows(team2_all_raw, "t2", match["t2s"], match["team2_name"])
-    all_players = sorted(overall_t1 + overall_t2, key=lambda item: item["rating"], reverse=True)
+    all_players = sorted(overall_t1 + overall_t2, key=_match_rating_sort_key, reverse=True)
 
     map_cards = [item for item in map_scores if item["name"] != "TBA"]
     requested_map = (request.args.get("map") or "all").strip().lower()
@@ -1627,6 +1594,7 @@ def _build_match_detailed_context(match_id):
         event["map_slot"] = map_slots.get(event_map_key, 0)
         kill_events.append(event)
     summary = {"t1": _team_summary(team1_rows), "t2": _team_summary(team2_rows)}
+    perf_avg = build_perf_overview(team1_rows + team2_rows, metric_averages)
     kill_matrix = _build_kill_matrix(team1_rows, team2_rows, player_aliases, kill_events)
     selected_tab = (request.args.get("tab") or "overview").strip().lower()
     if selected_tab not in ("overview", "performance"):
@@ -1643,6 +1611,7 @@ def _build_match_detailed_context(match_id):
         "team1_rows": team1_rows,
         "team2_rows": team2_rows,
         "performance_rows": performance_rows,
+        "perf_avg": perf_avg,
         "highlights": _highlight_rows(performance_rows),
         "kill_matrix": kill_matrix,
         "selected_tab": selected_tab,

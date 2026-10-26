@@ -1,80 +1,76 @@
 {% extends 'base.html' %}
 {% from "_user_badges.html" import cheater_badge %}
 {% block title %}预测排行 - 80GOTV{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ versioned_url('static/css/pages/account.css') }}">{% endblock %}
+{% block layout_class %}no-side-layout{% endblock %}
 {% block main %}
 <header class="page-head">
   <div><span class="page-head-kicker" data-i18n-ignore>PREDICTIONS</span><h1>预测排行</h1></div>
   <a class="page-head-link" href="/guess-player">80GO 猜选手：每天 8 次机会 →</a>
 </header>
 
-{% if predictions %}
-<section class="h-panel">
-  <div class="h-panel-title">赛季积分 TOP 10</div>
-  <div class="stats-table h-table-panel">
-    <table>
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>用户</th>
-          <th>预测场次</th>
-          <th>正确</th>
-          <th>准确率</th>
-          <th>总积分</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for p in predictions %}
-        <tr>
-          <td class="rank-cell"><span class="rank-num{% if loop.index <= 3 %} rank-num-top rank-num-{{ loop.index }}{% endif %}">{{ loop.index }}</span></td>
-          <td>
-            <b data-i18n-ignore>{{ private_name_for_user(p.user_id, p.username) }}</b>{{ cheater_badge(p.is_cheater) }}
-            {% if p.has_perfect %}<span class="pred-perfect" title="猜中过精确比分">精确</span>{% endif %}
-          </td>
-          <td>{{ p.total_votes }}</td>
-          <td>{{ p.correct_votes }}</td>
-          <td>
-            {% set acc = (p.correct_votes / p.total_votes * 100)|round|int %}
-            <span class="pred-accuracy {% if acc >= 70 %}is-good{% elif acc >= 50 %}is-mid{% else %}is-bad{% endif %}">{{ acc }}%</span>
-          </td>
-          <td><b class="pred-points">{{ p.total_points }}</b></td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</section>
-{% else %}
-<div class="empty-state">暂无预测数据，去比赛详情页参与预测吧！</div>
-{% endif %}
+<div class="pred-layout">
+  <section class="panel">
+    <div class="panel-head"><h2 class="panel-title">赛季积分 TOP 10</h2></div>
+    {% if predictions %}
+    <div class="table-wrap">
+      <table class="table pred-table">
+        <thead>
+          <tr>
+            <th class="center">#</th>
+            <th>用户</th>
+            <th class="num">预测场次</th>
+            <th class="num">正确</th>
+            <th class="num">准确率</th>
+            <th class="num">总积分</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in predictions %}
+          {% set acc = (p.correct_votes / p.total_votes * 100)|round|int %}
+          <tr>
+            <td class="center"><span class="pred-rank{% if loop.index <= 3 %} top-{{ loop.index }}{% endif %}">{{ loop.index }}</span></td>
+            <td>
+              <b data-i18n-ignore>{{ private_name_for_user(p.user_id, p.username) }}</b>{{ cheater_badge(p.is_cheater) }}
+              {% if p.has_perfect %}<span class="badge badge-gold pred-perfect" title="猜中过精确比分">精确</span>{% endif %}
+            </td>
+            <td class="num">{{ p.total_votes }}</td>
+            <td class="num">{{ p.correct_votes }}</td>
+            <td class="num"><span class="pred-accuracy {% if acc >= 70 %}is-good{% elif acc >= 50 %}is-mid{% else %}is-bad{% endif %}">{{ acc }}%</span></td>
+            <td class="num"><b class="pred-points">{{ p.total_points }}</b></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">暂无预测数据，去比赛详情页参与预测吧！</div>
+    {% endif %}
+  </section>
 
-<section class="h-panel">
-  <div class="h-panel-title">热门预测比赛</div>
-  {% if upcoming_matches %}
-  <div class="card-list h-compact-list">
-    {% for m in upcoming_matches %}
-    <a href="/matches/{{ m.slug or m.id }}" class="card pred-match-row">
-      <div class="pred-match-main">
-        <small><span data-i18n-ignore>{{ m.event_name or '' }}</span> · {{ m.match_time|datetime_display if m.match_time else '' }}</small>
-        <strong><span data-i18n-ignore>{{ m.team1_name or 'TBD' }}</span> <span class="pred-vs">对</span> <span data-i18n-ignore>{{ m.team2_name or 'TBD' }}</span></strong>
-      </div>
-      <div class="pred-match-votes">
-        <span>{{ m.vote_count }} 人预测</span>
-        {% set total = m.t1_votes + m.t2_votes %}
-        {% if total > 0 %}
-        <div class="pred-vote-bar" aria-hidden="true">
-          <i class="pred-vote-a" style="width:{{ (m.t1_votes / total * 100)|round }}%"></i>
-          <i class="pred-vote-b" style="width:{{ (m.t2_votes / total * 100)|round }}%"></i>
-        </div>
-        {% endif %}
-      </div>
-    </a>
-    {% endfor %}
-  </div>
-  {% else %}
-  <div class="empty-state">当前没有可以预测的比赛</div>
-  {% endif %}
-</section>
+  {#- 热门预测比赛：对阵 + 多少人预测 + 两边支持比例条 -#}
+  <section class="panel">
+    <div class="panel-head"><h2 class="panel-title">热门预测比赛</h2></div>
+    {% if upcoming_matches %}
+    <div class="list">
+      {% for m in upcoming_matches %}
+      {% set total = m.t1_votes + m.t2_votes %}
+      <a href="/matches/{{ m.slug or m.id }}" class="list-row pred-match-row">
+        <span class="pred-match-main">
+          <small><span data-i18n-ignore>{{ m.event_name or '' }}</span> · {{ m.match_time|datetime_display if m.match_time else '' }}</small>
+          <strong><span data-i18n-ignore>{{ m.team1_name or 'TBD' }}</span> <span class="pred-vs">VS</span> <span data-i18n-ignore>{{ m.team2_name or 'TBD' }}</span></strong>
+          {% if total > 0 %}
+          <span class="pred-vote-bar" aria-hidden="true"><i class="a" style="width:{{ (m.t1_votes / total * 100)|round }}%"></i><i class="b" style="width:{{ (m.t2_votes / total * 100)|round }}%"></i></span>
+          {% endif %}
+        </span>
+        <span class="meta">{{ m.vote_count }} 人预测</span>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">当前没有可以预测的比赛</div>
+    {% endif %}
+  </section>
+</div>
 {% endblock %}
-
-{% block layout_class %}no-side-layout{% endblock %}
 {% block side %}{% endblock %}

@@ -1,48 +1,57 @@
 {% extends 'base.html' %}
 {% block title %}{{ news.title }} - 80GOTV{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ versioned_url('static/css/pages/news.css') }}">{% endblock %}
+{% block layout_class %}narrow-layout no-side-layout{% endblock %}
 {% block main %}
-<article class="news-detail">
-  <h1 class="news-detail-title">{{ news.title }}</h1>
-  <div class="meta">
-    <span>{{ news.author }}</span>
-    <span>·</span>
-    <span>{{ news.publish_time|datetime_display }}</span>
-    <span>·</span>
-    <span>评论 {{ news.comment_count }}</span>
-  </div>
-  {% if news.redirect_url %}
-  <a class="news-related-page-cta" href="{{ news.redirect_url }}">进入赛事并报名</a>
-  {% endif %}
+<a href="/news" class="back-link">← 返回新闻列表</a>
 
-  {% if related_match %}
-  <a href="/matches/{{ related_match.slug or related_match.id }}" class="related-match-card">
-    <small>关联比赛</small>
-    <div class="related-match-row">
-      <div>
-        <strong><span data-i18n-ignore>{{ related_match.t1s or related_match.t1n }}</span> <span class="related-match-vs">vs</span> <span data-i18n-ignore>{{ related_match.t2s or related_match.t2n }}</span></strong>
-        {% if related_match.event_name %}<small><span data-i18n-ignore>{{ related_match.event_name }}</span> · {{ related_match.match_time|date_display if related_match.match_time else '' }}</small>{% endif %}
-      </div>
-      <b class="related-match-score">{{ related_match.team1_score }} : {{ related_match.team2_score }}</b>
+<article class="panel news-detail">
+  <header class="news-detail-head">
+    <h1 class="news-detail-title" data-i18n-ignore>{{ news.title }}</h1>
+    <div class="meta news-detail-meta">
+      <span data-i18n-ignore>{{ news.author }}</span>
+      <span>·</span>
+      <span>{{ news.publish_time|datetime_display }}</span>
+      <span>·</span>
+      <span>评论 {{ news.comment_count }}</span>
     </div>
-  </a>
+  </header>
+
+  {% if news.redirect_url or related_match %}
+  <div class="news-detail-links">
+    {% if news.redirect_url %}
+    <a class="btn btn-primary news-related-page-cta" href="{{ news.redirect_url }}">进入赛事并报名</a>
+    {% endif %}
+    {% if related_match %}
+    <a href="/matches/{{ related_match.slug or related_match.id }}" class="related-match-card">
+      <small>关联比赛</small>
+      <div class="related-match-row">
+        <div>
+          <strong><span data-i18n-ignore>{{ related_match.t1s or related_match.t1n }}</span> <span class="related-match-vs">vs</span> <span data-i18n-ignore>{{ related_match.t2s or related_match.t2n }}</span></strong>
+          {% if related_match.event_name %}<small><span data-i18n-ignore>{{ related_match.event_name }}</span> · {{ related_match.match_time|date_display if related_match.match_time else '' }}</small>{% endif %}
+        </div>
+        <b class="score related-match-score">{{ related_match.team1_score }} : {{ related_match.team2_score }}</b>
+      </div>
+    </a>
+    {% endif %}
+  </div>
   {% endif %}
 
-  <div class="news-content">{{ news.content|safe }}</div>
+  <div class="prose news-content" data-i18n-ignore>{{ news.content|safe }}</div>
 </article>
 
 {% from '_comment_macros.html' import render_comment with context %}
 
 {# 评论区 #}
-<section class="comments news-comments">
+<section class="panel comments news-comments comment-section">
   <h3 class="comments-title">评论 ({{ news.comment_count }})</h3>
 
   {% if session.user_id %}
   <form method="post" action="/comment/news/{{ news.id }}" class="comment-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-
     <textarea name="content" rows="3" placeholder="写下你的评论..." required class="comment-textarea"></textarea>
     <div class="comment-form-footer">
-      <button type="submit" class="comment-submit">发表评论</button>
+      <button type="submit" class="btn btn-primary comment-submit">发表评论</button>
     </div>
   </form>
   {% else %}
@@ -61,6 +70,4 @@
   <p class="empty-state">暂无评论</p>
   {% endif %}
 </section>
-
-<a href="/news" class="btn-back">← 返回新闻列表</a >
 {% endblock %}

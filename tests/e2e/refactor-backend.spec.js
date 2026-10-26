@@ -155,8 +155,8 @@ test('unknown metrics survive JSON, HTML, browser refresh and mobile layout', as
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto(`/players/${fixture.player_id}`);
-  await expect(page.locator('.pp-stat-lead > b')).toHaveText('-');
-  await expect(page.locator('.pp-stat-lead > b')).not.toHaveText('0.00');
+  await expect(page.locator('.pp-fact-rating > dd')).toHaveText('-');
+  await expect(page.locator('.pp-fact-rating > dd')).not.toHaveText('0.00');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
   await screenshot(page, testInfo, 'missing-player-metrics');
   await page.goto('/');
