@@ -1,268 +1,19 @@
-<!doctype html>
-<html lang="zh-CN">
-<head>
-  {% include "_i18n_bootstrap.html" %}
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>对阵图编辑 — {{ event.name }}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-comfort.css') }}">
-  <script>
-    (function(){
-      var t = localStorage.getItem('theme');
-      if(!t){ t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light'; }
-      document.documentElement.setAttribute('data-theme', t);
-    })();
-  </script>
-  <style>
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg-primary);color:var(--text-primary)}
-    .container{padding:0 20px 30px}
-    .btn{
-      padding:10px 20px;border:none;border-radius:0;font-size:14px;font-weight:600;
-      cursor:pointer;text-decoration:none;display:inline-block;font-family:inherit;
-    }
-    .btn-primary{background:var(--accent);color:white}
-    .btn-primary:hover{opacity:.9}
-    .btn-secondary{background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color)}
-    .btn-secondary:hover{background:var(--bg-hover)}
-    .btn-danger{background:#dc2626;color:white}
-    .btn-danger:hover{background:#b91c1c}
-    .btn-sm{padding:6px 14px;font-size:12px}
-    .btn-xs{padding:2px 8px;font-size:11px}
-    .editor-toolbar{
-      display:flex;gap:16px;align-items:center;flex-wrap:wrap;
-      background:var(--bg-card);border:1px solid var(--border-color);padding:16px 20px;margin-bottom:20px;
-    }
-    .editor-toolbar label{font-weight:600;font-size:14px;color:var(--text-primary)}
-    .editor-toolbar select{
-      padding:8px 12px;border:1px solid var(--border-color);background:var(--bg-card);color:var(--text-primary);font-size:14px;font-family:inherit;
-    }
-    .editor-toolbar select:focus{outline:none;border-color:var(--accent)}
-    .toolbar-spacer{flex:1}
-
-    .editor-layout{display:flex;gap:20px;min-height:500px}
-    .team-pool-panel{
-      width:220px;flex-shrink:0;background:var(--bg-card);border:1px solid var(--border-color);
-      padding:16px;display:flex;flex-direction:column;
-    }
-    .team-pool-panel h3{font-size:15px;margin-bottom:4px;color:var(--text-primary)}
-    .team-pool-hint{font-size:11px;color:var(--text-muted);margin-bottom:12px}
-    .team-pool-search{
-      width:100%;padding:8px 10px;border:1px solid var(--border-color);background:var(--bg-card);color:var(--text-primary);
-      font-size:13px;margin-bottom:12px;font-family:inherit;
-    }
-    .team-pool-search:focus{outline:none;border-color:var(--accent)}
-    .team-pool-list{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:4px}
-    .team-chip{
-      display:flex;align-items:center;gap:8px;
-      padding:8px 10px;background:var(--bg-secondary);border:1px solid var(--border-color);
-      cursor:grab;font-size:13px;user-select:none;transition:all 0.15s;color:var(--text-primary);
-    }
-    .team-chip:hover{background:var(--bg-hover);border-color:var(--accent)}
-    .team-chip.dragging{opacity:0.4;transform:scale(0.95)}
-    .team-chip .chip-avatar{
-      width:28px;height:28px;background:var(--accent);color:#fff;
-      display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;
-    }
-    .team-chip .chip-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
-    .team-chip .chip-remove{
-      background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;padding:0 2px;line-height:1;
-      display:none;
-    }
-    .team-chip.in-use{background:var(--bg-hover);border-color:var(--accent);cursor:grab}
-    .team-chip.in-use .chip-remove{display:inline}
-
-    .bracket-panel{
-      flex:1;min-width:0;background:var(--bg-card);border:1px solid var(--border-color);padding:20px;
-      overflow-x:auto;-webkit-overflow-scrolling:touch;
-    }
-    .bracket-panel h3{font-size:15px;margin-bottom:16px;color:var(--text-primary)}
-    .empty-bracket-hint{
-      text-align:center;color:var(--text-muted);padding:60px 20px;font-size:14px;
-    }
-
-    .bracket-editor-wrapper{
-      position:relative;min-width:700px;
-    }
-
-    .round-row{display:flex;gap:40px;margin-bottom:30px;align-items:stretch}
-    /* 每轮一列：列宽有下限，放不下时整个对阵区横向滚动，而不是把卡片挤扁 */
-    .round-col{flex:1 1 0;min-width:230px}
-    .round-title{
-      font-size:13px;font-weight:700;color:var(--accent);margin-bottom:12px;
-      text-transform:uppercase;letter-spacing:0.5px;
-      border-bottom:2px solid var(--accent);padding-bottom:4px;
-    }
-
-    .bracket-slot{
-      background:var(--bg-secondary);border:2px dashed var(--border-color);
-      padding:12px;margin-bottom:12px;min-height:100px;max-width:460px;
-      transition:all 0.2s;position:relative;
-    }
-    .bracket-slot.drag-over{border-color:var(--accent);background:var(--bg-hover)}
-    .bracket-slot.filled{border-style:solid;border-color:var(--border-color);background:var(--bg-card)}
-
-    .slot-header{
-      display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;
-    }
-    .slot-label{font-size:11px;font-weight:600;color:var(--text-muted);white-space:nowrap}
-    .slot-actions{display:flex;gap:4px;flex-shrink:0;white-space:nowrap}
-
-    .slot-teams{display:flex;flex-direction:column;gap:6px}
-    .slot-team{
-      display:flex;align-items:center;gap:8px;padding:6px 8px;
-      font-size:13px;background:var(--bg-card);border:1px solid var(--border-color);
-      min-height:36px;transition:all 0.15s;color:var(--text-primary);
-    }
-    .slot-team.drop-target{border-color:var(--accent);background:var(--bg-hover)}
-    .slot-team .seed-badge{
-      width:22px;height:22px;background:var(--bg-secondary);border:1px solid var(--border-color);
-      display:flex;align-items:center;justify-content:center;
-      font-size:10px;font-weight:700;flex-shrink:0;color:var(--text-secondary);
-    }
-    .slot-team .team-name-text{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .slot-team .team-name-text.placeholder{color:var(--text-muted);font-style:italic}
-    .slot-team .team-score{
-      width:36px;text-align:center;font-weight:700;font-size:15px;color:var(--text-primary);
-      border:none;background:transparent;font-family:inherit;
-    }
-    .slot-team.auto-slot{background:var(--bg-secondary);border-style:dashed;color:var(--text-muted)}
-    .readonly-score{display:inline-flex;align-items:center;justify-content:center}
-    .slot-auto-label{font-size:11px;color:var(--text-muted)}
-    .slot-team .remove-team-btn{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;padding:0 2px}
-    .slot-team .remove-team-btn:hover{color:#dc2626}
-
-    .slot-vs{text-align:center;font-size:11px;color:var(--text-muted);padding:2px 0}
-    /* 比赛设置：每项“小标题在上、控件在下”，控件占满卡片宽度，窄卡片也不会互相挤压 */
-    .slot-match-settings{
-      display:grid;grid-template-columns:minmax(0,1fr);gap:8px;
-      margin-top:10px;padding-top:9px;border-top:1px solid var(--border-color);
-    }
-    .slot-binding-row,.slot-time-row,.slot-bo-row{
-      display:flex;flex-direction:column;align-items:stretch;gap:4px;min-width:0;
-      color:var(--text-secondary);font-size:12px;font-weight:600;
-    }
-    .slot-binding-row > span,.slot-time-row > span,.slot-bo-row > span{white-space:nowrap}
-    .slot-binding-row select,.slot-time-row input,.slot-bo-row select{
-      width:100%;min-width:0;padding:6px 8px;border:1px solid var(--border-color);background:var(--bg-card);
-      color:var(--text-primary);font:inherit;font-weight:400;text-overflow:ellipsis;
-    }
-    /* 卡片够宽时，比赛时间和赛制并排 */
-    @container slot (min-width: 330px){
-      .slot-match-settings{grid-template-columns:minmax(0,1fr) 96px}
-      .slot-binding-row{grid-column:1/-1}
-    }
-    .bracket-slot{container:slot / inline-size}
-    .slot-binding-row select:focus,.slot-time-row input:focus,.slot-bo-row select:focus{outline:none;border-color:var(--accent)}
-
-    .bracket-section-label{
-      font-size:12px;font-weight:700;color:var(--text-secondary);margin:20px 0 10px;
-      padding:4px 12px;background:var(--bg-secondary);border:1px solid var(--border-color);display:inline-block;
-    }
-
-    .add-match-btn{
-      display:block;width:100%;padding:8px;background:none;border:1px dashed var(--border-color);
-      color:var(--text-muted);cursor:pointer;font-size:12px;margin-top:8px;
-      transition:all 0.15s;font-family:inherit;
-    }
-    .add-match-btn:hover{border-color:var(--accent);color:var(--accent)}
-
-    /* Modal */
-    .modal-overlay{
-      position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:999;
-      display:flex;align-items:center;justify-content:center;
-    }
-    .modal{
-      background:var(--bg-card);border:1px solid var(--border-color);padding:24px;max-width:500px;width:90vw;
-      max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px var(--shadow);color:var(--text-primary);
-    }
-    .modal h3{margin-bottom:16px;color:var(--text-primary)}
-    .modal .form-group{margin-bottom:12px}
-    .modal .form-group label{display:block;font-size:13px;font-weight:600;margin-bottom:4px;color:var(--text-secondary)}
-    .modal .form-group input,.modal .form-group select{
-      width:100%;padding:8px 10px;border:1px solid var(--border-color);background:var(--bg-card);color:var(--text-primary);font-size:13px;font-family:inherit;
-    }
-    .modal .form-group input:focus,.modal .form-group select:focus{outline:none;border-color:var(--accent)}
-    .modal .map-scores-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
-    .modal .map-scores-row select{width:140px}
-    .modal .map-scores-row input{width:60px;text-align:center}
-    .modal .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
-
-    /* Swiss table */
-    .swiss-rounds{margin-top:16px}
-    .swiss-round{margin-bottom:20px}
-    .swiss-round h4{font-size:14px;color:var(--accent);margin-bottom:8px}
-
-    /* Swiss record groups (editor) */
-    .swiss-section-label{
-      font-size:13px;font-weight:700;color:var(--text-primary);
-      margin:20px 0 10px;padding:6px 14px;
-      background:var(--bg-secondary);border-left:3px solid var(--accent);
-    }
-    .swiss-record-group{margin-bottom:16px;margin-left:8px}
-    .swiss-record-title{
-      font-size:12px;font-weight:700;color:var(--text-secondary);
-      margin-bottom:8px;display:inline-block;
-      padding:2px 10px;background:var(--bg-secondary);border:1px solid var(--border-color);
-    }
-    .swiss-record-matches{
-      display:flex;gap:16px;flex-wrap:wrap;
-    }
-    .swiss-record-matches .bracket-slot{flex:1;min-width:220px}
-
-    /* Section rounds row (elimination editor) */
-    .section-rounds-row{
-      display:flex;gap:20px;margin-bottom:30px;align-items:stretch;
-    }
-
-    /* Custom team input */
-    .custom-team-row{
-      display:flex;gap:6px;margin-bottom:10px;padding-bottom:10px;
-      border-bottom:1px dashed var(--border-color);
-    }
-    .custom-team-input{
-      flex:1;padding:6px 10px;border:1px solid var(--border-color);background:var(--bg-card);color:var(--text-primary);
-      font-size:13px;font-family:inherit;
-    }
-    .custom-team-input:focus{outline:none;border-color:var(--accent)}
-
-    @media(max-width:768px){
-      .container{padding:0 12px 12px}
-      .editor-layout{flex-direction:column}
-      .team-pool-panel{width:100%;max-height:200px}
-      .editor-toolbar{flex-direction:column;align-items:stretch;gap:8px}
-      .bracket-editor-wrapper{min-width:auto;overflow-x:auto}
-      .round-row{flex-direction:column;gap:20px}
-      .section-rounds-row{flex-direction:column;gap:20px}
-      .swiss-record-matches{flex-direction:column}
-      .swiss-record-matches .bracket-slot{min-width:auto}
-      .bracket-editor-wrapper{-webkit-overflow-scrolling:touch}
-    }
-    @media(max-width:480px){
-      .bracket-slot{padding:6px;font-size:12px}
-    }
-  </style>
-</head>
-<body>
-
-{% include "admin/_top_nav.html" %}
-
-<div class="container">
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      {% for category, message in messages %}
-      <div class="alert alert-{{ category }}">{{ message }}</div>
-      {% endfor %}
-    {% endif %}
-  {% endwith %}
-
-  <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
-    <h2 style="color:var(--text-primary);font-size:20px">{{ event.name }} — 对阵图编辑器</h2>
-    <span style="font-size:12px;color:var(--text-muted)">event_id={{ event.id }}</span>
+{% extends "admin/_layout.html" %}
+{% import "admin/_icons.html" as ui %}
+{% block title %}对阵图编辑 — {{ event.name }}{% endblock %}
+{% block main %}
+<a href="{{ url_for('admin.admin_events') }}" class="back-link">← 返回赛事管理</a>
+<header class="page-head">
+  <div>
+    <span class="page-head-kicker" data-i18n-ignore>BRACKET · EVENT {{ event.id }}</span>
+    <h1><span data-i18n-ignore>{{ event.name }}</span> — 对阵图编辑器</h1>
   </div>
+  <div class="page-actions"><a class="btn" href="{{ event_path(event) }}" target="_blank" rel="noopener">{{ ui.icon('external') }}查看前台赛事页</a></div>
+</header>
 
+<section class="panel">
   <div class="editor-toolbar">
-    <label>赛制：</label>
+    <label for="formatSelect">赛制：</label>
     <select id="formatSelect">
       <option value="4de">4 队双败淘汰</option>
       <option value="8de">8 队双败淘汰</option>
@@ -270,51 +21,51 @@
       <option value="8se">8 队单败淘汰</option>
       <option value="swiss" disabled>瑞士制（自动晋级规则开发中）</option>
     </select>
-    <label style="margin-left:8px">默认赛制：</label>
+    <label for="bracketBoFormat">默认赛制：</label>
     <select id="bracketBoFormat">
       <option value="BO1">BO1</option>
       <option value="BO3" selected>BO3</option>
       <option value="BO5">BO5</option>
     </select>
     <div class="toolbar-spacer"></div>
-    <button class="btn btn-secondary" onclick="resetBracket()">重置</button>
-    <button class="btn btn-primary" id="saveBracketBtn" onclick="saveBracket()">保存并生成全部比赛</button>
-    <a href="/admin/events" class="btn btn-secondary">返回</a>
+    <button type="button" class="btn" onclick="resetBracket()">{{ ui.icon('reopen') }}重置</button>
+    <button type="button" class="btn btn-primary" id="saveBracketBtn" onclick="saveBracket()">{{ ui.icon('check') }}<span class="btn-label">保存并生成全部比赛</span></button>
   </div>
+</section>
 
-  <div class="alert alert-info">可为每个槽位绑定该赛事中已经创建的比赛。绑定后只同步时间、比分和晋级结果，不会重新创建或更换比赛。</div>
+<div class="alert alert-info">可为每个槽位绑定该赛事中已经创建的比赛。绑定后只同步时间、比分和晋级结果，不会重新创建或更换比赛。</div>
 
-  <div class="editor-layout">
-    <!-- 队伍池 -->
-    <div class="team-pool-panel">
-      <h3>队伍池</h3>
+<div class="editor-layout">
+  {# 队伍池：拖到首轮槽位 #}
+  <aside class="panel team-pool-panel">
+    <div class="panel-head"><h2 class="panel-title">队伍池</h2></div>
+    <div class="team-pool-body">
       <p class="team-pool-hint">只拖拽到首轮槽位，后续对阵由赛果决定</p>
-      <input type="text" class="team-pool-search" id="teamSearch" placeholder="搜索队伍..." oninput="filterTeams()">
+      <input type="text" class="team-pool-search" id="teamSearch" placeholder="搜索队伍..." aria-label="搜索队伍" oninput="filterTeams()">
       <div class="team-pool-list" id="teamPool"></div>
     </div>
+  </aside>
 
-    <!-- 对阵图编辑区 -->
-    <div class="bracket-panel">
-      <h3>对阵图预览</h3>
+  {# 对阵图编辑区 #}
+  <section class="panel bracket-panel">
+    <div class="panel-head"><h2 class="panel-title">对阵图预览</h2></div>
+    <div class="bracket-panel-body">
       <div class="bracket-editor-wrapper" id="bracketEditor">
         <div class="empty-bracket-hint" id="emptyHint">选择赛制后将显示对阵图编辑区域</div>
       </div>
     </div>
-  </div>
+  </section>
 </div>
+{% endblock %}
 
+{% block scripts %}
 <script>
-  // CSRF token
-  window._csrfToken = '{{ csrf_token }}';
+  // 给对阵图编辑脚本的初始数据
+  window._csrfToken = {{ csrf_token|tojson }};
   window._eventId = {{ event.id }};
   window._eventName = {{ event.name|tojson }};
-  // 初始数据
   window._bracketData = {{ bracket_data|tojson if bracket_data else 'null' }};
   window._eventMatches = {{ event_matches|tojson }};
 </script>
-<script src="{{ versioned_url('static/js/site_dialogs.js') }}"></script>
 <script src="{{ versioned_url('static/js/bracket_editor.js') }}"></script>
-<script src="{{ versioned_url('static/js/i18n.js') }}"></script>
-<script src="{{ url_for('static', filename='js/svg_icons.js') }}?v=20260620-svg1"></script>
-</body>
-</html>
+{% endblock %}

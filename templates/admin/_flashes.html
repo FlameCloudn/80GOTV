@@ -1,7 +1,2 @@
-{% with messages = get_flashed_messages(with_categories=true) %}
-  {% if messages %}
-    {% for category, message in messages %}
-    <div class="alert alert-{{ category }}">{{ message }}</div>
-    {% endfor %}
-  {% endif %}
-{% endwith %}
+{#- 操作结果提示（成功 / 失败 / 说明）：后台每页统一显示成右上角浮动提示（templates/_flash_toasts.html） -#}
+{% with container_class = 'admin-flashes' %}{% include "_flash_toasts.html" %}{% endwith %}

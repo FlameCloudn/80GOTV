@@ -7,6 +7,7 @@ import tempfile
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
@@ -17,17 +18,25 @@ def main():
     with tempfile.TemporaryDirectory(prefix="80gotv-e2e-") as temp_dir:
         # Set isolation before importing the app so a local .env can never
         # point browser checks at the real SQLite or Turso database.
+        os.environ["PYTHON_DOTENV_DISABLED"] = "1"
         os.environ["FLASK_ENV"] = "testing"
         os.environ["SECRET_KEY"] = "browser-test-secret-not-for-production"
         os.environ["DATABASE_PATH"] = os.path.join(temp_dir, "test.db")
         os.environ["TURSO_URL"] = ""
         os.environ["TURSO_TOKEN"] = ""
 
-        from flask import render_template, request, session
+        from flask import render_template, request, send_from_directory, session
         from werkzeug.security import generate_password_hash
 
         from app import app
         from models import get_db, init_tables
+        from utils.db_helpers import remove_uploaded_team_logo, save_uploaded_team_logo
+
+        @app.get("/static/uploads/team_logos/<path:filename>")
+        def _e2e_uploaded_team_logo(filename):
+            return send_from_directory(
+                os.path.join(temp_dir, "static", "uploads", "team_logos"), filename
+            )
 
         @app.get("/__e2e__/admin-session")
         def _e2e_admin_session():
@@ -159,6 +168,197 @@ def main():
                     ).lastrowid
                     conn.commit()
                 return {"event_id": event_id, "teams": teams, "test_match_id": test_match_id}
+            finally:
+                conn.close()
+
+        @app.get("/__e2e__/home-fixture")
+        def _e2e_home_fixture():
+            conn = get_db()
+            try:
+                suffix = uuid.uuid4().hex[:8]
+                teams = []
+                for name, short_name in [("Alpha", "ALP"), ("Bravo", "BRV")]:
+                    team_id = conn.execute(
+                        "INSERT INTO teams(name,short_name) VALUES(?,?)",
+                        (f"E2E Home {name} {suffix}", short_name),
+                    ).lastrowid
+                    teams.append({"id": team_id, "short_name": short_name})
+                event_id = conn.execute(
+                    "INSERT INTO events(name,start_date) VALUES(?,?)",
+                    (f"E2E Home Cup {suffix}", datetime.now().strftime("%Y-%m-%d")),
+                ).lastrowid
+                match_id = conn.execute(
+                    "INSERT INTO matches(event_id,team1_id,team2_id,status,bo_format,match_time) "
+                    "VALUES(?,?,?,'live','BO3',?)",
+                    (
+                        event_id,
+                        teams[0]["id"],
+                        teams[1]["id"],
+                        datetime.now().isoformat(timespec="seconds"),
+                    ),
+                ).lastrowid
+                featured_news_title = f"E2E Home Cup {suffix} 今晚开打"
+                news_ids = []
+                for title, publish_time in [
+                    ("首页列表检查新闻 " + suffix, "2099-01-01 10:00:00"),
+                    (featured_news_title, "2099-01-02 10:00:00"),
+                ]:
+                    news_ids.append(
+                        conn.execute(
+                            "INSERT INTO news(title,content,summary,author,publish_time) VALUES(?,?,?,?,?)",
+                            (
+                                title,
+                                "<p>Browser test article.</p>",
+                                "本地假数据，仅供页面检查。",
+                                "e2e-admin",
+                                publish_time,
+                            ),
+                        ).lastrowid
+                    )
+                conn.commit()
+                return {
+                    "match_id": match_id,
+                    "teams": teams,
+                    "event_id": event_id,
+                    "news_ids": news_ids,
+                    "featured_news_title": featured_news_title,
+                }
+            finally:
+                conn.close()
+
+        def _dot_match_participants(conn, player_count=1):
+            suffix = uuid.uuid4().hex[:8]
+            event_id = conn.execute(
+                "INSERT INTO events(name) VALUES(?)", (f"E2E Dot Review {suffix}",)
+            ).lastrowid
+            teams = []
+            for side in (1, 2):
+                name = f"E2E Dot Side {side} {suffix}"
+                team_id = conn.execute(
+                    "INSERT INTO teams(name,short_name) VALUES(?,?)", (name, f"D{side}")
+                ).lastrowid
+                player_ids = []
+                for number in range(1, player_count + 1):
+                    player_ids.append(
+                        conn.execute(
+                            "INSERT INTO players(nickname,team_id,steam_id) VALUES(?,?,?)",
+                            (
+                                f"Dot {suffix} side {side} player {number}",
+                                team_id,
+                                str(76561198000000000 + team_id * 10 + number),
+                            ),
+                        ).lastrowid
+                    )
+                teams.append(
+                    {
+                        "id": team_id,
+                        "name": name,
+                        "short_name": f"D{side}",
+                        "player_ids": player_ids,
+                    }
+                )
+            return {"event_id": event_id, "teams": teams, "suffix": suffix}
+
+        @app.get("/__e2e__/dot-match-form-fixture")
+        def _e2e_dot_match_form_fixture():
+            conn = get_db()
+            try:
+                fixture = _dot_match_participants(conn, player_count=5)
+                fixture["match_id"] = conn.execute(
+                    """INSERT INTO matches(event_id,team1_id,team2_id,status,bo_format,match_time,
+                       stage,map1,map2,team1_score,team2_score,map1_t1,map1_t2,map2_t1,map2_t2)
+                       VALUES(?,?,?,'upcoming','BO3','2027-11-17T14:00',
+                       'E2E Round','de_mirage','de_nuke',0,0,0,0,0,0)""",
+                    (fixture["event_id"], fixture["teams"][0]["id"], fixture["teams"][1]["id"]),
+                ).lastrowid
+                conn.commit()
+                return fixture
+            finally:
+                conn.close()
+
+        @app.get("/__e2e__/dot-stats-fixture")
+        def _e2e_dot_stats_fixture():
+            from services.performance_service import refresh_player_performance
+
+            conn = get_db()
+            try:
+                fixture = _dot_match_participants(conn)
+                match_id = conn.execute(
+                    """INSERT INTO matches(event_id,team1_id,team2_id,status,bo_format,match_time,
+                       map1,map2,team1_score,team2_score,map1_t1,map1_t2,map2_t1,map2_t2)
+                       VALUES(?,?,?,'upcoming','BO3','2027-11-17T14:00',
+                       'de_mirage','de_nuke',0,0,13,8,0,0)""",
+                    (fixture["event_id"], fixture["teams"][0]["id"], fixture["teams"][1]["id"]),
+                ).lastrowid
+                for map_name in ("de_mirage", "de_nuke"):
+                    for side, team in enumerate(fixture["teams"], 1):
+                        conn.execute(
+                            """INSERT INTO match_stats(match_id,player_id,team_id,match_team_side,map_name,
+                               kills,deaths,assists,adr,kast,headshot_percentage,impact,rating,rounds_played,
+                               data_source,data_status,data_version)
+                               VALUES(?,?,?,?,?,10,8,3,70.5,75,50,1.1,1.2,21,'manual_review','final',1)""",
+                            (match_id, team["player_ids"][0], team["id"], f"t{side}", map_name),
+                        )
+                refresh_player_performance(
+                    conn, [team["player_ids"][0] for team in fixture["teams"]]
+                )
+                conn.commit()
+                fixture["match_id"] = match_id
+                return fixture
+            finally:
+                conn.close()
+
+        @app.get("/__e2e__/dot-stats-fixture/<int:match_id>/confirm-score")
+        def _e2e_dot_stats_confirm_score(match_id):
+            conn = get_db()
+            try:
+                conn.execute("UPDATE matches SET map2_t1=13,map2_t2=8 WHERE id=?", (match_id,))
+                conn.commit()
+                return {"ok": True}
+            finally:
+                conn.close()
+
+        @app.get("/__e2e__/dot-match-report-fixture")
+        def _e2e_dot_match_report_fixture():
+            conn = get_db()
+            try:
+                fixture = _dot_match_participants(conn)
+                match_id = conn.execute(
+                    """INSERT INTO matches(event_id,team1_id,team2_id,status,bo_format,match_time,
+                       map1,map1_t1,map1_t2,team1_score,team2_score)
+                       VALUES(?,?,?,'completed','BO1','2027-11-17T14:00','de_nuke',13,8,1,0)""",
+                    (fixture["event_id"], fixture["teams"][0]["id"], fixture["teams"][1]["id"]),
+                ).lastrowid
+                for side, team in enumerate(fixture["teams"], 1):
+                    old_team_id = conn.execute(
+                        "INSERT INTO teams(name,short_name) VALUES(?,?)",
+                        (f"E2E Former {side} {fixture['suffix']}", f"F{side}"),
+                    ).lastrowid
+                    conn.execute(
+                        """INSERT INTO match_stats(match_id,player_id,team_id,match_team_side,map_name,
+                           kills,deaths,assists,adr,kast,rating,rounds_played,data_status,data_version)
+                           VALUES(?,?,?,?,'de_nuke',?,?,3,?,75,?,21,'final',2)""",
+                        (
+                            match_id,
+                            team["player_ids"][0],
+                            old_team_id,
+                            f"t{side}",
+                            side * 10,
+                            side * 5,
+                            0 if side == 1 else None,
+                            1.5 if side == 1 else 1.2,
+                        ),
+                    )
+                conn.execute(
+                    """INSERT INTO match_stats(match_id,player_id,team_id,match_team_side,map_name,
+                       kills,deaths,adr,rating,rounds_played,data_status,data_version)
+                       VALUES(?,?,?,'t1','de_nuke',999,999,999,9.99,21,'superseded',1)""",
+                    (match_id, fixture["teams"][0]["player_ids"][0], fixture["teams"][0]["id"]),
+                )
+                conn.commit()
+                fixture["match_id"] = match_id
+                fixture["player_ids"] = [team["player_ids"][0] for team in fixture["teams"]]
+                return fixture
             finally:
                 conn.close()
 
@@ -416,7 +616,22 @@ def main():
         refresh_player_performance(conn)
         conn.commit()
         conn.close()
-        app.run(host="127.0.0.1", port=5010, debug=False, use_reloader=False)
+        # 上传测试只写临时目录，不向项目原有的队标目录添加文件。
+        with (
+            patch(
+                "blueprints.admin_catalog.save_uploaded_team_logo",
+                side_effect=lambda file, _root: save_uploaded_team_logo(file, temp_dir),
+            ),
+            patch(
+                "routes.events.save_uploaded_team_logo",
+                side_effect=lambda file, _root: save_uploaded_team_logo(file, temp_dir),
+            ),
+            patch(
+                "routes.events.remove_uploaded_team_logo",
+                side_effect=lambda _root, filename: remove_uploaded_team_logo(temp_dir, filename),
+            ),
+        ):
+            app.run(host="127.0.0.1", port=5010, debug=False, use_reloader=False)
 
 
 if __name__ == "__main__":

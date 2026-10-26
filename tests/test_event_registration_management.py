@@ -165,21 +165,41 @@ class EventRegistrationManagementTests(unittest.TestCase):
         )
 
     @staticmethod
-    def _logo_upload(color=(28, 104, 166), name="team-logo.png"):
+    def _logo_upload(color=(28, 104, 166), name="team-logo.png", total_bytes=0):
         image_data = io.BytesIO()
         Image.new("RGB", (900, 600), color).save(image_data, format="PNG")
+        if total_bytes:
+            image_data.write(b"\0" * max(0, total_bytes - image_data.tell()))
         image_data.seek(0)
         return image_data, name
 
     def test_registration_creator_is_saved_as_captain(self):
         self._login_user(self.captain_id, "Captain")
+        rejected = self.client.post(
+            f"/events/{self.event_id}/register",
+            data={
+                "csrf_token": "registration-csrf",
+                "team_name": "Captain Team",
+                "my_slot": "2",
+                "team_logo": self._logo_upload(total_bytes=10 * 1024 * 1024 + 1),
+            },
+            content_type="multipart/form-data",
+        )
+        self.assertEqual(rejected.status_code, 302)
+        with self.client.session_transaction() as browser_session:
+            self.assertTrue(any("10MB" in message for _, message in browser_session["_flashes"]))
+        conn = get_db()
+        self.assertEqual(conn.execute("SELECT COUNT(*) FROM event_registrations").fetchone()[0], 0)
+        conn.close()
+        self.assertEqual(os.listdir(self.upload_root), [])
+
         response = self.client.post(
             f"/events/{self.event_id}/register",
             data={
                 "csrf_token": "registration-csrf",
                 "team_name": "Captain Team",
                 "my_slot": "2",
-                "team_logo": self._logo_upload(),
+                "team_logo": self._logo_upload(total_bytes=10 * 1024 * 1024),
             },
             content_type="multipart/form-data",
         )
@@ -272,7 +292,7 @@ class EventRegistrationManagementTests(unittest.TestCase):
 
         uploaded = self._ajax_post(
             f"/events/{self.event_id}/registrations/{registration_id}/logo",
-            {"team_logo": self._logo_upload()},
+            {"team_logo": self._logo_upload(total_bytes=10 * 1024 * 1024)},
         )
         self.assertEqual(uploaded.status_code, 200)
         self.assertNotIn("Location", uploaded.headers)
@@ -289,6 +309,24 @@ class EventRegistrationManagementTests(unittest.TestCase):
         with Image.open(first_path) as saved_logo:
             self.assertLessEqual(max(saved_logo.size), 512)
             self.assertEqual(saved_logo.format, "PNG")
+
+        with open(first_path, "rb") as stored_file:
+            first_bytes = stored_file.read()
+        rejected = self._ajax_post(
+            f"/events/{self.event_id}/registrations/{registration_id}/logo",
+            {"team_logo": self._logo_upload(total_bytes=10 * 1024 * 1024 + 1)},
+        )
+        self.assertEqual(rejected.status_code, 400)
+        self.assertFalse(rejected.get_json()["success"])
+        self.assertIn("10MB", rejected.get_json()["error"])
+        conn = get_db()
+        unchanged = conn.execute(
+            "SELECT team_logo FROM event_registrations WHERE id=?", (registration_id,)
+        ).fetchone()["team_logo"]
+        conn.close()
+        self.assertEqual(unchanged, first_logo)
+        with open(first_path, "rb") as stored_file:
+            self.assertEqual(stored_file.read(), first_bytes)
 
         replaced = self._ajax_post(
             f"/events/{self.event_id}/registrations/{registration_id}/logo",

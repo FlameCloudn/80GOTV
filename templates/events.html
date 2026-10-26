@@ -49,7 +49,7 @@
 {% endfor %}
 {% for ym, month_events in months.items()|sort(reverse=True) %}
 <section class="events-month">
-  <h2 class="section-title events-month-title">{{ ym }}</h2>
+  <h2 class="section-title events-month-title">{% if ym != '未知' %}{{ ym[:4] }}年{{ ym[5:7]|int }}月{% else %}{{ ym }}{% endif %}</h2>
   <div class="events-grid">
     {% for e in month_events %}{{ event_card(e) }}{% endfor %}
   </div>

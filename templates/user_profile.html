@@ -78,19 +78,18 @@
 <section class="panel" id="group-username-settings">
   <div class="panel-head"><h2 class="panel-title">修改群昵称</h2></div>
   <div class="panel-body form">
-    {% if not user.group_username %}
-    <div class="alert alert-error">群昵称为必填项，填写后才能继续使用其他网站功能。</div>
-    {% endif %}
     <form method="post" class="form-row">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="action" value="group_username">
       <label class="field profile-field" for="groupUsername">
         <span class="field-label">群昵称 <span class="field-required">*</span></span>
         <input id="groupUsername" type="text" name="group_username" value="{{ user.group_username or '' }}" required maxlength="40"
-               {% if not user.group_username %}autofocus{% endif %} placeholder="例如：Crinia_">
+               {% if not user.group_username %}autofocus aria-invalid="true" data-native-invalid aria-describedby="groupUsernameRequired"{% endif %} placeholder="例如：Crinia_">
       </label>
       <button type="submit" class="btn btn-primary">保存群昵称</button>
     </form>
+    {#- 还没填：输入框标红，下面一行红字说明（不放整块错误栏） -#}
+    {% if not user.group_username %}<span class="field-hint is-error" id="groupUsernameRequired">群昵称为必填项，填写后才能继续使用其他网站功能。</span>{% endif %}
     <span class="field-hint">保存后显示为“选手昵称 @群昵称”；可以随时修改，但不能留空。</span>
   </div>
 </section>

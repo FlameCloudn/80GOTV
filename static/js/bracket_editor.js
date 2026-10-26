@@ -805,9 +805,11 @@ function saveBracket() {
   };
 
   var btn = document.getElementById('saveBracketBtn');
-  var origText = btn.textContent;
+  // 只换按钮里的文字（.btn-label），图标保留
+  var label = btn.querySelector('.btn-label') || btn;
+  var origText = label.textContent;
   btn.disabled = true;
-  btn.textContent = '保存中...';
+  label.textContent = window.siteTranslate ? window.siteTranslate('保存中...') : '保存中...';
 
   fetch('/admin/events/' + window._eventId + '/bracket/api/save', {
     method: 'POST',
@@ -822,12 +824,12 @@ function saveBracket() {
   .then(readSaveResponse)
   .then(function(result) {
     btn.disabled = false;
-    btn.textContent = origText;
+    label.textContent = origText;
     handleSaveResult(result);
   }, function(err) {
     // 只有请求根本没发出去或没收到回复才算网络错误
     btn.disabled = false;
-    btn.textContent = origText;
+    label.textContent = origText;
     showToast('网络错误，没有收到服务器回复，请检查网络后重试', 'error');
     console.error(err);
   });

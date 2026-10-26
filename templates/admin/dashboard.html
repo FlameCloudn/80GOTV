@@ -1,129 +1,101 @@
-<!doctype html>
-<html lang="zh-CN" data-theme="light">
-<head>
-  {% include "_i18n_bootstrap.html" %}
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>后台管理 — 80GOTV</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-comfort.css') }}">
-  <style>
-    .admin-stat-box{
-      display:flex;
-      min-height:146px;
-      flex-direction:column;
-      align-items:center;
-      justify-content:center;
-      color:var(--text-primary);
-      text-decoration:none;
-      cursor:pointer;
-      transition:border-color .18s,box-shadow .18s,transform .18s,background .18s;
-    }
-    .admin-stat-box:hover,.admin-stat-box:focus-visible{
-      border-color:var(--accent);
-      background:var(--bg-hover);
-      box-shadow:0 4px 12px var(--shadow);
-      color:var(--text-primary);
-      text-decoration:none;
-      transform:translateY(-2px);
-    }
-    .admin-stat-box:active{transform:translateY(0)}
-  </style>
-  <script>
-    (function(){
-      var t = localStorage.getItem('theme');
-      if(!t){ t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light'; }
-      document.documentElement.setAttribute('data-theme', t);
-    })();
-  </script>
-</head>
-<body>
-
-{% include "admin/_top_nav.html" %}
-
-<div class="admin-container">
-  <h2 style="margin-bottom:var(--space-xl);color:var(--text-primary)">数据统计</h2>
-  <div class="admin-dash-stats">
-    <a href="{{ url_for('admin.admin_teams') }}" class="admin-stat-box" aria-label="查看队伍管理，共 {{ stats.teams }} 支队伍">
-      <div class="admin-stat-value">{{ stats.teams }}</div>
-      <div class="admin-stat-label">队伍</div>
-    </a>
-    <a href="{{ url_for('admin.admin_players') }}" class="admin-stat-box" aria-label="查看选手管理，共 {{ stats.players }} 名选手">
-      <div class="admin-stat-value">{{ stats.players }}</div>
-      <div class="admin-stat-label">选手</div>
-    </a>
-    <a href="{{ url_for('admin.admin_events') }}" class="admin-stat-box" aria-label="查看赛事管理，共 {{ stats.events }} 个赛事">
-      <div class="admin-stat-value">{{ stats.events }}</div>
-      <div class="admin-stat-label">赛事</div>
-    </a>
-    <a href="{{ url_for('admin.admin_matches') }}" class="admin-stat-box" aria-label="查看比赛管理，共 {{ stats.matches }} 场比赛">
-      <div class="admin-stat-value">{{ stats.matches }}</div>
-      <div class="admin-stat-label">比赛</div>
-    </a>
-    <a href="{{ url_for('admin.admin_news') }}" class="admin-stat-box" aria-label="查看新闻管理，共 {{ stats.news }} 条新闻">
-      <div class="admin-stat-value">{{ stats.news }}</div>
-      <div class="admin-stat-label">新闻</div>
-    </a>
-    <a href="{{ url_for('admin.registration_reviews') }}" class="admin-stat-box" aria-label="查看账号审核，共 {{ stats.pending_users }} 个待审核账号">
-      <div class="admin-stat-value">{{ stats.pending_users }}</div>
-      <div class="admin-stat-label">待审核账号</div>
-    </a>
+{% extends "admin/_layout.html" %}
+{% import "admin/_icons.html" as ui %}
+{% import "admin/_match_actions.html" as match_ui %}
+{% block title %}工作台{% endblock %}
+{% block main %}
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>ADMIN</span><h1>工作台</h1></div>
+  <div class="page-actions">
+    <a class="btn" href="{{ url_for('admin.admin_matches_add') }}">{{ ui.icon('plus') }}添加比赛</a>
+    <a class="btn btn-primary" href="{{ url_for('admin.admin_news_add') }}">{{ ui.icon('plus') }}发布新闻</a>
   </div>
+</header>
 
-  <h2 style="margin-bottom:var(--space-xl);color:var(--text-primary)">管理功能</h2>
-  <div class="admin-nav-grid">
-    <a href="/admin/teams" class="admin-nav-card">
-      <div class="icon">👥</div>
-      <div class="title">队伍管理</div>
-    </a>
-    <a href="/admin/players" class="admin-nav-card">
-      <div class="icon">🎯</div>
-      <div class="title">选手管理</div>
-    </a>
-    <a href="/admin/events" class="admin-nav-card">
-      <div class="icon">🏆</div>
-      <div class="title">赛事管理</div>
-    </a>
-    <a href="/admin/matches" class="admin-nav-card">
-      <div class="icon">⚔️</div>
-      <div class="title">比赛管理</div>
-    </a>
-    <a href="/admin/news" class="admin-nav-card">
-      <div class="icon">📰</div>
-      <div class="title">新闻管理</div>
-    </a>
-    <a href="/admin/registrations" class="admin-nav-card">
-      <div class="icon">ID</div>
-      <div class="title">账号审核{% if stats.pending_users %} ({{ stats.pending_users }}){% endif %}</div>
-    </a>
-    <a href="/admin/live" class="admin-nav-card">
-      <div class="icon">📡</div>
-      <div class="title">直播状态</div>
-    </a>
-    <a href="/admin/awards/poster" class="admin-nav-card">
-      <div class="icon">🏅</div>
-      <div class="title">MVP / EVP 数据图</div>
-    </a>
-    <a href="/admin/top10" class="admin-nav-card">
-      <div class="icon">10</div>
-      <div class="title">年度 TOP 10</div>
-    </a>
-    <a href="/admin/nicknames" class="admin-nav-card">
-      <div class="icon">🔖</div>
-      <div class="title">昵称管理</div>
-    </a>
-    <a href="/admin/backup/download" class="admin-nav-card">
-      <div class="icon">💾</div>
-      <div class="title">下载备份</div>
-    </a>
-    <a href="/" class="admin-nav-card" target="_blank">
-      <div class="icon">🌐</div>
-      <div class="title">查看前台</div>
-    </a>
+{#- 总数一行：每个数字点进去就是对应的管理页 -#}
+<nav class="admin-stats" aria-label="数据统计">
+  <a href="{{ url_for('admin.admin_teams') }}" class="admin-stat-box" aria-label="查看队伍管理，共 {{ stats.teams }} 支队伍"><b class="admin-stat-value">{{ stats.teams }}</b><span class="admin-stat-label">队伍</span></a>
+  <a href="{{ url_for('admin.admin_players') }}" class="admin-stat-box" aria-label="查看选手管理，共 {{ stats.players }} 名选手"><b class="admin-stat-value">{{ stats.players }}</b><span class="admin-stat-label">选手</span></a>
+  <a href="{{ url_for('admin.admin_events') }}" class="admin-stat-box" aria-label="查看赛事管理，共 {{ stats.events }} 个赛事"><b class="admin-stat-value">{{ stats.events }}</b><span class="admin-stat-label">赛事</span></a>
+  <a href="{{ url_for('admin.admin_matches') }}" class="admin-stat-box" aria-label="查看比赛管理，共 {{ stats.matches }} 场比赛"><b class="admin-stat-value">{{ stats.matches }}</b><span class="admin-stat-label">比赛</span></a>
+  <a href="{{ url_for('admin.admin_news') }}" class="admin-stat-box" aria-label="查看新闻管理，共 {{ stats.news }} 条新闻"><b class="admin-stat-value">{{ stats.news }}</b><span class="admin-stat-label">新闻</span></a>
+  <a href="{{ url_for('admin.registration_reviews') }}" class="admin-stat-box" aria-label="查看账号审核，共 {{ stats.pending_users }} 个待审核账号"><b class="admin-stat-value{% if stats.pending_users %} has-pending{% endif %}">{{ stats.pending_users }}</b><span class="admin-stat-label">待审核账号</span></a>
+</nav>
+
+<div class="workbench">
+  {#- 进行中与即将开始的比赛：最常用的比赛操作直接在这里点 -#}
+  <section class="panel workbench-matches">
+    <div class="panel-head">
+      <h2 class="panel-title">进行中与即将开始 <span class="panel-count">{{ active_matches|length }}</span></h2>
+      <a class="panel-link" href="{{ url_for('admin.admin_matches') }}">全部比赛</a>
+    </div>
+    {% if active_matches %}
+    <div class="table-wrap">
+      <table class="table admin-table">
+        <thead><tr><th>状态</th><th>开赛时间</th><th>对阵 / 赛事</th><th class="col-actions">操作</th></tr></thead>
+        <tbody>
+          {% for m in active_matches %}
+          <tr>
+            <td>{% if m.effective_status == 'live' %}<span class="badge badge-live live-badge">直播中</span>{% else %}<span class="badge badge-upcoming">未开始</span>{% endif %}</td>
+            <td class="nowrap cell-datetime">{{ m.match_time|datetime_display if m.match_time else '-' }}</td>
+            <td>
+              <b class="cell-title" data-i18n-ignore>{{ m.team1_name or 'TBD' }} VS {{ m.team2_name or 'TBD' }}</b>{% if m.is_test_mode %}<span class="test-badge">测试</span>{% endif %}
+              <span class="cell-sub" data-i18n-ignore>{{ m.event_name or '-' }}</span>
+            </td>
+            <td class="col-actions"><div class="row-actions">{{ match_ui.quick_actions(m) }}</div></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">没有进行中或即将开始的比赛</div>
+    {% endif %}
+  </section>
+
+  <div class="workbench-side">
+    <section class="panel">
+      <div class="panel-head">
+        <h2 class="panel-title">账号审核{% if stats.pending_users %} ({{ stats.pending_users }}){% endif %}</h2>
+        <a class="panel-link" href="{{ url_for('admin.registration_reviews') }}">去审核</a>
+      </div>
+      {% if pending_users %}
+      <ul class="work-list">
+        {% for u in pending_users %}
+        <li>
+          <a href="{{ url_for('admin.registration_reviews') }}#user-{{ u.id }}">
+            <b data-i18n-ignore>{{ u.username }}</b>
+            {% if u.group_username %}<span class="muted" data-i18n-ignore>{{ u.group_username }}</span>{% endif %}
+          </a>
+          <time class="muted">{{ u.created_at|datetime_display if u.created_at else '' }}</time>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="empty-state">没有待审核的账号</div>
+      {% endif %}
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2 class="panel-title">待处理反馈{% if open_feedback_count %} ({{ open_feedback_count }}){% endif %}</h2>
+        <a class="panel-link" href="{{ url_for('admin.admin_feedback') }}">去处理</a>
+      </div>
+      {% if open_feedback %}
+      <ul class="work-list">
+        {% for f in open_feedback %}
+        <li>
+          <a href="{{ url_for('admin.admin_feedback') }}#feedback-{{ f.id }}">
+            <span class="badge fb-tag fb-tag-{{ f.type }}">{{ {'bug':'Bug','suggestion':'建议','question':'问题'}.get(f.type, '其他') }}</span>
+            <span class="work-list-text" data-i18n-ignore>{{ f.content[:60] }}</span>
+          </a>
+          <time class="muted">{{ f.created_at|cn_time if f.created_at else '' }}</time>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="empty-state">没有待处理的反馈</div>
+      {% endif %}
+    </section>
   </div>
 </div>
-
-<script src="{{ versioned_url('static/js/i18n.js') }}"></script>
-<script src="{{ url_for('static', filename='js/svg_icons.js') }}?v=20260620-svg1"></script>
-</body>
-</html>
+{% endblock %}

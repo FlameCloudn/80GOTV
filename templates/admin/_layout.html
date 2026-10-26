@@ -1,0 +1,36 @@
+{#-
+  后台所有页面共用的外壳：顶栏（站标、查看前台、主题、语言、账号、退出）+ 左侧分组导航 + 正文。
+  和前台同一套设计变量与组件（app.css）；后台特有的排版在 static/css/pages/admin.css。
+  页面写法：{% extends "admin/_layout.html" %}，内容放 {% block main %}，页面脚本放 {% block scripts %}。
+-#}
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  {% include "_standalone_head.html" %}
+  <meta name="csrf-token" content="{{ csrf_token }}">
+  <title>{% block title %}后台管理{% endblock %} - 80GOTV 后台</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="16x16 32x32 48x48">
+  <link rel="stylesheet" href="{{ versioned_url('static/css/app.css') }}">
+  <link rel="stylesheet" href="{{ versioned_url('static/css/toast.css') }}">
+  <link rel="stylesheet" href="{{ versioned_url('static/css/pages/admin.css') }}">
+  {% block head %}{% endblock %}
+</head>
+{#- data-admin-key：草稿按管理员账号分开存（admin_form_draft.js），不同账号互相看不到 -#}
+<body class="admin-body {% block body_class %}{% endblock %}" data-admin-key="{{ session.get('admin_id', '') }}:{{ session.get('admin_username', '') }}">
+{% include "admin/_top_nav.html" %}
+<div class="admin-shell">
+  {% include "admin/_side_nav.html" %}
+  <main class="admin-main" id="adminMain">
+    {% include "admin/_flashes.html" %}
+    {% block main %}{% endblock %}
+  </main>
+</div>
+<script src="{{ versioned_url('static/js/site_dialogs.js') }}"></script>
+<script src="{{ versioned_url('static/js/admin_forms.js') }}"></script>
+<script src="{{ versioned_url('static/js/admin_form_guard.js') }}"></script>
+<script src="{{ versioned_url('static/js/admin_form_draft.js') }}"></script>
+<script src="{{ versioned_url('static/js/admin.js') }}"></script>
+<script src="{{ versioned_url('static/js/i18n.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

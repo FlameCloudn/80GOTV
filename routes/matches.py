@@ -8,7 +8,12 @@ from datetime import datetime, timedelta
 from flask import jsonify, redirect, render_template, request, session, url_for
 
 from models import get_db
-from services.match_service import add_effective_event_status, parse_bp_log, supplement_temp_teams
+from services.match_service import (
+    add_effective_event_status,
+    match_stat_belongs_to_side,
+    parse_bp_log,
+    supplement_temp_teams,
+)
 from services.perf_overview_service import build_perf_overview, load_metric_averages
 from utils.helpers import (
     build_comment_tree,
@@ -37,11 +42,8 @@ _SQL_EFFECTIVE_STATUS = get_sql_effective_status()
 
 
 def _stat_belongs_to_match_side(row, expected_side, expected_team_id):
-    """Prefer the explicit match side; keep old real-team rows compatible."""
-    stored_side = str(row_get(row, "match_team_side", "") or "").strip().lower()
-    if stored_side in {"t1", "t2"}:
-        return stored_side == expected_side
-    return row_get(row, "team_id") == expected_team_id
+    """保留详情页原调用点，并共用战报与详情一致的侧别规则。"""
+    return match_stat_belongs_to_side(row, expected_side, expected_team_id)
 
 
 @app.route("/matches")

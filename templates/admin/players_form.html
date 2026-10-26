@@ -1,144 +1,120 @@
-<!doctype html>
-<html lang="zh-CN">
-<head>
-  {% include "_i18n_bootstrap.html" %}
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>{% if player and player.id %}编辑选手{% else %}添加选手与账号{% endif %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-comfort.css') }}">
-  <script>
-    (function(){
-      var t = localStorage.getItem('theme');
-      if(!t){ t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light'; }
-      document.documentElement.setAttribute('data-theme', t);
-    })();
-  </script>
-</head>
-<body>
+{% extends "admin/_layout.html" %}
+{% import "admin/_icons.html" as ui %}
+{% set editing = player and player.id %}
+{% block title %}{% if editing %}编辑选手{% else %}添加选手与账号{% endif %}{% endblock %}
+{% block main %}
+<a href="{{ url_for('admin.admin_players') }}" class="back-link">← 返回选手管理</a>
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>PLAYERS</span><h1>{% if editing %}编辑选手{% else %}添加选手与账号{% endif %}</h1></div>
+  {% if editing %}<div class="page-actions"><a class="btn" href="/players/{{ player.id }}" target="_blank" rel="noopener">{{ ui.icon('external') }}前台主页</a></div>{% endif %}
+</header>
 
-<!-- 顶部导航栏 -->
-{% include "admin/_top_nav.html" %}
+{#- 分组：选手资料（必填）→ Steam 与头像 →（添加时）网站登录账号。
+    密码不进草稿；头像文件无法放进草稿，恢复时会提示重新选择。 -#}
+<section class="panel admin-form-narrow">
+  <form method="post" enctype="multipart/form-data" class="admin-form" id="playerForm" data-busy-text="保存中……" data-guard data-draft>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 
-<div class="container">
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      {% for category, message in messages %}
-      <div class="alert alert-{{ category }}">{{ message }}</div>
-      {% endfor %}
-    {% endif %}
-  {% endwith %}
-
-  <div class="form-container">
-    <h2>{% if player and player.id %}编辑选手{% else %}添加选手与账号{% endif %}</h2>
-
-    <form method="post" enctype="multipart/form-data">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-
-      <div class="form-group">
-        <label>昵称 *</label>
-        <input type="text" name="nickname" value="{{ player.nickname if player else '' }}" required placeholder="游戏昵称">
+    <section class="form-group" data-required-group>
+      <div class="form-group-head"><h2 class="form-group-title">选手资料</h2><span data-group-status></span></div>
+      <div class="form-grid">
+        <label class="field">
+          <span class="field-label">昵称 <span class="field-required">*</span></span>
+          <input type="text" name="nickname" value="{{ player.nickname if player else '' }}" required placeholder="游戏昵称">
+        </label>
+        <label class="field">
+          <span class="field-label">队伍</span>
+          <select name="team_id">
+            <option value="">无队伍</option>
+            {% for t in teams %}
+            <option value="{{ t.id }}" data-i18n-ignore {% if player and player.team_id|string==t.id|string %}selected{% endif %}>{{ t.name }}</option>
+            {% endfor %}
+          </select>
+        </label>
       </div>
-
-      <div class="form-group">
-        <label>是否是或曾经是八十中学生 *</label>
+      <fieldset class="field">
+        <legend class="field-label">是否是或曾经是八十中学生 <span class="field-required">*</span></legend>
         <div class="choice-row">
           <label class="choice">
-            <input type="radio" name="is_bashizhong_student" value="1"
-                   {% if player and player.is_bashizhong_student == 1 %}checked{% endif %} required>
+            <input type="radio" name="is_bashizhong_student" value="1" {% if player and player.is_bashizhong_student == 1 %}checked{% endif %} required>
             <span>是</span>
           </label>
           <label class="choice">
-            <input type="radio" name="is_bashizhong_student" value="0"
-                   {% if player and player.is_bashizhong_student == 0 %}checked{% endif %} required>
+            <input type="radio" name="is_bashizhong_student" value="0" {% if player and player.is_bashizhong_student == 0 %}checked{% endif %} required>
             <span>不是</span>
           </label>
         </div>
-      </div>
+      </fieldset>
+      <label class="field" id="groupUsernameField">
+        <span class="field-label">群内昵称 <span class="field-required">*</span></span>
+        <input type="text" name="group_username" maxlength="40" value="{{ player.group_username if player else '' }}" placeholder="群聊中使用的名字">
+      </label>
+    </section>
 
-      <div class="form-group" id="groupUsernameField">
-        <label>群内昵称 *</label>
-        <input type="text" name="group_username" maxlength="40"
-               value="{{ player.group_username if player else '' }}"
-               placeholder="群聊中使用的名字">
-      </div>
-
-      <div class="form-group">
-        <label>队伍</label>
-        <select name="team_id">
-          <option value="">无队伍</option>
-          {% for t in teams %}
-          <option value="{{ t.id }}" {% if player and player.team_id|string==t.id|string %}selected{% endif %}>
-            {{ t.name }}
-          </option>
-          {% endfor %}
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label>Steam ID</label>
-        <input type="text" name="steam_id" inputmode="numeric" maxlength="17"
-               value="{{ player.steam_id if player else '' }}" placeholder="17 位 Steam64 ID">
-      </div>
-
-      {% if not (player and player.id) %}
-      {% set create_account_checked = (not player) or player.create_account %}
-      <div class="form-group">
-        <label class="check-row">
-          <input id="createAccount" type="checkbox" name="create_account" value="1"
-                 {% if create_account_checked %}checked{% endif %}>
-          <span>同时创建并启用网站登录账号</span>
+    <section class="form-group">
+      <div class="form-group-head"><h2 class="form-group-title">Steam 与头像</h2><span data-group-status></span></div>
+      <div class="form-grid">
+        <label class="field">
+          <span class="field-label">Steam ID</span>
+          <input type="text" id="steamIdInput" name="steam_id" inputmode="numeric" maxlength="17" pattern="\d{17}" value="{{ (player.steam_id or '') if player else '' }}" placeholder="17 位 Steam64 ID"
+                 data-msg-pattern="Steam ID 必须为 17 位数字">
         </label>
-        <small class="field-note">账号用户名与选手昵称相同；勾选后必须填写 Steam ID 和初始密码。</small>
-      </div>
-
-      <div id="accountFields">
-        <div class="form-row">
-          <div class="form-group">
-            <label>账号邮箱</label>
-            <input type="email" name="account_email" maxlength="254"
-                   value="{{ player.account_email if player else '' }}" placeholder="可选">
-          </div>
-          <div></div>
-          <div class="form-group">
-            <label>初始密码 *</label>
-            <input type="password" name="password" minlength="8" maxlength="128" autocomplete="new-password">
-          </div>
-          <div class="form-group">
-            <label>确认初始密码 *</label>
-            <input type="password" name="password2" minlength="8" maxlength="128" autocomplete="new-password">
-          </div>
+        <div class="field">
+          <span class="field-label">头像</span>
+          {% if player and player.avatar %}
+          <div class="file-preview"><img class="avatar-preview" src="{{ url_for('static', filename='avatars/' + player.avatar) }}" alt="" loading="lazy"><span>当前头像</span></div>
+          {% endif %}
+          <input type="file" name="avatar" accept="image/*" aria-label="头像">
+          <span class="field-hint">jpg / png / gif；不选则不修改。</span>
         </div>
       </div>
-      {% endif %}
+    </section>
 
-      <div class="form-group">
-        <label>头像</label>
-        {% if player and player.avatar %}
-          <div style="margin-bottom:8px">
-            <img src="{{ url_for('static', filename='avatars/' + player.avatar) }}"
-           style="width:64px;height:64px;border-radius:0;object-fit:cover" loading="lazy">
-          </div>
-        {% endif %}
-        <input type="file" name="avatar" accept="image/*">
-        <small>支持 jpg/png/gif，留空则不修改</small>
+    {% if not editing %}
+    {% set create_account_checked = (not player) or player.create_account %}
+    <section class="form-group">
+      <div class="form-group-head"><h2 class="form-group-title">网站登录账号</h2><span data-group-status></span></div>
+      <label class="check-row">
+        <input id="createAccount" type="checkbox" name="create_account" value="1" {% if create_account_checked %}checked{% endif %}>
+        <span>同时创建并启用网站登录账号（用户名与昵称相同）</span>
+      </label>
+      <div id="accountFields" class="form-grid">
+        <label class="field span-all">
+          <span class="field-label">账号邮箱</span>
+          <input type="email" name="account_email" maxlength="254" value="{{ player.account_email if player else '' }}" placeholder="可选">
+        </label>
+        <label class="field">
+          <span class="field-label">初始密码 <span class="field-required">*</span></span>
+          <input type="password" name="password" minlength="8" maxlength="128" autocomplete="new-password">
+          <span class="field-hint">8–128 个字符。</span>
+        </label>
+        <label class="field">
+          <span class="field-label">确认初始密码 <span class="field-required">*</span></span>
+          <input type="password" name="password2" minlength="8" maxlength="128" autocomplete="new-password"
+                 data-same-as="password" data-msg-same="两次输入的初始密码不一致">
+        </label>
       </div>
+    </section>
+    {% endif %}
 
+    <div class="sticky-form-actions">
       <div class="form-actions">
-        <button type="submit" class="btn btn-primary">
-          {% if player and player.id %}保存修改{% else %}创建{% endif %}
-        </button>
-        <a href="/admin/players" class="btn btn-secondary">❌ 取消</a>
+        <a href="{{ url_for('admin.admin_players') }}" class="btn" data-discard>取消</a>
+        <button type="submit" class="btn btn-primary">{{ ui.icon('check') }}{% if editing %}保存修改{% else %}创建{% endif %}</button>
       </div>
-    </form>
-  </div>
-</div>
+    </div>
+  </form>
+</section>
+{% endblock %}
 
+{% block scripts %}
 <script>
   (function () {
-    var form = document.querySelector('.form-container form');
+    // 八十中学生才需要填群内昵称；勾选“创建账号”才需要填 Steam ID 和初始密码（和后端校验一致）
+    var form = document.getElementById('playerForm');
     var groupField = document.getElementById('groupUsernameField');
     var groupInput = groupField && groupField.querySelector('input');
+    var steamInput = document.getElementById('steamIdInput');
     function syncSchoolFields() {
       var checked = form.querySelector('input[name="is_bashizhong_student"]:checked');
       var student = checked && checked.value === '1';
@@ -158,6 +134,7 @@
       accountFields.querySelectorAll('input[type="password"]').forEach(function (input) {
         input.required = createAccount.checked;
       });
+      if (steamInput) steamInput.required = createAccount.checked;
     }
     if (createAccount) {
       createAccount.addEventListener('change', syncAccountFields);
@@ -165,7 +142,4 @@
     }
   })();
 </script>
-<script src="{{ versioned_url('static/js/i18n.js') }}"></script>
-<script src="{{ url_for('static', filename='js/svg_icons.js') }}?v=20260620-svg1"></script>
-</body>
-</html>
+{% endblock %}

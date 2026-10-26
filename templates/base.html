@@ -29,6 +29,7 @@
   {% include "_i18n_bootstrap.html" %}
   {% include "_design_tokens.html" %}
   <link rel="stylesheet" href="{{ versioned_url('static/css/app.css') }}">
+  <link rel="stylesheet" href="{{ versioned_url('static/css/toast.css') }}">
   {% block head %}{% endblock %}
 <script>
 // 图片加载失败 → 显示默认占位图（每张图只换一次，避免占位图也失败时无限重试）
@@ -196,28 +197,7 @@ window.addEventListener('error',function(e){
   </div>
 </header>
 
-{% with messages = get_flashed_messages(with_categories=true) %}
-  {% if messages %}
-  <div class="site-toast-container server-toast-container" aria-live="polite">
-    {% for category, message in messages %}
-    {% set toast_type = 'error' if category == 'error' else ('success' if category == 'success' else 'info') %}
-    <div class="site-toast toast-{{ toast_type }} server-toast" data-toast-type="{{ toast_type }}" role="status">
-      <span class="site-toast-icon" aria-hidden="true">{% if toast_type == 'success' %}✓{% elif toast_type == 'error' %}✕{% else %}ℹ{% endif %}</span>
-      <span class="site-toast-msg">{{ message }}</span>
-    </div>
-    {% endfor %}
-  </div>
-  <script>
-    document.querySelectorAll('.server-toast').forEach(function (toast) {
-      var delay = toast.dataset.toastType === 'error' ? 5500 : 3500;
-      setTimeout(function () {
-        toast.classList.add('toast-out');
-        setTimeout(function () { toast.remove(); }, 300);
-      }, delay);
-    });
-  </script>
-  {% endif %}
-{% endwith %}
+{% include "_flash_toasts.html" %}
 
 {% if session.user_id and profile_completion_required %}
 <div class="profile-completion-backdrop" role="presentation">
@@ -351,7 +331,6 @@ window.addEventListener('error',function(e){
         <span>联系方式（选填）</span>
         <input id="fbContact" autocomplete="email" placeholder="邮箱、QQ 或其他联系方式">
       </label>
-      <div id="fbMsg" class="feedback-message" role="status" aria-live="polite" hidden></div>
       <button id="fbSubmit" class="feedback-submit" type="submit">提交</button>
     </form>
   </section>
@@ -362,7 +341,7 @@ window.addEventListener('error',function(e){
   var opener = document.getElementById('fbBtn');
   var closeButton = document.getElementById('fbClose');
   var form = document.getElementById('fbForm');
-  var message = document.getElementById('fbMsg');
+  var contentInput = document.getElementById('fbContent');
   var submitButton = document.getElementById('fbSubmit');
   var submitting = false;
 
@@ -376,6 +355,9 @@ window.addEventListener('error',function(e){
     document.getElementById('fbType').focus();
   });
   closeButton.addEventListener('click', closeFeedback);
+  contentInput.addEventListener('input', function(){
+    if (contentInput.value.trim().length >= 2) contentInput.removeAttribute('aria-invalid');
+  });
   dialog.addEventListener('click', function(event){
     if (event.target === dialog) closeFeedback();
   });
@@ -387,10 +369,12 @@ window.addEventListener('error',function(e){
   form.addEventListener('submit', function(event){
     event.preventDefault();
     if(submitting) return;
-    var content = document.getElementById('fbContent').value.trim();
+    var content = contentInput.value.trim();
     if(content.length < 2){
-      message.textContent='请至少写2个字';
-      message.hidden=false;
+      // 字段标红、光标放回去，右上角提示原因（写的内容不动）
+      contentInput.setAttribute('aria-invalid', 'true');
+      contentInput.focus();
+      window.showToast('请至少写2个字', 'error', { key: 'feedback' });
       return;
     }
     submitting = true;
@@ -411,21 +395,17 @@ window.addEventListener('error',function(e){
         page_url: location.href
       })
     }).then(function(response){ return response.json(); }).then(function(data){
-      message.textContent = data.ok ? '✅ 感谢反馈！' : '❌ '+ (data.error||'提交失败');
-      message.hidden = false;
-      message.dataset.type = data.ok ? 'success' : 'error';
-      if(data.ok){
-        setTimeout(function(){
-          closeFeedback();
-          form.reset();
-          message.hidden=true;
-          delete message.dataset.type;
-        }, 1500);
+      if(!data.ok){
+        // 没保存：内容留在框里，可以直接再点提交
+        window.showToast(data.error || '提交失败', 'error', { key: 'feedback' });
+        return;
       }
+      window.dismissToast('feedback', true);
+      closeFeedback();
+      form.reset();
+      window.showToast('感谢反馈！', 'success');
     }).catch(function(){
-      message.textContent='❌ 网络错误，请稍后再试';
-      message.hidden = false;
-      message.dataset.type = 'error';
+      window.showToast('网络错误，请稍后再试', 'error', { key: 'feedback' });
     }).finally(function(){
       submitting = false;
       submitButton.textContent='提交';

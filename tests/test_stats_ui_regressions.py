@@ -134,12 +134,17 @@ class StatsUiRegressionTests(unittest.TestCase):
 
     def test_match_detail_mobile_stacks_sidebar_below_main_content(self):
         css = (ROOT / "static/css/app.css").read_text(encoding="utf-8")
-        mobile = re.search(r"@media \(max-width: 1080px\) \{([^@]*)\}", css)
+        mobile = re.search(r"@media \(max-width: 960px\) \{([^@]*)\}", css)
 
         self.assertIsNotNone(mobile)
         assert mobile is not None
         self.assertIn(".layout { grid-template-columns: minmax(0, 1fr); }", mobile.group(1))
         self.assertIn(".side-col { position: static; }", mobile.group(1))
+        # 横屏平板、中等窗口（961–1080px）侧栏仍在正文旁边，不能再有 1080px 就把侧栏排到下面的规则
+        self.assertNotRegex(
+            css,
+            r"@media \(max-width: 1080px\) \{[^@]*\.layout \{ grid-template-columns: minmax\(0, 1fr\); \}",
+        )
 
     def test_english_mode_hides_untranslated_first_paint(self):
         base = (ROOT / "templates/base.html").read_text(encoding="utf-8")
@@ -151,6 +156,24 @@ class StatsUiRegressionTests(unittest.TestCase):
         self.assertIn("i18n-pending", bootstrap)
         self.assertNotIn('class="games-hub" data-i18n-ignore', games)
         self.assertIn("classList.remove('i18n-pending')", i18n)
+
+    def test_english_mode_retranslates_selects_parsed_after_the_script(self):
+        """翻译脚本在反馈弹窗之前加载；页面读完时要把下拉框补翻一次，
+        否则机器忙时“建议 / Bug 报告 / 问题 / 其他”会一直是中文（监听会跳过下拉框里新增的选项）。
+        真实浏览器的稳定复现见 output/ui-audit/admin-v3-20261026/tools/slow_parse_repro.py。"""
+        base = (ROOT / "templates/base.html").read_text(encoding="utf-8")
+        i18n = (ROOT / "static/js/i18n.js").read_text(encoding="utf-8")
+
+        self.assertLess(base.index("static/js/i18n.js"), base.index('<select id="fbType">'))
+        self.assertIn(
+            "if (target.closest('input,textarea,select,[contenteditable=\"true\"]')) return true;",
+            i18n,
+        )
+        self.assertRegex(
+            i18n,
+            r"document\.readyState === 'loading'\) \{\s*document\.addEventListener\('DOMContentLoaded', function \(\) \{\s*"
+            r"document\.querySelectorAll\('select'\)\.forEach\(translateSubtree\);",
+        )
 
     def test_result_date_is_kept_on_one_line(self):
         css = (ROOT / "static/css/pages/schedule.css").read_text(encoding="utf-8")

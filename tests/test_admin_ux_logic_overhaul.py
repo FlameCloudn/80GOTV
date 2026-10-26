@@ -263,7 +263,9 @@ class AdminUxLogicOverhaulTests(unittest.TestCase):
     def test_admin_matches_filters_and_connect_copy(self):
         """测试比赛后台列表的筛选、搜索及一键进服指令功能"""
         conn = get_db()
-        conn.execute("UPDATE matches SET match_time='2099-01-01T20:00' WHERE id=?", (self.match_id,))
+        conn.execute(
+            "UPDATE matches SET match_time='2099-01-01T20:00' WHERE id=?", (self.match_id,)
+        )
         conn.commit()
         conn.close()
 
@@ -280,7 +282,7 @@ class AdminUxLogicOverhaulTests(unittest.TestCase):
         # 2. 状态筛选：筛选未开始
         resp_upcoming = self.client.get("/admin/matches?status=upcoming")
         self.assertEqual(resp_upcoming.status_code, 200)
-        self.assertIn("Team 1 对 Team 2", resp_upcoming.get_data(as_text=True))
+        self.assertIn("Team 1 VS Team 2", resp_upcoming.get_data(as_text=True))
 
         # 3. 状态筛选：筛选已结束（目前无结束比赛，应显示空提示）
         resp_completed = self.client.get("/admin/matches?status=completed")
@@ -290,10 +292,78 @@ class AdminUxLogicOverhaulTests(unittest.TestCase):
         # 4. 搜索队伍：匹配
         resp_search = self.client.get("/admin/matches?q=Team 1")
         self.assertEqual(resp_search.status_code, 200)
-        self.assertIn("Team 1 对 Team 2", resp_search.get_data(as_text=True))
+        self.assertIn("Team 1 VS Team 2", resp_search.get_data(as_text=True))
 
         # 5. 搜索不存在内容：空提示
         resp_none = self.client.get("/admin/matches?q=NoSuchTeamExists")
         self.assertEqual(resp_none.status_code, 200)
         self.assertIn("没有找到符合条件的比赛", resp_none.get_data(as_text=True))
 
+    def test_server_connect_string_is_split_into_address_and_password(self):
+        """粘贴的进服串拆成地址和密码；只写 connect 时地址里不能再带 “connect ”"""
+        from blueprints.admin_matches import _parse_server_connect
+
+        self.assertEqual(
+            _parse_server_connect("password abc;connect 1.2.3.4:27015"), ("1.2.3.4:27015", "abc")
+        )
+        self.assertEqual(
+            _parse_server_connect("connect 5.6.7.8:27016; password pw1"), ("5.6.7.8:27016", "pw1")
+        )
+        self.assertEqual(
+            _parse_server_connect("connect 10.0.0.77:27015"), ("10.0.0.77:27015", None)
+        )
+        self.assertEqual(_parse_server_connect("1.2.3.4:27015"), ("1.2.3.4:27015", None))
+        # 认不出的写法照旧整串当地址保存
+        self.assertEqual(
+            _parse_server_connect("password onlysecret"), ("password onlysecret", None)
+        )
+        self.assertEqual(_parse_server_connect(""), (None, None))
+
+    def test_pasted_connect_command_saves_plain_address_and_copies_once(self):
+        """编辑比赛时粘贴 “connect IP:端口”，保存的是纯地址，列表复制的指令只有一个 connect"""
+        response = self.client.post(
+            f"/admin/matches/edit/{self.match_id}",
+            data={
+                "csrf_token": "test-token",
+                "event_id": str(self.event_id),
+                "match_time": "2099-01-01T20:00",
+                "bo_format": "BO1",
+                "stage": "小组赛",
+                "status": "upcoming",
+                "side1_type": "team",
+                "side1_id": str(self.team1_id),
+                "side2_type": "team",
+                "side2_id": str(self.team2_id),
+                "server_address": "connect 10.0.0.77:27015",
+            },
+            follow_redirects=True,
+        )
+        self.assertEqual(response.status_code, 200)
+
+        conn = get_db()
+        row = conn.execute(
+            "SELECT server_address, server_password FROM matches WHERE id=?",
+            (self.match_id,),
+        ).fetchone()
+        conn.close()
+        self.assertEqual(row["server_address"], "10.0.0.77:27015")
+        # 这次没填密码，原来的服务器密码保留
+        self.assertEqual(row["server_password"], "orig-secret")
+
+        html = self.client.get("/admin/matches").get_data(as_text=True)
+        self.assertIn('data-connect="connect 10.0.0.77:27015; password orig-secret"', html)
+        self.assertNotIn("connect connect", html)
+
+    def test_old_rows_with_connect_prefix_copy_only_one_connect(self):
+        """以前已经存成 “connect IP:端口” 的旧数据，复制时也不重复加 connect"""
+        conn = get_db()
+        conn.execute(
+            "UPDATE matches SET server_address='connect 9.9.9.9:27015', server_password=NULL WHERE id=?",
+            (self.match_id,),
+        )
+        conn.commit()
+        conn.close()
+
+        html = self.client.get("/admin/matches").get_data(as_text=True)
+        self.assertIn('data-connect="connect 9.9.9.9:27015"', html)
+        self.assertNotIn("connect connect", html)

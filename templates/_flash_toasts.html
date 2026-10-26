@@ -1,0 +1,15 @@
+{#- 服务器提示（flash）：输出成右上角浮动提示条，和 showToast 是同一套样式（static/css/toast.css）。
+    static/js/site_dialogs.js 会给它们补上图标、关闭按钮、计时和读屏播报：错误、警告不自动消失，成功、说明 6 秒后收起。
+    错误的正文是 role=alert。container_class：后台传 'admin-flashes'（后台表单脚本和现有测试按 .admin-flashes .alert-* 找这些提示）。 -#}
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div class="site-toast-container server-toast-container{% if container_class %} {{ container_class }}{% endif %}">
+  {% for category, message in messages %}
+  {% set kind = 'error' if category in ('error', 'danger') else ('success' if category == 'success' else ('warning' if category == 'warning' else 'info')) %}
+  <div class="site-toast toast-{{ kind }} server-toast alert alert-{{ kind }}" data-toast-type="{{ kind }}">
+    <div class="site-toast-body"{% if kind == 'error' %} role="alert"{% endif %}><span class="site-toast-msg">{{ message }}</span></div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endwith %}

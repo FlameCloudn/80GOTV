@@ -101,11 +101,19 @@ for (const size of ['wide', 'narrow']) {
       await screenshot(page, testInfo, `admin-matchup-${width}-${theme}`);
       await expectAdminFormFits(page);
       if (theme === 'dark') await expectDarkMatchFormContrast(page);
-      await expect(page.locator('.top-nav .nav-links')).toHaveCSS('position', 'static');
-      await expect(page.locator('.top-nav .nav-links')).toHaveCSS('flex-direction', 'row');
-      const nav = await page.locator('.top-nav').boundingBox();
+      // 后台导航：宽屏是表单左边的一列，窄屏变成表单上方横排（放不下就换行）；任何宽度都不能压住表单
+      const nav = await page.locator('.admin-nav').boundingBox();
       const form = await page.locator('#matchForm').boundingBox();
-      expect(form.y).toBeGreaterThanOrEqual(nav.y + nav.height);
+      expect(nav.x + nav.width <= form.x || nav.y + nav.height <= form.y).toBeTruthy();
+      if (width <= 1100) {
+        await expect(page.locator('.admin-nav')).toHaveCSS('position', 'static');
+        await expect(page.locator('.admin-nav')).toHaveCSS('flex-direction', 'row');
+        // 每个入口都直接看得到，不藏在右边要横向拖动才出来
+        const hiddenLinks = await page.locator('.admin-nav a').evaluateAll(links => links
+          .filter(link => link.getBoundingClientRect().right > document.documentElement.clientWidth + 1)
+          .map(link => link.textContent.trim()));
+        expect(hiddenLinks).toEqual([]);
+      }
 
       await page.locator('input[name="side1_type"][value="players"]').check();
       await expect(page.locator('#side1_players')).toBeVisible();
@@ -122,11 +130,11 @@ for (const size of ['wide', 'narrow']) {
         await screenshot(page, testInfo, `admin-${tab}-${width}-${theme}`);
       }
 
-      await page.locator('.top-nav a[href="/admin/nicknames"]').click();
+      await page.locator('.admin-nav a[href="/admin/nicknames"]').click();
       await expect(page).toHaveURL(/\/admin\/nicknames$/);
-      await page.locator('.top-nav a[href="/admin"]').click();
+      await page.locator('.admin-nav a[href="/admin"]').click();
       await expect(page).toHaveURL(/\/admin$/);
-      await page.locator('.top-nav a[href="/admin/matches"]').click();
+      await page.locator('.admin-nav a[href="/admin/matches"]').click();
       await expect(page).toHaveURL(/\/admin\/matches$/);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
       await screenshot(page, testInfo, `admin-navigation-${width}-${theme}`);
@@ -190,8 +198,9 @@ test('ending an undecided series shows a failure and leaves its database row unc
   await page.goto(`/admin/matches?event=${fixture.event_id}`);
   const form = page.locator(`form[action="/admin/matches/${fixture.test_match_id}/complete"]`);
   await expect(form).toBeVisible();
-  page.once('dialog', dialog => dialog.accept());
   await form.getByRole('button', { name: '结束比赛', exact: true }).click();
+  // 后台和前台用同一个站内确认框：点“确定”才会真的提交
+  await page.locator('.site-modal-ok').click();
   await expect(page.getByText('比分尚未达到该赛制的获胜条件，或比分无效，不能结束比赛', { exact: true })).toBeVisible();
   expect(await readState()).toEqual(before);
   await screenshot(page, testInfo, 'undecided-series-rejected');

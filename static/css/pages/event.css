@@ -130,6 +130,7 @@
 
 .event-reg-team-manage-panel form { display: grid; gap: 6px; }
 .event-reg-team-manage-panel label { display: grid; gap: 4px; color: var(--text-secondary); font-size: var(--font-xs); }
+.event-reg-file-hint { color: var(--text-muted); font-size: var(--font-xs); }
 
 .event-reg-slots { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--space-sm); padding: 0 var(--space-md) var(--space-md); }
 
@@ -314,6 +315,14 @@
 
 .team-badge:hover .team-players-popup,
 .team-badge:focus-within .team-players-popup { opacity: 1; visibility: visible; transform: translate(-50%, 0); }
+
+/* 手机两列卡片：名单浮层贴着卡片外侧边展开，不再居中伸出屏幕（以前右边那张会让整页能左右拖动几像素） */
+@media (max-width: 760px) {
+  .team-players-popup { left: 0; width: min(220px, calc(100vw - 2 * var(--space-lg))); transform: translate(0, 4px); }
+  .team-badge:hover .team-players-popup,
+  .team-badge:focus-within .team-players-popup { transform: translate(0, 0); }
+  .teams-grid > .team-badge:nth-child(2n) .team-players-popup { left: auto; right: 0; }
+}
 
 .team-player-link {
   display: flex;

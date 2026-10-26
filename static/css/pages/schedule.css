@@ -35,6 +35,9 @@
 
 .filter-nav a:hover { color: var(--text-primary); background: var(--bg-hover); }
 .filter-nav a.active { color: var(--accent); background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); font-weight: 500; }
+/* 赛事筛选每一项：名称占满一行，日期小字放在下面（以前名称和日期挤在一行，侧栏一窄名称就只剩几个字） */
+.filter-nav a:has(.match-filter-date) { flex-direction: column; align-items: flex-start; justify-content: center; gap: 1px; }
+.filter-nav a .match-filter-name { max-width: 100%; }
 .filter-nav-label { padding: var(--space-sm) var(--space-lg) 2px; color: var(--text-muted); font-size: var(--font-xs); font-weight: 600; }
 .match-filter-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .match-filter-date { flex: 0 0 auto; color: var(--text-muted); font-size: var(--font-xs); }
@@ -184,12 +187,30 @@
 .result-event { overflow: hidden; color: var(--text-muted); font-size: var(--font-xs); text-align: right; text-overflow: ellipsis; white-space: nowrap; }
 .result-bo { justify-self: end; }
 
+/* 横屏平板、中等窗口：信息不掉行——赛事、日期仍在每行右边，只是那一栏窄一点（以前这里会掉到队名下面、居中，左边空一大块） */
 @media (max-width: 1080px) {
   .schedule-layout { grid-template-columns: 220px minmax(0, 1fr); }
-  .match-schedule-row { grid-template-columns: 70px minmax(0, 1fr); }
-  .match-schedule-meta { grid-column: 2; justify-items: start; text-align: left; }
-  .result-row { grid-template-columns: minmax(0, 1fr) 44px; }
-  .result-event { grid-column: 1; grid-row: 2; text-align: center; }
+  .match-schedule-row { grid-template-columns: 70px minmax(0, 1fr) minmax(0, 170px); gap: var(--space-md); }
+  .result-row { grid-template-columns: minmax(0, 1fr) minmax(0, 150px) 40px; gap: var(--space-md); }
+}
+
+/* 竖屏平板（761–960）：比赛页保留日历侧栏，收窄到 200px；
+   赛果页左边只有赛事筛选，换成列表上方的下拉框（和手机同一个），列表占满宽度，队名不会被挤成几个字 */
+@media (max-width: 960px) {
+  .schedule-layout { grid-template-columns: 200px minmax(0, 1fr); }
+  .schedule-layout.results-schedule-layout { grid-template-columns: minmax(0, 1fr); }
+  .results-schedule-layout .results-filter-sidebar { display: none; }
+
+  .mobile-result-event-filter {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    color: var(--text-muted);
+    font-size: var(--font-sm);
+  }
+
+  .mobile-result-event-filter label { flex: 0 0 auto; white-space: nowrap; }
+  .mobile-result-event-filter select { flex: 1 1 0; min-width: 0; max-width: 360px; }
 }
 
 @media (max-width: 760px) {
@@ -227,6 +248,8 @@
   }
 
   .match-schedule-row { grid-template-columns: 60px minmax(0, 1fr); gap: var(--space-md); padding: 10px var(--space-md); }
+  /* 手机：赛事和日期放在队名下面、靠左，和队名对齐 */
+  .match-schedule-meta { grid-column: 2; justify-items: start; text-align: left; }
   .match-time-text { font-size: var(--font-md); }
   .schedule-day-head { padding: 7px var(--space-md); }
 

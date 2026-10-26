@@ -11,7 +11,6 @@
   var query = document.getElementById('bingoPlayerQuery');
   var submit = document.getElementById('bingoSubmit');
   var label = document.getElementById('bingoSelectionLabel');
-  var error = document.getElementById('bingoFormError');
   var options = Array.prototype.slice.call(document.querySelectorAll('#bingoPlayerOptions option'));
 
   function resolvePlayer() {
@@ -33,8 +32,19 @@
     submit.disabled = false;
     query.value = '';
     playerInput.value = '';
-    error.textContent = '';
+    clearFormError();
     query.focus();
+  }
+
+  // 出错用右上角提示；没从候选里选中时输入框标红，重新输入或换格子时去掉
+  function showFormError(message, markInput) {
+    if (markInput) query.setAttribute('aria-invalid', 'true');
+    window.showToast(message, 'error', { key: 'bingo-form' });
+  }
+
+  function clearFormError() {
+    query.removeAttribute('aria-invalid');
+    window.dismissToast('bingo-form');
   }
 
   cells.forEach(function (button) {
@@ -42,19 +52,19 @@
   });
 
   query.addEventListener('input', function () {
-    error.textContent = '';
+    clearFormError();
     resolvePlayer();
   });
 
   form.addEventListener('submit', function (event) {
     if (rowInput.value === '' || columnInput.value === '') {
       event.preventDefault();
-      error.textContent = '请先选择一个空格';
+      showFormError('请先选择一个空格', false);
       return;
     }
     if (!resolvePlayer()) {
       event.preventDefault();
-      error.textContent = '请从候选列表中选择一名选手';
+      showFormError('请从候选列表中选择一名选手', true);
       query.focus();
     }
   });

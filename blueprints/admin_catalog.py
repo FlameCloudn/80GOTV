@@ -195,6 +195,12 @@ def admin_teams_add():
         name, short_name, description = _team_form_values()
         conn = get_db()
         error = _team_validation_error(conn, name, short_name)
+        logo_file = request.files.get("logo")
+        logo_filename = None
+        if not error and logo_file:
+            logo_filename = save_uploaded_team_logo(logo_file, BASE_DIR)
+            if not logo_filename:
+                error = "队标无效，请上传不超过 10MB 的 PNG、JPG 或 GIF 图片"
         if error:
             conn.close()
             flash(error, "error")
@@ -202,8 +208,6 @@ def admin_teams_add():
                 "admin/teams_form.html",
                 team={"name": name, "short_name": short_name, "description": description},
             ), 400
-        logo_file = request.files.get("logo")
-        logo_filename = save_uploaded_team_logo(logo_file, BASE_DIR) if logo_file else None
         logo_path = f"team_logos/{logo_filename}" if logo_filename else None
         conn.execute(
             "INSERT INTO teams(name, short_name, description, logo) VALUES(?,?,?,?)",
@@ -228,6 +232,12 @@ def admin_teams_edit(team_id):
     if request.method == "POST":
         name, short_name, description = _team_form_values()
         error = _team_validation_error(conn, name, short_name, team_id)
+        logo_file = request.files.get("logo")
+        logo_filename = None
+        if not error and logo_file:
+            logo_filename = save_uploaded_team_logo(logo_file, BASE_DIR)
+            if not logo_filename:
+                error = "队标无效，请上传不超过 10MB 的 PNG、JPG 或 GIF 图片"
         if error:
             conn.close()
             flash(error, "error")
@@ -241,8 +251,6 @@ def admin_teams_edit(team_id):
                     "logo": team["logo"],
                 },
             ), 400
-        logo_file = request.files.get("logo")
-        logo_filename = save_uploaded_team_logo(logo_file, BASE_DIR) if logo_file else None
         if logo_filename:
             conn.execute(
                 "UPDATE teams SET name=?, short_name=?, description=?, logo=? WHERE id=?",

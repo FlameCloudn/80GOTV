@@ -1,133 +1,62 @@
-<!doctype html>
-<html lang="zh-CN">
-<head>
-  {% include "_i18n_bootstrap.html" %}
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>赛事管理 - 80GOTV</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-comfort.css') }}">
-  <script>
-    (function(){
-      var t = localStorage.getItem('theme');
-      if(!t){ t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light'; }
-      document.documentElement.setAttribute('data-theme', t);
-    })();
-  </script>
-  <style>
-    body{background:var(--bg-primary);color:var(--text-primary);font-family:sans-serif}
-    .container{padding:0 20px 30px}
-    .header{
-      background:var(--bg-card);
-      border:1px solid var(--border-color);
-      padding:16px 20px;
-      margin-bottom:20px;
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-    }
-    .header h2{margin:0}
-    table{
-      width:100%;
-      background:var(--bg-card);
-      border:1px solid var(--border-color);
-      border-collapse:collapse;
-    }
-    th{
-      background:var(--bg-secondary);
-      color:var(--text-primary);
-      padding:12px 14px;
-      text-align:left;
-      font-weight:700;
-      border-bottom:1px solid var(--border-color);
-      font-size:13px;
-    }
-    td{
-      padding:12px 14px;
-      border-bottom:1px solid var(--border-color);
-      color:var(--text-primary);
-      font-size:13px;
-    }
-    tr:hover{background:var(--bg-hover)}
-    .actions a{
-      margin-right:12px;
-      color:var(--accent);
-      text-decoration:none;
-      font-size:13px;
-    }
-    .actions a:hover{text-decoration:underline}
-    .status-badge{
-      padding:3px 8px;
-      font-size:12px;
-      font-weight:600;
-      display:inline-block;
-    }
-    .status-upcoming{background:#dbeafe;color:#1e40af}
-    .status-ongoing{background:#dcfce7;color:#166534}
-    .status-completed{background:#f1f5f9;color:#475569}
-    [data-theme="dark"] .status-upcoming{background:#172554;color:#93c5fd}
-    [data-theme="dark"] .status-ongoing{background:#052e16;color:#86efac}
-    [data-theme="dark"] .status-completed{background:#1e293b;color:#94a3b8}
-  </style>
-</head>
-<body>
+{% extends "admin/_layout.html" %}
+{% import "admin/_icons.html" as ui %}
+{% block title %}赛事管理{% endblock %}
+{% block main %}
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>EVENTS</span><h1>赛事管理</h1></div>
+  <div class="page-actions"><a href="{{ url_for('admin.admin_events_add') }}" class="btn btn-primary">{{ ui.icon('plus') }}添加赛事</a></div>
+</header>
 
-<!-- 顶部导航栏 -->
-{% include "admin/_top_nav.html" %}
-
-<div class="container">
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      {% for category, message in messages %}
-      <div class="alert alert-{{ category }}">{{ message }}</div>
-      {% endfor %}
-    {% endif %}
-  {% endwith %}
-
-  <div class="header">
-    <h2>赛事管理</h2>
-    <a href="/admin/events/add" class="btn btn-primary">➕ 添加赛事</a>
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">全部赛事 <span class="panel-count" data-list-count="#eventsTable">{{ events|length }}</span></h2></div>
+  {% if events %}
+  <div class="admin-toolbar list-filters">
+    <label class="filter-search-box">{{ ui.icon('search') }}<input type="search" data-list-search="#eventsTable" placeholder="搜索赛事名、简称" aria-label="搜索赛事"></label>
+    <select data-list-filter="#eventsTable" data-filter-key="status" aria-label="按状态筛选">
+      <option value="">状态：全部</option>
+      <option value="upcoming">即将开始</option>
+      <option value="ongoing">进行中</option>
+      <option value="completed">已结束</option>
+    </select>
   </div>
-
-  <table>
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>赛事名</th>
-        <th>开始日期</th>
-        <th>结束日期</th>
-        <th>赛制</th>
-        <th>状态</th>
-        <th>操作</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for e in events %}
-      <tr>
-        <td>{{ e.id }}</td>
-        <td>{{ e.name }}</td>
-        <td>{{ e.start_date|date_display }}</td>
-        <td>{{ e.end_date|date_display }}</td>
-        <td>{{ e.format or '-' }}</td>
-        <td>
-          <span class="status-badge status-{{ e.effective_event_status }}">
-            {% if e.effective_event_status == 'upcoming' %}即将开始
-            {% elif e.effective_event_status == 'ongoing' %}进行中
-            {% else %}已结束{% endif %}
-          </span>
-        </td>
-        <td class="actions">
-          <a href="/admin/events/edit/{{ e.id }}">✏️ 编辑</a>
-          <a href="/admin/events/{{ e.id }}/bracket">📋 对阵图</a>
-          <form method="post" action="/admin/events/delete/{{ e.id }}" style="display:inline" data-confirm="确定删除赛事【{{ e.name }}】吗？" onsubmit="return window.confirm(this.dataset.confirm)"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:14px;padding:0">🗑️ 删除</button></form>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-
-<script src="{{ versioned_url('static/js/i18n.js') }}"></script>
-<script src="{{ url_for('static', filename='js/svg_icons.js') }}?v=20260620-svg1"></script>
-</body>
-</html>
+  <div class="table-wrap">
+    <table class="table admin-table" id="eventsTable">
+      <thead><tr><th class="col-id">ID</th><th>赛事</th><th>赛期</th><th>状态</th><th>报名</th><th class="col-actions">操作</th></tr></thead>
+      <tbody>
+        {% for e in events %}
+        {% set event_status = e.effective_event_status if e.effective_event_status in ('upcoming', 'ongoing') else 'completed' %}
+        <tr id="event-{{ e.id }}" data-status="{{ event_status }}" data-search="{{ e.name }} {{ e.short_name or '' }} #{{ e.id }}">
+          <td class="col-id">{{ e.id }}</td>
+          <td>
+            <a class="cell-title" href="{{ url_for('admin.admin_events_edit', event_id=e.id) }}" data-i18n-ignore>{{ e.name }}</a>
+            <span class="cell-sub" data-i18n-ignore>{{ e.short_name or '' }}{% if e.short_name and e.format %} · {% endif %}{{ e.format or '' }}</span>
+          </td>
+          <td class="nowrap">{{ e.start_date|date_display }} – {{ e.end_date|date_display }}</td>
+          <td>
+            {% if event_status == 'upcoming' %}<span class="badge badge-upcoming status-badge status-upcoming">即将开始</span>
+            {% elif event_status == 'ongoing' %}<span class="badge badge-live status-badge status-ongoing">进行中</span>
+            {% else %}<span class="badge badge-done status-badge status-completed">已结束</span>{% endif %}
+          </td>
+          <td>{% if e.registration_open and event_status != 'completed' %}<span class="badge badge-green">报名中</span>{% else %}<span class="muted">-</span>{% endif %}</td>
+          <td class="col-actions">
+            <div class="row-actions">
+              <a href="{{ url_for('admin.admin_events_edit', event_id=e.id) }}" class="btn btn-sm">{{ ui.icon('edit') }}编辑</a>
+              <a href="{{ url_for('admin.admin_event_bracket', event_id=e.id) }}" class="btn btn-sm">{{ ui.icon('bracket') }}对阵图</a>
+              {{ ui.icon_link('match', url_for('admin.admin_matches', event=e.id), '本赛事的比赛') }}
+              {{ ui.icon_link('external', event_path(e), '前台赛事页（新标签页）', target='_blank') }}
+              <form method="post" action="{{ url_for('admin.admin_events_delete', event_id=e.id) }}" data-confirm="确定删除赛事【{{ e.name }}】吗？">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit" class="btn btn-sm btn-icon btn-danger" title="删除赛事" aria-label="删除赛事 {{ e.name }}">{{ ui.icon('trash') }}</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">还没有赛事</div>
+  {% endif %}
+</section>
+{% endblock %}

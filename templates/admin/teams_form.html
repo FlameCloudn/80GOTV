@@ -1,79 +1,63 @@
-<!doctype html>
-<html lang="zh-CN">
-<head>
-  {% include "_i18n_bootstrap.html" %}
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>{% if team and team.id %}编辑队伍{% else %}添加队伍{% endif %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-comfort.css') }}">
-  <script>
-    (function(){
-      var t = localStorage.getItem('theme');
-      if(!t){ t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light'; }
-      document.documentElement.setAttribute('data-theme', t);
-    })();
-  </script>
-</head>
-<body>
+{% extends "admin/_layout.html" %}
+{% import "admin/_icons.html" as ui %}
+{% set editing = team and team.id %}
+{% block title %}{% if editing %}编辑队伍{% else %}添加队伍{% endif %}{% endblock %}
+{% block main %}
+<a href="{{ url_for('admin.admin_teams') }}" class="back-link">← 返回队伍管理</a>
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>TEAMS</span><h1>{% if editing %}编辑队伍{% else %}添加队伍{% endif %}</h1></div>
+  {% if editing %}<div class="page-actions"><a class="btn" href="/teams/{{ team.id }}" target="_blank" rel="noopener">{{ ui.icon('external') }}前台主页</a></div>{% endif %}
+</header>
 
-<!-- 顶部导航栏 -->
-{% include "admin/_top_nav.html" %}
-
-<div class="container">
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      {% for category, message in messages %}
-      <div class="alert alert-{{ category }}">{{ message }}</div>
-      {% endfor %}
-    {% endif %}
-  {% endwith %}
-
-  <div class="form-container">
-    <h2>{% if team and team.id %}✏️ 编辑队伍{% else %}➕ 添加队伍{% endif %}</h2>
-
-    <form method="post" enctype="multipart/form-data">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-
-      <div class="form-group">
-        <label>队名 *</label>
-        <input type="text" name="name" value="{{ team.name if team else '' }}" required placeholder="例如：星辰电竞社">
+<section class="panel admin-form-narrow">
+  <form method="post" enctype="multipart/form-data" class="admin-form" id="teamForm" data-busy-text="保存中……" data-guard data-draft>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <section class="form-group" data-required-group>
+      <div class="form-group-head"><h2 class="form-group-title">队伍资料</h2><span data-group-status></span></div>
+      <div class="form-grid">
+        <label class="field">
+          <span class="field-label">队名 <span class="field-required">*</span></span>
+          <input type="text" name="name" value="{{ team.name if team else '' }}" required placeholder="例如：星辰电竞社">
+        </label>
+        <label class="field">
+          <span class="field-label">简称 <span class="field-required">*</span></span>
+          <input type="text" name="short_name" value="{{ team.short_name if team else '' }}" required placeholder="例如：STAR">
+        </label>
       </div>
+    </section>
 
-      <div class="form-group">
-        <label>简称 *</label>
-        <input type="text" name="short_name" value="{{ team.short_name if team else '' }}" required placeholder="例如：STAR">
-      </div>
-
-      <div class="form-group">
-        <label>队标图片</label>
+    <section class="form-group">
+      <div class="form-group-head"><h2 class="form-group-title">队标</h2><span data-group-status></span></div>
+      <div class="field">
         {% if team and team.logo %}
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
-          <img src="{{ team.logo|team_logo_url }}" alt="{{ team.name }}" style="width:48px;height:48px;object-fit:contain;border:1px solid var(--border-color,#d4d9e2);background:var(--bg-secondary,#f4f5f7);">
-          <span style="font-size:13px;color:var(--text-muted,#77818d);">已有队标，如无需更换请勿选择新文件</span>
+        <div class="file-preview">
+          <img src="{{ team.logo|team_logo_url }}" alt="{{ team.name }}">
+          <span>当前队标；不选新文件就保持不变</span>
         </div>
         {% endif %}
-        <input type="file" name="logo" accept="image/png,image/jpeg,image/webp,image/gif">
-        <small class="field-note">支持 PNG、JPG、WebP、GIF 图片格式（最大 2MB）</small>
-        <small class="field-note">上传后会自动去掉纯色背景、裁掉多余空白并居中；原图另外备份，不会丢失</small>
+        {#- 前端先查大小和格式（site_dialogs.js 的 checkUploadFile），服务器保存时再查一遍 -#}
+        <input type="file" name="logo" accept="image/png,image/jpeg,image/gif,.png,.jpg,.jpeg,.gif" aria-label="队标图片" aria-describedby="teamLogoHint"
+               data-max-bytes="10485760" data-size-error="队标图片不能超过 10MB" data-type-error="队标只支持 PNG、JPG、JPEG、GIF 格式">
+        <span class="field-hint" id="teamLogoHint">PNG / JPG / JPEG / GIF，最大 10MB。上传后自动去掉纯色背景并居中，原图另外备份。</span>
       </div>
+    </section>
 
-      <div class="form-group">
-        <label>描述</label>
-        <textarea name="description" rows="4" placeholder="队伍简介（可选）">{{ team.description if team else '' }}</textarea>
+    <details class="form-group optional" {% if team and team.description %}open{% endif %}>
+      <summary><span class="form-group-title">描述</span><span data-group-status></span></summary>
+      <div class="details-body">
+        <label class="field">
+          <span class="field-label">队伍简介</span>
+          <textarea name="description" rows="4">{{ team.description if team else '' }}</textarea>
+        </label>
       </div>
+    </details>
 
+    <div class="sticky-form-actions">
       <div class="form-actions">
-        <button type="submit" class="btn btn-primary">
-          {% if team and team.id %}💾 保存修改{% else %}✅ 添加队伍{% endif %}
-        </button>
-        <a href="/admin/teams" class="btn btn-secondary">❌ 取消</a>
+        <a href="{{ url_for('admin.admin_teams') }}" class="btn" data-discard>取消</a>
+        <button type="submit" class="btn btn-primary">{{ ui.icon('check') }}{% if editing %}保存修改{% else %}添加队伍{% endif %}</button>
       </div>
-    </form>
-  </div>
-</div>
-
-<script src="{{ versioned_url('static/js/i18n.js') }}"></script>
-<script src="{{ url_for('static', filename='js/svg_icons.js') }}?v=20260620-svg1"></script>
-</body>
-</html>
+    </div>
+  </form>
+</section>
+{% endblock %}

@@ -85,6 +85,8 @@
   .team-hero-facts { grid-column: 1 / -1; grid-template-columns: repeat(4, minmax(0, 1fr)); padding-top: var(--space-lg); border-top: 1px solid var(--border-color); }
   .team-hero-facts > div { padding: 0 var(--space-sm); }
   .team-roster { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+  /* 竖屏平板：赛事列让出 20px 给两边队名（768 宽时队名会被截断）；列宽仍固定，各行比分列对齐 */
+  .team-match { grid-template-columns: 96px minmax(0, 1fr) auto minmax(0, 1fr) minmax(0, 200px); }
 }
 
 @media (max-width: 760px) {

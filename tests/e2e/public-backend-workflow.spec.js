@@ -16,7 +16,7 @@ test('administrator signs in from the real form with the captcha empty', async (
   await page.getByRole('button', { name: '登录', exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/$/);
   await page.goto('/admin/teams');
-  await expect(page.locator(`a[href="/admin/teams/edit/${fixture.team_id}"]`)).toBeVisible();
+  await expect(page.locator(`a.cell-title[href="/admin/teams/edit/${fixture.team_id}"]`)).toBeVisible();
 });
 
 test('an admin username with the wrong password does not receive access', async ({ page }) => {

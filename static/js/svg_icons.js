@@ -119,7 +119,9 @@
   });
   var iconPattern = new RegExp('(' + escaped.join('|') + ')\\uFE0F?', 'gu');
 
-  function createIcon(symbol) {
+  // decorative：图标旁边本来就有文字（如“← 返回新闻列表”）时只作装饰，对读屏隐藏、不加悬停名称，
+  // 免得读成“返回 返回新闻列表”；只有单独一个图标、没有文字时才带名称。
+  function createIcon(symbol, decorative) {
     var normalized = symbol.replace(/\uFE0F/g, '');
     var data = ICONS[normalized];
     if (!data) return document.createTextNode(symbol);
@@ -132,10 +134,28 @@
     svg.setAttribute('stroke-width', '1.8');
     svg.setAttribute('stroke-linecap', 'round');
     svg.setAttribute('stroke-linejoin', 'round');
+    if (decorative) {
+      svg.setAttribute('aria-hidden', 'true');
+      svg.setAttribute('focusable', 'false');
+      svg.innerHTML = SHAPES[data.shape];
+      return svg;
+    }
     svg.setAttribute('role', 'img');
     svg.setAttribute('aria-label', data.label);
     svg.innerHTML = '<title>' + data.label + '</title>' + SHAPES[data.shape];
     return svg;
+  }
+
+  // 图标所在的元素里还有别的文字，或元素自己已有名称（aria-label / title）时，图标算装饰
+  function iconIsDecorative(node) {
+    iconPattern.lastIndex = 0;
+    var rest = node.nodeValue.replace(iconPattern, '');
+    iconPattern.lastIndex = 0;
+    if (rest.trim()) return true;
+    var parent = node.parentElement;
+    if (!parent) return false;
+    if (parent.hasAttribute('aria-label') || parent.hasAttribute('title')) return true;
+    return parent.textContent.replace(node.nodeValue, '').trim().length > 0;
   }
 
   function replaceTextNode(node) {
@@ -147,9 +167,10 @@
     var fragment = document.createDocumentFragment();
     var text = node.nodeValue;
     var lastIndex = 0;
+    var decorative = iconIsDecorative(node);
     text.replace(iconPattern, function (match, symbol, offset) {
       if (offset > lastIndex) fragment.appendChild(document.createTextNode(text.slice(lastIndex, offset)));
-      fragment.appendChild(createIcon(symbol));
+      fragment.appendChild(createIcon(symbol, decorative));
       lastIndex = offset + match.length;
       return match;
     });

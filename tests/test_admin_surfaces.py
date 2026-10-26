@@ -1,3 +1,4 @@
+import io
 import json
 import os
 import re
@@ -6,11 +7,16 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from flask import request
+from PIL import Image
+from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app import app
 from config import Config
 from models import get_db, init_tables
+from utils.db_helpers import validate_image_content
+from web_app import _limit_request_body
 
 
 class AdminSurfaceTests(unittest.TestCase):
@@ -330,15 +336,41 @@ class AdminSurfaceTests(unittest.TestCase):
             "/admin/nicknames",
             "/admin/awards/poster",
             "/admin/top10",
+            "/admin/teams/add",
+            "/admin/players/add",
+            "/admin/events/add",
+            "/admin/matches/add",
+            "/admin/news/add",
         )
         for path in paths:
             with self.subTest(path=path):
                 html = self.client.get(path).get_data(as_text=True)
-                self.assertIn('class="top-nav"', html)
-                self.assertIn("css/admin-comfort.css", html)
-                self.assertIn("CS2 后台管理", html)
+                # 新版后台外壳：顶栏 + 左侧导航，和前台同一套样式；旧样式表不再加载
+                self.assertIn('class="admin-topbar"', html)
+                self.assertIn('aria-label="后台导航"', html)
+                self.assertIn("css/app.css", html)
+                self.assertIn("css/pages/admin.css", html)
+                self.assertNotIn("css/style.css", html)
+                self.assertNotIn("css/admin-comfort.css", html)
+                self.assertIn("后台管理", html)
                 self.assertIn('id="languageSelect"', html)
                 self.assertNotIn('class="language-floating"', html)
+
+    def test_every_admin_page_template_uses_the_new_shell(self):
+        """后台每个页面模板都继承新版外壳（登录页单独用新版样式），不再引用旧样式和旧图标脚本。"""
+        template_dir = Path(app.root_path) / "templates" / "admin"
+        for template in template_dir.glob("*.html"):
+            if template.name.startswith("_"):
+                continue
+            text = template.read_text(encoding="utf-8")
+            with self.subTest(template=template.name):
+                if template.name == "login.html":
+                    self.assertIn("css/pages/admin.css", text)
+                    self.assertIn("_standalone_head.html", text)
+                else:
+                    self.assertIn('{% extends "admin/_layout.html" %}', text)
+                for legacy in ("css/style.css", "admin-comfort.css", "svg_icons.js", 'style="'):
+                    self.assertNotIn(legacy, text)
 
     def test_dashboard_stat_cards_link_to_matching_management_pages(self):
         html = self.client.get("/admin").get_data(as_text=True)
@@ -359,6 +391,40 @@ class AdminSurfaceTests(unittest.TestCase):
                 )
                 self.assertIsNotNone(card)
                 self.assertIn(label, card.group(1))
+
+    def test_dashboard_live_matches_are_prioritized_before_limiting_rows(self):
+        from blueprints.admin_core import _dashboard_work
+
+        conn = get_db()
+        upcoming = []
+        for day in range(1, 14):
+            upcoming.append(
+                conn.execute(
+                    "INSERT INTO matches(status,match_time) VALUES('upcoming',?)",
+                    (f"2099-01-{day:02d} 12:00:00",),
+                ).lastrowid
+            )
+        automatic_live = conn.execute(
+            "INSERT INTO matches(status,match_time) VALUES('upcoming','2000-01-01 12:00:00')"
+        ).lastrowid
+        manual_live = conn.execute(
+            "INSERT INTO matches(status,match_time) VALUES('live','2099-12-01 12:00:00')"
+        ).lastrowid
+        undated_live = conn.execute("INSERT INTO matches(status) VALUES('live')").lastrowid
+        for status in ("completed", "cancelled"):
+            conn.execute(
+                "INSERT INTO matches(status,match_time) VALUES(?,'1999-01-01 12:00:00')", (status,)
+            )
+        conn.commit()
+        try:
+            matches = _dashboard_work(conn)["active_matches"]
+        finally:
+            conn.close()
+        self.assertEqual(
+            [match["id"] for match in matches],
+            [automatic_live, manual_live, undated_live, *upcoming[:5]],
+        )
+        self.assertEqual([match["effective_status"] for match in matches[:3]], ["live"] * 3)
 
     def test_dashboard_pending_count_excludes_placeholder_accounts(self):
         conn = get_db()
@@ -544,9 +610,193 @@ class AdminSurfaceTests(unittest.TestCase):
         reversed_dates.update(start_date="2026-07-13T10:00", end_date="2026-07-12T10:00")
         self.assertEqual(self.post("/admin/events/add", reversed_dates).status_code, 400)
 
+    def test_invalid_team_logo_on_create_preserves_values_then_valid_retry_saves(self):
+        values = {"name": "Logo Retry", "short_name": "LR", "description": "Keep this description"}
+        with (
+            tempfile.TemporaryDirectory() as upload_root,
+            patch("blueprints.admin_catalog.BASE_DIR", upload_root),
+        ):
+            response = self.post(
+                "/admin/teams/add", dict(values, logo=(io.BytesIO(b"not an image"), "broken.png"))
+            )
+            self.assertEqual(response.status_code, 400)
+            html = response.get_data(as_text=True)
+            for value in values.values():
+                self.assertIn(value, html)
+            self.assertIn("队标无效", html)
+            conn = get_db()
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM teams").fetchone()[0], 0)
+            conn.close()
+            self.assertEqual(list(Path(upload_root).rglob("*")), [])
+
+            picture = io.BytesIO()
+            Image.new("RGB", (24, 24), "blue").save(picture, format="PNG")
+            picture.seek(0)
+            saved = self.post("/admin/teams/add", dict(values, logo=(picture, "valid.png")))
+            self.assertEqual(saved.status_code, 302)
+            conn = get_db()
+            team = dict(
+                conn.execute("SELECT * FROM teams WHERE name=?", (values["name"],)).fetchone()
+            )
+            conn.close()
+            self.assertTrue(team["logo"].startswith("team_logos/"))
+            self.assertTrue((Path(upload_root) / "static/uploads" / team["logo"]).is_file())
+            reopened = self.client.get(f"/admin/teams/edit/{team['id']}").get_data(as_text=True)
+            self.assertIn(team["logo"], reopened)
+            self.assertIn(values["description"], reopened)
+
+    def test_invalid_team_logo_edit_preserves_existing_record_and_old_file(self):
+        conn = get_db()
+        team_id = conn.execute(
+            "INSERT INTO teams(name,short_name,description,logo) VALUES(?,?,?,?)",
+            ("Old Team", "OLD", "Original description", "team_logos/old.png"),
+        ).lastrowid
+        conn.commit()
+        conn.close()
+        values = {"name": "Changed Team", "short_name": "NEW", "description": "New description"}
+        with (
+            tempfile.TemporaryDirectory() as upload_root,
+            patch("blueprints.admin_catalog.BASE_DIR", upload_root),
+        ):
+            old_logo = Path(upload_root) / "static/uploads/team_logos/old.png"
+            old_logo.parent.mkdir(parents=True)
+            old_logo.write_bytes(b"original logo fixture")
+            for filename in ("broken.png", "unsupported.txt"):
+                with self.subTest(filename=filename):
+                    response = self.post(
+                        f"/admin/teams/edit/{team_id}",
+                        dict(values, logo=(io.BytesIO(b"not an image"), filename)),
+                    )
+                    self.assertEqual(response.status_code, 400)
+                    html = response.get_data(as_text=True)
+                    for value in values.values():
+                        self.assertIn(value, html)
+                    self.assertIn("team_logos/old.png", html)
+                    self.assertIn("队标无效", html)
+                    conn = get_db()
+                    record = conn.execute(
+                        "SELECT name,short_name,description,logo FROM teams WHERE id=?", (team_id,)
+                    ).fetchone()
+                    conn.close()
+                    self.assertEqual(
+                        tuple(record),
+                        ("Old Team", "OLD", "Original description", "team_logos/old.png"),
+                    )
+                    self.assertEqual(old_logo.read_bytes(), b"original logo fixture")
+                    self.assertEqual(list(old_logo.parent.iterdir()), [old_logo])
+
+            self.assertEqual(self.post(f"/admin/teams/edit/{team_id}", values).status_code, 302)
+            conn = get_db()
+            record = conn.execute(
+                "SELECT name,short_name,description,logo FROM teams WHERE id=?", (team_id,)
+            ).fetchone()
+            conn.close()
+            self.assertEqual(tuple(record), (*values.values(), "team_logos/old.png"))
+            self.assertEqual(old_logo.read_bytes(), b"original logo fixture")
+
+    def test_team_logo_request_allowance_does_not_raise_other_upload_limits(self):
+        paths = (
+            ("/admin/teams/add", 11),
+            ("/admin/teams/edit/1", 11),
+            ("/events/1/register", 11),
+            ("/events/1/registrations/1/logo", 11),
+            ("/register", 6),
+            ("/profile", 6),
+            ("/admin/upload/image", 6),
+            ("/admin/players/add", 6),
+            ("/admin/players/edit/1", 6),
+        )
+        for path, megabytes in paths:
+            with self.subTest(path=path):
+                with app.test_request_context(path, method="POST"):
+                    _limit_request_body()
+                    self.assertEqual(request.max_content_length, megabytes * 1024 * 1024)
+        with app.test_request_context("/admin/teams/add", method="POST", json={}):
+            _limit_request_body()
+            self.assertEqual(request.max_content_length, 2 * 1024 * 1024)
+        with app.test_request_context(
+            "/admin/teams/add",
+            method="POST",
+            environ_overrides={"CONTENT_LENGTH": str(11 * 1024 * 1024 + 1)},
+        ):
+            with self.assertRaises(RequestEntityTooLarge):
+                _limit_request_body()
+
+    def test_team_logo_accepts_ten_mb_and_rejects_one_byte_over_without_changes(self):
+        limit = 10 * 1024 * 1024
+        picture = io.BytesIO()
+        Image.new("RGB", (24, 24), "blue").save(picture, format="PNG")
+        image_bytes = picture.getvalue().ljust(limit, b"\0")
+        # 只放宽队标；头像和新闻图片仍使用原有的 5MB 检查。
+        self.assertIsNone(validate_image_content(io.BytesIO(image_bytes)))
+        values = {"name": "Ten MB Logo", "short_name": "TEN", "description": "Boundary upload"}
+        with (
+            tempfile.TemporaryDirectory() as upload_root,
+            patch("blueprints.admin_catalog.BASE_DIR", upload_root),
+        ):
+            oversized = self.post(
+                "/admin/teams/add",
+                dict(values, logo=(io.BytesIO(image_bytes + b"\0"), "oversized.png")),
+            )
+            self.assertEqual(oversized.status_code, 400)
+            for value in (*values.values(), "10MB"):
+                self.assertIn(value, oversized.get_data(as_text=True))
+            conn = get_db()
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM teams").fetchone()[0], 0)
+            conn.close()
+            self.assertEqual(list(Path(upload_root).rglob("*")), [])
+
+            created = self.post(
+                "/admin/teams/add", dict(values, logo=(io.BytesIO(image_bytes), "at-limit.png"))
+            )
+            self.assertEqual(created.status_code, 302)
+            conn = get_db()
+            team = dict(
+                conn.execute("SELECT * FROM teams WHERE name=?", (values["name"],)).fetchone()
+            )
+            conn.close()
+            old_logo = Path(upload_root) / "static/uploads" / team["logo"]
+            old_bytes = old_logo.read_bytes()
+            files_before = sorted(Path(upload_root).rglob("*"))
+            edited_values = dict(values, description="Keep this edit after rejection")
+            rejected = self.post(
+                f"/admin/teams/edit/{team['id']}",
+                dict(edited_values, logo=(io.BytesIO(image_bytes + b"\0"), "oversized.png")),
+            )
+            self.assertEqual(rejected.status_code, 400)
+            for value in (*edited_values.values(), team["logo"], "10MB"):
+                self.assertIn(value, rejected.get_data(as_text=True))
+            conn = get_db()
+            unchanged = conn.execute(
+                "SELECT description,logo FROM teams WHERE id=?", (team["id"],)
+            ).fetchone()
+            conn.close()
+            self.assertEqual(tuple(unchanged), (values["description"], team["logo"]))
+            self.assertEqual(old_logo.read_bytes(), old_bytes)
+            self.assertEqual(sorted(Path(upload_root).rglob("*")), files_before)
+
+            saved = self.post(
+                f"/admin/teams/edit/{team['id']}",
+                dict(edited_values, logo=(io.BytesIO(image_bytes), "replacement.png")),
+            )
+            self.assertEqual(saved.status_code, 302)
+            conn = get_db()
+            updated = conn.execute(
+                "SELECT description,logo FROM teams WHERE id=?", (team["id"],)
+            ).fetchone()
+            conn.close()
+            self.assertEqual(updated["description"], edited_values["description"])
+            self.assertNotEqual(updated["logo"], team["logo"])
+            self.assertTrue((Path(upload_root) / "static/uploads" / updated["logo"]).is_file())
+
     def test_event_stream_url_is_optional_and_can_be_added_or_cleared_later(self):
         form_html = self.client.get("/admin/events/add").get_data(as_text=True)
-        self.assertIn("可选：赛事统一直播间", form_html)
+        # 直播间地址放在可折叠的“选填”分组里（新建赛事时折叠，不打扰必填项）
+        optional_group = re.search(
+            r'<details class="form-group optional"\s*>(.*?)</details>', form_html, re.DOTALL
+        )
+        self.assertIsNotNone(optional_group)
+        self.assertIn('name="stream_url"', optional_group.group(1))
         stream_input = re.search(r'<input[^>]+name="stream_url"[^>]*>', form_html)
         self.assertIsNotNone(stream_input)
         self.assertNotIn("required", stream_input.group(0))

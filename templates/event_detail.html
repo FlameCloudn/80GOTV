@@ -72,9 +72,10 @@
       <label class="event-modal-label" for="regTeamName">队伍名称</label>
       <input id="regTeamName" name="team_name" placeholder="队伍名称" required class="event-modal-input">
       <label class="event-modal-label" for="regTeamLogo">队标（可选）</label>
-      <input id="regTeamLogo" name="team_logo" type="file"
-             accept="image/png,image/jpeg,image/gif" class="event-modal-input event-modal-file-input">
-      <p class="event-modal-file-help">支持 PNG、JPG、GIF，最大 5MB；报名后队长仍可更换。</p>
+      <input id="regTeamLogo" name="team_logo" type="file" aria-describedby="regTeamLogoHelp"
+             accept="image/png,image/jpeg,image/gif,.png,.jpg,.jpeg,.gif" class="event-modal-input event-modal-file-input"
+             data-max-bytes="10485760" data-size-error="队标图片不能超过 10MB" data-type-error="队标只支持 PNG、JPG、JPEG、GIF 格式">
+      <p class="event-modal-file-help" id="regTeamLogoHelp">支持 PNG、JPG、JPEG、GIF，最大 10MB；报名后队长仍可更换。</p>
       <p class="event-modal-label">选择你的位置：</p>
       <div class="event-modal-slot-selector" id="slotSelector">
         {% for i in range(5) %}

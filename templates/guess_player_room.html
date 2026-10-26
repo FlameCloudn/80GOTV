@@ -32,7 +32,8 @@
     <div class="guess-versus-mark" data-i18n-ignore>VS</div>
     <div class="guess-contender is-opponent">
       <span data-i18n-ignore>OPPONENT</span>
-      <strong id="roomOpponentName" data-i18n-ignore>{{ state.opponent.username }}</strong>
+      {#- 对手没进来时这里是界面文字“等待对手”，要跟着翻译；进来后是用户名，不翻译 -#}
+      <strong id="roomOpponentName"{% if state.opponent.joined %} data-i18n-ignore{% endif %}>{{ state.opponent.username }}</strong>
       <small><b id="roomOpponentAttempts">{{ state.opponent.attempts }}</b> / {{ max_guesses }} 次</small>
     </div>
   </section>
@@ -62,7 +63,6 @@
       </div>
       <button type="submit" class="btn btn-primary guess-submit">提交猜测</button>
     </form>
-    <p class="guess-form-error" id="guessFormError" role="alert"></p>
 
     <div class="guess-results-scroll" id="roomResultsWrap"{% if not state.results %} hidden{% endif %}>
       <table class="guess-results-table">

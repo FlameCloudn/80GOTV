@@ -33,7 +33,7 @@ from services.player_remark_service import (
     private_remark_for_user,
 )
 from services.team_logo_service import team_logo_url
-from utils.db_helpers import avatar_static_filename
+from utils.db_helpers import MAX_TEAM_LOGO_UPLOAD_BYTES, avatar_static_filename
 from utils.helpers import event_abbr, event_path, news_path, normalize_map_key, team_abbr
 from utils.web_helpers import safe_redirect_target, validate_admin_session
 
@@ -49,6 +49,7 @@ if Config.TRUST_PROXY:
 
 DEMOS_DIR = os.path.join(app.root_path, "static", "demos")
 _IMAGE_FORM_LIMIT = 6 * 1024 * 1024
+_TEAM_LOGO_FORM_LIMIT = MAX_TEAM_LOGO_UPLOAD_BYTES + 1024 * 1024
 _JSON_BODY_LIMIT = 2 * 1024 * 1024
 
 
@@ -118,14 +119,17 @@ def _limit_request_body():
         "/profile",
         "/admin/upload/image",
         "/admin/players/add",
-        "/admin/teams/add",
-    ) or request.path.startswith(("/admin/players/edit/", "/admin/teams/edit/"))
-    image_form = image_form or request.endpoint in {
+    ) or request.path.startswith("/admin/players/edit/")
+    team_logo_form = (
+        request.path == "/admin/teams/add" or request.path.startswith("/admin/teams/edit/")
+    ) or request.endpoint in {
         "event_registration_upload_logo",
         "event_register",
     }
     if _is_ingest_path(request.path) or request.is_json:
         limit = _JSON_BODY_LIMIT
+    elif team_logo_form:
+        limit = _TEAM_LOGO_FORM_LIMIT
     elif image_form:
         limit = _IMAGE_FORM_LIMIT
     elif request.path in _PUBLIC_FORM_PATHS:

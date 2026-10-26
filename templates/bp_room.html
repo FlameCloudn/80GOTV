@@ -31,7 +31,6 @@
   <div id="bp-password-gate" class="bp-password-gate">
     <input id="bp-password" type="password" autocomplete="current-password" placeholder="输入 BP 共享口令" aria-label="BP 共享口令">
     <button type="button" class="btn btn-primary" onclick="verifyBpPassword()">验证口令</button>
-    <span id="bp-password-error" class="bp-error" role="alert"></span>
   </div>
   {% endif %}
 
@@ -50,7 +49,7 @@
 
   {% if is_admin %}
   <div class="bp-admin-tools">
-    <button class="btn btn-danger btn-sm" type="button" onclick="resetBP()">🔄 重置 BP</button>
+    <button class="btn btn-danger btn-sm" type="button" onclick="resetBP()"><svg class="bp-tool-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v4h-4"/></svg>重置 BP</button>
   </div>
   {% endif %}
 </section>
@@ -110,9 +109,16 @@ function getTeamName(t) { return t === 't1' ? teamNames.t1 : teamNames.t2; }
 
 function verifyBpPassword() {
   var input = document.getElementById('bp-password');
-  var error = document.getElementById('bp-password-error');
   if (!input) return;
-  error.textContent = '';
+  // 口令不对：输入框标红，原因用右上角提示（再次输入时去掉红框）
+  function fail(text) {
+    input.setAttribute('aria-invalid', 'true');
+    input.addEventListener('input', function() { input.removeAttribute('aria-invalid'); }, { once: true });
+    input.focus();
+    window.showToast(text, 'error', { key: 'bp-password' });
+  }
+  input.removeAttribute('aria-invalid');
+  window.dismissToast('bp-password');
   fetch('/bp/' + matchId + '/verify', {
     method: 'POST',
     headers: {'Content-Type': 'application/json', 'X-CSRF-Token': '{{ csrf_token }}'},
@@ -128,10 +134,10 @@ function verifyBpPassword() {
       renderAll();
       sendHeartbeat();
     } else {
-      error.textContent = (result.data && result.data.msg) || '口令验证失败';
+      fail((result.data && result.data.msg) || '口令验证失败');
     }
   }).catch(function() {
-    error.textContent = '网络错误，请稍后重试';
+    fail('网络错误，请稍后重试');
   });
 }
 

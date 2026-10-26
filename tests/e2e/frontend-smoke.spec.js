@@ -144,8 +144,9 @@ test('feedback submits through the visible entry and is saved for admin review',
   const response = await submitted;
   expect(response.status()).toBe(200);
   expect((await response.json()).ok).toBe(true);
-  await expect(page.locator('#fbMsg')).toHaveText('成功 感谢反馈！');
-  await expect(page.locator('#fbMsg')).toHaveAttribute('data-type', 'success');
+  // 成功：弹窗关上，右上角绿色提示
+  await expect(page.locator('.site-toast.toast-success .site-toast-msg')).toHaveText('感谢反馈！');
+  await expect(page.locator('#fbOverlay')).not.toHaveAttribute('open', '');
   await expect(page.locator('#fbContent')).toHaveValue('');
   const stored = await page.request.get(`/__e2e__/feedback-records?content=${encodeURIComponent(content)}`);
   expect(await stored.json()).toEqual([expect.objectContaining({
@@ -170,8 +171,11 @@ test('feedback failure preserves the draft and a real retry stores it once', asy
     body: JSON.stringify({ ok: false, success: false, error: '暂时无法确认账号权限，请稍后重试' }),
   }));
   await page.locator('#fbSubmit').click();
-  await expect(page.locator('#fbMsg')).toContainText('暂时无法确认账号权限，请稍后重试');
-  await expect(page.locator('#fbMsg')).toHaveAttribute('data-type', 'error');
+  // 失败：右上角红色提示（在弹窗里、读屏 role=alert），弹窗不关、内容不丢
+  const failure = page.locator('#fbOverlay .site-toast.toast-error');
+  await expect(failure).toContainText('暂时无法确认账号权限，请稍后重试');
+  await expect(failure.locator('[role="alert"]')).toHaveCount(1);
+  await expect(page.locator('#fbOverlay')).toHaveAttribute('open', '');
   await expect(page.locator('#fbContent')).toHaveValue(content);
   await expect(page.locator('#fbSubmit')).toBeEnabled();
   const before = await page.request.get(`/__e2e__/feedback-records?content=${encodeURIComponent(content)}`);
@@ -459,6 +463,36 @@ test('English mode translates static UI without hiding user content', async ({ p
     if (values.length) untranslated[path] = values;
   }
   expect(untranslated).toEqual({});
+});
+
+test('tablet widths keep all home columns aligned and result rows on one line', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop');
+  for (const width of [1024, 820]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/');
+    const main = await page.locator('.home-main-col').boundingBox();
+    const sides = [await page.locator('.home-left-col').boundingBox(), await page.locator('.home-right-col').boundingBox()];
+    // 761px 以上的平板和桌面都保留三栏，并确保左右侧栏与新闻主栏顶边对齐。
+    expect(sides[0].x + sides[0].width, `${width}px 左栏在新闻左侧`).toBeLessThanOrEqual(main.x + 1);
+    expect(main.x + main.width, `${width}px 新闻在左右栏中间`).toBeLessThanOrEqual(sides[1].x + 1);
+    expect(Math.abs(sides[0].y - main.y), `${width}px 左栏顶部对齐`).toBeLessThanOrEqual(1);
+    expect(Math.abs(sides[1].y - main.y), `${width}px 右栏顶部对齐`).toBeLessThanOrEqual(1);
+
+    await page.goto('/results');
+    const rows = page.locator('.result-row');
+    expect(await rows.count()).toBeGreaterThan(0);
+    const geometry = await rows.evaluateAll(list => list.map(row => {
+      const group = row.querySelector('.result-score-group').getBoundingClientRect();
+      const event = row.querySelector('.result-event').getBoundingClientRect();
+      return { groupTop: group.top, groupBottom: group.bottom, eventTop: event.top, eventBottom: event.bottom };
+    }));
+    for (const row of geometry) {
+      // 赛事名和对阵、比分在同一行（以前会掉到下一行并居中）
+      expect(row.eventTop, `${width}px`).toBeLessThan(row.groupBottom);
+      expect(row.eventBottom, `${width}px`).toBeGreaterThan(row.groupTop);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+  }
 });
 
 test('desktop home side columns use the same compact width', async ({ page }, testInfo) => {

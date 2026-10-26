@@ -7,7 +7,6 @@
   var form = document.getElementById('guessRoomForm');
   var query = document.getElementById('guessPlayerQuery');
   var playerId = document.getElementById('guessPlayerId');
-  var error = document.getElementById('guessFormError');
   var options = Array.prototype.slice.call(document.querySelectorAll('#guessPlayerOptions option'));
   var optionMap = {};
   options.forEach(function (option) {
@@ -72,6 +71,8 @@
     document.getElementById('roomPlay').hidden = waiting;
     text('roomMeName', state.me.username);
     text('roomMeAttempts', state.me.attempts);
+    // 对手没进来时是界面文字“等待对手”，要跟着翻译；进来后是用户名，不翻译
+    document.getElementById('roomOpponentName').toggleAttribute('data-i18n-ignore', !!state.opponent.joined);
     text('roomOpponentName', state.opponent.username);
     text('roomOpponentAttempts', state.opponent.attempts);
     text('roomRemaining', state.remaining + ' 次机会');
@@ -118,8 +119,15 @@
       });
   }
 
+  // 出错用右上角提示；没从候选里选中时输入框标红，重新输入时去掉
+  function showFormError(message, markInput) {
+    if (markInput) query.setAttribute('aria-invalid', 'true');
+    window.showToast(message, 'error', { key: 'guess-form' });
+  }
+
   query.addEventListener('input', function () {
-    error.textContent = '';
+    query.removeAttribute('aria-invalid');
+    window.dismissToast('guess-form');
     playerId.value = optionMap[(query.value || '').trim().toLocaleLowerCase()] || '';
   });
 
@@ -127,13 +135,13 @@
     event.preventDefault();
     var resolvedId = optionMap[(query.value || '').trim().toLocaleLowerCase()] || '';
     if (!resolvedId) {
-      error.textContent = '请从候选列表中选择一名选手';
+      showFormError('请从候选列表中选择一名选手', true);
       query.focus();
       return;
     }
     if (submitting) return;
     submitting = true;
-    error.textContent = '';
+    window.dismissToast('guess-form');
     fetch(root.dataset.guessUrl, {
       method: 'POST',
       credentials: 'same-origin',
@@ -153,7 +161,7 @@
       playerId.value = '';
       renderState(payload.state);
     }).catch(function (requestError) {
-      error.textContent = requestError.message;
+      showFormError(requestError.message || '提交失败', false);
     }).finally(function () {
       submitting = false;
     });

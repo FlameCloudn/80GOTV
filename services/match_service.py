@@ -8,7 +8,15 @@ import sqlite3
 from datetime import datetime
 
 from services.team_logo_service import logo_relative_path
-from utils.helpers import normalize_map_key, team_abbr
+from utils.helpers import normalize_map_key, row_get, team_abbr
+
+
+def match_stat_belongs_to_side(row, expected_side, expected_team_id):
+    """Use the recorded match side; only fall back to real team IDs for old rows."""
+    stored_side = str(row_get(row, "match_team_side", "") or "").strip().lower()
+    if stored_side in {"t1", "t2"}:
+        return stored_side == expected_side
+    return expected_team_id is not None and row_get(row, "team_id") == expected_team_id
 
 
 def get_series_result(bo_format, score1, score2):

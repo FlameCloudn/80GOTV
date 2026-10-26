@@ -17,11 +17,12 @@ IMAGE_SIGNATURES = {
 }
 IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif"}
 MAX_IMAGE_UPLOAD_BYTES = 5 * 1024 * 1024
+MAX_TEAM_LOGO_UPLOAD_BYTES = 10 * 1024 * 1024
 AVATAR_THUMBNAIL_DIMENSION = 160
 Image.MAX_IMAGE_PIXELS = 25_000_000
 
 
-def validate_image_content(file_stream):
+def validate_image_content(file_stream, *, max_bytes=MAX_IMAGE_UPLOAD_BYTES):
     """验证上传文件是否为体积合理的真实图片。"""
     try:
         file_stream.seek(0, os.SEEK_END)
@@ -29,7 +30,7 @@ def validate_image_content(file_stream):
         file_stream.seek(0)
     except (AttributeError, OSError):
         return None
-    if size <= 0 or size > MAX_IMAGE_UPLOAD_BYTES:
+    if size <= 0 or size > max_bytes:
         return None
 
     header = file_stream.read(8)
@@ -189,7 +190,7 @@ def save_uploaded_team_logo(file, app_root_path):
 
     if not file or not file.filename or not allowed_image_file(file.filename):
         return None
-    if not validate_image_content(file.stream):
+    if not validate_image_content(file.stream, max_bytes=MAX_TEAM_LOGO_UPLOAD_BYTES):
         return None
     return save_uploaded_logo_file(file, app_root_path)
 

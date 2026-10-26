@@ -1,76 +1,52 @@
-<!doctype html>
-<html lang="zh-CN">
-<head>
-  {% include "_i18n_bootstrap.html" %}
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>昵称管理 - 80GOTV</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-comfort.css') }}">
-  <script>
-    (function(){
-      var t = localStorage.getItem('theme');
-      if(!t){ t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light'; }
-      document.documentElement.setAttribute('data-theme', t);
-    })();
-  </script>
-  <style>
-    body{margin:0;background:var(--bg-primary);color:var(--text-primary);font-family:sans-serif}
-    .muted{color:var(--text-muted);font-size:13px}
-    .merge,.table-wrap{background:var(--bg-card);border:1px solid var(--border-color);padding:16px;margin-top:16px}
-    .merge form{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    select{min-width:220px}
-    table{width:100%;border-collapse:collapse}
-    th,td{text-align:left;padding:10px;border-bottom:1px solid var(--border-color);font-size:13px;vertical-align:top;color:var(--text-primary)}
-    th{background:var(--bg-secondary);font-weight:700}
-    tr:hover{background:var(--bg-hover)}
-    .alias{display:inline-block;margin:2px 4px 2px 0;padding:2px 6px;background:var(--bg-secondary);border:1px solid var(--border-color);color:var(--text-secondary);font-size:12px}
-  </style>
-</head>
-<body>
-{% include "admin/_top_nav.html" %}
-<div class="ops">
-  <div class="head">
-    <div>
-      <h2 style="margin:0;">选手昵称管理</h2>
-      <div class="muted" style="margin-top:4px;">正式昵称用于网站显示，Steam 和 Demo 中见过的旧昵称仍会保留。</div>
-    </div>
+{% extends "admin/_layout.html" %}
+{% import "admin/_icons.html" as ui %}
+{% block title %}选手昵称管理{% endblock %}
+{% block main %}
+<header class="page-head">
+  <div>
+    <span class="page-head-kicker" data-i18n-ignore>NICKNAMES</span><h1>选手昵称管理</h1>
+    <p class="page-head-sub">正式昵称用于网站显示，Steam 和 Demo 中见过的旧昵称仍会保留。</p>
   </div>
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% for category,message in messages %}<div class="alert alert-{{ category }}" style="margin-top:16px;">{{ message }}</div>{% endfor %}
-  {% endwith %}
-  <section class="merge">
-    <h3 style="margin-top:0">合并重复选手</h3>
-    <div class="muted" style="margin-bottom:10px">把错误生成的重复档案合并到要保留的档案。历史比赛会一起搬过去。</div>
-    <form method="post" action="/admin/nicknames/merge" onsubmit="return confirm('确定合并这两个选手档案吗？重复档案会被移除。')">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <select name="source_id" required><option value="">要移除的重复档案</option>{% for p in players %}<option value="{{ p.id }}">#{{ p.id }} {{ p.nickname }}</option>{% endfor %}</select>
-      <span>合并到</span>
-      <select name="target_id" required><option value="">要保留的正式档案</option>{% for p in players %}<option value="{{ p.id }}">#{{ p.id }} {{ p.nickname }}</option>{% endfor %}</select>
-      <button class="btn btn-primary" type="submit">合并档案</button>
-    </form>
-  </section>
+</header>
+
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">合并重复选手</h2></div>
+  <p class="field-hint panel-body-hint">把错误生成的重复档案合并到要保留的档案。历史比赛会一起搬过去。</p>
+  <form method="post" action="{{ url_for('admin.admin_nicknames_merge') }}" class="merge-form" data-confirm="确定合并这两个选手档案吗？重复档案会被移除。">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <select name="source_id" required aria-label="要移除的重复档案"><option value="">要移除的重复档案</option>{% for p in players %}<option value="{{ p.id }}" data-i18n-ignore>#{{ p.id }} {{ p.nickname }}</option>{% endfor %}</select>
+    <span class="muted">合并到</span>
+    <select name="target_id" required aria-label="要保留的正式档案"><option value="">要保留的正式档案</option>{% for p in players %}<option value="{{ p.id }}" data-i18n-ignore>#{{ p.id }} {{ p.nickname }}</option>{% endfor %}</select>
+    <button class="btn btn-primary" type="submit">{{ ui.icon('merge') }}合并档案</button>
+  </form>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">选手与历史昵称 <span class="panel-count">{{ players|length }}</span></h2></div>
+  {% if players %}
   <div class="table-wrap">
-    <table>
-      <thead>
-        <tr><th>ID</th><th>正式昵称</th><th>SteamID</th><th>队伍</th><th>历史昵称</th><th>操作</th></tr>
-      </thead>
+    <table class="table admin-table">
+      <thead><tr><th class="col-id">ID</th><th>正式昵称</th><th>SteamID</th><th>队伍</th><th>历史昵称</th><th class="col-actions">操作</th></tr></thead>
       <tbody>
         {% for p in players %}
         <tr>
-          <td>#{{ p.id }}</td>
-          <td><b>{{ p.nickname }}</b></td>
-          <td>{{ p.steam_id or '-' }}</td>
-          <td>{{ p.team_name or '-' }}</td>
-          <td>{% for item in alias_map.get(p.id, []) %}<span class="alias" title="{{ item.source }}">{{ item.nickname }}</span>{% else %}-{% endfor %}</td>
-          <td><a href="/admin/players/edit/{{ p.id }}" style="color:var(--accent);text-decoration:none;">编辑</a></td>
+          <td class="col-id">#{{ p.id }}</td>
+          <td><b data-i18n-ignore>{{ p.nickname }}</b></td>
+          <td class="nowrap">{{ p.steam_id or '-' }}</td>
+          <td data-i18n-ignore>{{ p.team_name or '-' }}</td>
+          <td>
+            <div class="alias-list" data-i18n-ignore>
+              {% for item in alias_map.get(p.id, []) %}<span class="alias-chip alias" title="{{ item.source }}">{{ item.nickname }}</span>{% else %}<span class="muted">-</span>{% endfor %}
+            </div>
+          </td>
+          <td class="col-actions"><a href="{{ url_for('admin.admin_players_edit', player_id=p.id) }}" class="btn btn-sm">{{ ui.icon('edit') }}编辑</a></td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
-</div>
-<script src="{{ versioned_url('static/js/i18n.js') }}"></script>
-<script src="{{ url_for('static', filename='js/svg_icons.js') }}?v=20260620-svg1"></script>
-</body>
-</html>
+  {% else %}
+  <div class="empty-state">还没有选手。</div>
+  {% endif %}
+</section>
+{% endblock %}

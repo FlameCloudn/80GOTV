@@ -4,6 +4,7 @@
   {% include "_standalone_head.html" %}
   <title>登录 / 注册 - 80GOTV</title>
   <link rel="stylesheet" href="{{ versioned_url('static/css/auth.css') }}">
+  <link rel="stylesheet" href="{{ versioned_url('static/css/toast.css') }}">
 </head>
 <body>
   {% set active_tab = tab or 'login' %}
@@ -43,13 +44,7 @@
         {% endif %}
       </div>
 
-      {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-          {% for category, message in messages %}
-          <div class="alert alert-{{ category }}" role="alert">{{ message }}</div>
-          {% endfor %}
-        {% endif %}
-      {% endwith %}
+      {% include "_flash_toasts.html" %}
 
       <nav class="tabs" aria-label="登录和注册">
         <a class="tab {% if active_tab == 'login' %}active{% endif %}" href="/login{% if next_value %}?next={{ next_value|urlencode }}{% endif %}" {% if active_tab == 'login' %}aria-current="page"{% endif %}>登录</a>
@@ -249,6 +244,15 @@
         });
       }
 
+      // 发送 / 验证失败：对应输入框标红，原因用右上角提示（下面的状态行不再写红字，重新输入时去掉红框）
+      function showEmailError(input, message) {
+        emailStatus.textContent = '';
+        emailStatus.className = 'email-status';
+        input.setAttribute('aria-invalid', 'true');
+        input.addEventListener('input', function () { input.removeAttribute('aria-invalid'); }, { once: true });
+        window.showToast(message, 'error', { key: 'register-email' });
+      }
+
       function applyCsrfToken(token) {
         document.querySelectorAll('input[name="csrf_token"]').forEach(function (input) {
           input.value = token;
@@ -349,8 +353,7 @@
             })
             .catch(function (error) {
               sendEmailButton.disabled = false;
-              emailStatus.textContent = error.message;
-              emailStatus.className = 'email-status error';
+              showEmailError(emailInput, error.message);
             });
         });
       }
@@ -368,8 +371,7 @@
             verifyEmailButton.textContent = '已验证';
           }).catch(function (error) {
             verifyEmailButton.disabled = false;
-            emailStatus.textContent = error.message;
-            emailStatus.className = 'email-status error';
+            showEmailError(emailCodeInput, error.message);
           });
         });
       }
@@ -387,6 +389,7 @@
         });
     }
   </script>
+  <script src="{{ versioned_url('static/js/site_dialogs.js') }}"></script>
   <script src="{{ versioned_url('static/js/i18n.js') }}"></script>
 </body>
 </html>

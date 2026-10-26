@@ -1,6 +1,9 @@
 {% extends 'base.html' %}
 {% block title %}{{ news.title }} - 80GOTV{% endblock %}
-{% block head %}<link rel="stylesheet" href="{{ versioned_url('static/css/pages/news.css') }}">{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ versioned_url('static/css/pages/news.css') }}">
+<link rel="stylesheet" href="{{ versioned_url('static/css/news-reference.css') }}">
+{% endblock %}
 {% block layout_class %}narrow-layout no-side-layout{% endblock %}
 {% block main %}
 <a href="/news" class="back-link">← 返回新闻列表</a>
@@ -27,10 +30,15 @@
       <small>关联比赛</small>
       <div class="related-match-row">
         <div>
-          <strong><span data-i18n-ignore>{{ related_match.t1s or related_match.t1n }}</span> <span class="related-match-vs">vs</span> <span data-i18n-ignore>{{ related_match.t2s or related_match.t2n }}</span></strong>
+          <strong><span data-i18n-ignore>{{ related_match.t1n }}</span> <span class="related-match-vs" data-i18n-ignore>vs</span> <span data-i18n-ignore>{{ related_match.t2n }}</span></strong>
           {% if related_match.event_name %}<small><span data-i18n-ignore>{{ related_match.event_name }}</span> · {{ related_match.match_time|date_display if related_match.match_time else '' }}</small>{% endif %}
         </div>
+        {#- 还没开打的比赛没有比分，显示 VS，不把未知比分写成 0 : 0 -#}
+        {% if related_match.status in ('completed', 'live') and related_match.team1_score is not none and related_match.team2_score is not none %}
         <b class="score related-match-score">{{ related_match.team1_score }} : {{ related_match.team2_score }}</b>
+        {% else %}
+        <b class="score related-match-score is-pending" data-i18n-ignore>VS</b>
+        {% endif %}
       </div>
     </a>
     {% endif %}
@@ -70,4 +78,25 @@
   <p class="empty-state">暂无评论</p>
   {% endif %}
 </section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 引用块的类型标签是系统生成的（不是作者写的），英文模式下换成英文；
+// 一个引用只指向一个页面，用单数说法（导航上的“比赛”是 Matches，这里是 Match）
+(function () {
+  var english = (document.documentElement.lang || '').indexOf('en') === 0;
+  if (!english) return;
+  var TYPE_EN = {
+    '页面': 'Page', '数据': 'Stats', '游戏': 'Game', '比赛': 'Match', '战报': 'Match report',
+    '比赛数据': 'Match stats', '赛事': 'Event', '赛事数据': 'Event stats', '选手': 'Player',
+    '选手数据': 'Player stats', '队伍': 'Team', '新闻': 'News', '帖子': 'Thread'
+  };
+  document.querySelectorAll('.news-content .news-reference-type').forEach(function (label) {
+    var text = label.textContent.trim();
+    if (TYPE_EN[text]) label.textContent = TYPE_EN[text];
+    else if (window.siteTranslate) label.textContent = window.siteTranslate(text);
+  });
+})();
+</script>
 {% endblock %}

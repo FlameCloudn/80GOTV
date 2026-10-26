@@ -15,7 +15,7 @@ from flask import (
 
 from models import get_db
 from services.live_log_service import load_match_timeline
-from services.match_service import supplement_temp_teams
+from services.match_service import match_stat_belongs_to_side, supplement_temp_teams
 from services.performance_service import weighted_average_sql
 from utils.demo_naming import build_demo_download_name
 from utils.helpers import normalize_map_key, resolve_match_slug, row_get
@@ -172,25 +172,40 @@ def match_report(match_id):
     overall_rows = [
         dict(row)
         for row in conn.execute(
-            """
-        SELECT ms.player_id, ms.team_id, p.nickname, p.avatar,
-               SUM(ms.kills) AS kills, SUM(ms.deaths) AS deaths,
-               AVG(ms.adr) AS adr, AVG(ms.kast) AS kast, AVG(ms.rating) AS rating
-        FROM match_stats ms
+            f"""
+        WITH sided_stats AS (
+            SELECT ms.*,
+                   CASE WHEN LOWER(TRIM(COALESCE(ms.match_team_side, ''))) IN ('t1', 't2')
+                        THEN LOWER(TRIM(ms.match_team_side))
+                        WHEN ms.team_id=? THEN 't1'
+                        WHEN ms.team_id=? THEN 't2' END AS report_side
+            FROM match_stats ms
+            WHERE ms.match_id=?
+              AND COALESCE(ms.data_status, 'final') <> 'superseded'
+        )
+        SELECT ms.player_id, ms.report_side AS match_team_side, p.nickname, p.avatar,
+               CASE WHEN COUNT(ms.kills)=COUNT(*) THEN SUM(ms.kills) END AS kills,
+               CASE WHEN COUNT(ms.deaths)=COUNT(*) THEN SUM(ms.deaths) END AS deaths,
+               CASE WHEN COUNT(ms.adr)=COUNT(*)
+                    THEN {weighted_average_sql("ms.adr", "ms.rounds_played")} END AS adr,
+               CASE WHEN COUNT(ms.kast)=COUNT(*)
+                    THEN {weighted_average_sql("ms.kast", "ms.rounds_played")} END AS kast,
+               CASE WHEN COUNT(ms.rating)=COUNT(*)
+                    THEN {weighted_average_sql("ms.rating", "ms.rounds_played")} END AS rating
+        FROM sided_stats ms
         JOIN players p ON p.id=ms.player_id
-        WHERE ms.match_id=?
-          AND COALESCE(ms.data_status, 'final') <> 'superseded'
-        GROUP BY ms.team_id, ms.player_id
+        WHERE ms.report_side IS NOT NULL
+        GROUP BY ms.report_side, ms.player_id
         ORDER BY rating DESC
     """,
-            (match_id,),
+            (match.get("team1_id"), match.get("team2_id"), match_id),
         ).fetchall()
     ]
     map_rows = [
         dict(row)
         for row in conn.execute(
             """
-        SELECT ms.player_id, ms.team_id, ms.map_name, p.nickname,
+        SELECT ms.player_id, ms.team_id, ms.match_team_side, ms.map_name, p.nickname,
                ms.kills, ms.deaths, ms.adr, ms.kast, ms.rating
         FROM match_stats ms
         JOIN players p ON p.id=ms.player_id
@@ -204,7 +219,7 @@ def match_report(match_id):
     timeline = load_match_timeline(conn, match_id)
     conn.close()
 
-    mvp = overall_rows[0] if overall_rows else None
+    mvp = dict(overall_rows[0]) if overall_rows else None
     if mvp:
         for key in ("adr", "kast", "rating"):
             value = mvp.get(key)
@@ -213,18 +228,30 @@ def match_report(match_id):
     team1_id = match.get("team1_id")
     team2_id = match.get("team2_id")
 
-    def team_summary(team_id):
-        rows = [row for row in overall_rows if row.get("team_id") == team_id]
-        count = len(rows)
+    def team_summary(expected_side, team_id):
+        rows = [
+            row for row in overall_rows if match_stat_belongs_to_side(row, expected_side, team_id)
+        ]
+
+        def sum_known(key):
+            values = [row[key] for row in rows if row.get(key) is not None]
+            return sum(values) if values and len(values) == len(rows) else None
+
+        def average_known(key, digits):
+            values = [row[key] for row in rows if row.get(key) is not None]
+            if not values or len(values) != len(rows):
+                return None
+            return round(sum(values) / len(values), digits)
+
         return {
-            "kills": sum(row.get("kills") or 0 for row in rows),
-            "deaths": sum(row.get("deaths") or 0 for row in rows),
-            "adr": round(sum(row.get("adr") or 0 for row in rows) / count, 1) if count else 0,
-            "rating": round(sum(row.get("rating") or 0 for row in rows) / count, 2) if count else 0,
+            "kills": sum_known("kills"),
+            "deaths": sum_known("deaths"),
+            "adr": average_known("adr", 1),
+            "rating": average_known("rating", 2),
         }
 
-    t1 = team_summary(team1_id)
-    t2 = team_summary(team2_id)
+    t1 = team_summary("t1", team1_id)
+    t2 = team_summary("t2", team2_id)
     team_stats = {
         "t1_k": t1["kills"],
         "t2_k": t2["kills"],
@@ -243,28 +270,38 @@ def match_report(match_id):
         map_name = match.get(f"map{index}")
         if not map_name:
             continue
-        score1 = match.get(f"map{index}_t1") or 0
-        score2 = match.get(f"map{index}_t2") or 0
+        score1 = match.get(f"map{index}_t1")
+        score2 = match.get(f"map{index}_t2")
         current_rows = [
             row
             for row in map_rows
             if normalize_map_key(row.get("map_name")) == normalize_map_key(map_name)
         ]
-        t1_rows = [row for row in current_rows if row.get("team_id") == team1_id]
-        t2_rows = [row for row in current_rows if row.get("team_id") == team2_id]
+        t1_rows = [row for row in current_rows if match_stat_belongs_to_side(row, "t1", team1_id)]
+        t2_rows = [row for row in current_rows if match_stat_belongs_to_side(row, "t2", team2_id)]
         map_reports.append(
             {
                 "idx": index,
                 "name": map_name,
                 "t1": score1,
                 "t2": score2,
-                "played": bool(score1 or score2 or current_rows),
-                "t1_winner": score1 > score2,
-                "t2_winner": score2 > score1,
-                "t1_best": max(t1_rows, key=lambda row: row.get("rating") or 0)
+                "played": bool(
+                    current_rows
+                    or (score1 is not None and score1 != 0)
+                    or (score2 is not None and score2 != 0)
+                ),
+                "t1_winner": score1 is not None and score2 is not None and score1 > score2,
+                "t2_winner": score1 is not None and score2 is not None and score2 > score1,
+                "t1_best": max(
+                    t1_rows,
+                    key=lambda row: (row.get("rating") is not None, row.get("rating") or 0),
+                )
                 if t1_rows
                 else None,
-                "t2_best": max(t2_rows, key=lambda row: row.get("rating") or 0)
+                "t2_best": max(
+                    t2_rows,
+                    key=lambda row: (row.get("rating") is not None, row.get("rating") or 0),
+                )
                 if t2_rows
                 else None,
             }

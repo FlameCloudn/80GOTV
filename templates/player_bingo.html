@@ -75,7 +75,6 @@
         {% for player in players %}<option value="{{ player.nickname }}" data-player-id="{{ player.id }}">{{ player.full_name }}</option>{% endfor %}
       </datalist>
       <button type="submit" class="btn btn-primary" id="bingoSubmit" disabled>填入格子</button>
-      <p id="bingoFormError" role="alert"></p>
     </form>
     {% endif %}
   </section>

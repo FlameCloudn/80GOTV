@@ -1,154 +1,109 @@
-<!doctype html>
-<html lang="zh-CN">
-<head>
-  {% include "_i18n_bootstrap.html" %}
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>{% if is_new_match %}添加比赛{% else %}编辑比赛{% endif %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-comfort.css') }}">
-  <script>
-    (function(){
-      var t = localStorage.getItem('theme');
-      if(!t){ t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light'; }
-      document.documentElement.setAttribute('data-theme', t);
-    })();
-  </script>
-</head>
-<body>
+{% extends "admin/_layout.html" %}
+{% import "admin/_icons.html" as ui %}
+{% block title %}{% if is_new_match %}添加比赛{% else %}编辑比赛{% endif %}{% endblock %}
+{% block main %}
+<a href="{{ url_for('admin.admin_matches') }}" class="back-link">← 返回比赛管理</a>
+{% set current_status = match.status if not is_new_match and match else 'upcoming' %}
+{% set setup_editable = is_new_match or match_setup_editable %}
+{% set map_choices = [
+  ('de_mirage', 'Mirage (荒漠迷城)'), ('de_dust2', 'Dust2 (炙热沙城 II)'), ('de_inferno', 'Inferno (炼狱小镇)'),
+  ('de_nuke', 'Nuke (核子危机)'), ('de_ancient', 'Ancient (远古遗迹)'), ('de_anubis', 'Anubis (阿努比斯)'),
+  ('de_overpass', 'Overpass (死亡游乐园)'), ('de_vertigo', 'Vertigo (殒命大厦)'), ('de_train', 'Train (列车停放站)'),
+  ('de_cache', 'Cache (死城之谜)')
+] %}
 
-{% include "admin/_top_nav.html" %}
+<section class="panel match-form-panel">
+  {#- data-guard / data-draft：未保存离开提醒、草稿。服务器地址（可能带口令）和 BP 口令不进草稿 -#}
+  <form method="post" id="matchForm" data-guard data-draft>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 
-<div class="container">
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      {% for category, message in messages %}
-      <div class="alert alert-{{ category }}">{{ message }}</div>
-      {% endfor %}
-    {% endif %}
-  {% endwith %}
-
-  <div class="form-container">
-    {% set current_status = match.status if not is_new_match and match else 'upcoming' %}
-    {% set setup_editable = is_new_match or current_status == 'upcoming' %}
-
-    <form method="post" id="matchForm">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-
-      <!-- 1. 顶部比赛状态与标题栏 -->
-      <div class="match-status-bar">
-        <div>
-          <span style="font-size:12px;font-weight:700;color:var(--text-muted);display:block">
-            {% if is_new_match %}➕ 添加新比赛{% else %}✏️ 编辑比赛 (ID: {{ match.id }}){% endif %}
-          </span>
-          <h2 style="margin:2px 0 0;font-size:18px;color:var(--text-primary)">
-            {{ match.event_name or '比赛详细设置' }}
-          </h2>
-        </div>
-
-        {% if not is_new_match %}
-        <div style="display:flex;align-items:center;gap:8px">
-          <div class="status-pills" id="statusPills" role="radiogroup" aria-label="比赛状态">
-            <button type="button" class="status-pill {% if current_status == 'upcoming' %}active{% endif %}" data-status="upcoming" onclick="setMatchStatus('upcoming', this)">未开始</button>
-            <button type="button" class="status-pill {% if current_status in ('live', 'ongoing') %}active{% endif %}" data-status="live" onclick="setMatchStatus('live', this)">进行中</button>
-            <button type="button" class="status-pill {% if current_status == 'completed' %}active{% endif %}" data-status="completed" onclick="setMatchStatus('completed', this)">已结束</button>
-            <button type="button" class="status-pill {% if current_status == 'cancelled' %}active{% endif %}" data-status="cancelled" onclick="setMatchStatus('cancelled', this)">已取消</button>
-          </div>
-          <select name="status" id="statusSelect" style="display:none">
-            <option value="upcoming" {% if current_status == 'upcoming' %}selected{% endif %}>未开始</option>
-            <option value="live" {% if current_status in ('live', 'ongoing') %}selected{% endif %}>进行中</option>
-            <option value="completed" {% if current_status == 'completed' %}selected{% endif %}>已结束</option>
-            <option value="cancelled" {% if current_status == 'cancelled' %}selected{% endif %}>已取消</option>
-          </select>
-        </div>
-        {% endif %}
+    {# 1. 标题栏：添加 / 编辑、所属赛事、比赛状态（四个状态按钮，实际提交的是隐藏的下拉框） #}
+    <div class="match-status-bar">
+      <div>
+        <span class="page-head-kicker">{% if is_new_match %}添加新比赛{% else %}编辑比赛 (ID: {{ match.id }}){% endif %}</span>
+        <h2 class="match-status-title">{% if match and match.event_name %}<span data-i18n-ignore>{{ match.event_name }}</span>{% else %}比赛详细设置{% endif %}</h2>
       </div>
-
-      <!-- 状态说明提示栏 -->
       {% if not is_new_match %}
-        {% if current_status == 'upcoming' %}
-        <div class="alert alert-info">赛前设置仍可修改。比赛比分将在数据直播接收到赛况后自动同步。</div>
-        {% elif current_status in ('live', 'ongoing') %}
-        <div class="alert alert-info">比赛进行中：赛事、时间、赛制、地图和比分已锁定，比分只由数据直播更新。</div>
-        {% elif current_status == 'completed' %}
-        <div class="alert alert-info">比赛已结束：比分为直播记录，可补充 Ban/Pick 流程、直播和观赛链接。若非录入失误请勿切回“未开始”，以免统计数据产生混乱。</div>
-        {% else %}
-        <div class="alert alert-info">比赛已取消：仅保留状态、直播链接和观赛信息修改。</div>
-        {% endif %}
+      <div class="status-pills" id="statusPills" role="radiogroup" aria-label="比赛状态">
+        <button type="button" class="status-pill {% if current_status == 'upcoming' %}active{% endif %}" data-status="upcoming" onclick="setMatchStatus('upcoming', this)">未开始</button>
+        <button type="button" class="status-pill {% if current_status in ('live', 'ongoing') %}active{% endif %}" data-status="live" onclick="setMatchStatus('live', this)">进行中</button>
+        <button type="button" class="status-pill {% if current_status == 'completed' %}active{% endif %}" data-status="completed" onclick="setMatchStatus('completed', this)">已结束</button>
+        <button type="button" class="status-pill {% if current_status == 'cancelled' %}active{% endif %}" data-status="cancelled" onclick="setMatchStatus('cancelled', this)">已取消</button>
+      </div>
+      <select name="status" id="statusSelect" hidden>
+        <option value="upcoming" {% if current_status == 'upcoming' %}selected{% endif %}>未开始</option>
+        <option value="live" {% if current_status in ('live', 'ongoing') %}selected{% endif %}>进行中</option>
+        <option value="completed" {% if current_status == 'completed' %}selected{% endif %}>已结束</option>
+        <option value="cancelled" {% if current_status == 'cancelled' %}selected{% endif %}>已取消</option>
+      </select>
       {% endif %}
+    </div>
 
-      {% if not is_new_match and current_status in ('live', 'ongoing', 'completed') %}
-      <div style="background:var(--bg-secondary);border:1px solid var(--border-color);padding:12px 18px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center">
-        <span style="font-weight:700;color:#5881bc;font-size:14px">
-          📊 直播记录比分：{{ match.team1_name or '队伍1' }} {{ match.team1_score if match.team1_score is not none else 0 }} : {{ match.team2_score if match.team2_score is not none else 0 }} {{ match.team2_name or '队伍2' }}
-        </span>
-        <span style="font-size:12px;color:var(--text-muted)">
-          比分由数据直播自动同步
-        </span>
+    {% if not is_new_match %}
+    <div class="match-form-notes">
+      {% if current_status == 'upcoming' %}
+      <p class="lock-note">赛前设置可以修改；比分由数据直播自动同步。</p>
+      {% elif current_status in ('live', 'ongoing') %}
+      <p class="lock-note">{{ ui.icon('lock') }}比赛进行中：赛事、时间、赛制、地图和比分已锁定，比分只由数据直播更新。</p>
+      {% elif current_status == 'completed' %}
+      <p class="lock-note">{{ ui.icon('lock') }}比赛已结束：比分为直播记录，可补充 Ban/Pick 流程、直播和观赛链接。若非录入失误请勿切回“未开始”，以免统计数据产生混乱。</p>
+      {% else %}
+      <p class="lock-note">{{ ui.icon('lock') }}比赛已取消：只能修改状态、直播链接和观赛信息。</p>
+      {% endif %}
+      {% if current_status in ('live', 'ongoing', 'completed') %}
+      <div class="score-callout">
+        <span>直播记录比分：<b><span data-i18n-ignore>{{ match.team1_name or '队伍1' }}</span> {{ match.team1_score if match.team1_score is not none else '-' }} : {{ match.team2_score if match.team2_score is not none else '-' }} <span data-i18n-ignore>{{ match.team2_name or '队伍2' }}</span></b></span>
       </div>
       {% endif %}
+    </div>
+    {% endif %}
 
-      <!-- 2. 分类标签页导航 -->
-      <div class="match-tabs" role="tablist">
-        <button type="button" class="match-tab active" data-tab="matchup" onclick="switchMatchTab('matchup')">⚔️ 基础与对阵</button>
-        <button type="button" class="match-tab" data-tab="maps" onclick="switchMatchTab('maps')">🗺️ 地图与赛制</button>
-        {% if setup_editable %}
-        <button type="button" class="match-tab" data-tab="roster" onclick="switchMatchTab('roster')">👥 出场名单与替补</button>
-        {% endif %}
-        <button type="button" class="match-tab" data-tab="broadcast" onclick="switchMatchTab('broadcast')">📡 直播与房间信息</button>
-      </div>
+    {# 2. 分类标签 #}
+    <div class="match-tabs" role="tablist">
+      <button type="button" class="match-tab active" data-tab="matchup" onclick="switchMatchTab('matchup')">基础与对阵</button>
+      <button type="button" class="match-tab" data-tab="maps" onclick="switchMatchTab('maps')">地图与赛制</button>
+      {% if setup_editable %}
+      <button type="button" class="match-tab" data-tab="roster" onclick="switchMatchTab('roster')">出场名单与替补</button>
+      {% endif %}
+      <button type="button" class="match-tab" data-tab="broadcast" onclick="switchMatchTab('broadcast')">直播与房间信息</button>
+    </div>
 
-      <!-- ============================================== -->
-      <!-- TAB 1: 基础与对阵 -->
-      <!-- ============================================== -->
+    <div class="admin-form match-form-body">
+      {# ---------- 标签 1：基础与对阵 ---------- #}
       <div id="pane-matchup" class="tab-pane active">
-        <div class="form-row" style="margin-bottom:18px">
-          <!-- 赛事 -->
-          <div class="form-group" style="margin-bottom:0">
-            <label>所属赛事 *</label>
+        <div class="form-grid">
+          <label class="field">
+            <span class="field-label">所属赛事 <span class="field-required">*</span></span>
             <select name="event_id" {% if setup_editable %}required{% else %}disabled{% endif %}>
               <option value="">选择赛事</option>
               {% for e in events %}
-              <option value="{{ e.id }}" {% if match and match.event_id==e.id %}selected{% endif %}>
-                {{ e.name }}
-              </option>
+              <option value="{{ e.id }}" data-i18n-ignore {% if match and match.event_id|string == e.id|string %}selected{% endif %}>{{ e.name }}</option>
               {% endfor %}
             </select>
-          </div>
-
-          <!-- 阶段 -->
-          <div class="form-group" style="margin-bottom:0">
-            <label>比赛阶段</label>
-            <input type="text" name="stage" value="{{ match.stage if match and match.stage else '' }}"
-                   placeholder="例如：GF、SF、QF、小组赛（可不填）" {% if not setup_editable %}disabled{% endif %}>
-          </div>
+          </label>
+          <label class="field">
+            <span class="field-label">比赛阶段</span>
+            <input type="text" name="stage" value="{{ match.stage if match and match.stage else '' }}" placeholder="例如：GF、SF、QF、小组赛（可不填）" {% if not setup_editable %}disabled{% endif %}>
+          </label>
         </div>
 
-        <!-- 比赛时间：好用的日期+快捷时间选择器 -->
+        {# 比赛时间：日期 + 时间 + 常用开赛时间；实际提交的是隐藏的 match_time #}
         <div class="time-picker-card">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-            <label style="margin:0;font-weight:700;font-size:13px">比赛开赛时间 *</label>
-            <span id="timePreview" style="font-size:12px;color:var(--text-muted);font-family:monospace">
-              当前设定：{{ match.match_time[:16] if match and match.match_time else '未设置' }}
-            </span>
+          <div class="time-picker-head">
+            <span class="field-label">比赛开赛时间 <span class="field-required">*</span></span>
+            <span id="timePreview" class="time-preview">当前设定：{{ match.match_time[:16] if match and match.match_time else '未设置' }}</span>
           </div>
           <div class="time-picker-row">
-            <div class="time-picker-date" style="display:flex;align-items:center;gap:6px">
-              <input type="date" id="matchDate" value="{{ match.match_time[:10] if match and match.match_time else '' }}"
-                     onchange="syncMatchTime()" {% if not setup_editable %}disabled{% endif %} style="flex:1">
-              {% if setup_editable %}
-              <button type="button" class="btn btn-secondary" onclick="quickDate(0)" style="padding:6px 10px;font-size:12px">今天</button>
-              <button type="button" class="btn btn-secondary" onclick="quickDate(1)" style="padding:6px 10px;font-size:12px">明天</button>
-              {% endif %}
-            </div>
-            <div style="display:flex;align-items:center;gap:6px">
-              <input type="time" id="matchTime" value="{{ match.match_time[11:16] if match and match.match_time and match.match_time|length >= 16 else '19:30' }}"
-                     onchange="syncMatchTime()" {% if not setup_editable %}disabled{% endif %} style="width:110px;font-family:monospace;text-align:center">
-            </div>
+            <input type="date" id="matchDate" data-draft-name="match_date" aria-label="比赛日期" value="{{ match.match_time[:10] if match and match.match_time else '' }}" onchange="syncMatchTime()" {% if setup_editable %}required{% else %}disabled{% endif %}>
+            {% if setup_editable %}
+            <button type="button" class="btn btn-sm" onclick="quickDate(0)">今天</button>
+            <button type="button" class="btn btn-sm" onclick="quickDate(1)">明天</button>
+            {% endif %}
+            <input type="time" id="matchTime" data-draft-name="match_clock" aria-label="开赛时间" value="{{ match.match_time[11:16] if match and match.match_time and match.match_time|length >= 16 else '19:30' }}" onchange="syncMatchTime()" {% if not setup_editable %}disabled{% endif %}>
           </div>
           {% if setup_editable %}
           <div class="time-chips">
-            <span style="font-size:11px;color:var(--text-muted);align-self:center;margin-right:2px">常用开赛时间：</span>
+            <span class="time-chips-label">常用开赛时间：</span>
             {% for slot in ['14:00', '16:00', '18:00', '19:00', '19:30', '20:00', '20:30', '21:00'] %}
             <button type="button" class="time-chip {% if match and match.match_time and match.match_time[11:16] == slot %}active{% endif %}" onclick="setTime('{{ slot }}', this)">{{ slot }}</button>
             {% endfor %}
@@ -158,240 +113,170 @@
         </div>
 
         {% if is_new_match %}
-        <div class="form-group test-mode-control" style="margin-top:14px">
-          <label class="test-mode-toggle" for="testMode">
+        <div class="test-mode-control">
+          <label class="check-row test-mode-toggle" for="testMode">
             <input type="checkbox" id="testMode" name="is_test_mode" value="1" onchange="toggleTestMode()">
             <span>测试模式</span>
           </label>
-          <div class="field-hint">开启后参赛方可留空，也可以为每边选择 1 至 5 名测试选手。</div>
+          <span class="field-hint">参赛方可留空，或每边选 1–5 名测试选手。</span>
         </div>
         {% elif not is_new_match and match.is_test_mode %}
         <input type="hidden" name="is_test_mode" value="1">
-        <div class="alert alert-info">这是一场测试比赛，不要求填写参赛队伍或选手。</div>
+        <p class="lock-note">这是一场测试比赛，不要求填写参赛队伍或选手。</p>
         {% endif %}
 
-        <!-- 对阵双方设置（不写红蓝，选边由拼刀/在线BP决定） -->
+        {# 对阵双方（不写红蓝，选边由拼刀 / 在线 BP 决定） #}
         {% if setup_editable %}
         <div class="vs-matchup-card" id="matchParticipants">
-          <div class="vs-matchup-heading" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div class="vs-matchup-heading">
             <div>
-              <strong style="font-size:14px;color:var(--text-primary)">⚔️ 对阵双方设置</strong>
-              <span style="display:block;font-size:12px;color:var(--text-muted)">具体选边（CT / T）由在线 BP 或拼刀局决定</span>
+              <strong>对阵双方</strong>
+              <span class="field-hint">CT / T 由在线 BP 或拼刀局决定</span>
             </div>
-            <button type="button" class="btn btn-secondary" onclick="swapSides()" style="padding:4px 10px;font-size:12px">
-              🔄 互换队伍 1 与队伍 2
-            </button>
+            <button type="button" class="btn btn-sm" onclick="swapSides()">{{ ui.icon('reopen') }}互换队伍 1 与队伍 2</button>
           </div>
-
           <div class="vs-grid">
-            <!-- 队伍 1 -->
-            <div class="field-section" style="margin:0">
-              <h3 style="margin-bottom:8px">队伍 1</h3>
-              <div style="display:flex;gap:16px;margin-bottom:10px">
-                <label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer;font-size:13px">
-                  <input type="radio" name="side1_type" value="team" {% if not team1_player_ids %}checked{% endif %} onchange="toggleSide('1')"> 选择队伍
-                </label>
-                <label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer;font-size:13px">
-                  <input type="radio" name="side1_type" value="players" {% if team1_player_ids %}checked{% endif %} onchange="toggleSide('1')"> 自选选手
-                </label>
+            {% for side in ('1', '2') %}
+            {% set side_ids = team1_player_ids if side == '1' else team2_player_ids %}
+            {% set side_team_id = match.team1_id if (match and side == '1') else (match.team2_id if match else None) %}
+            {% set side_is_team = side_team_id is not none or not side_ids %}
+            {% if side == '2' %}<div class="vs-divider" data-i18n-ignore>VS</div>{% endif %}
+            <div class="field-section">
+              <h3>队伍 {{ side }}</h3>
+              <div class="side-type-row">
+                <label class="check-row"><input type="radio" name="side{{ side }}_type" value="team" {% if side_is_team %}checked{% endif %} onchange="toggleSide('{{ side }}')"> 选择队伍</label>
+                <label class="check-row"><input type="radio" name="side{{ side }}_type" value="players" {% if not side_is_team %}checked{% endif %} onchange="toggleSide('{{ side }}')"> 自选选手</label>
               </div>
-              <div id="side1_team" {% if team1_player_ids %}style="display:none"{% endif %}>
-                <select name="side1_id" id="side1_select">
+              <div id="side{{ side }}_team" {% if not side_is_team %}hidden{% endif %}>
+                <select name="side{{ side }}_id" id="side{{ side }}_select" aria-label="队伍 {{ side }}">
                   <option value="">选择队伍</option>
                   {% for t in teams %}
-                  <option value="{{ t.id }}" {% if match and match.team1_id==t.id %}selected{% endif %}>{{ t.name }}</option>
+                  <option value="{{ t.id }}" data-i18n-ignore {% if side_team_id|string == t.id|string %}selected{% endif %}>{{ t.name }}</option>
                   {% endfor %}
                 </select>
               </div>
-              <div id="side1_players" {% if not team1_player_ids %}style="display:none"{% endif %}>
+              <div id="side{{ side }}_players" class="side-players" {% if side_is_team %}hidden{% endif %}>
                 {% for i in range(5) %}
-                <select name="side1_p{{ i }}" style="margin-bottom:4px">
+                <select name="side{{ side }}_p{{ i }}" aria-label="队伍 {{ side }} 选手 {{ i+1 }}">
                   <option value="">选手 {{ i+1 }}</option>
                   {% for p in all_players %}
-                  <option value="{{ p.id }}" {% if team1_player_ids|length > i and team1_player_ids[i] == p.id %}selected{% endif %}>{{ p.nickname }}{% if p.team_name %} ({{ p.team_name }}){% endif %}</option>
+                  <option value="{{ p.id }}" data-i18n-ignore {% if side_ids|length > i and side_ids[i]|string == p.id|string %}selected{% endif %}>{{ p.nickname }}{% if p.team_name %} ({{ p.team_name }}){% endif %}</option>
                   {% endfor %}
                 </select>
                 {% endfor %}
               </div>
             </div>
-
-            <div class="vs-divider">VS</div>
-
-            <!-- 队伍 2 -->
-            <div class="field-section" style="margin:0">
-              <h3 style="margin-bottom:8px">队伍 2</h3>
-              <div style="display:flex;gap:16px;margin-bottom:10px">
-                <label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer;font-size:13px">
-                  <input type="radio" name="side2_type" value="team" {% if not team2_player_ids %}checked{% endif %} onchange="toggleSide('2')"> 选择队伍
-                </label>
-                <label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer;font-size:13px">
-                  <input type="radio" name="side2_type" value="players" {% if team2_player_ids %}checked{% endif %} onchange="toggleSide('2')"> 自选选手
-                </label>
-              </div>
-              <div id="side2_team" {% if team2_player_ids %}style="display:none"{% endif %}>
-                <select name="side2_id" id="side2_select">
-                  <option value="">选择队伍</option>
-                  {% for t in teams %}
-                  <option value="{{ t.id }}" {% if match and match.team2_id==t.id %}selected{% endif %}>{{ t.name }}</option>
-                  {% endfor %}
-                </select>
-              </div>
-              <div id="side2_players" {% if not team2_player_ids %}style="display:none"{% endif %}>
-                {% for i in range(5) %}
-                <select name="side2_p{{ i }}" style="margin-bottom:4px">
-                  <option value="">选手 {{ i+1 }}</option>
-                  {% for p in all_players %}
-                  <option value="{{ p.id }}" {% if team2_player_ids|length > i and team2_player_ids[i] == p.id %}selected{% endif %}>{{ p.nickname }}{% if p.team_name %} ({{ p.team_name }}){% endif %}</option>
-                  {% endfor %}
-                </select>
-                {% endfor %}
-              </div>
-            </div>
+            {% endfor %}
           </div>
         </div>
         {% else %}
         <div class="vs-matchup-card">
-          <div style="margin-bottom:8px">
-            <strong style="font-size:14px">👥 参赛队伍（比赛开始后已锁定）</strong>
-          </div>
+          <div class="vs-matchup-heading"><strong>参赛队伍（比赛开始后已锁定）</strong></div>
           <div class="vs-grid">
-            <div class="field-section" style="margin:0">
-              <h3 style="margin-bottom:8px">队伍 1</h3>
-              <div class="readonly-teams">
-                {% if team1_player_ids %}
-                  {% for pid in team1_player_ids %}
-                    {% for p in all_players %}{% if p.id == pid %}<span class="player-tag">{{ p.nickname }}</span>{% endif %}{% endfor %}
-                  {% endfor %}
+            {% for side in ('1', '2') %}
+            {% set side_ids = team1_player_ids if side == '1' else team2_player_ids %}
+            {% if side == '2' %}<div class="vs-divider" data-i18n-ignore>VS</div>{% endif %}
+            <div class="field-section">
+              <h3>队伍 {{ side }}</h3>
+              <div class="readonly-teams" data-i18n-ignore>
+                {% if side_ids %}
+                  {% for pid in side_ids %}{% for p in all_players %}{% if p.id|string == pid|string %}<span class="player-tag">{{ p.nickname }}</span>{% endif %}{% endfor %}{% endfor %}
                 {% else %}
-                  <span class="player-tag">{{ match.team1_name or '未设置' }}</span>
+                  <span class="player-tag">{{ (match.team1_name if side == '1' else match.team2_name) or '未设置' }}</span>
                 {% endif %}
               </div>
             </div>
-            <div class="vs-divider">VS</div>
-            <div class="field-section" style="margin:0">
-              <h3 style="margin-bottom:8px">队伍 2</h3>
-              <div class="readonly-teams">
-                {% if team2_player_ids %}
-                  {% for pid in team2_player_ids %}
-                    {% for p in all_players %}{% if p.id == pid %}<span class="player-tag">{{ p.nickname }}</span>{% endif %}{% endfor %}
-                  {% endfor %}
-                {% else %}
-                  <span class="player-tag">{{ match.team2_name or '未设置' }}</span>
-                {% endif %}
-              </div>
-            </div>
+            {% endfor %}
           </div>
         </div>
         {% endif %}
       </div>
 
-      <!-- ============================================== -->
-      <!-- TAB 2: 地图与赛制 -->
-      <!-- ============================================== -->
+      {# ---------- 标签 2：地图与赛制 ---------- #}
       <div id="pane-maps" class="tab-pane">
-        <!-- BO 格式 -->
         {% if is_new_match or setup_editable %}
-        <div class="form-group">
-          <label>赛制 (BO 格式)</label>
+        <label class="field form-narrow">
+          <span class="field-label">赛制 (BO 格式)</span>
           <select name="bo_format" id="boFormat" onchange="updateMapFields()">
             <option value="BO1" {% if match and match.bo_format=='BO1' %}selected{% endif %}>BO1 (单局定胜负)</option>
             <option value="BO3" {% if not match or match.bo_format=='BO3' %}selected{% endif %}>BO3 (三局两胜)</option>
             <option value="BO5" {% if match and match.bo_format=='BO5' %}selected{% endif %}>BO5 (五局三胜)</option>
           </select>
-        </div>
+        </label>
         {% else %}
         <input type="hidden" name="bo_format" id="boFormat" value="{{ match.bo_format }}">
-        <div class="form-group">
-          <label>赛制 (已锁定)</label>
+        <label class="field form-narrow">
+          <span class="field-label">赛制 (已锁定)</span>
           <input type="text" value="{{ match.bo_format }}" disabled>
-        </div>
+        </label>
         {% endif %}
 
-        <!-- 地图模式切换（仅添加比赛时可选） -->
         {% if is_new_match %}
-        <div class="form-group" id="mapModeToggleGroup">
-          <label>地图设置模式</label>
+        <div class="field" id="mapModeToggleGroup">
+          <span class="field-label">地图设置模式</span>
           <div class="mode-tabs" id="mapModeTabs">
-            <button type="button" class="mode-tab active" data-map-mode="manual" onclick="switchMapMode('manual')">
-              🗺️ 手动选图
-            </button>
-            <button type="button" class="mode-tab" data-map-mode="bp" onclick="switchMapMode('bp')">
-              🔒 在线 BP
-            </button>
+            <button type="button" class="mode-tab active" data-map-mode="manual" onclick="switchMapMode('manual')">手动选图</button>
+            <button type="button" class="mode-tab" data-map-mode="bp" onclick="switchMapMode('bp')">在线 BP</button>
           </div>
         </div>
         {% endif %}
 
-        <div id="manualMapSection">
+        <div id="manualMapSection" class="map-rows">
           {% for i in range(1, 6) %}
           {% set map_val = match['map' ~ i] if match else '' %}
           {% set pb_val = match['map' ~ i ~ '_picked_by'] if match else '' %}
-          <div class="form-row map-row{% if not is_new_match %} with-results{% endif %}" id="map{{ i }}Row" {% if i > 3 %}style="display:none"{% endif %}>
-            <div class="form-group">
-              <label>图{{ ['一', '二', '三', '四', '五'][i-1] }}</label>
+          <div class="map-row{% if not is_new_match %} with-results{% endif %}" id="map{{ i }}Row" {% if i > 3 %}hidden{% endif %}>
+            <label class="field">
+              <span class="field-label">图{{ ['一', '二', '三', '四', '五'][i-1] }}</span>
               <select name="map{{ i }}" {% if not setup_editable %}disabled{% endif %}>
                 <option value="">选择地图</option>
-                <option value="de_mirage" {% if map_val=='de_mirage' %}selected{% endif %}>Mirage (荒漠迷城)</option>
-                <option value="de_dust2" {% if map_val=='de_dust2' %}selected{% endif %}>Dust2 (炙热沙城 II)</option>
-                <option value="de_inferno" {% if map_val=='de_inferno' %}selected{% endif %}>Inferno (炼狱小镇)</option>
-                <option value="de_nuke" {% if map_val=='de_nuke' %}selected{% endif %}>Nuke (核子危机)</option>
-                <option value="de_ancient" {% if map_val=='de_ancient' %}selected{% endif %}>Ancient (远古遗迹)</option>
-                <option value="de_anubis" {% if map_val=='de_anubis' %}selected{% endif %}>Anubis (阿努比斯)</option>
-                <option value="de_overpass" {% if map_val=='de_overpass' %}selected{% endif %}>Overpass (死亡游乐园)</option>
-                <option value="de_vertigo" {% if map_val=='de_vertigo' %}selected{% endif %}>Vertigo (殒命大厦)</option>
-                <option value="de_train" {% if map_val=='de_train' %}selected{% endif %}>Train (列车停放站)</option>
-                <option value="de_cache" {% if map_val=='de_cache' %}selected{% endif %}>Cache (死城之谜)</option>
+                {% for value, label in map_choices %}
+                <option value="{{ value }}" {% if map_val == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
               </select>
-            </div>
+            </label>
             {% if not is_new_match %}
-            <div class="form-group">
-              <label>选图方</label>
+            <label class="field">
+              <span class="field-label">选图方</span>
               <select name="map{{ i }}_picked_by" {% if not setup_editable %}disabled{% endif %}>
                 <option value="">—</option>
                 <option value="t1" {% if pb_val=='t1' %}selected{% endif %}>队伍 1 Pick</option>
                 <option value="t2" {% if pb_val=='t2' %}selected{% endif %}>队伍 2 Pick</option>
                 <option value="decider" {% if pb_val=='decider' %}selected{% endif %}>决胜图 (Decider)</option>
               </select>
-            </div>
+            </label>
             {% endif %}
           </div>
           {% endfor %}
         </div>
       </div>
 
-      <!-- ============================================== -->
-      <!-- TAB 3: 出场名单与替补（去掉了几号位叫法，改为CS标准的选手 1~5） -->
-      <!-- ============================================== -->
+      {# ---------- 标签 3：出场名单与替补（选手 1~5，不用“几号位”的叫法） ---------- #}
       {% if setup_editable %}
       <div id="pane-roster" class="tab-pane">
-        <div class="alert alert-info" style="margin-bottom:16px">
-          <strong>出场名单机制：</strong>默认直接同步战队报名人员。若临时有选手缺席，在对应选手位置下拉更换为已报名的替补即可；保存后网站和导播软件会使用同一份名单。
-        </div>
-
+        <p class="lock-note">默认使用战队报名名单；有人缺席时在对应位置换成已报名的替补，保存后网站和导播软件用同一份名单。</p>
         <div class="match-roster-grid">
           {% for side in (1, 2) %}
           {% set side_options = match_roster_options.get(side, []) %}
           {% set side_selected = match_roster_selected.get(side, []) %}
-          <div class="field-section" style="margin:0">
-            <h3 style="margin-bottom:10px">队伍 {{ side }} 出场名单 (5 人)</h3>
+          <div class="field-section">
+            <h3>队伍 {{ side }} 出场名单 (5 人)</h3>
             {% if side_options %}
-            <div style="display:flex;flex-direction:column;gap:8px">
+            <div class="roster-slots">
               {% for slot in range(5) %}
-              <div style="display:flex;align-items:center;gap:8px">
-                <span style="font-size:12px;color:var(--text-muted);width:50px;font-family:monospace;flex-shrink:0">选手 {{ slot + 1 }}</span>
-                <select name="match_team{{ side }}_p{{ slot }}" aria-label="队伍{{ side }} 第{{ slot + 1 }}位选手" style="flex:1">
+              <label class="roster-slot">
+                <span>选手 {{ slot + 1 }}</span>
+                <select name="match_team{{ side }}_p{{ slot }}" aria-label="队伍{{ side }} 第{{ slot + 1 }}位选手">
                   <option value="">未指定 (位置 {{ slot + 1 }})</option>
                   {% for p in side_options %}
-                  <option value="{{ p.id }}" {% if side_selected|length > slot and side_selected[slot] == p.id %}selected{% endif %}>
-                    {{ p.nickname }}{% if p.is_substitute %}（替补队员）{% endif %}{% if not p.has_steam_id %}（缺 Steam ID）{% endif %}
-                  </option>
+                  <option value="{{ p.id }}" data-i18n-ignore {% if side_selected|length > slot and side_selected[slot]|string == p.id|string %}selected{% endif %}>{{ p.nickname }}{% if p.is_substitute %}（替补队员）{% endif %}{% if not p.has_steam_id %}（缺 Steam ID）{% endif %}</option>
                   {% endfor %}
                 </select>
-              </div>
+              </label>
               {% endfor %}
             </div>
             {% else %}
-            <span style="color:var(--text-muted);font-size:13px">暂无可选选手，请先完善队伍或替补报名资料。</span>
+            <span class="field-hint">暂无可选选手，请先完善队伍或替补报名资料。</span>
             {% endif %}
           </div>
           {% endfor %}
@@ -399,76 +284,69 @@
       </div>
       {% endif %}
 
-      <!-- ============================================== -->
-      <!-- TAB 4: 直播与房间信息 -->
-      <!-- ============================================== -->
+      {# ---------- 标签 4：直播与房间信息 ---------- #}
       <div id="pane-broadcast" class="tab-pane">
-        {% if current_status != 'completed' %}
-        <div class="form-group">
-          <label>🖥️ 比赛服务器地址 <span style="font-weight:400;color:var(--text-muted);font-size:12px">（可直接粘贴 TGPro / connect 字符串）</span></label>
-          <input type="text" name="server_address" value="{{ (match.server_address or '') if match else '' }}"
-                 placeholder="password 密码;connect 服务器IP:端口">
-        </div>
+        {% if current_status != 'completed' or setup_editable %}
+        <label class="field">
+          <span class="field-label">比赛服务器地址</span>
+          <input type="text" name="server_address" value="{{ (match.server_address or '') if match else '' }}" placeholder="password 密码;connect 服务器IP:端口">
+          <span class="field-hint">可直接粘贴 TGPro / connect 字符串。含口令，不会存进草稿。</span>
+        </label>
         {% endif %}
 
         {% if setup_editable %}
-        <div class="form-group" id="bpModeSection">
-          <label>🔒 在线选边 (BP) 共享口令</label>
-          <input type="password" name="bp_password" autocomplete="new-password"
+        <div class="field" id="bpModeSection">
+          <span class="field-label">在线选边 (BP) 共享口令</span>
+          <input type="password" name="bp_password" autocomplete="new-password" aria-label="在线选边 (BP) 共享口令"
                  placeholder="{% if match and match.bp_password %}留空则保持原口令{% else %}设置 BP 共享口令（可留空）{% endif %}">
-          <div class="field-hint" style="margin-left:0">锁定名单中的选手验证共享口令后，可以申请本队唯一操作席；BP 由选手或管理员手动开始。</div>
+          <span class="field-hint">名单内选手验证口令后申请本队操作席；BP 由选手或管理员手动开始。口令不会存进草稿。</span>
           {% if match and match.bp_password %}
-          <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-weight:400">
-            <input type="checkbox" name="clear_bp_password" value="1"> 清除现有 BP 共享口令
-          </label>
+          <label class="check-row"><input type="checkbox" name="clear_bp_password" value="1"> 清除现有 BP 共享口令</label>
           {% endif %}
         </div>
         {% endif %}
 
-        <div class="form-group">
-          <label>📺 B站直播间链接</label>
-          <input type="url" name="stream_url" value="{{ (match.stream_url or '') if match else '' }}"
-                 placeholder="https://live.bilibili.com/ROOMID">
-        </div>
+        <label class="field">
+          <span class="field-label">B站直播间链接</span>
+          <input type="url" name="stream_url" value="{{ (match.stream_url or '') if match else '' }}" placeholder="https://live.bilibili.com/ROOMID">
+        </label>
 
-        <div class="form-group">
-          <label>📺 观赛平台链接 <span style="font-weight:400;color:var(--text-muted);font-size:12px">（平台名+URL，前台显示为可点击按钮）</span></label>
-          <div id="watchUrlContainer" style="display:flex;flex-direction:column;gap:8px"></div>
-          <button type="button" onclick="addWatchUrl()" class="btn btn-secondary" style="margin-top:8px;padding:6px 14px;font-size:12px">+ 添加平台</button>
+        <div class="field">
+          <span class="field-label">观赛平台链接</span>
+          <div id="watchUrlContainer" class="watch-url-list"></div>
+          <div><button type="button" onclick="addWatchUrl()" class="btn btn-sm">+ 添加平台</button></div>
+          <span class="field-hint">前台显示为可点击的平台按钮。</span>
         </div>
 
         {% if not is_new_match and current_status == 'completed' %}
-        <div class="form-group" id="bpProcessGroup">
-          <label>Ban/Pick 流程补录</label>
+        <label class="field" id="bpProcessGroup">
+          <span class="field-label">Ban/Pick 流程补录</span>
           <textarea name="bp_process" rows="8" placeholder="若未进行在线 BP，可在此手动记录各回合 Ban/Pick 流程（每行一步）">{{ match.bp_process if match else '' }}</textarea>
-        </div>
+        </label>
         {% endif %}
       </div>
+    </div>
 
-      <!-- 3. 吸底保存操作栏 -->
-      <div class="sticky-form-actions">
-        <div style="font-size:13px;color:var(--text-muted);display:flex;align-items:center;gap:8px">
-          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#10b981"></span>
-          <span>修改已就绪，随时点击保存</span>
-        </div>
-        <div style="display:flex;gap:10px">
-          <button type="submit" class="btn btn-primary" id="submitBtn">
-            {% if is_new_match %}✅ 添加比赛{% else %}💾 保存修改{% endif %}
-          </button>
-          <a href="/admin/matches" class="btn btn-secondary">❌ 取消</a>
-        </div>
+    {# 3. 吸底保存栏 #}
+    <div class="sticky-form-actions">
+      <div class="form-actions">
+        <a href="{{ url_for('admin.admin_matches') }}" class="btn" data-discard>取消</a>
+        <button type="submit" class="btn btn-primary" id="submitBtn">{{ ui.icon('check') }}<span class="btn-label">{% if is_new_match %}添加比赛{% else %}保存修改{% endif %}</span></button>
       </div>
-      <p id="saveStatus" role="status" aria-live="polite" style="display:none;margin-top:10px;color:#5881bc;font-size:13px">正在保存，请稍候……</p>
-    </form>
-  </div>
-</div>
+      <p id="saveStatus" class="save-status" role="status" aria-live="polite" hidden>正在保存，请稍候……</p>
+    </div>
+  </form>
+</section>
+{% endblock %}
 
+{% block scripts %}
 <script>
 function switchMatchTab(tabKey) {
-  document.querySelectorAll('.match-tabs .match-tab').forEach(function(btn) {
+  document.querySelectorAll('.match-tabs .match-tab').forEach(function (btn) {
     btn.classList.toggle('active', btn.dataset.tab === tabKey);
+    btn.setAttribute('aria-selected', btn.dataset.tab === tabKey ? 'true' : 'false');
   });
-  document.querySelectorAll('.tab-pane').forEach(function(pane) {
+  document.querySelectorAll('.tab-pane').forEach(function (pane) {
     pane.classList.toggle('active', pane.id === 'pane-' + tabKey);
   });
 }
@@ -476,67 +354,108 @@ function switchMatchTab(tabKey) {
 function setMatchStatus(statusVal, btn) {
   var select = document.getElementById('statusSelect');
   if (select) select.value = statusVal;
-  document.querySelectorAll('#statusPills .status-pill').forEach(function(p) {
+  document.querySelectorAll('#statusPills .status-pill').forEach(function (p) {
     p.classList.toggle('active', p === btn);
   });
 }
 
+// 界面提示文字：英文模式下换成英文
+function matchText(text) { return window.siteTranslate ? window.siteTranslate(text) : text; }
+
 function syncMatchTime() {
   var d = document.getElementById('matchDate');
-  var t = document.getElementById('matchTime');
+  var tm = document.getElementById('matchTime');
   var h = document.getElementById('hiddenMatchTime');
   var prev = document.getElementById('timePreview');
-  if (!d || !t || !h) return;
+  if (!d || !tm || !h) return;
   var dVal = d.value.trim();
-  var tVal = t.value.trim() || '19:30';
+  var tVal = tm.value.trim() || '19:30';
   if (dVal) {
     h.value = dVal + 'T' + tVal;
-    if (prev) prev.textContent = '当前设定：' + dVal + ' ' + tVal;
+    if (prev) prev.textContent = matchText('当前设定：') + dVal + ' ' + tVal;
   } else {
     h.value = '';
-    if (prev) prev.textContent = '当前设定：未设置';
+    if (prev) prev.textContent = matchText('当前设定：未设置');
   }
 }
 
 function setTime(val, btn) {
-  var t = document.getElementById('matchTime');
-  if (t) {
-    t.value = val;
-    document.querySelectorAll('.time-chip').forEach(function(c) { c.classList.remove('active'); });
-    if (btn) btn.classList.add('active');
-    syncMatchTime();
-  }
+  var tm = document.getElementById('matchTime');
+  if (!tm) return;
+  tm.value = val;
+  document.querySelectorAll('.time-chip').forEach(function (c) { c.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+  syncMatchTime();
 }
 
 function quickDate(offsetDays) {
   var now = new Date();
   now.setDate(now.getDate() + offsetDays);
-  var y = now.getFullYear();
-  var m = String(now.getMonth() + 1).padStart(2, '0');
-  var d = String(now.getDate()).padStart(2, '0');
   var dInput = document.getElementById('matchDate');
-  if (dInput) {
-    dInput.value = y + '-' + m + '-' + d;
-    syncMatchTime();
-  }
+  if (!dInput) return;
+  dInput.value = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+  syncMatchTime();
 }
 
 function swapSides() {
-  var s1 = document.getElementById('side1_select');
-  var s2 = document.getElementById('side2_select');
-  if (s1 && s2) {
-    var tmp = s1.value;
-    s1.value = s2.value;
-    s2.value = tmp;
+  function notifyChanged(control) {
+    if (!control) return;
+    control.dispatchEvent(new Event('input', { bubbles: true }));
+    control.dispatchEvent(new Event('change', { bubbles: true }));
   }
+
+  function swapSelectState(first, second, swapOptions) {
+    if (!first || !second) return;
+    var firstValue = first.value;
+    var secondValue = second.value;
+    if (swapOptions) {
+      var firstOptions = Array.prototype.slice.call(first.options);
+      var secondOptions = Array.prototype.slice.call(second.options);
+      secondOptions.forEach(function (option) { first.appendChild(option); });
+      firstOptions.forEach(function (option) { second.appendChild(option); });
+    }
+    first.value = secondValue;
+    second.value = firstValue;
+    notifyChanged(first);
+    notifyChanged(second);
+  }
+
+  var firstType = document.querySelector('input[name="side1_type"]:checked');
+  var secondType = document.querySelector('input[name="side2_type"]:checked');
+  if (firstType && secondType) {
+    var firstChoice = firstType.value;
+    var secondChoice = secondType.value;
+    var newFirstType = document.querySelector('input[name="side1_type"][value="' + secondChoice + '"]');
+    var newSecondType = document.querySelector('input[name="side2_type"][value="' + firstChoice + '"]');
+    newFirstType.checked = true;
+    newSecondType.checked = true;
+    notifyChanged(newFirstType);
+    notifyChanged(newSecondType);
+  }
+
+  swapSelectState(document.getElementById('side1_select'), document.getElementById('side2_select'));
+  for (var i = 0; i < 5; i++) {
+    swapSelectState(
+      document.querySelector('[name="side1_p' + i + '"]'),
+      document.querySelector('[name="side2_p' + i + '"]')
+    );
+    swapSelectState(
+      document.querySelector('[name="match_team1_p' + i + '"]'),
+      document.querySelector('[name="match_team2_p' + i + '"]'),
+      true
+    );
+  }
+  toggleSide('1');
+  toggleSide('2');
 }
 
+// 按赛制显示几张图：BO1 一张、BO3 三张、BO5 五张
 function updateMapFields() {
   var bo = document.getElementById('boFormat').value;
   var max = bo === 'BO1' ? 1 : (bo === 'BO3' ? 3 : 5);
   for (var i = 2; i <= 5; i++) {
     var row = document.getElementById('map' + i + 'Row');
-    if (row) row.style.display = max >= i ? '' : 'none';
+    if (row) row.hidden = max < i;
   }
 }
 
@@ -548,14 +467,14 @@ function isTestMatch() {
 }
 
 function toggleSide(num) {
-  var checked = document.querySelector('input[name="side'+num+'_type"]:checked');
+  var checked = document.querySelector('input[name="side' + num + '_type"]:checked');
   if (!checked) return;
   var isTeam = checked.value === 'team';
-  var teamEl = document.getElementById('side'+num+'_team');
-  var playersEl = document.getElementById('side'+num+'_players');
-  if (teamEl) teamEl.style.display = isTeam ? 'block' : 'none';
-  if (playersEl) playersEl.style.display = isTeam ? 'none' : 'block';
-  var sel = document.querySelector('select[name="side'+num+'_id"]');
+  var teamEl = document.getElementById('side' + num + '_team');
+  var playersEl = document.getElementById('side' + num + '_players');
+  if (teamEl) teamEl.hidden = !isTeam;
+  if (playersEl) playersEl.hidden = isTeam;
+  var sel = document.querySelector('select[name="side' + num + '_id"]');
   if (sel) sel.required = isTeam && !isTestMatch();
 }
 
@@ -565,8 +484,7 @@ function toggleTestMode() {
   if (!testMode || !participants) return;
   var isTest = testMode.checked;
   participants.hidden = isTest;
-  participants.style.display = isTest ? 'none' : '';
-  participants.querySelectorAll('input, select, textarea').forEach(function(control) {
+  participants.querySelectorAll('input, select, textarea').forEach(function (control) {
     control.disabled = isTest;
   });
   if (!isTest) {
@@ -575,45 +493,50 @@ function toggleTestMode() {
   }
 }
 
-// Watch URLs
+// 观赛平台链接：每行“平台名 + 地址 + 删除”
 var watchUrls = {{ ((match.watch_urls|json_loads if match and match.watch_urls else None) or [])|tojson }};
 window._watchUrlIdx = watchUrls.length;
 
 function escapeWatchAttr(value) {
-  return String(value).replace(/[&<>"']/g, function(ch) {
-    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
+  return String(value).replace(/[&<>"']/g, function (ch) {
+    return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[ch];
   });
 }
 
-function addWatchUrl(name, url) {
-  name = name || ''; url = url || '';
-  var idx = window._watchUrlIdx++;
-  var div = document.createElement('div');
-  div.style.cssText = 'display:flex;gap:8px;align-items:center';
-  div.innerHTML = '<input type="text" name="watch_name_' + idx + '" value="' + escapeWatchAttr(name) + '" placeholder="平台名（如 Bilibili）" style="flex:1;min-width:100px">' +
-    '<input type="url" name="watch_url_' + idx + '" value="' + escapeWatchAttr(url) + '" placeholder="https://..." style="flex:2">' +
-    '<button type="button" onclick="this.parentElement.remove()" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:18px;padding:0 4px">&times;</button>';
-  document.getElementById('watchUrlContainer').appendChild(div);
+function addWatchUrl(name, url, fixedIdx) {
+  name = name || '';
+  url = url || '';
+  var idx = fixedIdx != null ? fixedIdx : window._watchUrlIdx++;
+  if (fixedIdx != null && fixedIdx >= window._watchUrlIdx) window._watchUrlIdx = fixedIdx + 1;
+  var row = document.createElement('div');
+  row.className = 'watch-url-row';
+  row.innerHTML = '<input type="text" name="watch_name_' + idx + '" value="' + escapeWatchAttr(name) + '" placeholder="' + escapeWatchAttr(matchText('平台名（如 Bilibili）')) + '" aria-label="' + escapeWatchAttr(matchText('平台名')) + '">' +
+    '<input type="url" name="watch_url_' + idx + '" value="' + escapeWatchAttr(url) + '" placeholder="https://..." aria-label="' + escapeWatchAttr(matchText('平台地址')) + '">' +
+    '<button type="button" class="btn watch-url-remove" aria-label="' + escapeWatchAttr(matchText('删除这个平台')) + '">&times;</button>';
+  row.querySelector('.watch-url-remove').addEventListener('click', function () { row.remove(); });
+  document.getElementById('watchUrlContainer').appendChild(row);
 }
 
-watchUrls.forEach(function(w) { addWatchUrl(w.name, w.url); });
+watchUrls.forEach(function (w) { addWatchUrl(w.name, w.url); });
 
 function switchMapMode(mode) {
-  document.querySelectorAll('#mapModeTabs .mode-tab').forEach(function(t) {
-    t.classList.toggle('active', t.dataset.mapMode === mode);
+  document.querySelectorAll('#mapModeTabs .mode-tab').forEach(function (tab) {
+    tab.classList.toggle('active', tab.dataset.mapMode === mode);
   });
   var manual = document.getElementById('manualMapSection');
   var bp = document.getElementById('bpModeSection');
-  if (manual) manual.style.display = mode === 'manual' ? '' : 'none';
-  if (bp) bp.style.display = mode === 'bp' ? '' : 'none';
+  if (manual) manual.hidden = mode !== 'manual';
+  if (bp) bp.hidden = mode !== 'bp';
 }
 
+// 提交时：先同步比赛时间；防止连点两次；返回页面时恢复按钮
 (function bindMatchSaveState() {
   var form = document.getElementById('matchForm');
   var button = document.getElementById('submitBtn');
   var status = document.getElementById('saveStatus');
   if (!form || !button) return;
-  form.addEventListener('submit', function(event) {
+  var idleText = button.querySelector('.btn-label').textContent;
+  form.addEventListener('submit', function (event) {
     syncMatchTime();
     if (form.dataset.submitting === '1') {
       event.preventDefault();
@@ -621,16 +544,39 @@ function switchMapMode(mode) {
     }
     form.dataset.submitting = '1';
     button.disabled = true;
-    button.textContent = '保存中……';
-    if (status) status.style.display = 'block';
+    button.querySelector('.btn-label').textContent = matchText('保存中……');
+    if (status) status.hidden = false;
   });
-  window.addEventListener('pageshow', function() {
+  window.addEventListener('pageshow', function () {
     form.dataset.submitting = '';
     button.disabled = false;
+    button.querySelector('.btn-label').textContent = idleText;
+    if (status) status.hidden = true;
   });
 })();
 
-// Init
+// 恢复草稿：先按草稿补齐观赛平台行；填回后同步状态按钮、比赛时间、参赛方显示
+(function bindDraftRestore() {
+  var form = document.getElementById('matchForm');
+  form.addEventListener('admin-draft:before-restore', function (event) {
+    Object.keys(event.detail || {}).forEach(function (name) {
+      var m = /^watch_name_(\d+)$/.exec(name);
+      if (m && !form.elements[name]) addWatchUrl('', '', Number(m[1]));
+    });
+  });
+  form.addEventListener('admin-draft:restored', function () {
+    var select = document.getElementById('statusSelect');
+    var pill = select && document.querySelector('#statusPills [data-status="' + select.value + '"]');
+    if (pill) setMatchStatus(select.value, pill);
+    syncMatchTime();
+    updateMapFields();
+    toggleTestMode();
+    toggleSide('1');
+    toggleSide('2');
+  });
+})();
+
+// 初始化
 syncMatchTime();
 updateMapFields();
 toggleTestMode();
@@ -640,8 +586,4 @@ toggleSide('2');
 switchMapMode('manual');
 {% endif %}
 </script>
-
-<script src="{{ versioned_url('static/js/i18n.js') }}"></script>
-<script src="{{ url_for('static', filename='js/svg_icons.js') }}?v=20260620-svg1"></script>
-</body>
-</html>
+{% endblock %}

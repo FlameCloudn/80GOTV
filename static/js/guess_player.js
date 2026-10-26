@@ -7,7 +7,6 @@
 
     var query = document.getElementById('guessPlayerQuery');
     var playerId = document.getElementById('guessPlayerId');
-    var error = document.getElementById('guessFormError');
     var options = Array.prototype.slice.call(
       document.querySelectorAll('#guessPlayerOptions option')
     );
@@ -21,16 +20,19 @@
       return Boolean(match);
     }
 
+    // 没从候选里选中：输入框标红、右上角提示；重新输入时去掉
     query.addEventListener('input', function () {
-      error.textContent = '';
+      query.removeAttribute('aria-invalid');
+      window.dismissToast('guess-form');
       resolveSelection();
     });
 
     form.addEventListener('submit', function (event) {
       if (!resolveSelection()) {
         event.preventDefault();
-        error.textContent = '请从候选列表中选择一名选手';
+        query.setAttribute('aria-invalid', 'true');
         query.focus();
+        window.showToast('请从候选列表中选择一名选手', 'error', { key: 'guess-form' });
       }
     });
   }

@@ -1,0 +1,42 @@
+{#-
+  后台左侧导航：按管理员的日常任务分组，每项一个自绘图标；“注册审核”“用户反馈”旁直接显示待处理数量
+  （数量来自 blueprints/admin.py 的 admin_nav_counts，只读）。
+  当前页面按网址第二段判断（/admin/teams/... → teams），给对应入口加 aria-current。
+  电脑上是左侧一列；窗口窄时（≤1100px）变成正文上方的横排，放不下就换行（样式见 admin.css）。
+-#}
+{%- import "admin/_icons.html" as ui -%}
+{%- set _admin_parts = request.path.strip('/').split('/') -%}
+{%- set admin_section = _admin_parts[1] if _admin_parts|length > 1 else 'home' -%}
+{%- set nav_counts = admin_nav_counts or {} -%}
+{%- macro admin_link(section, href, label, icon_name, count=0, count_label='') -%}
+<a href="{{ href }}"{% if admin_section == section %} aria-current="page"{% endif %}>{{ ui.icon(icon_name) }}<span>{{ label }}</span>{% if count %}<span class="nav-count" aria-label="{{ count_label }}">{{ count }}</span>{% endif %}</a>
+{%- endmacro -%}
+<nav class="admin-sidenav admin-nav" aria-label="后台导航">
+  <div class="admin-nav-group">
+    {{ admin_link('home', url_for('admin.admin_dashboard'), '工作台', 'dashboard') }}
+  </div>
+  <div class="admin-nav-group">
+    <span class="admin-nav-label">赛事运营</span>
+    {{ admin_link('events', url_for('admin.admin_events'), '赛事', 'event') }}
+    {{ admin_link('matches', url_for('admin.admin_matches'), '比赛', 'match') }}
+    {{ admin_link('live', url_for('admin.admin_live_status'), '直播状态', 'live') }}
+  </div>
+  <div class="admin-nav-group">
+    <span class="admin-nav-label">人员</span>
+    {{ admin_link('registrations', url_for('admin.registration_reviews'), '注册审核', 'review', nav_counts.get('pending_users', 0), nav_counts.get('pending_users', 0) ~ ' 个待审核') }}
+    {{ admin_link('players', url_for('admin.admin_players'), '选手', 'player') }}
+    {{ admin_link('teams', url_for('admin.admin_teams'), '队伍', 'team') }}
+    {{ admin_link('nicknames', url_for('admin.admin_nicknames'), '昵称管理', 'tag') }}
+  </div>
+  <div class="admin-nav-group">
+    <span class="admin-nav-label">内容</span>
+    {{ admin_link('news', url_for('admin.admin_news'), '新闻', 'news') }}
+    {{ admin_link('feedback', url_for('admin.admin_feedback'), '用户反馈', 'feedback', nav_counts.get('open_feedback', 0), nav_counts.get('open_feedback', 0) ~ ' 条待处理') }}
+    {{ admin_link('top10', url_for('admin.admin_top10'), '年度 TOP 10', 'star') }}
+    {{ admin_link('awards', url_for('admin.admin_award_poster'), 'MVP / EVP 数据图', 'image') }}
+  </div>
+  <div class="admin-nav-group">
+    <span class="admin-nav-label">工具</span>
+    <a href="{{ url_for('admin.admin_backup_download') }}">{{ ui.icon('download') }}<span>下载备份</span></a>
+  </div>
+</nav>

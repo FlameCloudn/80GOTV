@@ -42,6 +42,7 @@
 .related-match-row strong { display: block; font-size: var(--font-md); }
 .related-match-row small { display: block; color: var(--text-muted); }
 .related-match-vs { color: var(--text-muted); font-weight: 400; }
+.related-match-score.is-pending { color: var(--text-muted); font-size: var(--font-xs); letter-spacing: .04em; }
 
 @media (max-width: 760px) {
   .news-detail { padding: var(--space-lg); }

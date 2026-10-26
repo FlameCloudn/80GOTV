@@ -34,8 +34,10 @@
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <label>
               <span>队标图片</span>
-              <input type="file" name="team_logo" accept="image/png,image/jpeg,image/gif" required>
+              <input type="file" name="team_logo" accept="image/png,image/jpeg,image/gif,.png,.jpg,.jpeg,.gif" required
+                     aria-describedby="regLogoHint{{ reg.info.id }}" data-max-bytes="10485760" data-size-error="队标图片不能超过 10MB" data-type-error="队标只支持 PNG、JPG、JPEG、GIF 格式">
             </label>
+            <span class="event-reg-file-hint" id="regLogoHint{{ reg.info.id }}">PNG / JPG / JPEG / GIF，最大 10MB</span>
             <button type="submit" class="event-reg-control-btn">{% if reg.info.team_logo %}更换队标{% else %}上传队标{% endif %}</button>
           </form>
           {% if reg.info.team_logo %}

@@ -1,119 +1,80 @@
-<!doctype html>
-<html lang="zh-CN">
-<head>
-  {% include "_i18n_bootstrap.html" %}
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>{% if event and event.id %}编辑赛事{% else %}添加赛事{% endif %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-comfort.css') }}">
-  <script>
-    (function(){
-      var t = localStorage.getItem('theme');
-      if(!t){ t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light'; }
-      document.documentElement.setAttribute('data-theme', t);
-    })();
-  </script>
-</head>
-<body>
+{% extends "admin/_layout.html" %}
+{% import "admin/_icons.html" as ui %}
+{% set editing = event and event.id %}
+{% block title %}{% if editing %}编辑赛事{% else %}添加赛事{% endif %}{% endblock %}
+{% block main %}
+<a href="{{ url_for('admin.admin_events') }}" class="back-link">← 返回赛事管理</a>
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>EVENTS</span><h1>{% if editing %}编辑赛事{% else %}添加赛事{% endif %}</h1></div>
+  {% if editing %}
+  <div class="page-actions">
+    <a class="btn" href="{{ url_for('admin.admin_matches', event=event.id) }}">{{ ui.icon('match') }}本赛事比赛</a>
+    <a class="btn" href="{{ url_for('admin.admin_event_bracket', event_id=event.id) }}">{{ ui.icon('bracket') }}编辑对阵图</a>
+  </div>
+  {% endif %}
+</header>
 
-{% include "admin/_top_nav.html" %}
-
-<div class="container">
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      {% for category, message in messages %}
-      <div class="alert alert-{{ category }}">{{ message }}</div>
-      {% endfor %}
-    {% endif %}
-  {% endwith %}
-
-  <div class="form-container">
-    <h2>{% if event and event.id %}✏️ 编辑赛事{% else %}➕ 添加赛事{% endif %}</h2>
-
-    <form method="post">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-
-      <div class="form-group">
-        <label>赛事名 *</label>
-        <input type="text" name="name" value="{{ event.name if event else '' }}" required placeholder="例如：校园春季杯">
-      </div>
-
-      <div class="form-group">
-        <label>赛事简称 *</label>
-        <input type="text" name="short_name" value="{{ event.short_name if event and event.short_name else '' }}"
-               required placeholder="例如：80CS_S1 或 新生杯">
-        <small style="color:var(--text-muted);display:block;margin-top:4px">赛事展示简称，支持中文或英文；若包含英文字符将作为录像文件名依据。</small>
-      </div>
-
-      <div class="form-group">
-        <label>网址名称（可选）</label>
-        <input type="text" name="slug" value="{{ event.slug if event and event.slug else '' }}"
-               placeholder="例如：80cs-summer-major" pattern="[A-Za-z0-9-]+">
-        <small class="field-note">最终地址形如 /events/80cs-summer-major；留空时按赛事名称自动生成。</small>
-      </div>
-
-      <div class="form-group">
-        <label>描述</label>
-        <textarea name="description" rows="3" placeholder="赛事简介（可选）">{{ event.description if event else '' }}</textarea>
-      </div>
-
-      <div class="time-picker-card" style="margin-bottom:20px;">
-        <label style="font-weight:700;margin-bottom:8px;display:block;">赛事起止时间 *</label>
-        <div class="form-row">
-          <div class="form-group" style="margin-bottom:6px;">
-            <label style="font-size:13px;color:var(--text-muted);">开始日期与时间</label>
-            <input type="datetime-local" id="startDateInput" name="start_date"
-                   value="{{ event.start_date[:16] if event and event.start_date else '' }}" required>
-          </div>
-
-          <div class="form-group" style="margin-bottom:6px;">
-            <label style="font-size:13px;color:var(--text-muted);">结束日期与时间</label>
-            <input type="datetime-local" id="endDateInput" name="end_date"
-                   value="{{ event.end_date[:16] if event and event.end_date else '' }}" required>
-          </div>
-        </div>
-        <div class="time-chips" style="margin-top:6px;">
-          <span style="font-size:12px;color:var(--text-muted);line-height:26px;">快捷赛期：</span>
-          <button type="button" class="time-chip" onclick="setEventDuration(1)">1天 (单日赛)</button>
-          <button type="button" class="time-chip" onclick="setEventDuration(2)">2天 (周末杯)</button>
-          <button type="button" class="time-chip" onclick="setEventDuration(7)">7天 (1周)</button>
-          <button type="button" class="time-chip" onclick="setEventDuration(14)">14天 (2周)</button>
-          <button type="button" class="time-chip" onclick="setEventDuration(30)">30天 (月赛)</button>
-        </div>
-        <div class="field-hint">快捷赛期按自然日计算：开始当天算第 1 天，最后一天 20:00 结束（例如 1 天＝当天结束，2 天＝第二天结束）。</div>
-      </div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label>赛制</label>
-          <input type="text" name="format" value="{{ event.format if event else '' }}"
-                 placeholder="如：单败淘汰、双循环积分">
-        </div>
-
-        {% if event and event.id %}
-          <div class="form-group">
-            <label>状态 *</label>
+{#- 分组：必填的“基本信息”“赛期”直接展开；报名单独一组；网址、描述、直播间、赛后荣誉折叠。
+    data-guard / data-draft：未保存离开提醒、草稿（见 static/js/admin_form_draft.js） -#}
+<section class="panel">
+  <form method="post" id="eventForm" data-busy-text="保存中……" data-guard data-draft>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <div class="admin-form">
+      <section class="form-group" data-required-group>
+        <div class="form-group-head"><h2 class="form-group-title">基本信息</h2><span data-group-status></span></div>
+        <div class="form-grid">
+          <label class="field">
+            <span class="field-label">赛事名 <span class="field-required">*</span></span>
+            <input type="text" name="name" value="{{ event.name if event else '' }}" required placeholder="例如：校园春季杯">
+          </label>
+          <label class="field">
+            <span class="field-label">赛事简称 <span class="field-required">*</span></span>
+            <input type="text" name="short_name" value="{{ event.short_name if event and event.short_name else '' }}" required placeholder="例如：80CS_S1 或 新生杯">
+            <span class="field-hint">含英文字符时用作录像文件名。</span>
+          </label>
+          <label class="field">
+            <span class="field-label">赛制</span>
+            <input type="text" name="format" value="{{ event.format if event else '' }}" placeholder="如：单败淘汰、双循环积分">
+          </label>
+          {% if editing %}
+          <label class="field">
+            <span class="field-label">状态 <span class="field-required">*</span></span>
             <select name="status" required>
               <option value="upcoming" {% if event.status=='upcoming' %}selected{% endif %}>即将开始</option>
               <option value="ongoing" {% if event.status=='ongoing' %}selected{% endif %}>进行中</option>
               <option value="completed" {% if event.status=='completed' %}selected{% endif %}>已结束</option>
             </select>
-          </div>
-        {% endif %}
-      </div>
-
-      <details class="optional" {% if event and event.stream_url %}open{% endif %}>
-        <summary>可选：赛事统一直播间</summary>
-        <div class="form-group" style="margin-top:14px">
-          <label>B站直播间地址（可选）</label>
-          <input type="url" name="stream_url" value="{{ event.stream_url if event and event.stream_url else '' }}"
-                 placeholder="https://live.bilibili.com/ROOMID">
-          <small class="field-note">创建赛事时可以留空；确定直播间后，再编辑赛事补上即可。</small>
+          </label>
+          {% endif %}
         </div>
-      </details>
+      </section>
 
-      <div class="form-group" style="margin-top:16px;">
+      <section class="form-group" data-required-group>
+        <div class="form-group-head"><h2 class="form-group-title">赛期</h2><span data-group-status></span></div>
+        <div class="form-grid">
+          <label class="field">
+            <span class="field-label">开始时间 <span class="field-required">*</span></span>
+            <input type="datetime-local" id="startDateInput" name="start_date" value="{{ event.start_date[:16] if event and event.start_date else '' }}" required>
+          </label>
+          <label class="field">
+            <span class="field-label">结束时间 <span class="field-required">*</span></span>
+            <input type="datetime-local" id="endDateInput" name="end_date" value="{{ event.end_date[:16] if event and event.end_date else '' }}" required
+                   data-not-before="start_date" data-msg-not-before="结束时间不能早于开始时间">
+          </label>
+        </div>
+        <div class="time-chips" role="group" aria-label="快捷赛期">
+          <span class="time-chips-label">快捷赛期：</span>
+          <button type="button" class="time-chip" data-event-days="1">1天 (单日赛)</button>
+          <button type="button" class="time-chip" data-event-days="2">2天 (周末杯)</button>
+          <button type="button" class="time-chip" data-event-days="7">7天 (1周)</button>
+          <button type="button" class="time-chip" data-event-days="14">14天 (2周)</button>
+          <button type="button" class="time-chip" data-event-days="30">30天 (月赛)</button>
+        </div>
+        <span class="field-hint">按自然日计算：开始当天算第 1 天，最后一天 20:00 结束。</span>
+      </section>
+
+      <section class="form-group">
+        <div class="form-group-head"><h2 class="form-group-title">报名</h2></div>
         <label class="check-row">
           <input type="checkbox" name="registration_open" value="1"
                  {% if event and event.registration_open and event.status != 'completed' %}checked{% endif %}
@@ -121,92 +82,107 @@
           <span>开放队伍报名</span>
         </label>
         {% if event and event.status == 'completed' %}
-        <small class="field-note">赛事已完赛，不可再开放报名。</small>
-        {% else %}
-        <small class="field-note">开启后用户可在赛事页提交报名申请</small>
+        <span class="field-hint lock-hint">{{ ui.icon('lock') }}赛事已完赛，不可再开放报名。</span>
         {% endif %}
-      </div>
+      </section>
 
-      {% if event and event.id %}
-      <details class="optional" style="margin-top:22px">
-        <summary style="cursor:pointer;font-weight:700;color:#5881bc">赛后荣誉：冠军、MVP、EVP</summary>
-        <p style="font-size:13px;color:var(--text-muted);margin:10px 0 16px">赛事结束后再填写。平时可以保持折叠。</p>
-
-        <div class="form-group">
-          <label>冠军队伍</label>
-          <select name="champion_team_id">
-            <option value="">-- 未指定 --</option>
-            {% for t in teams %}
-            <option value="{{ t.id }}" {% if champion_team and champion_team.id==t.id %}selected{% endif %}>{{ t.name }}</option>
-            {% endfor %}
-          </select>
+      <details class="form-group optional" {% if event and (event.slug or event.description or event.stream_url) %}open{% endif %}>
+        <summary><span class="form-group-title">更多设置</span><span data-group-status></span></summary>
+        <div class="details-body form-grid">
+          <label class="field">
+            <span class="field-label">网址名称</span>
+            <input type="text" name="slug" value="{{ event.slug if event and event.slug else '' }}" placeholder="例如：80cs-summer-major" pattern="[A-Za-z0-9\-]+"
+                   data-msg-pattern="网址名称只能用英文字母、数字和连字符">
+            <span class="field-hint">地址形如 /events/80cs-summer-major；留空按赛事名生成。</span>
+          </label>
+          <label class="field">
+            <span class="field-label">B站直播间地址</span>
+            <input type="url" name="stream_url" value="{{ event.stream_url if event and event.stream_url else '' }}" placeholder="https://live.bilibili.com/ROOMID">
+          </label>
+          <label class="field span-all">
+            <span class="field-label">描述</span>
+            <textarea name="description" rows="3" placeholder="赛事简介">{{ event.description if event else '' }}</textarea>
+          </label>
         </div>
+      </details>
 
-        <div class="form-group">
-          <label>赛事 MVP</label>
-          <select name="mvp_player_id">
-            <option value="">-- 未指定 --</option>
-            {% for p in all_players %}
-            <option value="{{ p.id }}" {% if mvp_player and mvp_player.id==p.id %}selected{% endif %}>{{ p.nickname }}{% if p.team_name %} ({{ p.team_name }}){% endif %}</option>
-            {% endfor %}
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label>赛事 EVP（可多选）</label>
-          <div style="max-height:200px;overflow-y:auto;border:1px solid var(--border-color);background:var(--bg-card);border-radius:0;padding:10px">
-            {% for p in all_players %}
-            <label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-weight:400;cursor:pointer;color:var(--text-primary);">
-              <input type="checkbox" name="evp_player_ids" value="{{ p.id }}"
-                {% if evp_players and p.id in (evp_players|map(attribute='id')|list) %}checked{% endif %}>
-              {{ p.nickname }}{% if p.team_name %} ({{ p.team_name }}){% endif %}
+      {% if editing %}
+      <details class="form-group optional" {% if champion_team or mvp_player or evp_players %}open{% endif %}>
+        <summary><span class="form-group-title">赛后荣誉：冠军、MVP、EVP</span><span data-group-status></span></summary>
+        <div class="details-body">
+          <div class="form-grid">
+            <label class="field">
+              <span class="field-label">冠军队伍</span>
+              <select name="champion_team_id">
+                <option value="">-- 未指定 --</option>
+                {% for t in teams %}
+                <option value="{{ t.id }}" data-i18n-ignore {% if champion_team and champion_team.id==t.id %}selected{% endif %}>{{ t.name }}</option>
+                {% endfor %}
+              </select>
             </label>
-            {% endfor %}
+            <label class="field">
+              <span class="field-label">赛事 MVP</span>
+              <select name="mvp_player_id">
+                <option value="">-- 未指定 --</option>
+                {% for p in all_players %}
+                <option value="{{ p.id }}" data-i18n-ignore {% if mvp_player and mvp_player.id==p.id %}selected{% endif %}>{{ p.nickname }}{% if p.team_name %} ({{ p.team_name }}){% endif %}</option>
+                {% endfor %}
+              </select>
+            </label>
           </div>
+          <fieldset class="field">
+            <legend class="field-label">赛事 EVP（可多选）</legend>
+            <div class="checkbox-list" data-i18n-ignore>
+              {% for p in all_players %}
+              <label class="check-row">
+                <input type="checkbox" name="evp_player_ids" value="{{ p.id }}" {% if evp_players and p.id in (evp_players|map(attribute='id')|list) %}checked{% endif %}>
+                <span>{{ p.nickname }}{% if p.team_name %} ({{ p.team_name }}){% endif %}</span>
+              </label>
+              {% endfor %}
+            </div>
+          </fieldset>
         </div>
       </details>
       {% endif %}
+    </div>
 
-      <div class="sticky-form-actions">
-        <a href="/admin/events" class="btn btn-secondary">❌ 取消</a>
-        <button type="submit" class="btn btn-primary">
-          {% if event and event.id %}💾 保存修改{% else %}✅ 添加赛事{% endif %}
-        </button>
+    <div class="sticky-form-actions">
+      <div class="form-actions">
+        <a href="{{ url_for('admin.admin_events') }}" class="btn" data-discard>取消</a>
+        <button type="submit" class="btn btn-primary">{{ ui.icon('check') }}{% if editing %}保存修改{% else %}添加赛事{% endif %}</button>
       </div>
-    </form>
-  </div>
-</div>
+    </div>
+  </form>
+</section>
+{% endblock %}
 
+{% block scripts %}
 <script>
+// 快捷赛期：按自然日计算，开始当天算第 1 天，最后一天 20:00 结束
 function setEventDuration(days) {
   var startInput = document.getElementById('startDateInput');
   var endInput = document.getElementById('endDateInput');
   var startDate = startInput.value ? new Date(startInput.value) : new Date();
   if (isNaN(startDate.getTime())) startDate = new Date();
-  
-  // Format to YYYY-MM-DDTHH:MM
   function formatDT(d) {
-    var pad = function(n) { return n < 10 ? '0' + n : n; };
+    var pad = function (n) { return n < 10 ? '0' + n : n; };
     return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
   }
-  
   if (!startInput.value) {
     startDate.setHours(10, 0, 0, 0);
     startInput.value = formatDT(startDate);
+    startInput.dispatchEvent(new Event('change', { bubbles: true }));
   }
-  
-  // 按自然日计算：开始当天算第 1 天，最后一天 20:00 结束
   var endDate = new Date(startDate.getTime());
   endDate.setDate(endDate.getDate() + days - 1);
   endDate.setHours(20, 0, 0, 0);
   // 开始时间已经晚于最后一天 20:00（如单日赛 21:00 开赛），就改为当天 23:59 结束
-  if (endDate.getTime() <= startDate.getTime()) {
-    endDate.setHours(23, 59, 0, 0);
-  }
+  if (endDate.getTime() <= startDate.getTime()) endDate.setHours(23, 59, 0, 0);
   endInput.value = formatDT(endDate);
+  endInput.dispatchEvent(new Event('change', { bubbles: true }));
 }
+document.querySelectorAll('[data-event-days]').forEach(function (chip) {
+  chip.addEventListener('click', function () { setEventDuration(Number(chip.getAttribute('data-event-days'))); });
+});
 </script>
-<script src="{{ versioned_url('static/js/i18n.js') }}"></script>
-<script src="{{ url_for('static', filename='js/svg_icons.js') }}?v=20260620-svg1"></script>
-</body>
-</html>
+{% endblock %}

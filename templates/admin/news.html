@@ -1,112 +1,46 @@
-<!doctype html>
-<html lang="zh-CN">
-<head>
-  {% include "_i18n_bootstrap.html" %}
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>新闻管理 - 80GOTV</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-comfort.css') }}">
-  <script>
-    (function(){
-      var t = localStorage.getItem('theme');
-      if(!t){ t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light'; }
-      document.documentElement.setAttribute('data-theme', t);
-    })();
-  </script>
-  <style>
-    body{background:var(--bg-primary);color:var(--text-primary);font-family:sans-serif}
-    .container{padding:0 20px 30px}
-    .header{
-      background:var(--bg-card);
-      border:1px solid var(--border-color);
-      padding:16px 20px;
-      margin-bottom:20px;
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-    }
-    .header h2{margin:0}
-    table{
-      width:100%;
-      background:var(--bg-card);
-      border:1px solid var(--border-color);
-      border-collapse:collapse;
-    }
-    th{
-      background:var(--bg-secondary);
-      color:var(--text-primary);
-      padding:12px 14px;
-      text-align:left;
-      font-weight:700;
-      border-bottom:1px solid var(--border-color);
-      font-size:13px;
-    }
-    td{
-      padding:12px 14px;
-      border-bottom:1px solid var(--border-color);
-      color:var(--text-primary);
-      font-size:13px;
-    }
-    tr:hover{background:var(--bg-hover)}
-    .actions a{
-      margin-right:12px;
-      color:var(--accent);
-      text-decoration:none;
-      font-size:13px;
-    }
-    .actions a:hover{text-decoration:underline}
-  </style>
-</head>
-<body>
+{% extends "admin/_layout.html" %}
+{% import "admin/_icons.html" as ui %}
+{% block title %}新闻管理{% endblock %}
+{% block main %}
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>NEWS</span><h1>新闻管理</h1></div>
+  <div class="page-actions"><a href="{{ url_for('admin.admin_news_add') }}" class="btn btn-primary">{{ ui.icon('plus') }}添加新闻</a></div>
+</header>
 
-<!-- 顶部导航栏 -->
-{% include "admin/_top_nav.html" %}
-
-<div class="container">
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      {% for category, message in messages %}
-      <div class="alert alert-{{ category }}">{{ message }}</div>
-      {% endfor %}
-    {% endif %}
-  {% endwith %}
-
-  <div class="header">
-    <h2>新闻管理</h2>
-    <a href="/admin/news/add" class="btn btn-primary">➕ 添加新闻</a>
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">全部新闻 <span class="panel-count" data-list-count="#newsTable">{{ news|length }}</span></h2></div>
+  {% if news %}
+  <div class="admin-toolbar list-filters">
+    <label class="filter-search-box">{{ ui.icon('search') }}<input type="search" data-list-search="#newsTable" placeholder="搜索标题、作者" aria-label="搜索新闻"></label>
   </div>
-
-  <table>
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>标题</th>
-        <th>作者</th>
-        <th>发布时间</th>
-        <th>评论数</th>
-        <th>操作</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for n in news %}
-      <tr>
-        <td>{{ n.id }}</td>
-        <td><b>{{ n.title }}</b></td>
-        <td>{{ n.author }}</td>
-        <td>{{ n.publish_time|datetime_display }}</td>
-        <td>{{ n.comment_count }}</td>
-        <td class="actions">
-          <a href="/admin/news/edit/{{ n.id }}">✏️ 编辑</a>
-          <form method="post" action="/admin/news/delete/{{ n.id }}" style="display:inline" data-confirm="确定删除新闻【{{ n.title }}】吗？" onsubmit="return window.confirm(this.dataset.confirm)"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:13px;padding:0">🗑️ 删除</button></form>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-
-<script src="{{ versioned_url('static/js/i18n.js') }}"></script>
-<script src="{{ url_for('static', filename='js/svg_icons.js') }}?v=20260620-svg1"></script>
-</body>
-</html>
+  <div class="table-wrap">
+    <table class="table admin-table" id="newsTable">
+      <thead><tr><th class="col-id">ID</th><th>标题</th><th>作者</th><th>发布时间</th><th class="num">评论数</th><th class="col-actions">操作</th></tr></thead>
+      <tbody>
+        {% for n in news %}
+        <tr id="news-{{ n.id }}" data-search="{{ n.title }} {{ n.author or '' }} #{{ n.id }}">
+          <td class="col-id">{{ n.id }}</td>
+          <td><a class="cell-title" href="{{ url_for('admin.admin_news_edit', news_id=n.id) }}" data-i18n-ignore>{{ n.title }}</a></td>
+          <td data-i18n-ignore>{{ n.author }}</td>
+          <td class="nowrap">{{ n.publish_time|datetime_display }}</td>
+          <td class="num">{{ n.comment_count }}</td>
+          <td class="col-actions">
+            <div class="row-actions">
+              <a href="{{ url_for('admin.admin_news_edit', news_id=n.id) }}" class="btn btn-sm">{{ ui.icon('edit') }}编辑</a>
+              {{ ui.icon_link('external', news_path(n), '前台查看（新标签页）', target='_blank') }}
+              <form method="post" action="{{ url_for('admin.admin_news_delete', news_id=n.id) }}" data-confirm="确定删除新闻【{{ n.title }}】吗？">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit" class="btn btn-sm btn-icon btn-danger" title="删除新闻" aria-label="删除新闻 {{ n.title }}">{{ ui.icon('trash') }}</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">还没有新闻</div>
+  {% endif %}
+</section>
+{% endblock %}

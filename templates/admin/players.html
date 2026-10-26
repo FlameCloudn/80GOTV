@@ -1,152 +1,86 @@
-<!doctype html>
-<html lang="zh-CN">
-<head>
-  {% include "_i18n_bootstrap.html" %}
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>选手管理 - 80GOTV</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-comfort.css') }}">
-  <script>
-    (function(){
-      var t = localStorage.getItem('theme');
-      if(!t){ t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light'; }
-      document.documentElement.setAttribute('data-theme', t);
-    })();
-  </script>
-  <style>
-    body{background:var(--bg-primary);color:var(--text-primary);font-family:sans-serif}
-    .container{padding:0 20px 30px}
-    .header{
-      background:var(--bg-card);
-      border:1px solid var(--border-color);
-      padding:16px 20px;
-      margin-bottom:20px;
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:16px;
-      flex-wrap:wrap;
-    }
-    .header h2{margin:0}
-    .header-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-    .header-actions form{margin:0}
-    table{
-      width:100%;
-      background:var(--bg-card);
-      border:1px solid var(--border-color);
-      border-collapse:collapse;
-    }
-    th{
-      background:var(--bg-secondary);
-      color:var(--text-primary);
-      padding:12px 14px;
-      text-align:left;
-      font-weight:700;
-      border-bottom:1px solid var(--border-color);
-      font-size:13px;
-    }
-    td{
-      padding:12px 14px;
-      border-bottom:1px solid var(--border-color);
-      color:var(--text-primary);
-      font-size:13px;
-    }
-    tr:hover{background:var(--bg-hover)}
-    .actions{white-space:nowrap}
-    .actions a{
-      margin-right:12px;
-      color:var(--accent);
-      text-decoration:none;
-      font-size:13px;
-    }
-    .actions a:hover{text-decoration:underline}
-    .account-name{display:block;margin-top:3px;color:var(--text-muted,#72808e);font-size:12px}
-    .unlinked-account{display:inline-block;margin:2px 10px 2px 0;color:var(--text-muted,#72808e);font-size:12px}
-    .admin-playtime{min-width:120px;line-height:1.25}
-    .admin-playtime strong{display:block;color:var(--text-primary,#26313c)}
-    .admin-playtime small{display:block;margin-top:3px;color:var(--text-muted,#72808e)}
-  </style>
-</head>
-<body>
+{% extends "admin/_layout.html" %}
+{% import "admin/_icons.html" as ui %}
 {% from "admin/_playtime_macros.html" import playtime_cell %}
-
-<!-- 顶部导航栏 -->
-{% include "admin/_top_nav.html" %}
-
-<div class="container">
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      {% for category, message in messages %}
-      <div class="alert alert-{{ category }}">{{ message }}</div>
-      {% endfor %}
-    {% endif %}
-  {% endwith %}
-
-  <div class="header">
-    <h2>选手管理</h2>
-    <div class="header-actions">
-      <form method="post" action="/admin/players/refresh-playtime" data-confirm="重新读取全部选手的公开 CS2 游戏时长吗？" onsubmit="return window.confirm(this.dataset.confirm)">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button type="submit" class="btn btn-secondary">更新选手时长</button>
-      </form>
-      <a href="/admin/players/add" class="btn btn-primary">添加选手/账号</a>
-    </div>
+{% block title %}选手管理{% endblock %}
+{% block main %}
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>PLAYERS</span><h1>选手管理</h1></div>
+  <div class="page-actions">
+    <form method="post" action="{{ url_for('admin.admin_players_refresh_playtime') }}" data-confirm="重新读取全部选手的公开 CS2 游戏时长吗？" data-busy-text="更新中……">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="btn">{{ ui.icon('reopen') }}更新选手时长</button>
+    </form>
+    <a href="{{ url_for('admin.admin_players_add') }}" class="btn btn-primary">{{ ui.icon('plus') }}添加选手/账号</a>
   </div>
+</header>
 
- <table>
-  <thead>
-    <tr>
-      <th>头像</th>
-      <th>ID</th>
-      <th>昵称</th>
-      <th>群内昵称</th>
-      <th>来源</th>
-      <th>队伍</th>
-      <th>Steam ID</th>
-      <th>CS2 时长</th>
-      <th>操作</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for p in players %}
-    <tr>
-      <td>
-        {% if p.avatar %}
-          <img src="{{ url_for('static', filename='avatars/' + p.avatar) }}"
-               style="width:32px;height:32px;border-radius:0;object-fit:cover;" loading="lazy">
-        {% else %}
-          <span style="display:inline-block;width:32px;height:32px;border-radius:0;background:var(--accent);color:#fff;text-align:center;line-height:32px;font-size:14px;font-weight:bold;">
-            {{ p.nickname[0] }}
-          </span>
-        {% endif %}
-      </td>
-      <td>{{ p.id }}</td>
-      <td>
-        <b>{{ p.nickname }}</b>
-        {% if p.account_username %}<small class="account-name">账号：{{ p.account_username }}</small>{% endif %}
-      </td>
-      <td data-i18n-ignore>{% if p.managed_is_bashizhong_student != 0 %}{{ p.managed_group_username or '待填写' }}{% else %}-{% endif %}</td>
-      <td>{% if p.managed_is_bashizhong_student == 1 %}八十中{% elif p.managed_is_bashizhong_student == 0 %}外校{% else %}待设置{% endif %}</td>
-      <td>{{ p.team_name or '无队伍' }}</td>
-      <td>{{ p.steam_id or '-' }}</td>
-      <td>{{ playtime_cell(p.cs2_playtime_minutes, p.playtime_status, p.playtime_checked_at) }}</td>
-      <td class="actions">
-        <a href="/admin/players/edit/{{ p.id }}">✏️ 编辑</a>
-        {% if p.user_id %}
-          <a href="/admin/players/password/{{ p.id }}">修改密码</a>
-        {% else %}
-          <span class="unlinked-account">未关联账号</span>
-        {% endif %}
-        <form method="post" action="/admin/players/delete/{{ p.id }}" style="display:inline" data-confirm="确定删除选手【{{ p.nickname }}】吗？" onsubmit="return window.confirm(this.dataset.confirm)"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:13px;padding:0">🗑️ 删除</button></form>
-      </td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-</div>
-
-<script src="{{ versioned_url('static/js/i18n.js') }}"></script>
-<script src="{{ url_for('static', filename='js/svg_icons.js') }}?v=20260620-svg1"></script>
-</body>
-</html>
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">全部选手 <span class="panel-count" data-list-count="#playersTable">{{ players|length }}</span></h2></div>
+  {% if players %}
+  {#- 即时筛选（只在本页过滤，不改数据）：名字 / 账号 / 群昵称 / Steam ID，队伍，有无账号，来源 -#}
+  <div class="admin-toolbar list-filters">
+    <label class="filter-search-box">{{ ui.icon('search') }}<input type="search" data-list-search="#playersTable" placeholder="搜索昵称、账号、群昵称、Steam ID" aria-label="搜索选手"></label>
+    <select data-list-filter="#playersTable" data-filter-key="team" aria-label="按队伍筛选">
+      <option value="">全部队伍</option>
+      {% for name in players|map(attribute='team_name')|select|unique|sort %}<option value="{{ name }}" data-i18n-ignore>{{ name }}</option>{% endfor %}
+      <option value="-">无队伍</option>
+    </select>
+    <select data-list-filter="#playersTable" data-filter-key="account" aria-label="按账号筛选">
+      <option value="">账号：全部</option>
+      <option value="yes">已关联账号</option>
+      <option value="no">未关联账号</option>
+    </select>
+    <select data-list-filter="#playersTable" data-filter-key="source" aria-label="按来源筛选">
+      <option value="">来源：全部</option>
+      <option value="1">八十中</option>
+      <option value="0">外校</option>
+      <option value="unset">来源待设置</option>
+    </select>
+  </div>
+  <div class="table-wrap">
+    <table class="table admin-table" id="playersTable">
+      <thead>
+        <tr><th class="col-id">ID</th><th>选手 / 账号</th><th>队伍</th><th>Steam ID</th><th>CS2 时长</th><th class="col-actions">操作</th></tr>
+      </thead>
+      <tbody>
+        {% for p in players %}
+        {% set source = '1' if p.managed_is_bashizhong_student == 1 else ('0' if p.managed_is_bashizhong_student == 0 else 'unset') %}
+        <tr id="player-{{ p.id }}" data-team="{{ p.team_name or '-' }}" data-account="{{ 'yes' if p.user_id else 'no' }}" data-source="{{ source }}"
+            data-search="{{ p.nickname }} {{ p.account_username or '' }} {{ p.managed_group_username or '' }} {{ p.steam_id or '' }} #{{ p.id }}">
+          <td class="col-id">{{ p.id }}</td>
+          <td>
+            <span class="cell-entity">
+              {% if p.avatar %}<img class="avatar sm" src="{{ avatar_thumbnail_url(p.avatar) }}" alt="" loading="lazy">{% else %}<span class="avatar sm" aria-hidden="true" data-i18n-ignore>{{ p.nickname[:1] }}</span>{% endif %}
+              <span>
+                <a class="cell-title" href="{{ url_for('admin.admin_players_edit', player_id=p.id) }}" data-i18n-ignore>{{ p.nickname }}</a>
+                {% if p.account_username %}<small class="account-chip account-name">账号：{{ p.account_username }}</small>{% else %}<small class="account-chip muted unlinked-account">未关联账号</small>{% endif %}
+                <small class="cell-sub">
+                  <span>{%- if source == '1' %}八十中{% elif source == '0' %}外校{% else %}来源待设置{% endif -%}</span>
+                  {%- if source != '0' %} · {% if p.managed_group_username %}<span data-i18n-ignore>{{ p.managed_group_username }}</span>{% else %}<span>群内昵称待填写</span>{% endif %}{% endif -%}
+                </small>
+              </span>
+            </span>
+          </td>
+          <td data-i18n-ignore>{{ p.team_name or '无队伍' }}</td>
+          <td class="nowrap">{{ p.steam_id or '-' }}</td>
+          <td>{{ playtime_cell(p.cs2_playtime_minutes, p.playtime_status, p.playtime_checked_at) }}</td>
+          <td class="col-actions">
+            <div class="row-actions">
+              <a href="{{ url_for('admin.admin_players_edit', player_id=p.id) }}" class="btn btn-sm">{{ ui.icon('edit') }}编辑</a>
+              {% if p.user_id %}{{ ui.icon_link('key', url_for('admin.admin_player_password', player_id=p.id), '修改网站账号密码') }}{% else %}<span class="btn-icon-spacer" aria-hidden="true"></span>{% endif %}
+              <form method="post" action="{{ url_for('admin.admin_players_delete', player_id=p.id) }}" data-confirm="确定删除选手【{{ p.nickname }}】吗？">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit" class="btn btn-sm btn-icon btn-danger" title="删除选手" aria-label="删除选手 {{ p.nickname }}">{{ ui.icon('trash') }}</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">还没有选手</div>
+  {% endif %}
+</section>
+{% endblock %}

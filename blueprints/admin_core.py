@@ -8,9 +8,11 @@ from werkzeug.security import check_password_hash
 from blueprints.admin import admin_bp
 from config import BASE_DIR
 from models import get_db
+from services.match_service import supplement_temp_teams
 from services.player_service import record_player_nickname
 from services.steam_playtime_service import attach_latest_playtime
 from utils.db_helpers import save_news_image
+from utils.match_utils import get_sql_effective_status
 from utils.rate_limiter import rate_limit
 from utils.web_helpers import admin_required as login_required
 from utils.web_helpers import csrf_required
@@ -102,8 +104,48 @@ def admin_dashboard():
                  AND (is_placeholder=0 OR email_verified_at IS NOT NULL)"""
         ).fetchone()["cnt"],
     }
+    work = _dashboard_work(conn)
     conn.close()
-    return render_template("admin/dashboard.html", stats=stats)
+    return render_template("admin/dashboard.html", stats=stats, **work)
+
+
+def _dashboard_work(conn):
+    """工作台的“待处理”（只读）：待审核账号、待处理反馈、进行中和即将开始的比赛。
+
+    以前首页只有总数，管理员要逐个打开列表才知道要做什么；这里只多读几条记录，
+    操作仍走原来的页面和表单（审核、反馈、比赛编辑 / 数据 / BP / Demo），不新增写入。
+    """
+    pending_users = conn.execute(
+        """SELECT id, username, group_username, created_at FROM users
+           WHERE approval_status='pending' AND (is_placeholder=0 OR email_verified_at IS NOT NULL)
+           ORDER BY created_at DESC LIMIT 5"""
+    ).fetchall()
+    open_feedback = conn.execute(
+        """SELECT id, type, content, page_url, created_at FROM feedback
+           WHERE COALESCE(status, 'open') IN ('open', 'reviewing')
+           ORDER BY created_at DESC LIMIT 4"""
+    ).fetchall()
+    open_feedback_count = conn.execute(
+        "SELECT COUNT(*) AS cnt FROM feedback WHERE COALESCE(status, 'open') IN ('open', 'reviewing')"
+    ).fetchone()["cnt"]
+    rows = conn.execute(
+        f"""SELECT m.*, t1.name AS team1_name, t2.name AS team2_name, e.name AS event_name,
+               {get_sql_effective_status()}
+            FROM matches m
+            LEFT JOIN teams t1 ON m.team1_id=t1.id LEFT JOIN teams t2 ON m.team2_id=t2.id
+            LEFT JOIN events e ON m.event_id=e.id
+            WHERE COALESCE(m.status, '') NOT IN ('completed', 'cancelled')
+            ORDER BY CASE WHEN effective_status = 'live' THEN 0 ELSE 1 END,
+                     m.match_time IS NULL, m.match_time ASC, m.id ASC
+            LIMIT 8"""
+    ).fetchall()
+    matches = [supplement_temp_teams(m, conn) for m in rows]
+    return {
+        "pending_users": pending_users,
+        "open_feedback": open_feedback,
+        "open_feedback_count": open_feedback_count,
+        "active_matches": matches,
+    }
 
 
 @admin_bp.route("/registrations")

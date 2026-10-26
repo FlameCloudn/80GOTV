@@ -1,0 +1,33 @@
+{#- 一场比赛的常用操作（比赛列表和工作台共用，保证两处一致）。
+    “编辑”用图标加文字；其余用图标按钮，title 是悬停说明、aria-label 是读屏名称。
+    用法：{% import "admin/_match_actions.html" as match_ui %} … {{ match_ui.quick_actions(m) }} -#}
+{%- import "admin/_icons.html" as ui -%}
+
+{#- 复制给选手的进服指令：旧数据里可能存了带 “connect ” 的整串，不再重复加一次 -#}
+{%- macro connect_command(m) -%}
+{%- set server_addr = m.server_address[8:] if (m.server_address[:8]|lower) == 'connect ' else m.server_address -%}
+connect {{ server_addr }}{% if m.server_password %}; password {{ m.server_password }}{% endif %}
+{%- endmacro -%}
+
+{%- macro quick_actions(m) -%}
+{%- set open = m.effective_status not in ('completed', 'cancelled') -%}
+<a href="{{ url_for('admin.admin_matches_edit', match_id=m.id) }}" class="btn btn-sm">{{ ui.icon('edit') }}编辑</a>
+{{ ui.icon_link('stats', url_for('admin.admin_match_stats', match_id=m.id), '录入数据') }}
+{#- 没有的操作留同宽空位，各行图标上下对齐，方便对照 -#}
+{%- if open %}
+{{ ui.icon_link('flag', '/bp/' ~ m.id, '打开 BP 房间（新标签页）', target='_blank') }}
+{%- else %}
+<span class="btn-icon-spacer" aria-hidden="true"></span>
+{%- endif %}
+{%- if m.bp_state and open %}
+<button type="button" class="btn btn-sm btn-icon btn-warning" data-bp-undo="{{ m.id }}" data-bp-confirm="确定撤销上一步 BP 吗？" title="撤销上一步 BP" aria-label="撤销上一步 BP">{{ ui.icon('undo') }}</button>
+{%- endif %}
+{%- if m.effective_status != 'cancelled' %}
+{{ ui.icon_link('upload', url_for('admin.admin_import_demo', match_id=m.id), '上传 Demo') }}
+{%- else %}
+<span class="btn-icon-spacer" aria-hidden="true"></span>
+{%- endif %}
+{%- if m.server_address %}
+<button type="button" class="btn btn-sm copy-connect-btn" data-connect="{{ connect_command(m) }}" title="复制进服指令">{{ ui.icon('copy') }}<span class="btn-label">复制进服</span></button>
+{%- endif %}
+{%- endmacro -%}

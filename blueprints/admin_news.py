@@ -3,11 +3,16 @@
 import re
 from datetime import datetime
 
-from flask import flash, redirect, render_template, request, url_for
+from flask import flash, jsonify, redirect, render_template, request, url_for
 
 from blueprints.admin import admin_bp
 from models import get_db
 from services.match_service import supplement_temp_teams
+from services.news_references import (
+    NewsReferenceError,
+    normalize_news_reference_blocks,
+    resolve_news_reference,
+)
 from utils.helpers import normalize_internal_path, sanitize_html
 from utils.web_helpers import admin_required as login_required
 from utils.web_helpers import csrf_required
@@ -41,6 +46,10 @@ def _news_form_values():
 def _news_validation_error(conn, values, exclude_id=None):
     if not values["title"]:
         return "新闻标题不能为空"
+    try:
+        values["content"] = normalize_news_reference_blocks(conn, values["content"], request.host)
+    except NewsReferenceError as error:
+        return str(error)
     plain_content = re.sub(r"<[^>]+>", "", values["content"]).replace("&nbsp;", "").strip()
     if not plain_content:
         return "新闻正文不能为空"
@@ -81,6 +90,23 @@ def admin_news():
     news = conn.execute("SELECT * FROM news ORDER BY publish_time DESC").fetchall()
     conn.close()
     return render_template("admin/news.html", news=news)
+
+
+@admin_bp.route("/news/reference", methods=["POST"])
+@csrf_required
+@login_required
+def admin_news_reference():
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify(ok=False, msg="请填写有效的本站页面链接"), 400
+    conn = get_db()
+    try:
+        reference = resolve_news_reference(conn, payload.get("url"), request.host)
+    except NewsReferenceError as error:
+        return jsonify(ok=False, msg=str(error)), error.status
+    finally:
+        conn.close()
+    return jsonify(ok=True, reference=reference)
 
 
 @admin_bp.route("/news/add", methods=["GET", "POST"])

@@ -1,4 +1,17 @@
-/* 首页：左栏排行 / 中间新闻 / 右栏比赛（两侧栏同宽） */
+/* 首页：左侧排行 / 中间新闻 / 右侧比赛与动态 */
+@font-face {
+  font-family: 'CS2';
+  src: url('/resources/fonts/TestTiemposText-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+.navbar .logo > span {
+  font-family: 'CS2', var(--site-font-family);
+  font-weight: 400;
+}
+
 .home-grid {
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr) 240px;
@@ -25,7 +38,7 @@
 }
 
 .home-feature-link { position: absolute; inset: 0; z-index: 1; border-radius: inherit; }
-.home-feature h1 { position: relative; max-width: 86%; margin: var(--space-md) 0 var(--space-sm); font-size: var(--font-2xl); line-height: 1.25; transition: color var(--transition-fast); }
+.home-feature h1 { position: relative; max-width: 86%; margin: var(--space-md) 0 var(--space-sm); font-size: var(--font-2xl); line-height: 1.25; text-wrap: balance; transition: color var(--transition-fast); }
 .home-feature:hover h1 { color: var(--accent); }
 .home-feature p { position: relative; max-width: 78%; color: var(--text-secondary); line-height: 1.7; }
 .home-feature-foot { position: relative; display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-md); margin-top: var(--space-lg); }
@@ -110,15 +123,47 @@
   text-align: center;
 }
 
-/* 平板：右栏留在旁边，左栏三块挪到下面并排 */
-@media (max-width: 1080px) {
-  .home-grid { grid-template-columns: minmax(0, 1fr) 260px; }
-  .home-left-col { order: 3; grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+/* 横屏平板、窄一点的电脑窗口（1024–1180）：三栏都留着，两侧栏收窄一点，正文约 530–690px */
+@media (max-width: 1180px) {
+  .home-grid { grid-template-columns: 200px minmax(0, 1fr) 220px; }
+}
+
+/* 平板与窄桌面（761–1023）：三栏并排，空间不足时由移动断点成对收起。 */
+@media (max-width: 1023px) {
+  .home-grid {
+    grid-template-columns: 160px minmax(350px, 1fr) 180px;
+    grid-template-rows: auto;
+    grid-template-areas: "left main right";
+    gap: 10px;
+  }
+  .home-main-col { grid-area: main; }
+  .home-left-col { grid-area: left; }
+  .home-right-col { grid-area: right; }
+  .h-event-row .h-side-main,
+  .h-player-row .h-side-main {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    white-space: normal;
+  }
+  .h-result-mini {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "team-one score" "team-two score";
+    gap: 2px 8px;
+  }
+  .h-result-mini > .h-result-team:first-child { grid-area: team-one; }
+  .h-result-mini > .h-result-score { grid-area: score; grid-row: 1 / span 2; align-self: center; }
+  .h-result-mini > .h-result-team.right { grid-area: team-two; justify-content: flex-start; }
+  .h-result-team { gap: 4px; }
+  /* 正文栏只有约 350–560px：新闻标题最多折成两行，不被单行省略号截掉大半；日期、评论数仍在右边 */
+  .h-news-row .h-news-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; white-space: normal; }
 }
 
 @media (max-width: 760px) {
-  .home-grid { grid-template-columns: minmax(0, 1fr); }
-  .home-left-col { display: none; }
+  .home-grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; grid-template-areas: "main"; }
+  .home-left-col,
+  .home-right-col { display: none; }
   .home-right-col.is-empty-mobile > .home-today { display: none; }
   .home-feature { min-height: 0; padding: var(--space-lg); }
   .home-feature h1 { max-width: none; font-size: var(--font-xl); }

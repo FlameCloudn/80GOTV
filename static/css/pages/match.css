@@ -739,8 +739,13 @@
 .sidebar-event-status.completed, .sidebar-event-status.cancelled { color: var(--text-muted); }
 .sidebar-event-name { flex: 1 1 auto; min-width: 0; }
 
-@media (max-width: 900px) {
+/* 右侧栏还在旁边、正文只有 600–740px 时（961–1100），地图卡和“直播与回放”上下排，
+   地图卡占满正文宽度，队名不被挤成“Nova …” */
+@media (max-width: 1100px) {
   .mh-columns { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 900px) {
   .match-stats-overview-grid { grid-template-columns: minmax(0, 1fr); }
 }
 

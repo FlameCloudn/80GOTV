@@ -64,8 +64,8 @@
             <span class="match-filter-name">全部赛事</span>
           </a>
           {% for e in events[:8] %}
-          <a href="{{ filter_url(event=e.id|string) }}" class="{% if event_filter==e.id|string %}active{% endif %}" data-i18n-ignore>
-            <span class="match-filter-name">{{ e.name }}</span>
+          <a href="{{ filter_url(event=e.id|string) }}" class="{% if event_filter==e.id|string %}active{% endif %}">
+            <span class="match-filter-name" data-i18n-ignore>{{ e.name }}</span>
             {% if e.start_date %}<span class="match-filter-date">{{ e.start_date|date_display }}</span>{% endif %}
           </a>
           {% endfor %}

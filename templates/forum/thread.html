@@ -61,7 +61,7 @@
     {% else %}
     <div class="post-avatar">{{ (thread_display_name or '?')[0]|upper }}</div>
     {% endif %}
-    <span class="post-user">{{ thread_display_name }}{% if not thread_private_remark and thread.group_username %} <span class="post-handle">@{{ thread.group_username }}</span>{% endif %}{{ cheater_badge(thread.is_cheater) }}</span>
+    <span class="post-user"><span data-i18n-ignore>{{ thread_display_name }}</span>{% if not thread_private_remark and thread.group_username %} <span class="post-handle" data-i18n-ignore>@{{ thread.group_username }}</span>{% endif %}{{ cheater_badge(thread.is_cheater) }}</span>
     {% if thread.username and thread.username.lower() == 'flamecloud_' %}<span class="admin-badge-small">ADMIN</span>{% endif %}
     <span class="post-time">{{ thread.created_at|datetime_display }}</span>
     <span class="post-number">#1</span>
@@ -86,7 +86,7 @@
       {% else %}
       <div class="post-avatar">{{ (post_display_name or '?')[0]|upper }}</div>
       {% endif %}
-      <span class="post-user">{{ post_display_name }}{% if not post_private_remark and post.group_username %} <span class="post-handle">@{{ post.group_username }}</span>{% endif %}{{ cheater_badge(post.is_cheater) }}</span>
+      <span class="post-user"><span data-i18n-ignore>{{ post_display_name }}</span>{% if not post_private_remark and post.group_username %} <span class="post-handle" data-i18n-ignore>@{{ post.group_username }}</span>{% endif %}{{ cheater_badge(post.is_cheater) }}</span>
       {% if post.username and post.username.lower() == 'flamecloud_' %}<span class="admin-badge-small">ADMIN</span>{% endif %}
       <span class="post-time">{{ post.created_at|datetime_display }}</span>
       <span class="post-number">#{{ post_num }}</span>

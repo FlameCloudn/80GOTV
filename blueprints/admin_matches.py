@@ -142,14 +142,36 @@ def _parse_match_form(request, include_results=False):
         f["status"] = "live"
     if f["status"] not in ("upcoming", "live", "completed", "cancelled"):
         f["status"] = "upcoming"
-    f["server_address"] = request.form.get("server_address", "").strip() or None
-    f["server_password"] = None
-    if f["server_address"]:
-        m = re.match(r"password\s+(\S+);connect\s+(\S+)", f["server_address"])
-        if m:
-            f["server_password"] = m.group(1)
-            f["server_address"] = m.group(2)
+    f["server_address"], f["server_password"] = _parse_server_connect(
+        request.form.get("server_address", "").strip()
+    )
     return f
+
+
+_CONNECT_PART = re.compile(r"^connect\s+(\S+)$", re.IGNORECASE)
+_PASSWORD_PART = re.compile(r"^password\s+(\S+)$", re.IGNORECASE)
+
+
+def _parse_server_connect(raw):
+    """把粘贴的进服串拆成（地址, 密码）。
+
+    支持原来的 “password 密码;connect IP:端口”，也支持 “connect IP:端口; password 密码”
+    和只有 “connect IP:端口”（以前这两种会把 “connect ” 一起存进地址，复制出来变成
+    “connect connect …”，直播轮询也解析不了地址）。认不出的写法仍原样当地址保存。
+    """
+    if not raw:
+        return None, None
+    address, password = None, None
+    for part in (piece.strip() for piece in raw.split(";")):
+        connect = _CONNECT_PART.match(part)
+        secret = _PASSWORD_PART.match(part)
+        if connect:
+            address = connect.group(1)
+        elif secret:
+            password = secret.group(1)
+    if address is None:
+        return raw, None
+    return address, password
 
 
 def _preserve_managed_match_fields(values, existing):
@@ -237,7 +259,12 @@ def _match_roster_options(conn, match, side):
         team_id = int(team_id) if team_id else None
     except (TypeError, ValueError):
         team_id = None
-    current_ids = _match_player_ids(match, f"team{side}_players")
+    current_ids = []
+    for player_id in _match_player_ids(match, f"team{side}_players"):
+        try:
+            current_ids.append(int(player_id))
+        except (TypeError, ValueError):
+            continue
     team_ids = []
     if team_id:
         team_ids = [
@@ -295,23 +322,41 @@ def _match_roster_selected(conn, match, side):
     ]
 
 
-def _parse_match_roster(conn, match, side):
-    """Read an edited five-player roster, if the form included the controls."""
+def _match_roster_form_values(side):
     fields = [f"match_team{side}_p{index}" for index in range(5)]
     if not any(field in request.form for field in fields):
+        return None
+    return [request.form.get(field, "").strip() for field in fields]
+
+
+def _match_roster_is_unchanged(conn, match, side, values):
+    if values is None:
+        return True
+    previous = [str(player_id) for player_id in _match_roster_selected(conn, match, side)]
+    previous.extend([""] * (5 - len(previous)))
+    return values == previous
+
+
+def _parse_match_roster(conn, match, side, *, team_id=None):
+    """Read an edited five-player roster, if the form included the controls."""
+    values = _match_roster_form_values(side)
+    if values is None:
         return None, None
-    values = [request.form.get(field, "").strip() for field in fields]
     values = [value for value in values if value]
     if len(values) != 5:
         return None, f"队伍{side} 必须选择 5 名本场选手"
     if len(set(values)) != 5:
         return None, f"队伍{side} 不能重复选择同一名选手"
-    allowed = {str(option["id"]) for option in _match_roster_options(conn, match, side)}
+    roster_match = match
+    if team_id is not None and str(team_id) != str(row_get(match, f"team{side}_id")):
+        roster_match = dict(match)
+        roster_match[f"team{side}_id"] = team_id
+        roster_match[f"team{side}_players"] = None
+    roster_options = _match_roster_options(conn, roster_match, side)
+    allowed = {str(option["id"]) for option in roster_options}
     if any(value not in allowed for value in values):
         return None, f"队伍{side} 只能选择本队选手或已报名替补"
-    selected_options = {
-        str(option["id"]): option for option in _match_roster_options(conn, match, side)
-    }
+    selected_options = {str(option["id"]): option for option in roster_options}
     if any(not selected_options.get(value, {}).get("has_steam_id") for value in values):
         return None, f"队伍{side} 有选手未绑定 Steam ID，不能锁定本场名单"
     return json.dumps([int(value) for value in values]), None
@@ -336,6 +381,12 @@ def _match_form_response(conn, match=None, status=200):
     # sqlite3.Row does not expose dict.get(); accept both a database row and
     # the submitted-form dict used when re-rendering validation errors.
     is_new_match = not match or ("_is_new_form" in match.keys() and bool(match["_is_new_form"]))
+    if match and "_setup_editable" in match.keys():
+        match_setup_editable = bool(match["_setup_editable"])
+    elif match:
+        match_setup_editable = (row_get(match, "status") or "upcoming") == "upcoming"
+    else:
+        match_setup_editable = False
     return render_template(
         "admin/matches_form.html",
         match=match,
@@ -347,6 +398,7 @@ def _match_form_response(conn, match=None, status=200):
         team2_player_ids=team2_player_ids,
         match_roster_options=match_roster_options,
         match_roster_selected=match_roster_selected,
+        match_setup_editable=match_setup_editable,
     ), status
 
 
@@ -359,6 +411,9 @@ def _match_form_state(
     could click save, lose all their edits, and see no useful explanation.
     """
     state = dict(current_match) if current_match else {}
+    state["_setup_editable"] = bool(
+        current_match and (current_match["status"] or "upcoming") == "upcoming"
+    )
     for key, value in (values or {}).items():
         if key.endswith("_pb"):
             state[key[:-3] + "_picked_by"] = value
@@ -745,6 +800,49 @@ def admin_matches_edit(match_id):
                         ),
                         400,
                     )
+                for side in (1, 2):
+                    if request.form.get(f"side{side}_type") != "team":
+                        continue
+                    side_team_id = team1_id if side == 1 else team2_id
+                    side_players_key = f"team{side}_players"
+                    previous_team_id = existing[f"team{side}_id"]
+                    same_team = bool(
+                        side_team_id
+                        and previous_team_id
+                        and str(side_team_id) == str(previous_team_id)
+                    )
+                    roster_values = _match_roster_form_values(side)
+                    if same_team and _match_roster_is_unchanged(
+                        conn, existing, side, roster_values
+                    ):
+                        if side == 1:
+                            team1_players = existing[side_players_key]
+                        else:
+                            team2_players = existing[side_players_key]
+                        continue
+                    if not side_team_id or roster_values is None:
+                        if side == 1:
+                            team1_players = None
+                        else:
+                            team2_players = None
+                        continue
+                    submitted_roster, roster_error = _parse_match_roster(
+                        conn, existing, side, team_id=side_team_id
+                    )
+                    if roster_error:
+                        flash(roster_error, "error")
+                        return _match_form_response(
+                            conn,
+                            _match_form_state(
+                                current_match, f, team1_id, team2_id, team1_players, team2_players
+                            ),
+                            400,
+                        )
+                    if submitted_roster is not None:
+                        if side == 1:
+                            team1_players = submitted_roster
+                        else:
+                            team2_players = submitted_roster
             else:
                 submitted_team1_players, roster_error = _parse_match_roster(conn, existing, 1)
                 if submitted_team1_players is not None:
@@ -1037,6 +1135,7 @@ def admin_match_stats(match_id):
         maps.append({"name": None, "disabled": True, "has_data": False, "stats": {}, "index": 0})
     active_tab = next((i for i, m in enumerate(maps) if not m["disabled"]), 0)
     readonly = match["status"] == "completed"
+    response_status = 200
 
     if request.method == "POST":
         if match["status"] == "completed":
@@ -1140,8 +1239,46 @@ def admin_match_stats(match_id):
         except Exception as e:
             conn.rollback()
             flash(f"数据保存失败：{str(e)}", "error")
-        conn.close()
-        return redirect(url_for("admin.admin_match_stats", match_id=match_id))
+            response_status = 400
+            # 只回填本次提交地图的可编辑数字，不能靠浏览器草稿来保住整张表。
+            for tab_index, map_entry in enumerate(maps):
+                if map_entry["name"] != map_name or map_entry["disabled"]:
+                    continue
+                active_tab = tab_index
+                map_entry["server_rejected"] = True
+                for player in list(team1_players) + list(team2_players):
+                    player_id = player["id"]
+                    saved = map_entry["stats"].get(player_id)
+                    values = (
+                        dict(saved)
+                        if saved
+                        else {
+                            "kills": 0,
+                            "deaths": 0,
+                            "assists": 0,
+                            "adr": 0,
+                            "impact": 0,
+                            "rating": 1.0,
+                            "kast": 70,
+                            "headshot_percentage": 50,
+                        }
+                    )
+                    for field, column in (
+                        ("kills", "kills"),
+                        ("deaths", "deaths"),
+                        ("assists", "assists"),
+                        ("adr", "adr"),
+                        ("impact", "impact"),
+                        ("kast", "kast"),
+                        ("hs", "headshot_percentage"),
+                    ):
+                        field_name = f"{field}_{player_id}"
+                        if field_name in request.form:
+                            values[column] = request.form[field_name]
+                    map_entry["stats"][player_id] = values
+        else:
+            conn.close()
+            return redirect(url_for("admin.admin_match_stats", match_id=match_id))
     conn.close()
     return render_template(
         "admin/match_stats.html",
@@ -1151,7 +1288,7 @@ def admin_match_stats(match_id):
         maps=maps,
         active_tab=active_tab,
         readonly=readonly,
-    )
+    ), response_status
 
 
 @admin_bp.route("/matches/<int:match_id>/import-demo", methods=["GET", "POST"])

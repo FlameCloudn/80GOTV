@@ -24,6 +24,7 @@ Flask + SQLite/Turso CS2电竞赛事网站 80GOTV
 - 模板: Jinja2, 继承 base.html, 过滤器 |cn_time |rating_class
 - 服务层: services/
 - 前端样式: 颜色/字号/圆角只用 templates/_design_tokens.html 里的变量；页面用 .page-head / .panel / .btn / .list-row 等统一组件（全站圆角），每页样式放 static/css/pages/，不写行内 style（模板见 PATTERNS.md）
+- 后台页面: 继承 templates/admin/_layout.html（同一套组件 + static/css/pages/admin.css），确认用 data-confirm，不再引用 style.css（见 PATTERNS.md“后台页面模板”）
 - 术语不翻译: Rating、Impact、T/CT、地图名等中文界面也保持英文（见 PATTERNS.md 翻译约定）
 - 翻译: 新界面文字要在 static/js/i18n.js 加词条；用户内容加 data-i18n-ignore；不要整页忽略（见 PATTERNS.md）
 - Edit 易失败 → 用 Write 整篇重写

@@ -9,18 +9,22 @@
 
 {#- 两队对比一行：数值在两端，名称在中间上方，下面一根两色条 -#}
 {% macro compare_row(label, left, right) %}
+{% set left_known = left is not none %}
+{% set right_known = right is not none %}
 {% set left_num = left|float %}
 {% set right_num = right|float %}
 {% set total = left_num + right_num %}
 {% set left_pct = (left_num / total * 100) if total else 50 %}
 <div class="match-detailed-compare-row">
-  <span class="match-detailed-compare-left">{{ left }}</span>
+  <span class="match-detailed-compare-left">{{ left if left_known else '-' }}</span>
   <b>{{ label }}</b>
   <div class="match-detailed-compare-track">
+    {% if left_known and right_known %}
     <i class="t1" style="width:{{ left_pct }}%"></i>
     <i class="t2" style="width:{{ 100 - left_pct }}%"></i>
+    {% endif %}
   </div>
-  <span class="match-detailed-compare-right">{{ right }}</span>
+  <span class="match-detailed-compare-right">{{ right if right_known else '-' }}</span>
 </div>
 {% endmacro %}
 
@@ -94,9 +98,9 @@
         <span class="map-report-index">图{{ mr.idx }}</span>
         {% if mr.played %}
         <span class="map-report-score">
-          <span class="{% if mr.t1_winner %}win{% elif mr.t2_winner %}lose{% endif %}">{{ mr.t1 }}</span>
+          <span class="{% if mr.t1_winner %}win{% elif mr.t2_winner %}lose{% endif %}">{{ mr.t1 if mr.t1 is not none else '-' }}</span>
           <span class="sep">:</span>
-          <span class="{% if mr.t2_winner %}win{% elif mr.t1_winner %}lose{% endif %}">{{ mr.t2 }}</span>
+          <span class="{% if mr.t2_winner %}win{% elif mr.t1_winner %}lose{% endif %}">{{ mr.t2 if mr.t2 is not none else '-' }}</span>
         </span>
         {% else %}
         <span class="map-report-score is-pending">待定</span>
@@ -180,14 +184,18 @@
 {# 先在模板里拼好要复制的文字，再用 tojson 安全地交给 JS（队名里有特殊符号也不会出问题） #}
 {% set team1 = match.team1_name or 'TBD' %}
 {% set team2 = match.team2_name or 'TBD' %}
-{% set headline = team1 ~ ' ' ~ match.team1_score ~ '-' ~ match.team2_score ~ ' ' ~ team2 %}
+{% set score1 = match.team1_score if match.team1_score is not none else '?' %}
+{% set score2 = match.team2_score if match.team2_score is not none else '?' %}
+{% set headline = team1 ~ ' ' ~ score1 ~ '-' ~ score2 ~ ' ' ~ team2 %}
 {% set event_note = (' (' ~ (match.bo_format or 'BO3') ~ ' · ' ~ match.event_name ~ ')') if match.event_name else '' %}
 {% set map_lines = [] %}
 {% for mr in map_reports %}{% if mr.played %}
-  {% set _ = map_lines.append('Map' ~ mr.idx ~ ' ' ~ mr.name ~ ': ' ~ team1 ~ ' ' ~ mr.t1 ~ '-' ~ mr.t2 ~ ' ' ~ team2) %}
+  {% set map_score1 = mr.t1 if mr.t1 is not none else '?' %}
+  {% set map_score2 = mr.t2 if mr.t2 is not none else '?' %}
+  {% set _ = map_lines.append('Map' ~ mr.idx ~ ' ' ~ mr.name ~ ': ' ~ team1 ~ ' ' ~ map_score1 ~ '-' ~ map_score2 ~ ' ' ~ team2) %}
 {% endif %}{% endfor %}
 {% set mvp_name = private_name_for_player(mvp.player_id, mvp.nickname) if mvp else '' %}
-{% set mvp_note = (' (RATING ' ~ mvp.rating ~ ' | ' ~ mvp.kills ~ '-' ~ mvp.deaths ~ ' K/D | ADR ' ~ mvp.adr ~ ')') if mvp else '' %}
+{% set mvp_note = (' (RATING ' ~ (mvp.rating if mvp.rating is not none else '-') ~ ' | ' ~ (mvp.kills if mvp.kills is not none else '-') ~ '-' ~ (mvp.deaths if mvp.deaths is not none else '-') ~ ' K/D | ADR ' ~ (mvp.adr if mvp.adr is not none else '-') ~ ')') if mvp else '' %}
 <script>
 (function () {
   var report = {{ {'headline': headline, 'event': event_note, 'maps': map_lines, 'mvp': mvp_name, 'mvpNote': mvp_note}|tojson }};

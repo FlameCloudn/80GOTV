@@ -1,73 +1,28 @@
-<!doctype html>
-<html lang="zh-CN">
-<head>
-  {% include "_i18n_bootstrap.html" %}
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>批量导入 Demo 数据 — {{ match.team1_name }} 对 {{ match.team2_name }} - 80GOTV</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-comfort.css') }}">
-  <script>
-    (function(){
-      var t = localStorage.getItem('theme');
-      if(!t){ t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light'; }
-      document.documentElement.setAttribute('data-theme', t);
-    })();
-  </script>
-  <style>
-    body{font-family:sans-serif;background:var(--bg-primary);color:var(--text-primary)}
-    .container{padding:0 20px 30px}
-    .panel{background:var(--bg-card);border:1px solid var(--border-color);padding:24px;margin-bottom:20px}
-    .panel h3{margin-bottom:16px;color:var(--text-primary)}
-    .panel p{margin-bottom:8px;font-size:14px;color:var(--text-secondary)}
-    .form-group{margin-bottom:16px}
-    label{display:block;margin-bottom:8px;font-weight:600;color:var(--text-primary)}
-    .form-actions{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap}
-    table{width:100%;border-collapse:collapse;margin-top:12px;background:var(--bg-card);border:1px solid var(--border-color)}
-    th{background:var(--bg-secondary);padding:10px 8px;text-align:left;font-weight:600;font-size:13px;border-bottom:1px solid var(--border-color);color:var(--text-primary)}
-    td{padding:8px;border-bottom:1px solid var(--border-color);font-size:13px;color:var(--text-primary)}
-    .match-found{color:#16a34a}
-    .match-partial{color:#ea580c}
-    .match-none{color:#dc2626}
-    .preview-info{display:flex;gap:20px;flex-wrap:wrap;margin-bottom:16px}
-    .preview-item{background:var(--bg-secondary);border:1px solid var(--border-color);padding:12px 16px;min-width:120px}
-    .preview-item .label{font-size:11px;color:var(--text-muted);text-transform:uppercase}
-    .preview-item .value{font-size:18px;font-weight:bold;color:var(--text-primary)}
-    .file-slot{background:var(--bg-secondary);border:2px dashed var(--border-color);padding:16px;margin-bottom:12px}
-    .file-slot.has-file{border-color:#16a34a;background:rgba(22,163,74,0.08)}
-    .file-slot-label{font-weight:600;margin-bottom:8px;color:var(--text-primary)}
-    .demo-preview-section{border-top:2px solid var(--accent);padding-top:16px;margin-top:16px}
-    .demo-preview-section h4{color:var(--accent);margin-bottom:12px}
-  </style>
-</head>
-<body>
+{% extends "admin/_layout.html" %}
+{% import "admin/_icons.html" as ui %}
+{% block title %}从 Demo 导入数据{% endblock %}
+{% block main %}
+<a href="{{ url_for('admin.admin_match_stats', match_id=match.id) }}" class="back-link">← 返回录入比赛数据</a>
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>DEMO</span><h1>从 Demo 批量导入数据（最多 {{ demo_slot_count }} 个）</h1></div>
+</header>
 
-{% include "admin/_top_nav.html" %}
+<section class="panel">
+  <dl class="match-facts">
+    <div><dt>比赛</dt><dd data-i18n-ignore>{{ match.team1_name }} VS {{ match.team2_name }}</dd></div>
+    <div><dt>赛事</dt><dd data-i18n-ignore>{{ match.event_name or '-' }}</dd></div>
+    <div><dt>时间</dt><dd>{{ match.match_time|datetime_display if match.match_time else '-' }}</dd></div>
+  </dl>
+</section>
 
-<div class="container">
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      {% for category, message in messages %}
-      <div class="alert alert-{{ category }}">{{ message }}</div>
-      {% endfor %}
-    {% endif %}
-  {% endwith %}
-
-  <div class="panel">
-    <h3>📥 从 Demo 批量导入数据（最多 {{ demo_slot_count }} 个）</h3>
-    <p><b>比赛：</b>{{ match.team1_name }} 对 {{ match.team2_name }}</p>
-    <p><b>赛事：</b>{{ match.event_name }}</p>
-    <p><b>时间：</b>{{ match.match_time|datetime_display if match.match_time else '-' }}</p>
-  </div>
-
-  {% if not previews %}
-
-  <!-- Step 1: 上传多个 Demo -->
-  <div class="panel">
-    <h3>上传 Demo 文件（最多 {{ demo_slot_count }} 个）</h3>
-    <p style="color:#999;font-size:13px;margin-bottom:16px">
-      选择多个 .dem 文件进行批量分析预览，每个 Demo 会自动匹配到比赛的地图槽位
-    </p>
+{% if not previews %}
+{# 第 1 步：选择 Demo 文件，预览分析结果 #}
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">上传 Demo 文件（最多 {{ demo_slot_count }} 个）</h2></div>
+  <form method="post" enctype="multipart/form-data" id="uploadForm" class="admin-form demo-action-form" data-busy-text="分析中……" data-guard>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="step" value="analyze">
+    <p class="field-hint">选择多个 .dem 文件进行批量分析预览，每个 Demo 会自动匹配到比赛的地图槽位</p>
 
     {% set demo_maps = [
       (match.map1, match.map1_t1, match.map1_t2),
@@ -76,161 +31,121 @@
       (match.map4, match.map4_t1, match.map4_t2),
       (match.map5, match.map5_t1, match.map5_t2)
     ] %}
-    <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+    <div class="demo-maps">
       {% for demo_map in demo_maps[:demo_slot_count] %}
-      <span style="background:#f5f5f5;padding:6px 12px;border-radius:0;font-size:13px">
-        图{{ loop.index }}：<b>{{ demo_map[0] or 'TBA' }}</b> {% if demo_map[0] %}({{ demo_map[1] }}:{{ demo_map[2] }}){% endif %}
-      </span>
+      <span class="badge badge-square">图{{ loop.index }}：<b data-i18n-ignore>{{ demo_map[0]|map_display if demo_map[0] else 'TBA' }}</b>{% if demo_map[0] %}（{{ demo_map[1] if demo_map[1] is not none else '-' }}:{{ demo_map[2] if demo_map[2] is not none else '-' }}）{% endif %}</span>
       {% endfor %}
     </div>
 
-    <form method="post" enctype="multipart/form-data" id="uploadForm" class="demo-action-form">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <input type="hidden" name="step" value="analyze">
-
+    <div class="demo-slots">
       {% for i in range(demo_slot_count) %}
-      <div class="file-slot" id="slot{{ i }}">
-        <div class="file-slot-label">Demo #{{ i + 1 }}</div>
-        <input type="file" name="demo_file_{{ i }}" accept=".dem" onchange="this.parentElement.classList.toggle('has-file', this.files.length>0)">
-      </div>
+      <label class="file-slot" id="slot{{ i }}">
+        <span class="file-slot-label">Demo #{{ i + 1 }}</span>
+        <input type="file" name="demo_file_{{ i }}" accept=".dem" data-file-slot>
+      </label>
       {% endfor %}
+    </div>
 
-      <div class="form-actions">
-        <button type="submit" class="btn btn-primary">🔍 批量预览数据</button>
-        <a href="/admin/matches/{{ match.id }}/stats" class="btn btn-secondary">❌ 返回</a>
-      </div>
-    </form>
+    <div class="form-actions">
+      <a href="{{ url_for('admin.admin_match_stats', match_id=match.id) }}" class="btn">返回</a>
+      <button type="submit" class="btn btn-primary">{{ ui.icon('upload') }}批量预览数据</button>
+    </div>
+  </form>
+</section>
+
+{% else %}
+{# 第 2 步：核对每个 Demo 的分析结果，再导入（可以单独导入，也可以一键全部导入） #}
+{% for pv in previews %}
+<section class="panel demo-preview-section">
+  <div class="panel-head"><h2 class="panel-title">Demo #{{ loop.index }} — <span data-i18n-ignore>{{ pv.map_name|map_display if pv.map_name else '未知地图' }}</span></h2></div>
+  <div class="preview-info">
+    <div class="preview-item"><span class="label">Demo 地图</span><span class="value" data-i18n-ignore>{{ pv.map_name|map_display if pv.map_name else '未知' }}</span></div>
+    <div class="preview-item"><span class="label">比分</span><span class="value">{{ pv.team_a_score }} : {{ pv.team_b_score }}</span></div>
+    <div class="preview-item"><span class="label">回合数</span><span class="value">{{ pv.rounds_count }}</span></div>
+    <div class="preview-item"><span class="label">自动匹配</span><span class="value {{ 'ok' if pv.map_slot >= 0 else 'bad' }}">{% if pv.map_slot >= 0 %}图{{ pv.map_slot + 1 }}{% else %}未匹配{% endif %}</span></div>
+    <div class="preview-item"><span class="label">队伍对应</span><span class="value small {{ 'ok' if pv.team_order_ok else 'bad' }}" data-i18n-ignore>{{ pv.team_map }}</span></div>
   </div>
 
-  {% else %}
-
-  <!-- Step 2: 预览并确认导入 -->
-  {% for pv in previews %}
-  <div class="panel demo-preview-section">
-    <h4>📋 Demo #{{ loop.index }} — <span style="color:#5881bc">{{ pv.map_name|map_display if pv.map_name else '未知地图' }}</span></h4>
-
-    <div class="preview-info">
-      <div class="preview-item">
-        <div class="label">Demo 地图</div>
-        <div class="value">{{ pv.map_name|map_display if pv.map_name else '未知' }}</div>
-      </div>
-      <div class="preview-item">
-        <div class="label">比分</div>
-        <div class="value">{{ pv.team_a_score }} : {{ pv.team_b_score }}</div>
-      </div>
-      <div class="preview-item">
-        <div class="label">回合数</div>
-        <div class="value">{{ pv.rounds_count }}</div>
-      </div>
-      <div class="preview-item">
-        <div class="label">自动匹配</div>
-        <div class="value" style="color:{% if pv.map_slot >= 0 %}#1a7e1a{% else %}#c0392b{% endif %}">
-          {% if pv.map_slot >= 0 %}图{{ pv.map_slot + 1 }}{% else %}未匹配{% endif %}
-        </div>
-      </div>
-      <div class="preview-item">
-        <div class="label">队伍对应</div>
-        <div class="value" style="color:{% if pv.team_order_ok %}#1a7e1a{% else %}#c0392b{% endif %};font-size:13px">
-          {{ pv.team_map }}
-        </div>
-      </div>
-    </div>
-
-    <table>
+  <div class="table-wrap">
+    <table class="table admin-table">
       <thead>
-        <tr>
-          <th>Demo 中选手</th>
-          <th>SteamID</th>
-          <th>对应数据库选手</th>
-          <th>K</th><th>D</th><th>A</th><th>ADR</th><th>KAST%</th><th>Impact</th><th>RATING 2.0</th><th>HS%</th>
-        </tr>
+        <tr><th>Demo 中选手</th><th>SteamID</th><th>对应数据库选手</th><th class="num">K</th><th class="num">D</th><th class="num">A</th><th class="num" data-i18n-ignore>ADR</th><th class="num" data-i18n-ignore>KAST%</th><th class="num" data-i18n-ignore>Impact</th><th class="num" data-i18n-ignore>RATING 2.0</th><th class="num" data-i18n-ignore>HS%</th></tr>
       </thead>
       <tbody>
         {% for stat in pv.players %}
         <tr>
-          <td><b>{{ stat.name }}</b><br><small style="color:#999">{{ stat.team_name or stat.team_letter }}</small></td>
-          <td style="font-size:11px;color:#999">{{ stat.steam_id }}</td>
+          <td><b data-i18n-ignore>{{ stat.name }}</b><small class="cell-sub" data-i18n-ignore>{{ stat.team_name or stat.team_letter }}</small></td>
+          <td class="muted text-sm">{{ stat.steam_id }}</td>
           <td>
             {% if stat.db_player %}
-            <span class="match-found">✅ {{ stat.db_player.nickname }}<br><small>{{ stat.db_player.team_name }}</small></span>
+            <span class="match-found">已匹配：<span data-i18n-ignore>{{ stat.db_player.nickname }}</span><small data-i18n-ignore>{{ stat.db_player.team_name }}</small></span>
             {% elif stat.db_player_by_name %}
-            <span class="match-partial">⚠️ {{ stat.db_player_by_name.nickname }}<br><small>SteamID 不匹配，按昵称匹配</small></span>
+            <span class="match-partial">按昵称匹配：<span data-i18n-ignore>{{ stat.db_player_by_name.nickname }}</span><small>SteamID 不匹配，按昵称匹配</small></span>
             {% else %}
-            <span class="match-none">❌ 未匹配<br><small>请先在选手管理中添加</small></span>
+            <span class="match-none">未匹配<small>请先在选手管理中添加</small></span>
             {% endif %}
           </td>
-          <td>{{ stat.kills }}</td>
-          <td>{{ stat.deaths }}</td>
-          <td>{{ stat.assists }}</td>
-          <td>{{ stat.adr }}</td>
-          <td>{{ stat.kast }}%</td>
-          <td>{{ stat.impact }}</td>
-          <td>{{ stat.rating }}</td>
-          <td>{{ stat.headshot_percentage }}%</td>
+          <td class="num">{{ stat.kills }}</td>
+          <td class="num">{{ stat.deaths }}</td>
+          <td class="num">{{ stat.assists }}</td>
+          <td class="num">{{ stat.adr }}</td>
+          <td class="num">{{ stat.kast }}%</td>
+          <td class="num">{{ stat.impact }}</td>
+          <td class="num">{{ stat.rating }}</td>
+          <td class="num">{{ stat.headshot_percentage }}%</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
-
-    <form method="post" style="margin-top:12px" class="demo-action-form">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <input type="hidden" name="step" value="import_single">
-      <input type="hidden" name="demo_index" value="{{ loop.index0 }}">
-      <input type="hidden" name="demo_data" value="{{ pv.demo_data }}">
-      <input type="hidden" name="map_slot" value="{{ pv.map_slot }}">
-      <button type="submit" class="btn btn-primary">💾 单独导入此 Demo</button>
-    </form>
   </div>
-  {% endfor %}
 
-  <div class="form-actions" style="margin-top:20px">
-    <form method="post" style="display:inline" class="demo-action-form">
+  <form method="post" class="panel-foot form-actions start demo-action-form" data-busy-text="导入中……">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="step" value="import_single">
+    <input type="hidden" name="demo_index" value="{{ loop.index0 }}">
+    <input type="hidden" name="demo_data" value="{{ pv.demo_data }}">
+    <input type="hidden" name="map_slot" value="{{ pv.map_slot }}">
+    <button type="submit" class="btn btn-primary">{{ ui.icon('check') }}单独导入此 Demo</button>
+  </form>
+</section>
+{% endfor %}
+
+<section class="panel">
+  <div class="panel-body form-actions start">
+    <form method="post" class="demo-action-form" data-busy-text="导入中……">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="step" value="import_all">
       <input type="hidden" name="all_demo_data" value="{{ all_demo_data }}">
-      <button type="submit" class="btn btn-primary" style="font-size:16px">🚀 一键全部导入</button>
+      <button type="submit" class="btn btn-primary btn-lg">{{ ui.icon('check') }}一键全部导入</button>
     </form>
-    <a href="/admin/matches/{{ match.id }}/import-demo" class="btn btn-secondary">🔄 重新上传</a>
-    <a href="/admin/matches/{{ match.id }}/stats" class="btn btn-secondary">❌ 返回</a>
+    <a href="{{ url_for('admin.admin_import_demo', match_id=match.id) }}" class="btn btn-lg">{{ ui.icon('upload') }}重新上传</a>
+    <a href="{{ url_for('admin.admin_match_stats', match_id=match.id) }}" class="btn btn-lg">返回</a>
   </div>
+</section>
+{% endif %}
 
-  {% endif %}
-
-  {% if match.demo_file %}
-  {% set dl = match.demo_file|json_loads %}
-  {% if dl %}
-  <div class="panel" style="margin-top:20px">
-    <h3>已保存的 Demo 文件</h3>
-    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px">
-      {% for df in dl %}
-      <a href="/matches/{{ match.slug or match.id }}/download-demo?slot={{ loop.index0 }}"
-         class="btn btn-primary" style="font-size:13px;padding:8px 16px">下载 {{ df }}</a>
-      {% endfor %}
-    </div>
+{% if match.demo_file %}
+{% set dl = match.demo_file|json_loads %}
+{% if dl %}
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">已保存的 Demo 文件</h2></div>
+  <div class="download-row">
+    {% for df in dl %}
+    <a href="/matches/{{ match.slug or match.id }}/download-demo?slot={{ loop.index0 }}" class="btn btn-sm">{{ ui.icon('download') }}下载 <span data-i18n-ignore>{{ df }}</span></a>
+    {% endfor %}
   </div>
-  {% endif %}
-  {% endif %}
-</div>
+</section>
+{% endif %}
+{% endif %}
+{% endblock %}
 
-<script src="{{ versioned_url('static/js/i18n.js') }}"></script>
-<script src="{{ url_for('static', filename='js/svg_icons.js') }}?v=20260620-svg1"></script>
+{% block scripts %}
 <script>
-  document.querySelectorAll('.demo-action-form').forEach(function(form) {
-    form.addEventListener('submit', function(event) {
-      if (form.dataset.submitting === '1') {
-        event.preventDefault();
-        return;
-      }
-      form.dataset.submitting = '1';
-      var button = form.querySelector('button[type="submit"]');
-      if (button) {
-        button.disabled = true;
-        button.textContent = form.id === 'uploadForm' ? '分析中……' : '导入中……';
-      }
+  // 选了文件的槽位变成绿色边框，一眼能看出哪几个已选
+  document.querySelectorAll('[data-file-slot]').forEach(function (input) {
+    input.addEventListener('change', function () {
+      input.closest('.file-slot').classList.toggle('has-file', input.files.length > 0);
     });
   });
 </script>
-<script src="{{ versioned_url('static/js/i18n.js') }}"></script>
-<script src="{{ url_for('static', filename='js/svg_icons.js') }}?v=20260620-svg1"></script>
-</body>
-</html>
+{% endblock %}

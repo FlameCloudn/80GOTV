@@ -447,6 +447,38 @@ if(hamburger && navLinks){
   });
 })();
 
+// ==================== 上传文件：选完马上检查大小和格式 ====================
+// 带 data-max-bytes 的文件框（队标等）：太大或格式不对时标红、右上角提示；提交前再拦一次，免得白传一趟
+(function() {
+  var SELECTOR = 'input[type="file"][data-max-bytes]';
+
+  function report(input) {
+    var problem = window.checkUploadFile ? window.checkUploadFile(input) : '';
+    var key = 'upload:' + (input.id || input.name);
+    if (problem) {
+      input.setAttribute('aria-invalid', 'true');
+      window.showToast(problem, 'error', { key: key });
+    } else {
+      input.removeAttribute('aria-invalid');
+      window.dismissToast(key);
+    }
+    return problem;
+  }
+
+  document.addEventListener('change', function(event) {
+    if (event.target.matches && event.target.matches(SELECTOR)) report(event.target);
+  });
+
+  // 排在页面自己的提交处理（如队长操作的页面内提交）前面
+  document.addEventListener('submit', function(event) {
+    var bad = Array.prototype.filter.call(event.target.querySelectorAll(SELECTOR), report)[0];
+    if (!bad) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    bad.focus();
+  }, true);
+})();
+
 // ==================== 评论回复 ====================
 function toggleReply(commentId) {
   var form = document.getElementById('reply-form-' + commentId);
@@ -676,18 +708,6 @@ if (window._curUserId) {
   setInterval(updateBadgeCount, 120000);
 }
 
-// ==================== Flash 消息自动消失 ====================
-document.addEventListener('DOMContentLoaded', function() {
-  var alerts = document.querySelectorAll('.flash-container .alert');
-  alerts.forEach(function(alert) {
-    setTimeout(function() {
-      alert.style.transition = 'opacity 0.5s';
-      alert.style.opacity = '0';
-      setTimeout(function() { alert.remove(); }, 500);
-    }, 5000);
-  });
-});
-
 // ==================== CSRF 403 全局处理 ====================
 var _origFetch = window.fetch;
 window.fetch = function(url, opts) {
@@ -913,4 +933,47 @@ document.addEventListener('click', function(e) {
       if (node) observer.observe(node, { childList: true, characterData: true, subtree: true });
     });
   }
+})();
+
+// 横向可滑动的标签条、字母筛选条：两边还有没露出来的内容时，边缘淡出，提示可以左右滑；
+// 打开页面时把当前选中的那一项滑到看得见的位置（只滑这一条，不滚动整页）。
+(function bindScrollStrips() {
+  var SELECTOR = '.tabs, .player-initial-filter';
+  var strips = Array.prototype.slice.call(document.querySelectorAll(SELECTOR));
+  if (!strips.length) return;
+
+  // 只多出一点空白（如最后一项的内边距）不算，免得把完整的最后一项也淡掉
+  function markEdges(strip) {
+    var hidden = strip.scrollWidth - strip.clientWidth;
+    var scrollable = hidden > 16;
+    strip.classList.toggle('has-more-start', scrollable && strip.scrollLeft > 2);
+    strip.classList.toggle('has-more-end', scrollable && strip.scrollLeft < hidden - 2);
+  }
+
+  function revealActive(strip) {
+    var active = strip.querySelector('.active, [aria-current="page"], [aria-selected="true"]');
+    if (!active || strip.scrollWidth <= strip.clientWidth + 2) return;
+    var stripBox = strip.getBoundingClientRect();
+    var itemBox = active.getBoundingClientRect();
+    if (itemBox.left >= stripBox.left && itemBox.right <= stripBox.right) return;
+    strip.scrollLeft += itemBox.left - stripBox.left - (stripBox.width - itemBox.width) / 2;
+  }
+
+  var pending = false;
+  function refreshAll() {
+    pending = false;
+    strips.forEach(markEdges);
+  }
+
+  strips.forEach(function(strip) {
+    revealActive(strip);
+    markEdges(strip);
+    strip.addEventListener('scroll', function() { markEdges(strip); }, { passive: true });
+  });
+  window.addEventListener('resize', function() {
+    if (pending) return;
+    pending = true;
+    window.requestAnimationFrame(refreshAll);
+  });
+  window.addEventListener('load', refreshAll);
 })();

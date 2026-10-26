@@ -21,6 +21,7 @@
 .profile-stat-grid .stat-value { overflow: hidden; font-size: var(--font-lg); text-overflow: ellipsis; white-space: nowrap; }
 .profile-avatar-form { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-md); }
 .profile-field { flex: 1 1 240px; max-width: 360px; }
+.field-hint.is-error { color: var(--color-red); }
 .profile-form-actions { justify-content: flex-start; }
 .profile-facts > div { padding-right: var(--space-lg); padding-left: var(--space-lg); }
 

@@ -27,7 +27,6 @@
 
 .bp-password-gate { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--space-sm); }
 .bp-password-gate input { width: min(260px, 100%); }
-.bp-error { color: var(--color-red); font-size: var(--font-xs); }
 
 .bp-status-bar { min-height: 28px; color: var(--text-primary); font-size: var(--font-lg); font-weight: 600; text-align: center; }
 .bp-status-bar b { font-variant-numeric: tabular-nums; }
@@ -209,3 +208,6 @@
   .bp-map-card .map-status { position: static; }
   .roll-dice { width: 60px; height: 60px; font-size: var(--font-2xl); }
 }
+
+/* 管理员工具按钮里的自绘图标（不用 emoji） */
+.bp-tool-icon { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }

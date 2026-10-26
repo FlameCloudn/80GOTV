@@ -710,7 +710,7 @@ def event_register(event_id):
         team_logo = save_uploaded_team_logo(logo_file, BASE_DIR)
         if not team_logo:
             conn.close()
-            flash("队标无效，请上传不超过 5MB 的 PNG、JPG 或 GIF 图片", "error")
+            flash("队标无效，请上传不超过 10MB 的 PNG、JPG 或 GIF 图片", "error")
             return redirect(url_for("event_detail", event_id=event_id))
 
     # 旧数据库仍可能保留不可为空的 captain_user_id；新旧字段同时写入。
@@ -1544,7 +1544,9 @@ def event_registration_upload_logo(event_id, reg_id):
     new_logo = save_uploaded_team_logo(logo_file, BASE_DIR)
     if not new_logo:
         conn.close()
-        return _registration_failure(event_id, "队标无效，请上传不超过 5MB 的 PNG、JPG 或 GIF 图片")
+        return _registration_failure(
+            event_id, "队标无效，请上传不超过 10MB 的 PNG、JPG 或 GIF 图片"
+        )
 
     old_logo = registration["team_logo"]
     try:

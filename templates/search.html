@@ -27,8 +27,8 @@
   {% for n in results.news %}
   <a class="list-row search-news" href="{{ news_path(n) }}">
     <span class="grow">
-      <span class="title">{{ n.title }}</span>
-      {% if n.summary %}<span class="search-summary">{{ n.summary[:120] }}</span>{% endif %}
+      <span class="title" data-i18n-ignore>{{ n.title }}</span>
+      {% if n.summary %}<span class="search-summary" data-i18n-ignore>{{ n.summary[:120] }}</span>{% endif %}
     </span>
     <span class="meta">{{ n.publish_time|datetime_display }}</span>
   </a>
