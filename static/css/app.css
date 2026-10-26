@@ -230,7 +230,7 @@ hr { height: 1px; margin: var(--space-lg) 0; border: 0; background: var(--border
   opacity: 0;
   visibility: hidden;
   transform: translateY(4px);
-  transition: opacity var(--transition-fast), transform var(--transition-fast), visibility var(--transition-fast);
+  transition: opacity var(--transition-fast), transform var(--transition-fast), visibility 0s linear var(--transition-fast);
 }
 
 .nav-dropdown:hover > .nav-dropdown-menu,
@@ -238,6 +238,7 @@ hr { height: 1px; margin: var(--space-lg) 0; border: 0; background: var(--border
   opacity: 1;
   visibility: visible;
   transform: none;
+  transition-delay: 0s;
 }
 
 .nav-dropdown-menu a {

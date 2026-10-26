@@ -42,10 +42,26 @@ test('public home loads the v3 stylesheet and quick navigation', async ({ page }
 test('desktop dropdown supports ArrowDown and Escape', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop');
   await page.goto('/');
+  await page.evaluate(() => {
+    window.__dropdownKeyboardResult = null;
+    window.addEventListener('keydown', event => {
+      if (event.key !== 'ArrowDown') return;
+      const menu = document.querySelector('.nav-events > .nav-dropdown-menu');
+      const firstLink = menu.querySelector('a');
+      window.__dropdownKeyboardResult = {
+        menuVisibility: getComputedStyle(menu).visibility,
+        firstLinkFocused: document.activeElement === firstLink,
+      };
+    }, { once: true });
+  });
   const toggle = page.locator('.nav-events > .nav-dropdown-toggle');
   await toggle.focus();
   await page.keyboard.press('ArrowDown');
-  await expect(page.locator('.nav-events > .nav-dropdown-menu a').first()).toBeFocused();
+  const firstMenuLink = page.locator('.nav-events > .nav-dropdown-menu a').first();
+  const keyboardResult = await page.evaluate(() => window.__dropdownKeyboardResult);
+  expect(keyboardResult).toEqual({ menuVisibility: 'visible', firstLinkFocused: true });
+  await expect(firstMenuLink).toBeFocused();
+  await page.screenshot({ path: testInfo.outputPath('dropdown-keyboard-open.png') });
   await page.keyboard.press('Escape');
   await expect(toggle).toBeFocused();
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
