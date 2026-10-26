@@ -374,7 +374,7 @@ test('Chinese content remains available when JavaScript is disabled', async ({ b
   }
 });
 
-test('English mode translates static UI without hiding user content', async ({ page }) => {
+test('English mode translates static UI without hiding user content', async ({ page }, testInfo) => {
   await page.addInitScript(() => localStorage.setItem('siteLang', 'en'));
   const publicPaths = [
     '/', '/matches', '/results', '/events', '/players', '/stats', '/predictions',
@@ -383,11 +383,41 @@ test('English mode translates static UI without hiding user content', async ({ p
     '/teams', '/awards', '/players/compare', '/stats?tab=players',
   ];
 
-  async function untranslatedText(path) {
+  async function untranslatedText(path, expectFeedback = false) {
     const response = await page.goto(path);
     expect(response.ok(), path).toBeTruthy();
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
-    await page.waitForTimeout(120);
+    await expect(page.locator('html')).not.toHaveClass(/i18n-pending/);
+    if (expectFeedback) {
+      await expect(page.locator('#fbOverlay')).toHaveCount(1);
+      const options = page.locator('#fbType option');
+      await expect(options).toHaveText(['Suggestion', 'Bug report', 'Question', 'Other']);
+    }
+    if (path === '/notifications') {
+      await page.evaluate(() => {
+        window.__feedbackOpenState = null;
+        const captureOpen = event => {
+          if (!event.target.closest('#fbBtn')) return;
+          window.removeEventListener('click', captureOpen);
+          const dialog = document.querySelector('#fbOverlay');
+          window.__feedbackOpenState = {
+            isOpen: dialog.open,
+            title: document.querySelector('#fbTitle').textContent.trim(),
+            options: [...document.querySelectorAll('#fbType option')].map(option => option.textContent.trim()),
+          };
+        };
+        window.addEventListener('click', captureOpen);
+      });
+      await page.locator('#fbBtn').click();
+      const openState = await page.evaluate(() => window.__feedbackOpenState);
+      expect(openState).toEqual({
+        isOpen: true,
+        title: 'Feedback',
+        options: ['Suggestion', 'Bug report', 'Question', 'Other'],
+      });
+      await expect(page.locator('#fbOverlay')).toBeVisible();
+      await page.screenshot({ path: testInfo.outputPath('feedback-open-en.png') });
+    }
     return page.evaluate(() => {
       const ignored = [
         '[data-i18n-ignore]', '.news-title', '.news-summary', '.news-detail',
@@ -419,7 +449,7 @@ test('English mode translates static UI without hiding user content', async ({ p
     '/guess-player/multiplayer', '/map-quiz', '/map-quiz/practice',
     '/player-bingo', '/player-bingo/practice',
   ]) {
-    const values = await untranslatedText(path);
+    const values = await untranslatedText(path, true);
     if (values.length) untranslated[path] = values;
   }
 
