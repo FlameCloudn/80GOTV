@@ -1661,6 +1661,7 @@
     '两边不能选择同一名选手': 'The same player cannot play on both sides',
     '相同赛事、时间和参赛方的比赛已存在': 'A match with the same event, time and participants already exists',
     '比分尚未达到该赛制的获胜条件': 'The score has not reached the winning condition for this format',
+    '比分尚未达到该赛制的获胜条件，或比分无效，不能结束比赛': 'Cannot finish the match: the score is invalid or does not meet the winning condition for this format',
     '比赛保存失败，请稍后重试': 'The match could not be saved. Please try again later.',
     '比赛结束失败，所有变更均未保存，请稍后重试': 'The match could not be completed. No changes were saved. Please try again later.',
     '重新开启失败，所有变更均未保存，请稍后重试': 'The match could not be reopened. No changes were saved. Please try again later.',
