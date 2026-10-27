@@ -32,11 +32,11 @@
     <span class="bp-player-avatar bp-avatar-fb" aria-hidden="true">{{ player_display_name[:1]|upper }}</span>
     {% endif %}
     <span class="bp-player-name">{{ player_display_name }}</span>
-    <span class="bp-player-rating">{{ '%.2f'|format(p.rating) if p.rating else '-' }}</span>
+    <span class="bp-player-rating">{{ '%.2f'|format(p.rating) if p.rating is defined and p.rating is not none else '-' }}</span>
   </div>
   {% else %}
   <div class="bp-player-row bp-player-row-right">
-    <span class="bp-player-rating">{{ '%.2f'|format(p.rating) if p.rating else '-' }}</span>
+    <span class="bp-player-rating">{{ '%.2f'|format(p.rating) if p.rating is defined and p.rating is not none else '-' }}</span>
     <span class="bp-player-name">{{ player_display_name }}</span>
     {% if p.avatar %}
     <img class="bp-player-avatar" src="{{ avatar_thumbnail_url(p.avatar) or '/static/avatars/default.png' }}" alt="{{ player_display_name }}"
@@ -108,7 +108,7 @@
     {# 地图比分 #}
     {% if map_list %}
     <div class="bmp-divider"></div>
-    <div class="bmp-section-title" data-i18n-ignore>Maps</div>
+    <div class="bmp-section-title">地图比分</div>
     {% for mp in map_list %}
     <div class="bmp-map-row">
       <span class="bmp-map-s1{% if mp.t1 > mp.t2 %} win{% elif mp.t2 > mp.t1 %} lose{% endif %}">{{ mp.t1 }}</span>
@@ -120,8 +120,8 @@
 
     {# 选手阵容 #}
     <div class="bmp-divider"></div>
-    <div class="bmp-section-title" data-i18n-ignore>Lineups</div>
-    <div class="bmp-section-subtitle" data-i18n-ignore>Rating based on current stats</div>
+    <div class="bmp-section-title">出场阵容</div>
+    <div class="bmp-section-subtitle">Rating 按当前赛事数据计算</div>
     <div class="bmp-players">
       <div class="bmp-col">
         {% if t1_pids %}
@@ -145,9 +145,9 @@
     <div class="bmp-divider"></div>
     <div class="bmp-footer">
       {% if mid_int %}
-      <a href="/matches/{{ mid_int }}" class="bmp-match-link" onclick="event.stopPropagation()" data-i18n-ignore>Match page</a>
+      <a href="/matches/{{ mid_int }}" class="bmp-match-link" onclick="event.stopPropagation()">查看比赛详情</a>
       {% else %}
-      <button class="bmp-match-link bmp-no-match" onclick="event.stopPropagation();showToast('比赛不存在，请联系管理员录入', 'error')" data-i18n-ignore>Match page</button>
+      <button class="bmp-match-link bmp-no-match" onclick="event.stopPropagation();showToast('比赛不存在，请联系管理员录入', 'error')">查看比赛详情</button>
       {% endif %}
     </div>
   </div>

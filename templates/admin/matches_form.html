@@ -52,7 +52,7 @@
       {% endif %}
       {% if current_status in ('live', 'ongoing', 'completed') %}
       <div class="score-callout">
-        <span>直播记录比分：<b><span data-i18n-ignore>{{ match.team1_name or '队伍1' }}</span> {{ match.team1_score if match.team1_score is not none else '-' }} : {{ match.team2_score if match.team2_score is not none else '-' }} <span data-i18n-ignore>{{ match.team2_name or '队伍2' }}</span></b></span>
+        <span>直播记录比分： <b><span{% if match.team1_name %} data-i18n-ignore{% endif %}>{{ match.team1_name or '队伍1' }}</span> {{ match.team1_score if match.team1_score is not none else '-' }} : {{ match.team2_score if match.team2_score is not none else '-' }} <span{% if match.team2_name %} data-i18n-ignore{% endif %}>{{ match.team2_name or '队伍2' }}</span></b></span>
       </div>
       {% endif %}
     </div>

@@ -531,11 +531,16 @@ def event_detail(event_id):
     # 构建 team_id → players 映射（供对阵图卡片悬停用）
     team_players_map = {}
     for t in teams:
+        # 只调整原本展示的五名选手的顺序，不因排序换掉阵容。
+        players_by_rating = sorted(
+            t["players"][:5],
+            key=lambda player: (player.get("rating") is None, -(player.get("rating") or 0)),
+        )
         if t["id"] is not None:
-            team_players_map[str(t["id"])] = t["players"]
+            team_players_map[str(t["id"])] = players_by_rating
         if t["is_temp"]:
-            team_players_map[t["name"]] = t["players"]
-            team_players_map[t["name"].lower()] = t["players"]
+            team_players_map[t["name"]] = players_by_rating
+            team_players_map[t["name"].lower()] = players_by_rating
 
     # 赛事图池从比赛配置汇总；不再让详情页写死一套地图。
     event_map_pool = []
