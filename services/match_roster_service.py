@@ -26,7 +26,7 @@ def _selected_ids(match, side):
         values = json.loads(raw) if isinstance(raw, str) else raw
     except (TypeError, ValueError):
         return []
-    return values[:5] if isinstance(values, list) else []
+    return values if isinstance(values, list) and len(values) <= 5 else []
 
 
 def _players_by_id(conn, ids):
