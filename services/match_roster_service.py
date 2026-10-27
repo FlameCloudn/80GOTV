@@ -161,6 +161,16 @@ def match_player_slots(conn, match, side):
         ]
     if row_get(match, "roster_snapshot"):
         return []
+    if str(row_get(match, "status") or "").lower() == "completed":
+        # Complete final statistics outrank stale selections, never live or partial evidence.
+        historical = {
+            number: _historical_player_slots(conn, match, number) or [] for number in (1, 2)
+        }
+        if (
+            all(len(slots) == 5 for slots in historical.values())
+            and len({player["id"] for slots in historical.values() for player in slots}) == 10
+        ):
+            return historical[side]
     selected = _selected_ids(match, side)
     if selected is not None:
         players = _players_by_id(conn, selected)
