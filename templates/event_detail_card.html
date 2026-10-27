@@ -14,6 +14,8 @@
 {% set t2_win = ms1 != None and ms2 != None and ms2 > ms1 %}
 {% set mid = m.get('match_id') %}
 {% set mid_int = mid|int if mid and mid|string|first in '0123456789' else 0 %}
+{% set linked_match = (matches|selectattr('id', 'equalto', mid_int)|first) if mid_int else None %}
+{% set popup_status = linked_match.effective_status if linked_match else m.get('status') %}
 {% set card_id = round_name or m.get('id') or m.get('match_id') or '' %}
 {% set t1_db_key = t1_info.db_id|string if t1_info and t1_info.db_id else None %}
 {% set t2_db_key = t2_info.db_id|string if t2_info and t2_info.db_id else None %}
@@ -121,7 +123,7 @@
     {# 选手阵容 #}
     <div class="bmp-divider"></div>
     <div class="bmp-section-title">出场阵容</div>
-    <div class="bmp-section-subtitle">Rating 按当前赛事数据计算</div>
+    <div class="bmp-section-subtitle">{% if popup_status == 'completed' %}由当前比赛表现所得{% elif popup_status == 'upcoming' %}由近期数据统计所得{% else %}Rating 按当前赛事数据计算{% endif %}</div>
     <div class="bmp-players">
       <div class="bmp-col">
         {% if t1_pids %}

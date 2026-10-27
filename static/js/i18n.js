@@ -21,6 +21,8 @@
     '互换队伍 1 与队伍 2': 'Swap team 1 and team 2',
     '队伍 1': 'Team 1', '队伍 2': 'Team 2', '自选选手': 'Custom players',
     '出场阵容': 'Lineups', 'Rating 按当前赛事数据计算': 'Rating based on current event stats',
+    '由近期数据统计所得': 'Based on recent stats',
+    '由当前比赛表现所得': 'Based on performance in this match',
     '比赛不存在，请联系管理员录入': 'Match details are not available yet. Please contact an admin.',
     '赛制 (BO 格式)': 'Series format (BO)',
     'BO1 (单局定胜负)': 'BO1 (one map)', 'BO3 (三局两胜)': 'BO3 (first to two)', 'BO5 (五局三胜)': 'BO5 (first to three)',
