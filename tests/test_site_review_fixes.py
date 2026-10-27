@@ -179,7 +179,7 @@ class SiteReviewFixTests(unittest.TestCase):
         # 日历和“全部日期”链接都保留赛事条件
         self.assertIn(f"event={self.event_id}&amp;month=2026-10", html)
 
-    def test_temp_teams_keep_their_fallback_names(self):
+    def test_unnamed_temp_teams_do_not_invent_side_names(self):
         with closing(get_db()) as conn:
             match_id = conn.execute(
                 """INSERT INTO matches(event_id,team1_players,team2_players,status,team1_score,team2_score,match_time,slug)
@@ -188,10 +188,11 @@ class SiteReviewFixTests(unittest.TestCase):
             ).lastrowid
             conn.commit()
             names = _pistol_match_teams(conn, {match_id})[match_id]
-        self.assertEqual((names["t1_name"], names["t2_name"]), ("TEAM 1", "TEAM 2"))
+        self.assertEqual((names["t1_name"], names["t2_name"]), ("TBD", "TBD"))
         self.login_admin()
         page = self.client.get("/admin/news/add").get_data(as_text=True)
-        self.assertIn("TEAM 1 2:0 TEAM 2", page)
+        self.assertIn("TBD 2:0 TBD", page)
+        self.assertNotIn("TEAM 1 2:0 TEAM 2", page)
 
     def test_team_links_and_headers_point_to_the_right_place(self):
         _, overview = self.rendered("/stats")

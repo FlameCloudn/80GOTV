@@ -185,11 +185,12 @@
   <div class="list stats-match-list">
     {% for match in matches %}
     <a href="/matches/{{ match.slug or match.id }}" class="list-row stats-match-row">
+      {% set left_team, right_team = match_opponents(match) %}
       <time class="stats-match-date">{{ match.match_time|date_display if match.match_time else '' }}</time>
       <span class="stats-match-teams">
-        <span data-i18n-ignore>{{ match.team1_name }}</span>
-        <b>{{ match.team1_score }} : {{ match.team2_score }}</b>
-        <span data-i18n-ignore>{{ match.team2_name }}</span>
+        <span data-i18n-ignore>{{ left_team.name }}</span>
+        <b>{{ left_team.score if left_team.score is not none else '-' }} : {{ right_team.score if right_team.score is not none else '-' }}</b>
+        <span data-i18n-ignore>{{ right_team.name }}</span>
       </span>
       <span class="meta">{% if match.event_name %}<span data-i18n-ignore>{{ match.event_name }}</span> · {% endif %}<span data-i18n-ignore>{{ match.bo_format or '' }}</span>{% if match.maps %} · <span>{{ match.maps }} 张地图</span>{% endif %}</span>
     </a>

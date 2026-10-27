@@ -655,7 +655,7 @@ def event_register(event_id):
 
     team_name = request.form.get("team_name", "").strip()
     try:
-        my_slot = int(request.form.get("my_slot", 0) or 0)
+        my_slot = int(request.form.get("my_slot", ""))
     except (TypeError, ValueError):
         my_slot = -1
     if not team_name:
@@ -1603,16 +1603,28 @@ def event_registration_dissolve(event_id, reg_id):
 
     team_name = registration["team_name"]
     team_logo = registration["team_logo"]
-    member_rows = conn.execute(
-        "SELECT user_id FROM event_registration_slots WHERE registration_id=?",
-        (reg_id,),
-    ).fetchall()
-    for member in member_rows:
-        _move_individual_registration_to_reserve(conn, event_id, member["user_id"])
-    conn.execute("DELETE FROM event_registration_slots WHERE registration_id=?", (reg_id,))
-    conn.execute("DELETE FROM event_registrations WHERE id=?", (reg_id,))
-    conn.commit()
-    conn.close()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        member_rows = conn.execute(
+            "SELECT user_id FROM event_registration_slots WHERE registration_id=?",
+            (reg_id,),
+        ).fetchall()
+        conn.execute(
+            "UPDATE event_individual_registrations SET preferred_registration_id=NULL "
+            "WHERE preferred_registration_id=?",
+            (reg_id,),
+        )
+        for member in member_rows:
+            _move_individual_registration_to_reserve(conn, event_id, member["user_id"])
+        conn.execute("DELETE FROM event_registration_slots WHERE registration_id=?", (reg_id,))
+        conn.execute("DELETE FROM event_registrations WHERE id=?", (reg_id,))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        app.logger.exception("解散报名队伍失败 event_id=%s registration_id=%s", event_id, reg_id)
+        return _registration_failure(event_id, "队伍解散失败，所有资料均已保留，请稍后重试", 500)
+    finally:
+        conn.close()
     remove_uploaded_team_logo(BASE_DIR, team_logo)
     return _registration_success(event_id, f'队伍 "{team_name}" 已解散')
 

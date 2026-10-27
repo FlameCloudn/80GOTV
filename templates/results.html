@@ -51,32 +51,33 @@
         {% set ns.day = day %}
         {% endif %}
         {% set scored = m.team1_score is not none and m.team2_score is not none %}
-        {% set t1_won = scored and m.team1_score > m.team2_score %}
-        {% set t2_won = scored and m.team2_score > m.team1_score %}
+        {% set left, right = match_opponents(m) %}
+        {% set t1_won = scored and left.score > right.score %}
+        {% set t2_won = scored and right.score > left.score %}
         <a class="result-row" href="/matches/{{ m.slug or m.id }}">
           <span class="result-score-group">
-            <span class="result-team-cell team-left">
-              <span class="result-team-name {% if t1_won %}won{% elif t2_won %}lost{% endif %}" data-i18n-ignore>{{ m.team1_name }}</span>
-              {% if m.team1_logo %}
-              <img class="team-logo result-team-logo" src="{{ m.team1_logo|team_logo_url }}" alt="" loading="lazy">
+            <span class="result-team-cell team-left" data-match-side="{{ left.side }}">
+              <span class="result-team-name {% if t1_won %}won{% elif t2_won %}lost{% endif %}" data-i18n-ignore>{{ left.name }}</span>
+              {% if left.logo %}
+              <img class="team-logo result-team-logo" src="{{ left.logo|team_logo_url }}" alt="" loading="lazy">
               {% else %}
-              <span class="logo-fallback result-team-logo-fallback" data-i18n-ignore>{{ m.team1_name|team_abbr(m.t1s) }}</span>
+              <span class="logo-fallback result-team-logo-fallback" data-i18n-ignore>{{ left.name|team_abbr(left.short) }}</span>
               {% endif %}
             </span>
 
             <span class="result-big-score">
-              <span class="{% if t1_won %}result-win{% elif t2_won %}result-lose{% endif %}">{{ m.team1_score if m.team1_score is not none else '-' }}</span>
+              <span class="{% if t1_won %}result-win{% elif t2_won %}result-lose{% endif %}">{{ left.score if left.score is not none else '-' }}</span>
               <span class="result-score-colon">:</span>
-              <span class="{% if t2_won %}result-win{% elif t1_won %}result-lose{% endif %}">{{ m.team2_score if m.team2_score is not none else '-' }}</span>
+              <span class="{% if t2_won %}result-win{% elif t1_won %}result-lose{% endif %}">{{ right.score if right.score is not none else '-' }}</span>
             </span>
 
-            <span class="result-team-cell team-right">
-              {% if m.team2_logo %}
-              <img class="team-logo result-team-logo" src="{{ m.team2_logo|team_logo_url }}" alt="" loading="lazy">
+            <span class="result-team-cell team-right" data-match-side="{{ right.side }}">
+              {% if right.logo %}
+              <img class="team-logo result-team-logo" src="{{ right.logo|team_logo_url }}" alt="" loading="lazy">
               {% else %}
-              <span class="logo-fallback result-team-logo-fallback" data-i18n-ignore>{{ m.team2_name|team_abbr(m.t2s) }}</span>
+              <span class="logo-fallback result-team-logo-fallback" data-i18n-ignore>{{ right.name|team_abbr(right.short) }}</span>
               {% endif %}
-              <span class="result-team-name {% if t2_won %}won{% elif t1_won %}lost{% endif %}" data-i18n-ignore>{{ m.team2_name }}</span>
+              <span class="result-team-name {% if t2_won %}won{% elif t1_won %}lost{% endif %}" data-i18n-ignore>{{ right.name }}</span>
             </span>
           </span>
 

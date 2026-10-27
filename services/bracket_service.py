@@ -347,6 +347,26 @@ def _read_existing_bracket(event):
     return _flat_matches(tournament), list(tournament.get("teams", []))
 
 
+def match_is_bound_to_bracket(conn, event_id, match_id):
+    event = conn.execute("SELECT bracket_data FROM events WHERE id=?", (event_id,)).fetchone()
+    if not event or not event["bracket_data"]:
+        return False
+    try:
+        data = json.loads(event["bracket_data"])
+    except (TypeError, ValueError):
+        raise ValueError("原赛事的对阵图无法读取，请先修正对阵图再更换赛事") from None
+    pending = [data]
+    while pending:
+        node = pending.pop()
+        if isinstance(node, dict):
+            if str(node.get("match_id")) == str(match_id):
+                return True
+            pending.extend(value for value in node.values() if isinstance(value, (dict, list)))
+        elif isinstance(node, list):
+            pending.extend(value for value in node if isinstance(value, (dict, list)))
+    return False
+
+
 def _seed_assignments(payload, spec, submitted_matches, submitted_teams):
     teams_by_key = {team.get("id"): team for team in submitted_teams if team.get("id")}
     assignments = {}

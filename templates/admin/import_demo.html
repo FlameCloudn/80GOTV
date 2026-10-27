@@ -9,7 +9,8 @@
 
 <section class="panel">
   <dl class="match-facts">
-    <div><dt>比赛</dt><dd data-i18n-ignore>{{ match.team1_name }} VS {{ match.team2_name }}</dd></div>
+    {% set left_team, right_team = match_opponents(match) %}
+    <div><dt>比赛</dt><dd data-i18n-ignore>{{ left_team.name }} VS {{ right_team.name }}</dd></div>
     <div><dt>赛事</dt><dd data-i18n-ignore>{{ match.event_name or '-' }}</dd></div>
     <div><dt>时间</dt><dd>{{ match.match_time|datetime_display if match.match_time else '-' }}</dd></div>
   </dl>

@@ -267,8 +267,12 @@ def analyze_demo(conn, match, demo_path):
     ).fetchall()
     alias_player_ids = load_unique_player_alias_ids(conn)
 
-    t1_pids = json.loads(match["team1_players"]) if match["team1_players"] else []
-    t2_pids = json.loads(match["team2_players"]) if match["team2_players"] else []
+    t1_pids = [
+        int(value) for value in json.loads(match["team1_players"] or "[]") if str(value).isdigit()
+    ]
+    t2_pids = [
+        int(value) for value in json.loads(match["team2_players"] or "[]") if str(value).isdigit()
+    ]
     t1_pids_ints = [int(p) for p in t1_pids]
     t2_pids_ints = [int(p) for p in t2_pids]
 
@@ -351,9 +355,9 @@ def analyze_demo(conn, match, demo_path):
         preview_team_map = "无法确认对应关系，导入会被拒绝"
     else:
         preview_team_map = (
-            f"Demo A → {match['team1_name'] or '队伍1'}，B → {match['team2_name'] or '队伍2'}"
+            f"Demo A → {match['team1_name'] or 'TBD'}，B → {match['team2_name'] or 'TBD'}"
             if preview_a_to_t1
-            else f"Demo A → {match['team2_name'] or '队伍2'}，B → {match['team1_name'] or '队伍1'}"
+            else f"Demo A → {match['team2_name'] or 'TBD'}，B → {match['team1_name'] or 'TBD'}"
         )
 
     map_names = get_demo_map_names(match)
@@ -446,10 +450,14 @@ def import_demo_data(conn, match_id, match, demo_data_str, map_slot):
     t2_key = _stored_team_id(match["team2_id"])
 
     t1_pids_set = set(
-        int(p) for p in (json.loads(match["team1_players"]) if match["team1_players"] else [])
+        int(p)
+        for p in (json.loads(match["team1_players"]) if match["team1_players"] else [])
+        if str(p).isdigit()
     )
     t2_pids_set = set(
-        int(p) for p in (json.loads(match["team2_players"]) if match["team2_players"] else [])
+        int(p)
+        for p in (json.loads(match["team2_players"]) if match["team2_players"] else [])
+        if str(p).isdigit()
     )
 
     demo_a_db_ids = set()

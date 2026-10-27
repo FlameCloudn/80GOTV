@@ -10,8 +10,6 @@
 {% set t1_logo = t1_info.logo if t1_info and t1_info.logo else None %}
 {% set t2_logo = t2_info.logo if t2_info and t2_info.logo else None %}
 {% set ms1 = m.get('score1') %}{% set ms2 = m.get('score2') %}
-{% set t1_win = ms1 != None and ms2 != None and ms1 > ms2 %}
-{% set t2_win = ms1 != None and ms2 != None and ms2 > ms1 %}
 {% set mid = m.get('match_id') %}
 {% set mid_int = mid|int if mid and mid|string|first in '0123456789' else 0 %}
 {% set linked_match = (matches|selectattr('id', 'equalto', mid_int)|first) if mid_int else None %}
@@ -22,6 +20,18 @@
 {% set t1_pids = team_players_map.get(t1_db_key) or team_players_map.get(mt1) or team_players_map.get(t1_name) or team_players_map.get(t1_name|lower) or [] %}
 {% set t2_pids = team_players_map.get(t2_db_key) or team_players_map.get(mt2) or team_players_map.get(t2_name) or team_players_map.get(t2_name|lower) or [] %}
 {% set map_list = m.get('maps') or [] %}
+{% set card_opponents = match_opponents({'team1_name': t1_name, 'team2_name': t2_name, 't1s': t1_short, 't2s': t2_short}) %}
+{% set display_swapped = card_opponents[0].side == 't2' %}
+{% if display_swapped %}
+{% set mt1, mt2 = mt2, mt1 %}
+{% set t1_name, t2_name = t2_name, t1_name %}
+{% set t1_short, t2_short = t2_short, t1_short %}
+{% set t1_logo, t2_logo = t2_logo, t1_logo %}
+{% set t1_pids, t2_pids = t2_pids, t1_pids %}
+{% set ms1, ms2 = ms2, ms1 %}
+{% endif %}
+{% set t1_win = ms1 != None and ms2 != None and ms1 > ms2 %}
+{% set t2_win = ms1 != None and ms2 != None and ms2 > ms1 %}
 
 {% macro player_row(p, side) %}
   {% set player_display_name = private_name_for_player(p.id, p.nickname) if private_name_for_player is defined else p.nickname %}
@@ -55,13 +65,11 @@
   <div class="bracket-card-header">{{ card_id }}</div>
   <div class="bracket-card-body">
     <div class="bracket-team{% if t1_win %} winner{% elif t2_win %} loser{% endif %}">
-      <span class="bracket-seed{% if not mt1 %} seed-tbd{% endif %}">1</span>
       <span class="bracket-short">{{ t1_short[:6] }}</span>
       <span class="bracket-name{% if mt1 == None %} tbd{% endif %}">{{ t1_name }}</span>
       {% if ms1 != None %}<span class="bracket-score">{{ ms1 }}</span>{% endif %}
     </div>
     <div class="bracket-team{% if t2_win %} winner{% elif t1_win %} loser{% endif %}">
-      <span class="bracket-seed{% if not mt2 %} seed-tbd{% endif %}">2</span>
       <span class="bracket-short">{{ t2_short[:6] if mt2 else '---' }}</span>
       <span class="bracket-name{% if mt2 == None %} tbd{% endif %}">{{ t2_name }}</span>
       {% if ms2 != None %}<span class="bracket-score">{{ ms2 }}</span>{% endif %}
@@ -112,10 +120,12 @@
     <div class="bmp-divider"></div>
     <div class="bmp-section-title">地图比分</div>
     {% for mp in map_list %}
+    {% set score_left = mp.t2 if display_swapped else mp.t1 %}
+    {% set score_right = mp.t1 if display_swapped else mp.t2 %}
     <div class="bmp-map-row">
-      <span class="bmp-map-s1{% if mp.t1 > mp.t2 %} win{% elif mp.t2 > mp.t1 %} lose{% endif %}">{{ mp.t1 }}</span>
+      <span class="bmp-map-s1{% if score_left > score_right %} win{% elif score_right > score_left %} lose{% endif %}">{{ score_left }}</span>
       <span class="bmp-map-name">{{ mp.name|map_display }}</span>
-      <span class="bmp-map-s2{% if mp.t2 > mp.t1 %} win{% elif mp.t1 > mp.t2 %} lose{% endif %}">{{ mp.t2 }}</span>
+      <span class="bmp-map-s2{% if score_right > score_left %} win{% elif score_left > score_right %} lose{% endif %}">{{ score_right }}</span>
     </div>
     {% endfor %}
     {% endif %}

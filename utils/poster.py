@@ -5,6 +5,7 @@ import io
 from PIL import Image, ImageDraw, ImageFont
 
 from utils.helpers import map_display_name
+from utils.match_display import match_opponents
 from utils.stats_display import format_stat, optional_number, resolve_match_team_side
 
 W, H = 750, 1050
@@ -88,10 +89,9 @@ def generate_match_poster(match, map_scores, player_ratings=None):
     y += 32
 
     # Team names
-    t1_name = match.get("team1_name") or "队伍 1"
-    t2_name = match.get("team2_name") or "队伍 2"
-    t1s = match.get("t1s") or t1_name[:3]
-    t2s = match.get("t2s") or t2_name[:3]
+    left_team, right_team = match_opponents(match)
+    t1_name, t2_name = left_team["name"], right_team["name"]
+    t1s, t2s = left_team["short"], right_team["short"]
 
     # Team 1 left
     draw.text((80, y), t1s, font=_font(28, bold=True), fill=WHITE)
@@ -111,9 +111,7 @@ def generate_match_poster(match, map_scores, player_ratings=None):
     y += 36
 
     # Score
-    score_text = (
-        f"{format_stat(match.get('team1_score'))} : {format_stat(match.get('team2_score'))}"
-    )
+    score_text = f"{format_stat(left_team['score'])} : {format_stat(right_team['score'])}"
     fn_score = _font(72, bold=True)
     _draw_centered(draw, score_text, y, fn_score, WHITE)
     y += 80
@@ -137,8 +135,8 @@ def generate_match_poster(match, map_scores, player_ratings=None):
         fn_map_bold = _font(18, bold=True)
         for ms in map_scores:
             map_name = map_display_name(ms.get("name") or "TBA")
-            t1 = optional_number(ms.get("t1"))
-            t2 = optional_number(ms.get("t2"))
+            t1 = optional_number(ms.get(left_team["side"]))
+            t2 = optional_number(ms.get(right_team["side"]))
             played = ms.get("played")
 
             col_w = 540
@@ -162,8 +160,8 @@ def generate_match_poster(match, map_scores, player_ratings=None):
             y += 32
 
     ratings = player_ratings or []
-    t1_ratings = [r for r in ratings if resolve_match_team_side(r, match) == "t1"][:5]
-    t2_ratings = [r for r in ratings if resolve_match_team_side(r, match) == "t2"][:5]
+    t1_ratings = [r for r in ratings if resolve_match_team_side(r, match) == left_team["side"]][:5]
+    t2_ratings = [r for r in ratings if resolve_match_team_side(r, match) == right_team["side"]][:5]
     if t1_ratings or t2_ratings:
         y += 18
         draw.line([(60, y), (W - 60, y)], fill=DIVIDER, width=1)

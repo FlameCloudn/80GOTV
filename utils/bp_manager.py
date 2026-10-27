@@ -606,7 +606,7 @@ def get_current_step_info(state):
     return {"phase": state["status"]}
 
 
-def format_bp_log(state, team1_name="T1", team2_name="T2"):
+def format_bp_log(state, team1_name="TBD", team2_name="TBD"):
     """将 BP 状态转为可读文本，用于 bp_process 字段"""
     lines = []
 
@@ -687,10 +687,10 @@ def save_bp_to_match(conn, match_id, state):
             (match_id,),
         ).fetchone()
         filled = supplement_temp_teams(match_row, conn)
-        team1_name = filled.get("team1_name") or "T1"
-        team2_name = filled.get("team2_name") or "T2"
+        team1_name = filled.get("team1_name") or "TBD"
+        team2_name = filled.get("team2_name") or "TBD"
     except Exception:
-        team1_name, team2_name = "T1", "T2"
+        team1_name, team2_name = "TBD", "TBD"
 
     # 构建更新数据
     state["status"] = "completed"  # 确保状态为 completed

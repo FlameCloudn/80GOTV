@@ -748,19 +748,25 @@ function showBracketPopup(data, e, matchId) {
     return;
   }
 
-  var t1 = data.team1, t2 = data.team2;
-  var t1win = t1.score > t2.score, t2win = t2.score > t1.score;
+  var t1 = data.team1 || {}, t2 = data.team2 || {};
+  var key1 = String(t1.short || t1.name || 'TBD').toLowerCase();
+  var key2 = String(t2.short || t2.name || 'TBD').toLowerCase();
+  var displaySwapped = key2 !== 'tbd' && (key1 === 'tbd' || key2 < key1);
+  if (displaySwapped) { var original = t1; t1 = t2; t2 = original; }
+  var scored = t1.score != null && t2.score != null;
+  var t1win = scored && t1.score > t2.score, t2win = scored && t2.score > t1.score;
 
   // 地图比分行
   var mapRows = '';
   if (data.map_scores && data.map_scores.length > 0) {
     mapRows = data.map_scores.map(function(m) {
-      var t1cls = m.winner === 1 ? 'map-win' : (m.winner === 2 ? 'map-loss' : '');
-      var t2cls = m.winner === 2 ? 'map-win' : (m.winner === 1 ? 'map-loss' : '');
+      var leftNumber = displaySwapped ? 2 : 1, rightNumber = displaySwapped ? 1 : 2;
+      var t1cls = m.winner === leftNumber ? 'map-win' : (m.winner === rightNumber ? 'map-loss' : '');
+      var t2cls = m.winner === rightNumber ? 'map-win' : (m.winner === leftNumber ? 'map-loss' : '');
       return '<div class="bp-map-row">' +
-        '<span class="bp-map-t1 ' + t1cls + '">' + escapeHtml(String(m.t1)) + '</span>' +
+        '<span class="bp-map-t1 ' + t1cls + '">' + escapeHtml(String(m['t' + leftNumber] ?? '-')) + '</span>' +
         '<span class="bp-map-name">' + escapeHtml(mapDisplayName(m.name)) + '</span>' +
-        '<span class="bp-map-t2 ' + t2cls + '">' + escapeHtml(String(m.t2)) + '</span>' +
+        '<span class="bp-map-t2 ' + t2cls + '">' + escapeHtml(String(m['t' + rightNumber] ?? '-')) + '</span>' +
       '</div>';
     }).join('');
   } else {
@@ -773,7 +779,7 @@ function showBracketPopup(data, e, matchId) {
     return players.map(function(p) {
       var r = (p.rating != null) ? p.rating.toFixed(2) : '-';
       var nick = escapeHtml(p.nickname || '');
-      var av = p.avatar ? '<img src="' + escapeHtml(p.avatar) + '" class="bp-player-avatar" loading="lazy">' : '<span class="bp-player-avatar bp-avatar-fb">' + escapeHtml((p.nickname !== 'TBD' ? p.nickname[0] : '?')) + '</span>';
+      var av = p.avatar ? '<img src="' + escapeHtml(p.avatar) + '" class="bp-player-avatar" loading="lazy">' : '<span class="bp-player-avatar bp-avatar-fb">' + escapeHtml((p.nickname && p.nickname !== 'TBD' ? p.nickname[0] : '?')) + '</span>';
       if (teamSide === 't1') {
         return '<div class="bp-player-row">' +
           av + '<span class="bp-player-name' + (p.nickname === 'TBD' ? ' tbd' : '') + '">' + nick + '</span>' +
@@ -789,8 +795,8 @@ function showBracketPopup(data, e, matchId) {
     }).join('');
   }
 
-  var p1rows = playerRows(data.players_t1 || [], 't1');
-  var p2rows = playerRows(data.players_t2 || [], 't2');
+  var p1rows = playerRows((displaySwapped ? data.players_t2 : data.players_t1) || [], 't1');
+  var p2rows = playerRows((displaySwapped ? data.players_t1 : data.players_t2) || [], 't2');
 
   // 底部按钮
   var footerHtml = matchId
@@ -799,14 +805,14 @@ function showBracketPopup(data, e, matchId) {
 
   var t1name = escapeHtml(t1.name || 'TBD');
   var t2name = escapeHtml(t2.name || 'TBD');
-  var t1short = escapeHtml(t1.short || t1.name || 'Team 1');
-  var t2short = escapeHtml(t2.short || t2.name || 'Team 2');
+  var t1short = escapeHtml(t1.short || t1.name || 'TBD');
+  var t2short = escapeHtml(t2.short || t2.name || 'TBD');
   var html = '<div class="bracket-popup" onclick="event.stopPropagation()">' +
     '<button class="bracket-popup-close" onclick="this.closest(\'.bracket-popup-overlay\').remove()">&times;</button>' +
     // 比分头部
     '<div class="bp-header">' +
       '<span class="bp-team-name' + (t1win ? ' bp-winner' : (t2win ? ' bp-loser' : '')) + '">' + t1name + '</span>' +
-      '<span class="bp-score">' + (t1.score || 0) + '-' + (t2.score || 0) + '</span>' +
+      '<span class="bp-score">' + (t1.score ?? '-') + '-' + (t2.score ?? '-') + '</span>' +
       '<span class="bp-team-name' + (t2win ? ' bp-winner' : (t1win ? ' bp-loser' : '')) + '">' + t2name + '</span>' +
     '</div>' +
     // 分隔线

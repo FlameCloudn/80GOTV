@@ -127,10 +127,38 @@ def _send_registration_email(email, code):
 
 def _get_verified_registration_email():
     verified = session.get("registration_email_verified") or {}
-    if time.time() - float(verified.get("verified_at", 0)) > EMAIL_VERIFICATION_MAX_AGE:
+    challenge_id = verified.get("challenge_id")
+    if not isinstance(challenge_id, str) or not challenge_id:
         session.pop("registration_email_verified", None)
         return ""
-    return _normalize_email(verified.get("email", ""))
+    with closing(get_db()) as conn:
+        row = conn.execute(
+            """SELECT email FROM email_verification_challenges
+               WHERE id=? AND verified_at>=? AND consumed_at IS NULL""",
+            (_email_challenge_key(challenge_id), time.time() - EMAIL_VERIFICATION_MAX_AGE),
+        ).fetchone()
+    if not row:
+        session.pop("registration_email_verified", None)
+        return ""
+    return _normalize_email(row["email"])
+
+
+def _email_challenge_key(challenge_id):
+    return hashlib.sha256(str(challenge_id or "").encode()).hexdigest()
+
+
+def _consume_verified_registration_email(conn, email):
+    verified = session.get("registration_email_verified") or {}
+    challenge_id = verified.get("challenge_id")
+    if not isinstance(challenge_id, str) or not challenge_id:
+        return False
+    now = time.time()
+    cursor = conn.execute(
+        """UPDATE email_verification_challenges SET consumed_at=?
+           WHERE id=? AND email=? AND verified_at>=? AND consumed_at IS NULL""",
+        (now, _email_challenge_key(challenge_id), email, now - EMAIL_VERIFICATION_MAX_AGE),
+    )
+    return cursor.rowcount == 1
 
 
 # ============ 用户路由 ============
@@ -231,6 +259,8 @@ def send_registration_email_code():
         "register_email_ip", 10, 3600, by_ip=True
     ):
         return jsonify({"success": False, "error": "发送次数过多，请一小时后再试"}), 429
+    if not rate_limit(f"register_email_cooldown:{email}", 1, 60, by_ip=True):
+        return jsonify({"success": False, "error": "请等待 60 秒后再发送"}), 429
 
     conn = get_db()
     existing = conn.execute("SELECT id FROM users WHERE LOWER(email)=LOWER(?)", (email,)).fetchone()
@@ -239,20 +269,30 @@ def send_registration_email_code():
         return jsonify({"success": False, "error": "该邮箱已经注册"}), 409
 
     code = f"{100000 + secrets.randbelow(900000):06d}"
-    nonce = secrets.token_hex(16)
+    challenge_id = secrets.token_urlsafe(32)
     try:
         _send_registration_email(email, code)
     except Exception:
         logger.exception("注册验证码邮件发送失败")
         return jsonify({"success": False, "error": "邮件发送失败，请稍后再试"}), 503
 
-    session["register_email_challenge"] = {
-        "email": email,
-        "nonce": nonce,
-        "digest": _email_code_digest(nonce, email, code),
-        "expires_at": time.time() + EMAIL_CODE_MAX_AGE,
-        "attempts": 0,
-    }
+    with closing(get_db()) as conn:
+        conn.execute(
+            "UPDATE email_verification_challenges SET consumed_at=? "
+            "WHERE email=? AND verified_at IS NULL AND consumed_at IS NULL",
+            (time.time(), email),
+        )
+        conn.execute(
+            "INSERT INTO email_verification_challenges(id,email,digest,expires_at) VALUES(?,?,?,?)",
+            (
+                _email_challenge_key(challenge_id),
+                email,
+                _email_code_digest(challenge_id, email, code),
+                time.time() + EMAIL_CODE_MAX_AGE,
+            ),
+        )
+        conn.commit()
+    session["register_email_challenge"] = {"id": challenge_id}
     session["register_email"] = email
     session["register_email_last_sent"] = time.time()
     if _get_verified_registration_email() != email:
@@ -268,24 +308,49 @@ def verify_registration_email_code():
     challenge = session.get("register_email_challenge") or {}
     if not email or not re.fullmatch(r"\d{6}", code):
         return jsonify({"success": False, "error": "请输入邮箱和六位验证码"}), 400
-    if float(challenge.get("expires_at", 0)) < time.time():
-        session.pop("register_email_challenge", None)
-        return jsonify({"success": False, "error": "验证码已过期，请重新发送"}), 400
-    if not hmac.compare_digest(email, str(challenge.get("email", ""))):
-        return jsonify({"success": False, "error": "邮箱与验证码不匹配"}), 400
-
-    attempts = int(challenge.get("attempts", 0)) + 1
-    challenge["attempts"] = attempts
-    session["register_email_challenge"] = challenge
-    expected = _email_code_digest(challenge.get("nonce", ""), email, code)
-    if not hmac.compare_digest(expected, challenge.get("digest", "")):
-        if attempts >= 5:
+    challenge_id = challenge.get("id")
+    conn = get_db()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        row = conn.execute(
+            "SELECT * FROM email_verification_challenges WHERE id=?",
+            (_email_challenge_key(challenge_id),),
+        ).fetchone()
+        if (
+            not row
+            or row["expires_at"] < time.time()
+            or row["consumed_at"] is not None
+            or row["verified_at"] is not None
+            or row["attempts"] >= 5
+        ):
             session.pop("register_email_challenge", None)
-            return jsonify({"success": False, "error": "错误次数过多，请重新发送验证码"}), 400
-        return jsonify({"success": False, "error": "邮箱验证码错误"}), 400
+            return jsonify({"success": False, "error": "验证码已失效，请重新发送"}), 400
+        if not hmac.compare_digest(email, row["email"]):
+            return jsonify({"success": False, "error": "邮箱与验证码不匹配"}), 400
+        attempts = row["attempts"] + 1
+        expected = _email_code_digest(challenge_id, email, code)
+        correct = hmac.compare_digest(expected, row["digest"])
+        now = time.time()
+        conn.execute(
+            "UPDATE email_verification_challenges SET attempts=?,verified_at=?,consumed_at=? WHERE id=?",
+            (
+                attempts,
+                now if correct else None,
+                now if not correct and attempts >= 5 else None,
+                row["id"],
+            ),
+        )
+        conn.commit()
+        if not correct:
+            if attempts >= 5:
+                session.pop("register_email_challenge", None)
+                return jsonify({"success": False, "error": "错误次数过多，请重新发送验证码"}), 400
+            return jsonify({"success": False, "error": "邮箱验证码错误"}), 400
+    finally:
+        conn.close()
 
     session.pop("register_email_challenge", None)
-    session["registration_email_verified"] = {"email": email, "verified_at": time.time()}
+    session["registration_email_verified"] = {"email": email, "challenge_id": challenge_id}
     session["register_email"] = email
     return jsonify({"success": True, "message": "邮箱验证成功"})
 
@@ -746,6 +811,13 @@ def user_register():
                 return _render_register()
 
         password_hash = generate_password_hash(password)
+        if not _consume_verified_registration_email(conn, email):
+            conn.rollback()
+            conn.close()
+            verified_email = ""
+            session.pop("registration_email_verified", None)
+            flash("邮箱验证已失效，请重新验证", "error")
+            return _render_register()
         submitted_user_id = None
         if claimable_steam is not None:
             conn.execute(

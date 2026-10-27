@@ -219,6 +219,7 @@ def challenge_number(on_date):
 
 def get_daily_answer(conn, on_date=None):
     """Create today's answer once, then keep it stable even if the pool changes."""
+    caller_transaction = conn.in_transaction
     day = game_date(on_date).isoformat()
     existing = conn.execute(
         """SELECT p.* FROM guess_player_daily d
@@ -250,7 +251,8 @@ def get_daily_answer(conn, on_date=None):
         "INSERT OR IGNORE INTO guess_player_daily(game_date, player_id) VALUES(?,?)",
         (day, selected["id"]),
     )
-    conn.commit()
+    if not caller_transaction:
+        conn.commit()
     return conn.execute(
         """SELECT p.* FROM guess_player_daily d
            JOIN guess_players p ON p.id=d.player_id WHERE d.game_date=?""",
@@ -344,6 +346,7 @@ def load_game(conn, user_id, on_date=None):
 
 def create_practice_game(conn, user_id, pool_mode="noob"):
     """Start a fresh practice round and avoid the user's five latest answers."""
+    caller_transaction = conn.in_transaction
     pool_mode = normalize_pool_mode(pool_mode)
     conn.execute(
         "UPDATE guess_player_practice_games SET status='abandoned' WHERE user_id=? AND status='active'",
@@ -368,11 +371,13 @@ def create_practice_game(conn, user_id, pool_mode="noob"):
            VALUES(?,?,?,'active')""",
         (user_id, answer["id"], pool_mode),
     )
-    conn.commit()
+    if not caller_transaction:
+        conn.commit()
     return cursor.lastrowid
 
 
 def load_practice_game(conn, user_id, pool_mode="noob"):
+    caller_transaction = conn.in_transaction
     pool_mode = normalize_pool_mode(pool_mode)
     game_row = conn.execute(
         """SELECT g.*, p.nickname AS answer_nickname
@@ -407,7 +412,8 @@ def load_practice_game(conn, user_id, pool_mode="noob"):
                SET status='finished', completed_at=CURRENT_TIMESTAMP WHERE id=?""",
             (game_row["id"],),
         )
-        conn.commit()
+        if not caller_transaction:
+            conn.commit()
     return {
         "mode": "practice",
         "pool_mode": pool_mode,

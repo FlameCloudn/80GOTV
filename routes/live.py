@@ -12,6 +12,7 @@ from services.live_service import (
     _load_live_player_profiles,
     _position_to_radar,
 )
+from services.match_roster_service import match_player_slots
 from utils.demo_parser import normalize_map_name
 from web_app import app
 
@@ -40,46 +41,10 @@ def _player_ids(value):
 
 def _roster_side_by_steamid(conn, row):
     """Map known Steam IDs to the fixed team slot used by the match."""
-    team1_ids = _player_ids(
-        row.get("team1_players") if hasattr(row, "get") else row["team1_players"]
-    )[:5]
-    team2_ids = _player_ids(
-        row.get("team2_players") if hasattr(row, "get") else row["team2_players"]
-    )[:5]
-    if not team1_ids and row["team1_id"]:
-        team1_ids = [
-            item["id"]
-            for item in conn.execute(
-                "SELECT id FROM players WHERE team_id=? ORDER BY nickname COLLATE NOCASE LIMIT 5",
-                (row["team1_id"],),
-            ).fetchall()
-        ]
-    if not team2_ids and row["team2_id"]:
-        team2_ids = [
-            item["id"]
-            for item in conn.execute(
-                "SELECT id FROM players WHERE team_id=? ORDER BY nickname COLLATE NOCASE LIMIT 5",
-                (row["team2_id"],),
-            ).fetchall()
-        ]
-    player_ids = list(dict.fromkeys(team1_ids + team2_ids))
-    if not player_ids:
-        return {}
-    placeholders = ",".join("?" for _ in player_ids)
-    rows = conn.execute(
-        f"SELECT id, steam_id FROM players WHERE id IN ({placeholders})", player_ids
-    ).fetchall()
-    team1_set, team2_set = set(team1_ids), set(team2_ids)
-    result = {}
-    for item in rows:
-        steam_id = str(item["steam_id"] or "").strip()
-        if not steam_id:
-            continue
-        if item["id"] in team1_set:
-            result[steam_id] = "team1"
-        elif item["id"] in team2_set:
-            result[steam_id] = "team2"
-    return result
+    return {
+        steam_id: profile["team"]
+        for steam_id, profile in _roster_profiles_by_steamid(conn, row).items()
+    }
 
 
 def _roster_profiles_by_steamid(conn, row):
@@ -90,56 +55,37 @@ def _roster_profiles_by_steamid(conn, row):
     so keep the player id, slot and substitute flag beside the presentation
     name and avatar.
     """
-    sides = {
-        "team1": _player_ids(
-            row.get("team1_players") if hasattr(row, "get") else row["team1_players"]
-        )[:5],
-        "team2": _player_ids(
-            row.get("team2_players") if hasattr(row, "get") else row["team2_players"]
-        )[:5],
-    }
-    for side in ("team1", "team2"):
-        if sides[side]:
-            continue
-        team_id = row.get(f"{side}_id") if hasattr(row, "get") else row[f"{side}_id"]
-        if team_id:
-            sides[side] = [
-                item["id"]
-                for item in conn.execute(
-                    "SELECT id FROM players WHERE team_id=? ORDER BY nickname COLLATE NOCASE LIMIT 5",
-                    (team_id,),
-                ).fetchall()
-            ]
-    player_ids = list(dict.fromkeys(sides["team1"] + sides["team2"]))
-    if not player_ids:
-        return {}
-    placeholders = ",".join("?" for _ in player_ids)
-    rows = conn.execute(
-        f"SELECT id, nickname, steam_id, avatar, team_id FROM players WHERE id IN ({placeholders})",
-        player_ids,
-    ).fetchall()
-    by_id = {item["id"]: item for item in rows}
     result = {}
-    for side, ids in sides.items():
-        team_id = row.get(f"{side}_id") if hasattr(row, "get") else row[f"{side}_id"]
+    ambiguous = set()
+    for side in (1, 2):
+        team_id = row.get(f"team{side}_id") if hasattr(row, "get") else row[f"team{side}_id"]
         try:
             team_id = int(team_id) if team_id else None
         except (TypeError, ValueError):
             team_id = None
-        for slot, player_id in enumerate(ids[:5], start=1):
-            player = by_id.get(player_id)
-            if not player:
-                continue
-            steam_id = str(player["steam_id"] or "").strip()
+        for player in match_player_slots(conn, row, side):
+            steam_id = str(player.get("steam_id") or "").strip()
             if not steam_id:
                 continue
+            if steam_id in result or steam_id in ambiguous:
+                result.pop(steam_id, None)
+                ambiguous.add(steam_id)
+                continue
+            avatar = str(player.get("avatar") or "")
+            if avatar and not avatar.startswith(("/", "http://", "https://")):
+                avatar = f"/static/avatars/{avatar}"
             result[steam_id] = {
-                "player_id": player["id"],
-                "name": player["nickname"] or "",
-                "avatar": f"/static/avatars/{player['avatar']}" if player["avatar"] else "",
-                "team": side,
-                "slot": slot,
-                "is_substitute": bool(team_id and player["team_id"] != team_id),
+                "player_id": player.get("id"),
+                "name": player.get("nickname") or "",
+                "avatar": avatar,
+                "team": f"team{side}",
+                "slot": player["slot"],
+                "is_substitute": bool(
+                    player.get("id")
+                    and team_id
+                    and player.get("roster_source") == "admin"
+                    and player.get("team_id") != team_id
+                ),
             }
     return result
 
@@ -223,7 +169,7 @@ def api_live_match(match_id):
                t1.name AS scheduled_team1_name, t2.name AS scheduled_team2_name,
                t1.short_name AS scheduled_team1_short,
                t2.short_name AS scheduled_team2_short,
-               m.team1_id, m.team2_id, m.team1_players, m.team2_players
+               m.event_id, m.team1_id, m.team2_id, m.team1_players, m.team2_players
         FROM live_match_data l
         LEFT JOIN matches m ON l.match_id=m.id
         LEFT JOIN teams t1 ON m.team1_id=t1.id
@@ -356,7 +302,10 @@ def api_live_match(match_id):
         result["updated_at"] = state.get("gsi_received_at") or row["updated_at"]
         gmap = gsi.get("map", {}) or {}
         gphase = gsi.get("phase_countdowns", {}) or {}
-        roster_side_by_steamid = _roster_side_by_steamid(conn, row)
+        roster_profiles = _roster_profiles_by_steamid(conn, row)
+        roster_side_by_steamid = {
+            steam_id: profile["team"] for steam_id, profile in roster_profiles.items()
+        }
         side_mapping = _gsi_team_mapping(gsi, row, roster_side_by_steamid)
         identity_side = {identity: side for side, identity in (side_mapping or {}).items()}
         result["side_uncertain"] = not bool(side_mapping)
@@ -366,6 +315,9 @@ def api_live_match(match_id):
         raw_round = int(gmap.get("round", 0) or 0)
         round_phase = str((gsi.get("round", {}) or {}).get("phase", "") or "")
         stored_history = state.get("round_history", [])
+        overtime_history = state.get("overtime_history", [])
+        if isinstance(stored_history, list) and isinstance(overtime_history, list):
+            stored_history = stored_history + overtime_history
         last_completed_round = 0
         if isinstance(stored_history, list) and stored_history:
             try:
@@ -402,7 +354,6 @@ def api_live_match(match_id):
         allplayers = gsi.get("allplayers", {}) or {}
         steamids = [str(steamid) for steamid in allplayers]
         live_profiles = _load_live_player_profiles(conn, steamids)
-        roster_profiles = _roster_profiles_by_steamid(conn, row)
 
         t1_players = []
         t2_players = []
@@ -447,7 +398,7 @@ def api_live_match(match_id):
                 "adr": round(
                     pmatch.get("damage", 0) / max(int(gmap.get("round", 0) or 0) + 1, 1), 1
                 ),
-                "observer_slot": pdata.get("observer_slot", 99),
+                "observer_slot": pdata.get("observer_slot"),
                 "primary": primary,
                 "secondary": secondary,
                 "alive": pstate.get("health", 0) > 0,
@@ -487,7 +438,7 @@ def api_live_match(match_id):
                 "assists": 0,
                 "deaths": 0,
                 "adr": 0,
-                "observer_slot": 999,
+                "observer_slot": None,
                 "primary": "",
                 "secondary": "",
                 "alive": False,

@@ -6,7 +6,8 @@
     {% for match in sidebar_feed.matches %}
     <a class="list-row side-mini-match" href="/matches/{{ match.slug or match.id }}">
       <span class="side-mini-time{% if match.effective_status == 'live' %} live{% endif %}">{% if match.effective_status == 'live' %}直播{% elif match.match_time %}{{ match.match_time|time_display }}{% else %}TBD{% endif %}</span>
-      <span class="grow side-mini-teams"><b data-i18n-ignore>{{ match.t1s or match.team1_name or 'TBD' }}</b><span class="side-mini-vs" data-i18n-ignore>VS</span><b data-i18n-ignore>{{ match.t2s or match.team2_name or 'TBD' }}</b></span>
+      {% set left, right = match_opponents(match) %}
+      <span class="grow side-mini-teams"><b data-i18n-ignore>{{ left.short }}</b><span class="side-mini-vs" data-i18n-ignore>VS</span><b data-i18n-ignore>{{ right.short }}</b></span>
       <span class="meta" data-i18n-ignore>{{ match.bo_format }}</span>
     </a>
     {% else %}
@@ -33,10 +34,11 @@
   <div class="panel-head"><h2 class="panel-title">近期赛果</h2></div>
   <div class="list side-mini-list">
     {% for result in sidebar_feed.recent %}
+    {% set left, right = match_opponents(result) %}
     <a class="list-row side-mini-result" href="/matches/{{ result.slug or result.id }}">
-      <span class="grow" data-i18n-ignore>{{ result.t1s or result.team1_name }}</span>
-      <b>{{ result.team1_score }} : {{ result.team2_score }}</b>
-      <span class="grow right" data-i18n-ignore>{{ result.t2s or result.team2_name }}</span>
+      <span class="grow" data-i18n-ignore>{{ left.short }}</span>
+      <b>{{ left.score if left.score is not none else '-' }} : {{ right.score if right.score is not none else '-' }}</b>
+      <span class="grow right" data-i18n-ignore>{{ right.short }}</span>
     </a>
     {% else %}
     <div class="empty-state">暂无赛果</div>

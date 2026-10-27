@@ -53,7 +53,7 @@ class MatchPlaceholderTests(unittest.TestCase):
         self.assertEqual(match["team1_name"], "TBD")
         self.assertEqual(match["team2_name"], "TBD")
 
-    def test_real_temporary_rosters_keep_their_team_labels(self):
+    def test_unnamed_temporary_rosters_do_not_invent_team_labels(self):
         match = supplement_temp_teams(
             {
                 "team1_id": -1,
@@ -63,14 +63,15 @@ class MatchPlaceholderTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual(match["team1_name"], "TEAM 1")
-        self.assertEqual(match["team2_name"], "TEAM 2")
-        self.assertEqual(match["t1s"], "T1")
-        self.assertEqual(match["t2s"], "T2")
+        self.assertEqual(match["team1_name"], "TBD")
+        self.assertEqual(match["team2_name"], "TBD")
+        self.assertEqual(match["t1s"], "TBD")
+        self.assertEqual(match["t2s"], "TBD")
 
     def test_event_registration_logo_fills_missing_team_logo(self):
         conn = sqlite3.connect(":memory:")
         conn.row_factory = sqlite3.Row
+        conn.execute("CREATE TABLE teams(id INTEGER PRIMARY KEY, short_name TEXT)")
         conn.execute(
             "CREATE TABLE event_registrations(id INTEGER PRIMARY KEY, event_id INTEGER, "
             "team_name TEXT, team_logo TEXT)"

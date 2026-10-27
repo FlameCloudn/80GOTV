@@ -235,9 +235,10 @@
           <td class="truncate" data-i18n-ignore>{{ m.event_name or '-' }}</td>
           <td>
             <a href="/matches/{{ m.slug or m.id }}">
-              <span data-i18n-ignore>{{ m.t1s or 'TBD' }}</span>
+              {% set left_team, right_team = match_opponents(m) %}
+              <span data-i18n-ignore>{{ left_team.short }}</span>
               <span class="pp-vs">VS</span>
-              <span data-i18n-ignore>{{ m.t2s or 'TBD' }}</span>
+              <span data-i18n-ignore>{{ right_team.short }}</span>
             </a>
           </td>
           <td class="num">{{ m.kills if m.kills is not none else '-' }}-{{ m.deaths if m.deaths is not none else '-' }}-{{ m.assists if m.assists is not none else '-' }}</td>

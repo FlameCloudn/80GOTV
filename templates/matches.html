@@ -105,22 +105,16 @@
         </div>
 
         <div class="match-schedule-teams">
-          <div class="match-schedule-team">
-            {% if team1_is_assigned and m.team1_logo %}
-            <img class="team-logo match-team-logo" src="{{ m.team1_logo|team_logo_url }}" alt="" loading="lazy">
+          {% for opponent in match_opponents(m) %}
+          <div class="match-schedule-team" data-match-side="{{ opponent.side }}">
+            {% if opponent.logo %}
+            <img class="team-logo match-team-logo" src="{{ opponent.logo|team_logo_url }}" alt="" loading="lazy">
             {% else %}
-            <span class="logo-fallback match-team-mark" data-i18n-ignore>{{ m.team1_name|team_abbr(m.t1s) if team1_is_assigned else '?' }}</span>
+            <span class="logo-fallback match-team-mark" data-i18n-ignore>{{ opponent.name|team_abbr(opponent.short) if opponent.name != 'TBD' else '?' }}</span>
             {% endif %}
-            <span class="team-name" data-i18n-ignore>{{ m.team1_name if team1_is_assigned else 'TBD' }}</span>
+            <span class="team-name" data-i18n-ignore>{{ opponent.name }}</span>
           </div>
-          <div class="match-schedule-team">
-            {% if team2_is_assigned and m.team2_logo %}
-            <img class="team-logo match-team-logo" src="{{ m.team2_logo|team_logo_url }}" alt="" loading="lazy">
-            {% else %}
-            <span class="logo-fallback match-team-mark" data-i18n-ignore>{{ m.team2_name|team_abbr(m.t2s) if team2_is_assigned else '?' }}</span>
-            {% endif %}
-            <span class="team-name" data-i18n-ignore>{{ m.team2_name if team2_is_assigned else 'TBD' }}</span>
-          </div>
+          {% endfor %}
         </div>
 
         <div class="match-schedule-meta">

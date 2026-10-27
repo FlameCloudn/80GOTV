@@ -4,7 +4,7 @@
 {% block head %}<link rel="stylesheet" href="{{ versioned_url('static/css/pages/teams.css') }}">{% endblock %}
 {% block layout_class %}no-side-layout{% endblock %}
 
-{#- 一场比赛（照 HLTV 队伍页）：本队固定在左边，比分按本队看——赢了绿、输了红 -#}
+{#- 两队按简称排序；本队的胜负标记不因显示顺序改变。 -#}
 {% macro team_match_row(m) %}
 {% set home = m.team1_id == team.id %}
 {% set mine = m.team1_score if home else m.team2_score %}
@@ -14,20 +14,17 @@
 {% set scored = status in ['completed', 'live'] and mine is not none and theirs is not none and not unscored %}
 {% set result = '' %}
 {% if scored and status == 'completed' %}{% set result = 'win' if mine > theirs else 'loss' if mine < theirs else 'draw' %}{% endif %}
-{% set my_logo = m.t1_logo if home else m.t2_logo %}
-{% set op_logo = m.t2_logo if home else m.t1_logo %}
-{% set op_name = m.team2_name if home else m.team1_name %}
-{% set op_short = m.t2s if home else m.t1s %}
+{% set left_team, right_team = match_opponents(m) %}
 <a class="match-card team-match{% if result %} is-{{ result }}{% endif %}" href="{{ url_for('match_detail', slug=m.slug or m.id) }}">
   <span class="team-match-date">{{ m.match_time|date_display }}</span>
   <span class="team">
-    <span data-i18n-ignore>{{ team.name }}</span>
-    {% if my_logo %}<img class="team-logo sm" src="{{ my_logo|team_logo_url }}" alt="" loading="lazy">{% endif %}
+    <span data-i18n-ignore>{{ left_team.name }}</span>
+    {% if left_team.logo %}<img class="team-logo sm" src="{{ left_team.logo|team_logo_url }}" alt="" loading="lazy">{% endif %}
   </span>
-  <span class="vs">{% if scored %}<b>{{ mine }} : {{ theirs }}</b>{% elif unscored or status == 'completed' %}<b>- : -</b>{% else %}VS{% endif %}</span>
+  <span class="vs">{% if scored %}<b>{{ left_team.score }} : {{ right_team.score }}</b>{% elif unscored or status == 'completed' %}<b>- : -</b>{% else %}VS{% endif %}</span>
   <span class="team right">
-    {% if op_logo %}<img class="team-logo sm" src="{{ op_logo|team_logo_url }}" alt="" loading="lazy">{% endif %}
-    <span data-i18n-ignore>{{ op_name or op_short or 'TBD' }}</span>
+    {% if right_team.logo %}<img class="team-logo sm" src="{{ right_team.logo|team_logo_url }}" alt="" loading="lazy">{% endif %}
+    <span data-i18n-ignore>{{ right_team.name }}</span>
   </span>
   <span class="meta"><span data-i18n-ignore>{{ m.event_name or '-' }}</span> · <span>{{ {'completed': '已结束', 'live': '直播中', 'cancelled': '已取消', 'upcoming': '未开始'}[status] }}</span></span>
 </a>

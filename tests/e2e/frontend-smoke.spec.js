@@ -90,8 +90,12 @@ test('desktop admin can enable test match mode without participants', async ({ p
   await expect(testMode).toBeVisible();
   await expect(participants).toBeVisible();
   await testMode.check();
-  await expect(participants).toBeHidden();
-  await expect(page.locator('select[name="side1_id"]')).toBeDisabled();
+  await expect(participants).toBeVisible();
+  for (const side of [1, 2]) {
+    const team = page.locator(`select[name="side${side}_id"]`);
+    await expect(team).toBeEnabled();
+    await expect(team).not.toHaveAttribute('required', '');
+  }
   await page.screenshot({ path: testInfo.outputPath('test-match-mode.png'), fullPage: true });
 });
 

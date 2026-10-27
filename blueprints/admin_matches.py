@@ -13,9 +13,14 @@ from flask import flash, redirect, render_template, request, url_for
 from blueprints.admin import admin_bp
 from config import BASE_DIR
 from models import get_db
-from services.bracket_service import refresh_bracket_for_match, refresh_event_bracket
+from services.bracket_service import (
+    match_is_bound_to_bracket,
+    refresh_bracket_for_match,
+    refresh_event_bracket,
+)
 from services.demo_service import analyze_demo, import_demo_data
 from services.live_log_service import persist_live_match_events
+from services.match_roster_service import match_player_slots
 from services.match_service import (
     completed_match_result_error,
     score_predictions,
@@ -48,6 +53,7 @@ LIVE_SCORE_FIELDS = (
     "has_map3",
     "has_map4",
     "has_map5",
+    "map_halves",
 )
 
 LOCKED_AFTER_START_FIELDS = (
@@ -306,20 +312,11 @@ def _match_roster_options(conn, match, side):
 
 
 def _match_roster_selected(conn, match, side):
-    """Return the current five slots, falling back to the team's roster."""
-    selected = _match_player_ids(match, f"team{side}_players")
-    if selected:
-        return selected[:5]
-    team_id = row_get(match, f"team{side}_id")
-    if not team_id:
+    """Keep the exact slots supplied by the administrator or registration."""
+    slots = {player["slot"]: player.get("id") for player in match_player_slots(conn, match, side)}
+    if not slots:
         return []
-    return [
-        row["id"]
-        for row in conn.execute(
-            "SELECT id FROM players WHERE team_id=? ORDER BY nickname COLLATE NOCASE LIMIT 5",
-            (team_id,),
-        ).fetchall()
-    ]
+    return [slots.get(slot) for slot in range(1, max(slots) + 1)]
 
 
 def _match_roster_form_values(side):
@@ -332,7 +329,10 @@ def _match_roster_form_values(side):
 def _match_roster_is_unchanged(conn, match, side, values):
     if values is None:
         return True
-    previous = [str(player_id) for player_id in _match_roster_selected(conn, match, side)]
+    previous = [
+        str(player_id) if player_id is not None else ""
+        for player_id in _match_roster_selected(conn, match, side)
+    ]
     previous.extend([""] * (5 - len(previous)))
     return values == previous
 
@@ -439,8 +439,8 @@ def _match_form_state(
 def _parse_side(conn, prefix, *, allow_partial=False, allow_empty=False):
     side_type = request.form.get(f"{prefix}_type", "team")
     if side_type == "players":
-        player_ids = [request.form.get(f"{prefix}_p{i}", "").strip() for i in range(5)]
-        player_ids = [player_id for player_id in player_ids if player_id]
+        player_slots = [request.form.get(f"{prefix}_p{i}", "").strip() for i in range(5)]
+        player_ids = [player_id for player_id in player_slots if player_id]
         if not player_ids and allow_empty:
             return None, None, None
         if not allow_partial and len(player_ids) != 5:
@@ -453,7 +453,10 @@ def _parse_side(conn, prefix, *, allow_partial=False, allow_empty=False):
         ).fetchone()[0]
         if count != len(player_ids):
             return None, None, f"{prefix} 包含不存在的选手"
-        return None, json.dumps(player_ids), None
+        selected = [player_id or None for player_id in player_slots]
+        while selected and selected[-1] is None:
+            selected.pop()
+        return None, json.dumps(selected), None
     if side_type != "team":
         return None, None, f"{prefix} 的参赛方类型无效"
     team_id = request.form.get(f"{prefix}_id", "").strip()
@@ -517,12 +520,20 @@ def _duplicate_match(
                 return True
         elif team1_players and team2_players:
             current_sides = {
-                frozenset(str(value) for value in _match_player_ids(row, "team1_players")),
-                frozenset(str(value) for value in _match_player_ids(row, "team2_players")),
+                frozenset(
+                    str(value)
+                    for value in _match_player_ids(row, "team1_players")
+                    if value is not None
+                ),
+                frozenset(
+                    str(value)
+                    for value in _match_player_ids(row, "team2_players")
+                    if value is not None
+                ),
             }
             submitted_sides = {
-                frozenset(json.loads(team1_players)),
-                frozenset(json.loads(team2_players)),
+                frozenset(value for value in json.loads(team1_players) if value is not None),
+                frozenset(value for value in json.loads(team2_players) if value is not None),
             }
             if current_sides == submitted_sides:
                 return True
@@ -720,7 +731,9 @@ def admin_matches_add():
                 400,
             )
         if team1_players and team2_players:
-            if set(json.loads(team1_players)) & set(json.loads(team2_players)):
+            if {value for value in json.loads(team1_players) if value is not None} & {
+                value for value in json.loads(team2_players) if value is not None
+            }:
                 flash("两边不能选择同一名选手", "error")
                 return _match_form_response(
                     conn,
@@ -870,7 +883,9 @@ def admin_matches_edit(match_id):
                 400,
             )
         if team1_players and team2_players:
-            if set(json.loads(team1_players)) & set(json.loads(team2_players)):
+            if {value for value in json.loads(team1_players) if value is not None} & {
+                value for value in json.loads(team2_players) if value is not None
+            }:
                 flash("两边不能选择同一名选手", "error")
                 return _match_form_response(
                     conn,
@@ -888,23 +903,39 @@ def admin_matches_edit(match_id):
                 ),
                 400,
             )
-        if "map_halves" not in request.form:
-            existing_halves = conn.execute(
-                "SELECT map_halves FROM matches WHERE id=?", (match_id,)
-            ).fetchone()
-            f["map_halves"] = existing_halves["map_halves"] if existing_halves else None
         try:
-            conn.execute(
-                """UPDATE matches SET event_id=?, team1_id=?, team2_id=?, team1_score=?, team2_score=?, match_time=?, bo_format=?, stage=?, status=?,
-                map1=?, map1_t1=?, map1_t2=?, map2=?, map2_t1=?, map2_t2=?, map3=?, map3_t1=?, map3_t2=?, has_map3=?,
-                map4=?, map4_t1=?, map4_t2=?, map5=?, map5_t1=?, map5_t2=?, has_map4=?, has_map5=?,
-                map1_picked_by=?, map2_picked_by=?, map3_picked_by=?, map4_picked_by=?, map5_picked_by=?,
-                bp_process=?, bp_password=?, stream_url=?, map_halves=?, team1_players=?, team2_players=?, watch_urls=?,
-                server_address=?, server_password=?, is_test_mode=?, decider_knife_winner=?, decider_start_side=?
-                WHERE id=?""",
-                _match_values(f, team1_id, team2_id, team1_players, team2_players)
-                + (f["decider_knife_winner"], f["decider_start_side"], match_id),
+            conn.execute("BEGIN IMMEDIATE")
+            if str(f["event_id"]) != str(existing["event_id"]) and match_is_bound_to_bracket(
+                conn, existing["event_id"], match_id
+            ):
+                raise ValueError("这场比赛已绑定原赛事的对阵图，请先解除绑定再更换赛事")
+            columns = tuple(column.strip() for column in MATCH_COLS.split(",")) + (
+                "decider_knife_winner",
+                "decider_start_side",
             )
+            values = _match_values(f, team1_id, team2_id, team1_players, team2_players) + (
+                f["decider_knife_winner"],
+                f["decider_start_side"],
+            )
+            # 直播管理的列不进入 UPDATE，不能把读取时的旧比分写回去。
+            editable = {
+                column: value
+                for column, value in zip(columns, values)
+                if column not in LIVE_SCORE_FIELDS
+            }
+            cursor = conn.execute(
+                "UPDATE matches SET "
+                + ",".join(f"{column}=?" for column in editable)
+                + " WHERE id=? AND COALESCE(status,'upcoming')=? AND event_id IS ?",
+                (
+                    *editable.values(),
+                    match_id,
+                    existing["status"] or "upcoming",
+                    existing["event_id"],
+                ),
+            )
+            if cursor.rowcount != 1:
+                raise ValueError("比赛状态或所属赛事已更新，请刷新页面后再保存")
             if f["status"] == "completed" and existing["status"] != "completed":
                 result = conn.execute("SELECT * FROM matches WHERE id=?", (match_id,)).fetchone()
                 error = completed_match_result_error(result)

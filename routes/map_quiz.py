@@ -120,8 +120,8 @@ def map_quiz_image(question_key):
         abort(404)
     variant = "mobile" if request.args.get("variant") == "mobile" else None
     image_path = question_image_path(question_key, variant=variant)
-    if not image_path:
-        abort(404)
+    if image_path is None:
+        return abort(404)
     mimetype = {
         ".webp": "image/webp",
         ".jpg": "image/jpeg",

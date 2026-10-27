@@ -17,7 +17,7 @@ from services.match_service import (
 )
 from services.performance_service import summary_metric_sql, weighted_average_sql
 from utils.demo_parser import normalize_map_name
-from utils.match_utils import get_sql_effective_status, get_sql_match_completed
+from utils.match_utils import get_map_half_scores, get_sql_effective_status, get_sql_match_completed
 from utils.stats_display import format_stat
 from web_app import app, logger
 
@@ -398,7 +398,7 @@ def _csda_flash_stats(filters, limit=100):
 
 
 def _pistol_match_teams(conn, match_ids):
-    """取比赛双方名称和队标；自选选手组成的临时队伍沿用比赛列表的回退名称（如 TEAM 1 / TEAM 2）。"""
+    """取比赛双方的真实名称和队标，未知名称保留 TBD。"""
     placeholders = ",".join("?" * len(match_ids))
     rows = conn.execute(
         f"""
@@ -1046,7 +1046,7 @@ def _map_statistics(conn, filters):
     )
     halves_matches = conn.execute(
         f"""
-        SELECT m.id, m.map_halves, m.map1, m.map2, m.map3, m.map4, m.map5
+        SELECT m.id, m.map_halves, m.bp_state, m.map1, m.map2, m.map3, m.map4, m.map5
         FROM matches m
         {match_where}
     """,
@@ -1072,13 +1072,16 @@ def _map_statistics(conn, filters):
             mn = normalize_map_name(hm[map_col])
             if filters["map"] != "all" and normalize_map_name(filters["map"]) != mn:
                 continue
+            half_scores = get_map_half_scores(hm, int(map_col[3:]) - 1, halves)
+            if not half_scores or half_scores["opening_ct_team"] not in {"t1", "t2"}:
+                continue
             map_halves_data.setdefault(mn, {"t_rounds": 0, "ct_rounds": 0, "count": 0})
-            if "t1_h1" in h or "t2_h1" in h:
-                t_r = (h.get("t1_h1", 0) or 0) + (h.get("t2_h2", 0) or 0)
-                ct_r = (h.get("t2_h1", 0) or 0) + (h.get("t1_h2", 0) or 0)
+            if half_scores["opening_ct_team"] == "t1":
+                t_r = (half_scores["h1_t2"] or 0) + (half_scores["h2_t1"] or 0)
+                ct_r = (half_scores["h1_t1"] or 0) + (half_scores["h2_t2"] or 0)
             else:
-                t_r = (h.get("h1_t1", 0) or 0) + (h.get("h2_t2", 0) or 0)
-                ct_r = (h.get("h1_t2", 0) or 0) + (h.get("h2_t1", 0) or 0)
+                t_r = (half_scores["h1_t1"] or 0) + (half_scores["h2_t2"] or 0)
+                ct_r = (half_scores["h1_t2"] or 0) + (half_scores["h2_t1"] or 0)
             if t_r + ct_r > 0:
                 map_halves_data[mn]["t_rounds"] += t_r
                 map_halves_data[mn]["ct_rounds"] += ct_r
@@ -1111,7 +1114,9 @@ def _map_statistics(conn, filters):
                 "nickname": r["nickname"],
                 "player_id": r["player_id"],
                 "top_rating": r["rating"],
-                "kd": round(r["kills"] / r["deaths"], 2) if r["deaths"] else None,
+                "kd": round(r["kills"] / r["deaths"], 2)
+                if r["kills"] is not None and r["deaths"] is not None and r["deaths"] > 0
+                else None,
                 "adr": r["adr"],
                 "kast": r["kast"],
                 "impact": r["impact"],
@@ -1161,7 +1166,7 @@ def _match_statistics(conn, filters, limit=100):
         """,
         (*params, limit),
     ).fetchall()
-    # 自选选手组成的临时队伍沿用比赛列表的名称（TEAM 1 / TEAM 2），不显示成 TBD
+    # 与比赛列表使用同一套名称来源，不为未知队伍编造名称。
     return [supplement_temp_teams(row, conn) for row in rows]
 
 

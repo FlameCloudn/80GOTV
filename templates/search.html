@@ -76,10 +76,11 @@
   <div class="panel-head"><h2 class="panel-title">比赛</h2><span class="panel-count">{{ results.matches|length }}</span></div>
   <div class="card-list">
     {% for m in results.matches %}
+    {% set left, right = match_opponents(m) %}
     <a class="match-card" href="/matches/{{ m.slug or m.id }}">
-      <span class="team" data-i18n-ignore>{{ m.team1_name or 'team_GO' }}</span>
-      <span class="vs">{% if m.effective_status in ['completed', 'live'] %}<b>{{ m.team1_score or 0 }} : {{ m.team2_score or 0 }}</b>{% else %}VS{% endif %}</span>
-      <span class="team right" data-i18n-ignore>{{ m.team2_name or 'team_CS' }}</span>
+      <span class="team" data-match-side="{{ left.side }}" data-i18n-ignore>{{ left.name }}</span>
+      <span class="vs">{% if m.effective_status in ['completed', 'live'] %}<b>{{ left.score if left.score is not none else '-' }} : {{ right.score if right.score is not none else '-' }}</b>{% else %}VS{% endif %}</span>
+      <span class="team right" data-match-side="{{ right.side }}" data-i18n-ignore>{{ right.name }}</span>
       <span class="meta"><span data-i18n-ignore>{{ m.event_name or '' }}</span> · {{ m.bo_format or '' }} · {{ m.match_time|date_display if m.match_time else '' }}</span>
     </a>
     {% endfor %}

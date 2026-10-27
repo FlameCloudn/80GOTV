@@ -265,11 +265,17 @@ def main():
             try:
                 fixture = _dot_match_participants(conn, player_count=5)
                 fixture["match_id"] = conn.execute(
-                    """INSERT INTO matches(event_id,team1_id,team2_id,status,bo_format,match_time,
+                    """INSERT INTO matches(event_id,team1_id,team2_id,team1_players,team2_players,status,bo_format,match_time,
                        stage,map1,map2,team1_score,team2_score,map1_t1,map1_t2,map2_t1,map2_t2)
-                       VALUES(?,?,?,'upcoming','BO3','2027-11-17T14:00',
+                       VALUES(?,?,?,?,?,'upcoming','BO3','2027-11-17T14:00',
                        'E2E Round','de_mirage','de_nuke',0,0,0,0,0,0)""",
-                    (fixture["event_id"], fixture["teams"][0]["id"], fixture["teams"][1]["id"]),
+                    (
+                        fixture["event_id"],
+                        fixture["teams"][0]["id"],
+                        fixture["teams"][1]["id"],
+                        json.dumps(fixture["teams"][0]["player_ids"]),
+                        json.dumps(fixture["teams"][1]["player_ids"]),
+                    ),
                 ).lastrowid
                 conn.commit()
                 return fixture

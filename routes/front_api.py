@@ -195,6 +195,8 @@ def _match_url(match):
 
 
 def _match_payload(match):
+    from utils.match_display import match_opponents
+
     return {
         "id": match["id"],
         "url": _match_url(match),
@@ -208,6 +210,9 @@ def _match_payload(match):
         "team2_short": _text(_get(match, "t2s", "")),
         "team1_logo": _logo_url(_get(match, "team1_logo", "")),
         "team2_logo": _logo_url(_get(match, "team2_logo", "")),
+        "opponents": [
+            {**opponent, "logo": _logo_url(opponent["logo"])} for opponent in match_opponents(match)
+        ],
         "score1": match["team1_score"],
         "score2": match["team2_score"],
         "bo": _text(match["bo_format"] or "BO1"),

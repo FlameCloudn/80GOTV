@@ -44,8 +44,9 @@
 <section class="panel">
   <dl class="match-facts">
     <div><dt>赛事</dt><dd data-i18n-ignore>{{ match.event_name or '-' }}</dd></div>
-    <div><dt>对阵</dt><dd data-i18n-ignore>{{ match.team1_name }} VS {{ match.team2_name }}</dd></div>
-    <div><dt>比分</dt><dd>{{ match.team1_score if match.team1_score is not none else '-' }} : {{ match.team2_score if match.team2_score is not none else '-' }}</dd></div>
+    {% set opponents = match_opponents(match) %}
+    <div><dt>对阵</dt><dd data-i18n-ignore>{{ opponents[0].name }} VS {{ opponents[1].name }}</dd></div>
+    <div><dt>比分</dt><dd>{{ opponents[0].score if opponents[0].score is not none else '-' }} : {{ opponents[1].score if opponents[1].score is not none else '-' }}</dd></div>
     <div><dt>时间</dt><dd>{{ match.match_time|datetime_display }}</dd></div>
   </dl>
   {% if match.demo_file %}
@@ -83,11 +84,10 @@
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="map_name" value="{{ m.name if m.name else '' }}">
 
-      <h3 class="stats-team-title"><span data-i18n-ignore>{{ match.team1_name }}</span> 选手数据</h3>
-      {{ stats_table(team1_players, m, match.team1_id, -1) }}
-
-      <h3 class="stats-team-title"><span data-i18n-ignore>{{ match.team2_name }}</span> 选手数据</h3>
-      {{ stats_table(team2_players, m, match.team2_id, -2) }}
+      {% for opponent in opponents %}
+      <h3 class="stats-team-title"><span data-i18n-ignore>{{ opponent.name }}</span> 选手数据</h3>
+      {{ stats_table(team1_players if opponent.side == 't1' else team2_players, m, opponent.id, -opponent.number) }}
+      {% endfor %}
 
       <div class="panel-foot form-actions">
         <a href="{{ url_for('admin.admin_matches') }}" class="btn">返回</a>

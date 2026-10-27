@@ -200,14 +200,15 @@ def get_map_half_scores(match_row, slot_index, parsed_halves=None):
     item = halves.get(str(slot_index)) or halves.get(f"map{slot_index + 1}")
     if not isinstance(item, dict):
         return None
-    opening_ct_team = item.get("opening_ct_team") or item.get("opening_ct_side_team")
-    opening_from_bp = False
-    if opening_ct_team not in {"t1", "t2"}:
-        opening_ct_team = _pick_opening_ct_team_from_bp(match_row, slot_index)
-        opening_from_bp = True
     side_source = item.get("side_source") or "unknown"
-    if opening_from_bp and opening_ct_team in {"t1", "t2"} and side_source == "unknown":
+    opening_ct_team = _pick_opening_ct_team_from_bp(match_row, slot_index)
+    if opening_ct_team in {"t1", "t2"}:
         side_source = "website_bp"
+    elif side_source == "website_bp":
+        opening_ct_team = item.get("opening_ct_team") or item.get("opening_ct_side_team")
+    else:
+        opening_ct_team = None
+        side_source = "unknown"
     return {
         "h1_t1": item.get("h1_t1", item.get("t1_h1", 0)),
         "h1_t2": item.get("h1_t2", item.get("t2_h1", 0)),

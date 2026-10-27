@@ -97,13 +97,14 @@
       <div class="list h-match-mini-list" data-front-home-target="matches">
         {% for m in matches %}
         {% set live = m.effective_status == 'live' %}
-        <a class="list-row h-match-mini" href="/matches/{{ m.slug or m.id }}" title="{{ m.team1_name }} vs {{ m.team2_name }}">
+        {% set left, right = match_opponents(m) %}
+        <a class="list-row h-match-mini" href="/matches/{{ m.slug or m.id }}" title="{{ left.name }} vs {{ right.name }}">
           <span class="h-mini-status{% if live %} live{% endif %}">
             {% if live %}直播{% elif m.match_time %}{{ m.match_time|time_display }}{% else %}TBD{% endif %}
           </span>
           <span class="h-mini-teams">
-            <b data-i18n-ignore>{{ m.t1s or m.team1_name or 'TBD' }}</b>
-            <b data-i18n-ignore>{{ m.t2s or m.team2_name or 'TBD' }}</b>
+            <b data-match-side="{{ left.side }}" data-i18n-ignore>{{ left.short }}</b>
+            <b data-match-side="{{ right.side }}" data-i18n-ignore>{{ right.short }}</b>
           </span>
           <span class="h-mini-bo">{{ m.bo_format }}</span>
         </a>
@@ -129,16 +130,17 @@
       <div class="panel-head"><h2 class="panel-title">近期赛果</h2><a class="panel-link" href="/results">全部</a></div>
       <div class="list h-result-mini-list" data-front-home-target="recent">
         {% for r in recent %}
-        {% set s1 = r.team1_score or 0 %}{% set s2 = r.team2_score or 0 %}
-        <a class="list-row h-result-mini" href="/matches/{{ r.slug or r.id }}" title="{{ r.team1_name }} {{ r.team1_score }} : {{ r.team2_score }} {{ r.team2_name }}" data-i18n-ignore>
+        {% set left, right = match_opponents(r) %}
+        {% set s1 = left.score or 0 %}{% set s2 = right.score or 0 %}
+        <a class="list-row h-result-mini" href="/matches/{{ r.slug or r.id }}" title="{{ left.name }} {{ left.score }} : {{ right.score }} {{ right.name }}" data-i18n-ignore>
           <span class="h-result-team{% if s1 > s2 %} win{% elif s2 > s1 %} lose{% endif %}">
-            {% if r.team1_logo %}<img class="team-logo sm" src="{{ r.team1_logo|team_logo_url }}" alt="" loading="lazy">{% endif %}
-            <span class="truncate" data-i18n-ignore>{{ r.t1s or r.team1_name }}</span>
+            {% if left.logo %}<img class="team-logo sm" src="{{ left.logo|team_logo_url }}" alt="" loading="lazy">{% endif %}
+            <span class="truncate" data-i18n-ignore>{{ left.short }}</span>
           </span>
-          <b class="h-result-score">{{ r.team1_score }} : {{ r.team2_score }}</b>
+          <b class="h-result-score">{{ left.score if left.score is not none else '-' }} : {{ right.score if right.score is not none else '-' }}</b>
           <span class="h-result-team right{% if s2 > s1 %} win{% elif s1 > s2 %} lose{% endif %}">
-            <span class="truncate" data-i18n-ignore>{{ r.t2s or r.team2_name }}</span>
-            {% if r.team2_logo %}<img class="team-logo sm" src="{{ r.team2_logo|team_logo_url }}" alt="" loading="lazy">{% endif %}
+            <span class="truncate" data-i18n-ignore>{{ right.short }}</span>
+            {% if right.logo %}<img class="team-logo sm" src="{{ right.logo|team_logo_url }}" alt="" loading="lazy">{% endif %}
           </span>
         </a>
         {% endfor %}

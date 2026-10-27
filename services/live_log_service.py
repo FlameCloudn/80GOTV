@@ -16,6 +16,7 @@ def persist_live_match_events(conn, match_id, state):
         ("kill", state.get("kill_events", [])),
         ("plant", state.get("bomb_events", [])),
         ("round", state.get("round_history", [])),
+        ("round", state.get("overtime_history", [])),
     )
     for event_type, events in groups:
         if not isinstance(events, list):
@@ -27,7 +28,7 @@ def persist_live_match_events(conn, match_id, state):
             stored_event = dict(event)
             stored_event.setdefault("map_name", map_name)
             if event_type == "round":
-                event_key = f"round-{map_name}-{round_num}"
+                event_key = f"round-{stored_event['map_name']}-{round_num}"
             else:
                 event_key = str(event.get("id") or f"{event_type}-{round_num}-{index}")
             cursor = conn.execute(

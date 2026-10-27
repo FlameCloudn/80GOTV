@@ -40,6 +40,23 @@
     return text(match['team' + side + '_short'], '') || text(match['team' + side], 'TBD');
   }
 
+  function matchOpponents(match) {
+    if (Array.isArray(match.opponents) && match.opponents.length === 2) return match.opponents;
+    return [1, 2].map(function (side) {
+      return {
+        side: 't' + side,
+        name: text(match['team' + side + '_full'] || match['team' + side], 'TBD'),
+        short: shortName(match, side),
+        logo: match['team' + side + '_logo'],
+        score: match['score' + side]
+      };
+    }).sort(function (a, b) {
+      if ((a.name === 'TBD') !== (b.name === 'TBD')) return a.name === 'TBD' ? 1 : -1;
+      var aKey = a.short.toLowerCase(), bKey = b.short.toLowerCase();
+      return aKey < bKey ? -1 : (aKey > bKey ? 1 : 0);
+    });
+  }
+
   function teamLogo(url) {
     var logo = document.createElement('img');
     logo.className = 'team-logo sm';
@@ -57,14 +74,18 @@
       return;
     }
     matches.forEach(function (match) {
+      var opponents = matchOpponents(match);
       var row = makeLink(match.url, 'list-row h-match-mini');
-      row.title = text(match.team1, 'TBD') + ' vs ' + text(match.team2, 'TBD');
+      row.title = opponents[0].name + ' vs ' + opponents[1].name;
       var status = make('span', 'h-mini-status' + (match.status === 'live' ? ' live' : ''));
       status.textContent = match.status === 'live' ? '直播' : text(match.time, 'TBD');
 
       var teams = make('span', 'h-mini-teams');
-      teams.appendChild(setIgnoreI18n(make('b', '', shortName(match, 1))));
-      teams.appendChild(setIgnoreI18n(make('b', '', shortName(match, 2))));
+      opponents.forEach(function (opponent) {
+        var label = setIgnoreI18n(make('b', '', opponent.short));
+        label.setAttribute('data-match-side', opponent.side);
+        teams.appendChild(label);
+      });
 
       row.appendChild(status);
       row.appendChild(teams);
@@ -89,16 +110,16 @@
     });
   }
 
-  function resultTeam(match, side, other) {
-    var mine = Number(match['score' + side] || 0);
-    var theirs = Number(match['score' + other] || 0);
-    var state = mine > theirs ? ' win' : (theirs > mine ? ' lose' : '');
-    var team = make('span', 'h-result-team' + (side === 2 ? ' right' : '') + state);
-    var logoUrl = match['team' + side + '_logo'];
-    var name = setIgnoreI18n(make('span', 'truncate', shortName(match, side)));
-    if (side === 1 && logoUrl) team.appendChild(teamLogo(logoUrl));
+  function resultTeam(opponent, other, right) {
+    var scored = opponent.score != null && other.score != null;
+    var state = scored && opponent.score > other.score ? ' win' : (scored && other.score > opponent.score ? ' lose' : '');
+    var team = make('span', 'h-result-team' + (right ? ' right' : '') + state);
+    var logoUrl = opponent.logo;
+    var name = setIgnoreI18n(make('span', 'truncate', opponent.short));
+    team.setAttribute('data-match-side', opponent.side);
+    if (!right && logoUrl) team.appendChild(teamLogo(logoUrl));
     team.appendChild(name);
-    if (side === 2 && logoUrl) team.appendChild(teamLogo(logoUrl));
+    if (right && logoUrl) team.appendChild(teamLogo(logoUrl));
     return team;
   }
 
@@ -109,12 +130,13 @@
       return;
     }
     results.forEach(function (match) {
+      var opponents = matchOpponents(match), left = opponents[0], right = opponents[1];
       var row = makeLink(match.url, 'list-row h-result-mini');
-      row.title = text(match.team1, 'TBD') + ' ' + text(match.score1, '-') + ' : ' + text(match.score2, '-') + ' ' + text(match.team2, 'TBD');
+      row.title = left.name + ' ' + text(left.score, '-') + ' : ' + text(right.score, '-') + ' ' + right.name;
       setIgnoreI18n(row);
-      row.appendChild(resultTeam(match, 1, 2));
-      row.appendChild(make('b', 'h-result-score', text(match.score1, '-') + ' : ' + text(match.score2, '-')));
-      row.appendChild(resultTeam(match, 2, 1));
+      row.appendChild(resultTeam(left, right, false));
+      row.appendChild(make('b', 'h-result-score', text(left.score, '-') + ' : ' + text(right.score, '-')));
+      row.appendChild(resultTeam(right, left, true));
       target.appendChild(row);
     });
   }
@@ -162,12 +184,12 @@
       time.appendChild(make('span', 'match-bo', text(match.bo, 'BO1')));
 
       var teams = make('div', 'match-schedule-teams');
-      var teamA = make('div', 'match-schedule-team');
-      appendMatchTeam(teamA, match.team1_logo, 'A', match.team1_full || match.team1);
-      var teamB = make('div', 'match-schedule-team');
-      appendMatchTeam(teamB, match.team2_logo, 'B', match.team2_full || match.team2);
-      teams.appendChild(teamA);
-      teams.appendChild(teamB);
+      matchOpponents(match).forEach(function (opponent) {
+        var team = make('div', 'match-schedule-team');
+        team.setAttribute('data-match-side', opponent.side);
+        appendMatchTeam(team, opponent.logo, opponent.short === 'TBD' ? '?' : opponent.short.slice(0, 3), opponent.name);
+        teams.appendChild(team);
+      });
 
       var meta = make('div', 'match-schedule-meta');
       var eventText = text(match.event, '未分组赛事');
@@ -192,7 +214,7 @@
       logo.loading = 'lazy';
       container.appendChild(logo);
     } else {
-      container.appendChild(make('span', 'match-team-mark', fallback));
+      container.appendChild(setIgnoreI18n(make('span', 'match-team-mark', fallback)));
     }
     container.appendChild(setIgnoreI18n(make('span', 'team-name', text(teamName, 'TBD'))));
   }

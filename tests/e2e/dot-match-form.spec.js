@@ -44,7 +44,7 @@ test('互换两支队伍后，五人出场名单跟随队伍保存并重开', as
   const [teamA, teamB] = fixture.teams;
   await openMatchEditor(page, fixture.match_id);
 
-  await page.getByRole('button', { name: '互换队伍 1 与队伍 2' }).click();
+  await page.getByRole('button', { name: '互换参赛双方' }).click();
   await expect(page.locator('#side1_select')).toHaveValue(String(teamB.id));
   await expect(page.locator('#side2_select')).toHaveValue(String(teamA.id));
   await showRosterTab(page);
@@ -78,7 +78,7 @@ test('互换普通队伍与自选选手时，模式和五名临时选手一起�
   for (let slot = 0; slot < 5; slot += 1) {
     await page.locator(`[name="side2_p${slot}"]`).selectOption(String(teamB.player_ids[slot]));
   }
-  await page.getByRole('button', { name: '互换队伍 1 与队伍 2' }).click();
+  await page.getByRole('button', { name: '互换参赛双方' }).click();
   await expect(page.locator('input[name="side1_type"][value="players"]')).toBeChecked();
   await expect(page.locator('input[name="side2_type"][value="team"]')).toBeChecked();
   await expect(page.locator('#side2_select')).toHaveValue(String(teamA.id));

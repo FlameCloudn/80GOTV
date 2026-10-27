@@ -3,6 +3,7 @@
 from flask import redirect, render_template, request, session
 
 from models import get_db
+from services.match_service import supplement_temp_teams
 from utils.helpers import build_comment_tree
 from web_app import app
 
@@ -78,6 +79,15 @@ def news_detail(news_id):
         """,
             (news["related_match_id"],),
         ).fetchone()
+        if related_match:
+            related_match = supplement_temp_teams(
+                {
+                    **dict(related_match),
+                    "team1_name": related_match["t1n"],
+                    "team2_name": related_match["t2n"],
+                },
+                conn,
+            )
 
     raw_comments = conn.execute(
         """

@@ -98,7 +98,7 @@ class DotMatchFormTests(unittest.TestCase):
         self.assertIn('name="server_address" value="10.0.0.1:27015"', html)
         self.assertIn('name="map1"', html)
         self.assertRegex(html, r'<option value="de_nuke" selected>')
-        self.assertRegex(html, r'<option value="t1" selected>队伍 1 Pick</option>')
+        self.assertRegex(html, r'<option value="t1" selected>队伍甲 选图</option>')
         self.assertIn('value="completed" selected', html)
         self.assertIn("https://live.bilibili.com/200", html)
         self.assertIn('id="pane-roster"', html)

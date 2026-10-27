@@ -1,6 +1,8 @@
 {% extends 'base.html' %}
-{% block title %}{{ match.team1_name }} vs {{ match.team2_name }} - 80GOTV{% endblock %}
-{% block meta_description %}{{ match.team1_name }} 对阵 {{ match.team2_name }}，{{ match.bo_format or 'BO1' }} 比赛信息、比分与数据。{% endblock %}
+{% set opponents = match_opponents(match) %}
+{% set left_team, right_team = opponents %}
+{% block title %}{{ left_team.name }} vs {{ right_team.name }} - 80GOTV{% endblock %}
+{% block meta_description %}{{ left_team.name }} 对阵 {{ right_team.name }}，{{ match.bo_format or 'BO1' }} 比赛信息、比分与数据。{% endblock %}
 {% block head %}<link rel="stylesheet" href="{{ versioned_url('static/css/pages/match.css') }}">{% endblock %}
 {% block layout_class %}match-detail-layout{% endblock %}
 
@@ -54,7 +56,7 @@
 {% endmacro %}
 
 {#- 比赛数据：双方 / T / CT 切换 + 全部地图 / 单张地图切换 + 两队的数据表。
-    overall_teams：全部地图的两队 [(数据, 队标, 简称, 队名), ...]，胜方在前。 -#}
+    overall_teams：两队按简称排序，数据仍取各自原始比赛位置。 -#}
 {% macro match_stats_block(map_list, overall_teams, side_labels, rating_label) %}
 <section class="panel match-data-panel">
   <div class="panel-head">
@@ -85,16 +87,40 @@
   {% for ms in map_list %}
   <div class="detail-panel" id="panel-{{ loop.index }}" role="tabpanel" aria-labelledby="tab-{{ loop.index }}">
     <div class="detail-panel-body">
-      {% if ms.team1_stats %}{{ team_stats_table(ms.team1_stats, match.t1_logo, match.t1s, match.team1_name, rating_label) }}{% else %}<p class="empty-state">此图暂无数据</p>{% endif %}
-      {% if ms.team2_stats %}{{ team_stats_table(ms.team2_stats, match.t2_logo, match.t2s, match.team2_name, rating_label) }}{% else %}<p class="empty-state">此图暂无数据</p>{% endif %}
+      {% for opponent in opponents %}
+      {% set rows = ms.team1_stats if opponent.side == 't1' else ms.team2_stats %}
+      {% if rows %}{{ team_stats_table(rows, opponent.logo, opponent.short, opponent.name, rating_label) }}{% else %}<p class="empty-state">此图暂无数据</p>{% endif %}
+      {% endfor %}
     </div>
   </div>
   {% endfor %}
 </section>
 {% endmacro %}
 
+{% macro banner_team(opponent, other, position, roster, has_score) %}
+  <div class="mh-team mh-team-{{ position }}" data-match-side="{{ opponent.side }}">
+    <div class="match-team-pop {{ position }}" tabindex="0">
+      {% if opponent.logo %}<img class="team-logo xl mh-logo" src="{{ opponent.logo|team_logo_url }}" alt="{{ opponent.name }}" loading="lazy">{% else %}<span class="logo-fallback xl mh-logo mh-logo-fallback" data-i18n-ignore>{{ opponent.name|team_abbr(opponent.short) }}</span>{% endif %}
+      {% if roster %}
+      <div class="match-team-players-popup">
+        <div class="match-pop-team-name" data-i18n-ignore>{{ opponent.name }}</div>
+        {% for p in roster %}
+        {% set pname = private_name_for_player(p.id, p.nickname) if p.id else p.nickname %}
+        <a class="match-player-link"{% if p.id %} href="/players/{{ p.id }}"{% endif %}>
+          {% if p.avatar %}<img class="match-player-avatar" src="{{ p.avatar }}" alt="" loading="lazy">{% else %}<span class="match-player-avatar match-player-avatar-fallback" aria-hidden="true">{{ pname[:1]|upper }}</span>{% endif %}
+          <span><span data-i18n-ignore>{{ pname }}</span>{% if p.role == 'substitute' %}（替补）{% endif %}</span>
+        </a>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    <div class="mh-team-name" data-i18n-ignore>{{ opponent.name }}</div>
+    {% if has_score %}<div class="mh-team-score {% if opponent.score > other.score %}won{% elif opponent.score < other.score %}lost{% endif %}">{{ opponent.score }}</div>{% endif %}
+  </div>
+{% endmacro %}
+
 {% block main %}
-<h1 class="match-detail-title" data-i18n-ignore>{{ match.team1_name }} vs {{ match.team2_name }}</h1>
+<h1 class="match-detail-title" data-i18n-ignore>{{ left_team.name }} vs {{ right_team.name }}</h1>
 {% set shown_map_scores = map_scores|selectattr('display')|list %}
 {% set detail_map_scores = map_scores|rejectattr('name', 'equalto', 'TBA')|list %}
 {% set bo_upper = (match.bo_format or 'BO1')|upper %}
@@ -104,26 +130,26 @@
 {% set embed_url = (match.stream_url or match.event_stream_url)|bilibili_embed %}
 {% set team1_overall = (overall_t1, match.t1_logo, match.t1s, match.team1_name) %}
 {% set team2_overall = (overall_t2, match.t2_logo, match.t2s, match.team2_name) %}
-{% set overall_teams = [team1_overall, team2_overall] if t1_win else [team2_overall, team1_overall] %}
+{% set overall_teams = [team1_overall, team2_overall] if left_team.side == 't1' else [team2_overall, team1_overall] %}
 
 {% if show_match_stats %}
 {# ======================= 比赛数据页 ======================= #}
 <section class="panel match-stats-hero-card">
   <div class="match-stats-hero-team">
-    {% if match.t1_logo %}
-    <img class="team-logo xl match-stats-hero-logo" src="{{ match.t1_logo|team_logo_url }}" alt="{{ match.team1_name }}" loading="lazy">
+    {% if left_team.logo %}
+    <img class="team-logo xl match-stats-hero-logo" src="{{ left_team.logo|team_logo_url }}" alt="{{ left_team.name }}" loading="lazy">
     {% else %}
-    <span class="logo-fallback xl match-stats-hero-logo match-stats-hero-fallback" data-i18n-ignore>{{ match.team1_name|team_abbr(match.t1s) }}</span>
+    <span class="logo-fallback xl match-stats-hero-logo match-stats-hero-fallback" data-i18n-ignore>{{ left_team.name|team_abbr(left_team.short) }}</span>
     {% endif %}
-    <strong data-i18n-ignore>{{ match.team1_name }}</strong>
+    <strong data-i18n-ignore>{{ left_team.name }}</strong>
   </div>
   <div class="match-stats-hero-center">
     <a class="match-stats-hero-event" href="{{ event_path(match) }}" data-i18n-ignore>{{ match.event_name or '80GOTV' }}</a>
     {% set hero_scored = match.team1_score is not none and match.team2_score is not none %}
     <div class="match-stats-hero-score">
-      <span class="{% if hero_scored and match.team1_score > match.team2_score %}score-win{% elif hero_scored and match.team1_score < match.team2_score %}score-lose{% endif %}">{{ match.team1_score if match.team1_score is not none else '-' }}</span>
+      <span class="{% if hero_scored and left_team.score > right_team.score %}score-win{% elif hero_scored and left_team.score < right_team.score %}score-lose{% endif %}">{{ left_team.score if left_team.score is not none else '-' }}</span>
       <span class="sep">:</span>
-      <span class="{% if hero_scored and match.team2_score > match.team1_score %}score-win{% elif hero_scored and match.team2_score < match.team1_score %}score-lose{% endif %}">{{ match.team2_score if match.team2_score is not none else '-' }}</span>
+      <span class="{% if hero_scored and right_team.score > left_team.score %}score-win{% elif hero_scored and right_team.score < left_team.score %}score-lose{% endif %}">{{ right_team.score if right_team.score is not none else '-' }}</span>
     </div>
     <div class="match-stats-hero-meta">{{ match.bo_format or 'BO1' }} · {{ match.match_time|datetime_display if match.match_time else 'TBD' }}</div>
     <div class="match-stats-hero-actions">
@@ -132,12 +158,12 @@
     </div>
   </div>
   <div class="match-stats-hero-team match-stats-hero-team-right">
-    {% if match.t2_logo %}
-    <img class="team-logo xl match-stats-hero-logo" src="{{ match.t2_logo|team_logo_url }}" alt="{{ match.team2_name }}" loading="lazy">
+    {% if right_team.logo %}
+    <img class="team-logo xl match-stats-hero-logo" src="{{ right_team.logo|team_logo_url }}" alt="{{ right_team.name }}" loading="lazy">
     {% else %}
-    <span class="logo-fallback xl match-stats-hero-logo match-stats-hero-fallback" data-i18n-ignore>{{ match.team2_name|team_abbr(match.t2s) }}</span>
+    <span class="logo-fallback xl match-stats-hero-logo match-stats-hero-fallback" data-i18n-ignore>{{ right_team.name|team_abbr(right_team.short) }}</span>
     {% endif %}
-    <strong data-i18n-ignore>{{ match.team2_name }}</strong>
+    <strong data-i18n-ignore>{{ right_team.name }}</strong>
   </div>
 </section>
 
@@ -156,7 +182,7 @@
       {% for ms in shown_map_scores %}
       <button id="map-{{ ms.index }}" class="match-stat-map-card{% if loop.first %} active{% endif %}" type="button" style="--map-bg: url('{{ ms.name|map_background }}')" onclick="switchDetailTab({{ loop.index }})">
         <span class="match-stat-map-meta">
-          <b>{{ ms.t1 }} - {{ ms.t2 }}</b>
+          <b>{{ ms[left_team.side] }} - {{ ms[right_team.side] }}</b>
           <small>{{ ms.name|map_display }}</small>
         </span>
       </button>
@@ -170,20 +196,20 @@
         {% if shown_map_scores %}
         <div class="match-stat-mini-score">
           <div>
-            <b data-i18n-ignore>{{ match.t1s }}</b>
-            <strong class="{% if shown_map_scores[0].t1 > shown_map_scores[0].t2 %}score-win{% elif shown_map_scores[0].t1 < shown_map_scores[0].t2 %}score-lose{% endif %}">{{ shown_map_scores[0].t1 }}</strong>
+            <b data-i18n-ignore>{{ left_team.short }}</b>
+            <strong class="{% if shown_map_scores[0][left_team.side] > shown_map_scores[0][right_team.side] %}score-win{% elif shown_map_scores[0][left_team.side] < shown_map_scores[0][right_team.side] %}score-lose{% endif %}">{{ shown_map_scores[0][left_team.side] }}</strong>
           </div>
           <span>{{ shown_map_scores[0].name|map_display }}</span>
           <div>
-            <b data-i18n-ignore>{{ match.t2s }}</b>
-            <strong class="{% if shown_map_scores[0].t2 > shown_map_scores[0].t1 %}score-win{% elif shown_map_scores[0].t2 < shown_map_scores[0].t1 %}score-lose{% endif %}">{{ shown_map_scores[0].t2 }}</strong>
+            <b data-i18n-ignore>{{ right_team.short }}</b>
+            <strong class="{% if shown_map_scores[0][right_team.side] > shown_map_scores[0][left_team.side] %}score-win{% elif shown_map_scores[0][right_team.side] < shown_map_scores[0][left_team.side] %}score-lose{% endif %}">{{ shown_map_scores[0][right_team.side] }}</strong>
           </div>
         </div>
         {% endif %}
         <dl class="facts match-stat-breakdown">
-          <div><dt>队伍 RATING 2.0</dt><dd>{{ metric(match_breakdown.t1_rating, 2) }} : {{ metric(match_breakdown.t2_rating, 2) }}</dd></div>
-          <div><dt>首杀</dt><dd>{{ match_breakdown.t1_first_kills }} : {{ match_breakdown.t2_first_kills }}</dd></div>
-          <div><dt>残局获胜</dt><dd>{{ match_breakdown.t1_clutches }} : {{ match_breakdown.t2_clutches }}</dd></div>
+          <div><dt>队伍 RATING 2.0</dt><dd>{{ metric(match_breakdown[left_team.side ~ '_rating'], 2) }} : {{ metric(match_breakdown[right_team.side ~ '_rating'], 2) }}</dd></div>
+          <div><dt>首杀</dt><dd>{{ match_breakdown[left_team.side ~ '_first_kills'] }} : {{ match_breakdown[right_team.side ~ '_first_kills'] }}</dd></div>
+          <div><dt>残局获胜</dt><dd>{{ match_breakdown[left_team.side ~ '_clutches'] }} : {{ match_breakdown[right_team.side ~ '_clutches'] }}</dd></div>
         </dl>
       </article>
 
@@ -204,12 +230,11 @@
     <div class="match-stat-rounds">
       <div class="match-stat-rounds-head">
         <h3>地图记录</h3>
-        <span class="match-stat-legend t1-win" data-i18n-ignore>{{ match.t1s }}</span>
-        <span class="match-stat-legend t2-win" data-i18n-ignore>{{ match.t2s }}</span>
+        {% for opponent in opponents %}<span class="match-stat-legend {{ opponent.side }}-win" data-i18n-ignore>{{ opponent.short }}</span>{% endfor %}
       </div>
       <div class="match-stat-roundline">
         {% for ms in shown_map_scores %}
-        <span class="{% if ms.t1 > ms.t2 %}t1-win{% elif ms.t2 > ms.t1 %}t2-win{% endif %}" title="{{ ms.name|map_display }} {{ ms.t1 }}:{{ ms.t2 }}">{{ ms.index }}</span>
+        <span class="{% if ms.t1 > ms.t2 %}t1-win{% elif ms.t2 > ms.t1 %}t2-win{% endif %}" title="{{ ms.name|map_display }} {{ ms[left_team.side] }}:{{ ms[right_team.side] }}">{{ ms.index }}</span>
         {% endfor %}
       </div>
     </div>
@@ -228,7 +253,9 @@
     </div>
 
     <div class="match-stat-team-tables">
-      {% for team_name, team_rows in [(match.team1_name, overall_t1), (match.team2_name, overall_t2)] %}
+      {% for opponent in opponents %}
+      {% set team_name = opponent.name %}
+      {% set team_rows = overall_t1 if opponent.side == 't1' else overall_t2 %}
       <section>
         <h3 data-i18n-ignore>{{ team_name }}</h3>
         <div class="table-wrap match-mini-table-wrap">
@@ -284,31 +311,7 @@
 {# ======================= 比赛页 ======================= #}
 {% set has_score = match.effective_status in ('live', 'completed') and match.team1_score is not none and match.team2_score is not none %}
 <section class="panel mh-banner{% if match.effective_status == 'live' %} is-live{% endif %}">
-  <div class="mh-team mh-team-left">
-    <div class="match-team-pop left" tabindex="0">
-    {% if match.t1_logo %}
-    <img class="team-logo xl mh-logo" src="{{ match.t1_logo|team_logo_url }}" alt="{{ match.team1_name }}" loading="lazy">
-    {% else %}
-    <span class="logo-fallback xl mh-logo mh-logo-fallback" data-i18n-ignore>{{ match.team1_name|team_abbr(match.t1s) }}</span>
-    {% endif %}
-    {% if team1_roster %}
-    <div class="match-team-players-popup">
-      <div class="match-pop-team-name" data-i18n-ignore>{{ match.team1_name }}</div>
-      {% for p in team1_roster %}
-      {% set pname = private_name_for_player(p.id, p.nickname) %}
-      <a class="match-player-link" href="/players/{{ p.id }}">
-        {% if p.avatar %}<img class="match-player-avatar" src="{{ p.avatar }}" alt="" loading="lazy">{% else %}<span class="match-player-avatar match-player-avatar-fallback" aria-hidden="true">{{ pname[:1]|upper }}</span>{% endif %}
-        <span><span data-i18n-ignore>{{ pname }}</span>{% if p.role == 'substitute' %}（替补）{% endif %}</span>
-      </a>
-      {% endfor %}
-    </div>
-    {% endif %}
-    </div>
-    <div class="mh-team-name" data-i18n-ignore>{{ match.team1_name }}</div>
-    {% if has_score %}
-    <div class="mh-team-score {% if match.team1_score > match.team2_score %}won{% elif match.team1_score < match.team2_score %}lost{% endif %}">{{ match.team1_score }}</div>
-    {% endif %}
-  </div>
+  {{ banner_team(left_team, right_team, 'left', team1_roster if left_team.side == 't1' else team2_roster, has_score) }}
   <div class="mh-mid">
     <a class="mh-event" href="{{ event_path(match) }}" data-i18n-ignore>{{ match.event_name or '80GOTV' }}</a>
     <div class="mh-time">{{ match.match_time|time_display if match.match_time else 'TBD' }}</div>
@@ -325,31 +328,7 @@
       {% endif %}
     </div>
   </div>
-  <div class="mh-team mh-team-right">
-    <div class="match-team-pop right" tabindex="0">
-    {% if match.t2_logo %}
-    <img class="team-logo xl mh-logo" src="{{ match.t2_logo|team_logo_url }}" alt="{{ match.team2_name }}" loading="lazy">
-    {% else %}
-    <span class="logo-fallback xl mh-logo mh-logo-fallback" data-i18n-ignore>{{ match.team2_name|team_abbr(match.t2s) }}</span>
-    {% endif %}
-    {% if team2_roster %}
-    <div class="match-team-players-popup">
-      <div class="match-pop-team-name" data-i18n-ignore>{{ match.team2_name }}</div>
-      {% for p in team2_roster %}
-      {% set pname = private_name_for_player(p.id, p.nickname) %}
-      <a class="match-player-link" href="/players/{{ p.id }}">
-        {% if p.avatar %}<img class="match-player-avatar" src="{{ p.avatar }}" alt="" loading="lazy">{% else %}<span class="match-player-avatar match-player-avatar-fallback" aria-hidden="true">{{ pname[:1]|upper }}</span>{% endif %}
-        <span><span data-i18n-ignore>{{ pname }}</span>{% if p.role == 'substitute' %}（替补）{% endif %}</span>
-      </a>
-      {% endfor %}
-    </div>
-    {% endif %}
-    </div>
-    <div class="mh-team-name" data-i18n-ignore>{{ match.team2_name }}</div>
-    {% if has_score %}
-    <div class="mh-team-score {% if match.team2_score > match.team1_score %}won{% elif match.team2_score < match.team1_score %}lost{% endif %}">{{ match.team2_score }}</div>
-    {% endif %}
-  </div>
+  {{ banner_team(right_team, left_team, 'right', team1_roster if right_team.side == 't1' else team2_roster, has_score) }}
   {% if match.effective_status == 'completed' %}
   <div class="mh-actions">
     <a class="btn btn-sm" href="/matches/{{ match.id }}/report">比赛战报</a>
@@ -381,9 +360,10 @@
         </div>
         {# 和 HLTV 一样分两行对齐：队标 · 队名 · 数据 · 队名 · 队标 / 选图 · 比分 · 半场比分 · 比分 · 选图 #}
         <div class="ms-bottom">
-          {% for side in ('t1', 't2') %}
+          {% for opponent in opponents %}
+          {% set side = opponent.side %}
           {% set is_t1 = side == 't1' %}
-          {% set pos = 'left' if is_t1 else 'right' %}
+          {% set pos = 'left' if loop.first else 'right' %}
           {% set won = t1_won_map if is_t1 else t2_won_map %}
           {% set lost = t2_won_map if is_t1 else t1_won_map %}
           {% set logo = match.t1_logo if is_t1 else match.t2_logo %}
@@ -410,8 +390,8 @@
             {% set t2_h2_side = 'T' if t2_h1_side == 'CT' else ('CT' if t2_h1_side == 'T' else '?') %}
             {% set ot1 = (ms.t1|int) - (ms.halves.h1_t1|int) - (ms.halves.h2_t1|int) %}
             {% set ot2 = (ms.t2|int) - (ms.halves.h1_t2|int) - (ms.halves.h2_t2|int) %}
-            <span class="ms-half-detail" title="上半场 / 下半场（蓝色 CT、橙色 T）">(<span class="{{ 'ct-side' if t1_h1_side == 'CT' else 't-side' if t1_h1_side == 'T' else '' }}">{{ ms.halves.h1_t1 }}</span>:<span class="{{ 'ct-side' if t2_h1_side == 'CT' else 't-side' if t2_h1_side == 'T' else '' }}">{{ ms.halves.h1_t2 }}</span>; <span class="{{ 'ct-side' if t1_h2_side == 'CT' else 't-side' if t1_h2_side == 'T' else '' }}">{{ ms.halves.h2_t1 }}</span>:<span class="{{ 'ct-side' if t2_h2_side == 'CT' else 't-side' if t2_h2_side == 'T' else '' }}">{{ ms.halves.h2_t2 }}</span>)</span>
-            {% if ot1 >= 0 and ot2 >= 0 and (ot1 + ot2) > 0 %}<span class="ms-ot-detail" title="加时">({{ ot1 }}:{{ ot2 }})</span>{% endif %}
+            <span class="ms-half-detail" title="上半场 / 下半场（蓝色 CT、橙色 T）">({% for opponent in opponents %}{% set side_label = t1_h1_side if opponent.side == 't1' else t2_h1_side %}<span class="{{ 'ct-side' if side_label == 'CT' else 't-side' if side_label == 'T' else '' }}">{{ ms.halves['h1_' ~ opponent.side] }}</span>{{ ':' if not loop.last else '' }}{% endfor %}; {% for opponent in opponents %}{% set side_label = t1_h2_side if opponent.side == 't1' else t2_h2_side %}<span class="{{ 'ct-side' if side_label == 'CT' else 't-side' if side_label == 'T' else '' }}">{{ ms.halves['h2_' ~ opponent.side] }}</span>{{ ':' if not loop.last else '' }}{% endfor %})</span>
+            {% if ot1 >= 0 and ot2 >= 0 and (ot1 + ot2) > 0 %}<span class="ms-ot-detail" title="加时">({{ ot1 if left_team.side == 't1' else ot2 }}:{{ ot2 if right_team.side == 't2' else ot1 }})</span>{% endif %}
             {% endif %}
           </span>
         </div>
@@ -452,9 +432,7 @@
       <div class="bp-intro">
         {% if bp_view.roll %}
         <span class="bp-roll">Roll
-          <span class="{% if bp_view.roll.winner == 't1' %}bp-roll-win{% endif %}"><b data-i18n-ignore>{{ match.t1s }}</b> {{ bp_view.roll.t1 }}</span>
-          <span class="bp-roll-sep">:</span>
-          <span class="{% if bp_view.roll.winner == 't2' %}bp-roll-win{% endif %}">{{ bp_view.roll.t2 }} <b data-i18n-ignore>{{ match.t2s }}</b></span>
+          {% for opponent in opponents %}<span class="{% if bp_view.roll.winner == opponent.side %}bp-roll-win{% endif %}"><b data-i18n-ignore>{{ opponent.short }}</b> {{ bp_view.roll[opponent.side] }}</span>{% if not loop.last %}<span class="bp-roll-sep">:</span>{% endif %}{% endfor %}
         </span>
         {% endif %}
         {% if bp_view.order %}
@@ -480,7 +458,7 @@
         <div class="bp-side-row">
           <span class="bp-map">{{ sd.map|map_display }}</span>
           <span class="bp-team" data-i18n-ignore>{{ bp_names.get(sd.team) or sd.label }}</span>
-          <span class="badge {{ 'badge-ct' if sd.side == 'CT' else 'badge-t' }}">{{ sd.side }}</span>
+          <span class="badge {{ 'badge-ct' if sd.side == 'CT' else 'badge-t' if sd.side == 'T' else '' }}">{{ sd.side or '?' }}</span>
         </div>
         {% endfor %}
       </div>
@@ -525,7 +503,8 @@ function loadStream() {
     {% for hm in h2h_matches %}
     <a class="list-row mh-h2h-row" href="/matches/{{ hm.slug or hm.id }}">
       <span class="mh-h2h-date">{{ hm.match_time|date_display }}</span>
-      <span class="mh-h2h-score" data-i18n-ignore>{{ hm.t1s }} <b>{{ hm.team1_score }}:{{ hm.team2_score }}</b> {{ hm.t2s }}</span>
+      {% set hm_left, hm_right = match_opponents(hm) %}
+      <span class="mh-h2h-score" data-i18n-ignore>{{ hm_left.short }} <b>{{ hm_left.score }}:{{ hm_right.score }}</b> {{ hm_right.short }}</span>
       <span class="mh-h2h-event" data-i18n-ignore>{{ hm.event_name or '' }}</span>
     </a>
     {% endfor %}
@@ -547,12 +526,10 @@ function loadStream() {
     {% set t2_pct = 100 - t1_pct %}
     <div class="vote-bar-wrap">
       <div class="vote-bar">
-        <div class="vote-bar-fill vote-bar-t1" style="width:{{ t1_pct }}%"></div>
-        <div class="vote-bar-fill vote-bar-t2" style="width:{{ t2_pct }}%"></div>
+        {% for opponent in opponents %}<div class="vote-bar-fill vote-bar-{{ opponent.side }}" style="width:{{ t1_pct if opponent.side == 't1' else t2_pct }}%"></div>{% endfor %}
       </div>
       <div class="vote-labels">
-        <span class="vote-label-t1">{{ match.t1s }} {{ t1_pct }}% ({{ vote_data.t1_count }}票)</span>
-        <span class="vote-label-t2">{{ match.t2s }} {{ t2_pct }}% ({{ vote_data.t2_count }}票)</span>
+        {% for opponent in opponents %}<span class="vote-label-{{ opponent.side }}"><span data-i18n-ignore>{{ opponent.short }}</span> {{ t1_pct if opponent.side == 't1' else t2_pct }}% ({{ vote_data.t1_count if opponent.side == 't1' else vote_data.t2_count }}票)</span>{% endfor %}
       </div>
     </div>
     {% if session.user_id %}
@@ -561,15 +538,15 @@ function loadStream() {
       {% else %}
       <div class="vote-form-row">
         <div class="vote-score-inputs">
-          <input type="number" class="vote-score-inp" id="score1" placeholder="?" min="0" max="99" aria-label="{{ match.t1s }} · 比分">
-          <span class="muted">:</span>
-          <input type="number" class="vote-score-inp" id="score2" placeholder="?" min="0" max="99" aria-label="{{ match.t2s }} · 比分">
+          {% for opponent in opponents %}
+          <input type="number" class="vote-score-inp" id="score{{ opponent.number }}" placeholder="?" min="0" max="99" aria-label="{{ opponent.short }} · 比分">
+          {% if not loop.last %}<span class="muted">:</span>{% endif %}
+          {% endfor %}
           <span class="vote-score-hint">比分(可选)</span>
         </div>
       </div>
       <div class="vote-buttons">
-        <button class="btn vote-btn vote-btn-t1" type="button" data-vote="t1" onclick="submitVote(this)">🏆 {{ match.t1s }}</button>
-        <button class="btn vote-btn vote-btn-t2" type="button" data-vote="t2" onclick="submitVote(this)">🏆 {{ match.t2s }}</button>
+        {% for opponent in opponents %}<button class="btn vote-btn vote-btn-{{ opponent.side }}" type="button" data-vote="{{ opponent.side }}" onclick="submitVote(this)"><span data-i18n-ignore>{{ opponent.short }}</span></button>{% endfor %}
       </div>
       {% endif %}
     {% else %}
@@ -796,7 +773,8 @@ document.addEventListener('click', function(e) {
           '进行中' if m.effective_status == 'live' else
           '已取消' if m.effective_status == 'cancelled' else
           '已结束' }}</span>
-        <span class="sidebar-event-name truncate">{% if m.team1_name %}{{ m.team1_name }}{% else %}<span data-i18n-translate>队伍 1</span>{% endif %} vs {% if m.team2_name %}{{ m.team2_name }}{% else %}<span data-i18n-translate>队伍 2</span>{% endif %}</span>
+        {% set sidebar_left, sidebar_right = match_opponents(m) %}
+        <span class="sidebar-event-name truncate" data-i18n-ignore>{{ sidebar_left.name }} vs {{ sidebar_right.name }}</span>
       </a>
       {% endfor %}
     {% else %}

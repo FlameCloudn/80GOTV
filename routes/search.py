@@ -9,6 +9,7 @@ from services.match_service import supplement_temp_teams
 from services.player_remark_service import private_player_identity
 from utils.filters import date_display_filter
 from utils.helpers import event_path, news_path
+from utils.match_display import match_opponents
 from utils.match_utils import get_sql_effective_status
 from web_app import app
 
@@ -100,6 +101,8 @@ def search():
         match_results = conn.execute(
             f"""
             SELECT m.id, m.slug, m.match_time, m.team1_score, m.team2_score, m.bo_format,
+                   m.event_id,m.team1_id,m.team2_id,m.team1_players,m.team2_players,
+                   t1.short_name AS t1s,t2.short_name AS t2s,
                    t1.name AS team1_name, t2.name AS team2_name, e.name AS event_name,
                    {_SQL_EFFECTIVE_STATUS}
             FROM matches m
@@ -218,6 +221,7 @@ def api_search():
             for r in conn.execute(
                 f"""
             SELECT m.id, m.slug, m.match_time, m.team1_score, m.team2_score,
+                   m.event_id,m.team1_id,m.team2_id,m.team1_players,m.team2_players,
                    t1.name AS team1_name, t1.short_name AS t1s,
                    t2.name AS team2_name, t2.short_name AS t2s,
                    e.name AS event_name,
@@ -274,10 +278,13 @@ def api_search():
             }
         )
     for m in matches:
+        left_team, right_team = match_opponents(m)
+        score_left = left_team["score"] if left_team["score"] is not None else "-"
+        score_right = right_team["score"] if right_team["score"] is not None else "-"
         results.append(
             {
                 "type": "match",
-                "label": f"{m['t1s']} {m['team1_score']}:{m['team2_score']} {m['t2s']}",
+                "label": f"{left_team['short']} {score_left}:{score_right} {right_team['short']}",
                 "sub": m.get("event_name") or "",
                 "url": f"/matches/{m.get('slug') or m['id']}",
             }

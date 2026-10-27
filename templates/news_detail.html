@@ -31,13 +31,14 @@
     <a href="/matches/{{ related_match.slug or related_match.id }}" class="related-match-card">
       <small>关联比赛</small>
       <div class="related-match-row">
+        {% set left_team, right_team = match_opponents(related_match) %}
         <div>
-          <strong><span data-i18n-ignore>{{ related_match.t1n }}</span> <span class="related-match-vs" data-i18n-ignore>vs</span> <span data-i18n-ignore>{{ related_match.t2n }}</span></strong>
+          <strong><span data-i18n-ignore>{{ left_team.name }}</span> <span class="related-match-vs" data-i18n-ignore>vs</span> <span data-i18n-ignore>{{ right_team.name }}</span></strong>
           {% if related_match.event_name %}<small><span data-i18n-ignore>{{ related_match.event_name }}</span> · {{ related_match.match_time|date_display if related_match.match_time else '' }}</small>{% endif %}
         </div>
         {#- 还没开打的比赛没有比分，显示 VS，不把未知比分写成 0 : 0 -#}
         {% if related_match.status in ('completed', 'live') and related_match.team1_score is not none and related_match.team2_score is not none %}
-        <b class="score related-match-score">{{ related_match.team1_score }} : {{ related_match.team2_score }}</b>
+        <b class="score related-match-score">{{ left_team.score }} : {{ right_team.score }}</b>
         {% else %}
         <b class="score related-match-score is-pending" data-i18n-ignore>VS</b>
         {% endif %}

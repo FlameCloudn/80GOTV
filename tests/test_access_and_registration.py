@@ -38,6 +38,23 @@ class AccessAndRegistrationTests(unittest.TestCase):
         except OSError:
             pass
 
+    def _verify_registration_email(self, email):
+        with self.client.session_transaction() as saved:
+            csrf_token = saved["csrf_token"]
+        with (
+            patch("routes.auth._send_registration_email"),
+            patch("routes.auth.secrets.randbelow", return_value=0),
+        ):
+            sent = self.client.post(
+                "/auth/email/send-code", data={"csrf_token": csrf_token, "email": email}
+            )
+        self.assertEqual(sent.status_code, 200)
+        verified = self.client.post(
+            "/auth/email/verify-code",
+            data={"csrf_token": csrf_token, "email": email, "code": "100000"},
+        )
+        self.assertEqual(verified.status_code, 200)
+
     def test_anonymous_visitors_can_browse_read_only_pages(self):
         for path in (
             "/",
@@ -345,10 +362,7 @@ class AccessAndRegistrationTests(unittest.TestCase):
                 "steam_id64": "76561198000000001",
                 "verified_at": time.time(),
             }
-            browser_session["registration_email_verified"] = {
-                "email": "pending@example.com",
-                "verified_at": time.time(),
-            }
+        self._verify_registration_email("pending@example.com")
 
         with patch("routes.auth._check_captcha", return_value=True):
             response = self.client.post(
@@ -390,10 +404,7 @@ class AccessAndRegistrationTests(unittest.TestCase):
                 "steam_id64": "76561198000000011",
                 "verified_at": time.time(),
             }
-            browser_session["registration_email_verified"] = {
-                "email": "missing-group@example.com",
-                "verified_at": time.time(),
-            }
+        self._verify_registration_email("missing-group@example.com")
 
         with patch("routes.auth._check_captcha", return_value=True):
             response = self.client.post(
@@ -429,10 +440,7 @@ class AccessAndRegistrationTests(unittest.TestCase):
                 "steam_id64": "76561198000000012",
                 "verified_at": time.time(),
             }
-            browser_session["registration_email_verified"] = {
-                "email": "external@example.com",
-                "verified_at": time.time(),
-            }
+        self._verify_registration_email("external@example.com")
 
         with patch("routes.auth._check_captcha", return_value=True):
             response = self.client.post(

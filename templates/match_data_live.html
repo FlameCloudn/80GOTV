@@ -1,4 +1,4 @@
-{#- 比赛数据直播（照 HLTV 记分板）：比分条 → 队伍 1 选手表 → 回合记录 → 队伍 2 选手表 → 比赛日志 + 小地图。
+{#- 比赛数据直播（照 HLTV 记分板）：比分条 → 双方选手表与回合记录 → 比赛日志 + 小地图。
     数据每秒从 /api/live/<id> 取一次（页面在后台时 3 秒一次），只改有变化的格子，行和图片都不重建。
     样式在 static/css/pages/match.css 第 11 节。 -#}
 {% macro live_logo(logo, name, short_name, size='md') %}
@@ -8,7 +8,7 @@
 {#- 一行选手：头像+名字 | 血量 | 护甲 | 手枪 | 主武器 | 金钱 | K | A | D | ADR。
     还没收到数据时先填上报名阵容的名字和头像；JS 新建行时用下面 <template> 里同一份结构 -#}
 {% macro live_player_row(p=none) %}
-{% set name = private_name_for_player(p.id, p.nickname) if p else '-' %}
+{% set name = (private_name_for_player(p.id, p.nickname) if p.id else p.nickname) if p else '-' %}
 <div class="player-row dead">
   <span class="p-name">
     <span class="p-avatar">{% if p and p.avatar %}<img src="{{ p.avatar }}" data-src="{{ p.avatar }}" alt="" loading="lazy">{% else %}<img hidden alt="">{% endif %}<span data-avatar-fallback{% if p and p.avatar %} hidden{% endif %}>{{ name[:1] }}</span></span>
@@ -39,8 +39,8 @@
 </div>
 {% endmacro %}
 
-{% set live_team1 = match.team1_name or '队伍 1' %}
-{% set live_team2 = match.team2_name or '队伍 2' %}
+{% set live_opponents = match_opponents(match) %}
+{% set live_left, live_right = live_opponents %}
 <section class="panel scorebot" id="data-live" data-i18n-ignore>
   <div class="panel-head">
     <h2 class="panel-title" data-i18n-translate>比赛数据直播</h2>
@@ -49,11 +49,11 @@
 
   <header class="sb-head">
     <div class="sb-head-team">
-      {{ live_logo(match.t1_logo, match.team1_name, match.t1s) }}
-      <span class="sb-head-name" id="team1Name">{{ live_team1 }}</span>
+      {{ live_logo(live_left.logo, live_left.name, live_left.short) }}
+      <span class="sb-head-name" id="team{{ live_left.number }}Name">{{ live_left.name }}</span>
     </div>
     <div class="sb-head-center">
-      <div class="sb-score"><span class="side-score" id="liveScore1">-</span><span class="sb-colon">:</span><span class="side-score" id="liveScore2">-</span></div>
+      <div class="sb-score"><span class="side-score" id="liveScore{{ live_left.number }}">-</span><span class="sb-colon">:</span><span class="side-score" id="liveScore{{ live_right.number }}">-</span></div>
       <div class="sb-meta">
         <span id="roundNum" data-i18n-translate>等待回合数据</span>
         <span class="sb-dot">·</span><span id="mapName">-</span>
@@ -61,22 +61,23 @@
       </div>
     </div>
     <div class="sb-head-team right">
-      <span class="sb-head-name" id="team2Name">{{ live_team2 }}</span>
-      {{ live_logo(match.t2_logo, match.team2_name, match.t2s) }}
+      <span class="sb-head-name" id="team{{ live_right.number }}Name">{{ live_right.name }}</span>
+      {{ live_logo(live_right.logo, live_right.name, live_right.short) }}
     </div>
   </header>
 
-  {{ live_team_block(1, live_team1, team1_roster|default([]), match.t1_logo, match.t1s) }}
+  {{ live_team_block(live_left.number, live_left.name, (team1_roster if live_left.side == 't1' else team2_roster)|default([]), live_left.logo, live_left.short) }}
 
-  {#- 回合记录：上面一排是队伍 1 赢的回合，下面一排是队伍 2；固定 24 格，中间竖线是半场 -#}
+  {#- 每队一排，与上方队名顺序一致；固定 24 格，中间竖线是半场 -#}
   <div class="round-board" id="roundBoard">
-    <div class="round-lane team1"><span class="round-team">{{ live_logo(match.t1_logo, match.team1_name, match.t1s) }}</span><div class="round-lane-cells" id="roundTeam1"></div></div>
-    <div class="round-divider" aria-hidden="true"></div>
-    <div class="round-lane team2"><span class="round-team">{{ live_logo(match.t2_logo, match.team2_name, match.t2s) }}</span><div class="round-lane-cells" id="roundTeam2"></div></div>
+    {% for opponent in live_opponents %}
+    <div class="round-lane team{{ opponent.number }}"><span class="round-team">{{ live_logo(opponent.logo, opponent.name, opponent.short) }}</span><div class="round-lane-cells" id="roundTeam{{ opponent.number }}"></div></div>
+    {% if not loop.last %}<div class="round-divider" aria-hidden="true"></div>{% endif %}
+    {% endfor %}
   </div>
   <div class="overtime-board" id="overtimeBoard"></div>
 
-  {{ live_team_block(2, live_team2, team2_roster|default([]), match.t2_logo, match.t2s) }}
+  {{ live_team_block(live_right.number, live_right.name, (team1_roster if live_right.side == 't1' else team2_roster)|default([]), live_right.logo, live_right.short) }}
 
   <div class="sb-lower">
     <div class="sb-log">
@@ -150,7 +151,7 @@ function mapKey(name){return String(name||'').toLowerCase().replace('de_','').re
 function mapDisplay(name){return String(name||'').replace(/^(de_|cs_)/i,'').replace(/_/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase()})}
 function sideClass(value){
   const side=String(value||'').toLowerCase();
-  return side==='ct'||side==='t1'||side==='team1'?'ct':'t';
+  return side==='ct'||side==='t'?side:'';
 }
 function weaponKey(name){
   let key=String(name||'').trim().toLowerCase().replace(/^weapon_/,'').replace(/[\s-]+/g,'_').replace(/[^a-z0-9_]/g,'');
@@ -282,13 +283,12 @@ function reasonIcon(code,side){
   if(code==='bomb_exploded')return ICON_BASE+'bomb_exploded.svg';
   if(code==='bomb_defused')return ICON_BASE+'bomb_defused.svg';
   if(code==='time_expired')return ICON_BASE+'stopwatch.svg';
-  return ICON_BASE+(side==='ct'?'ct_win.svg':'t_win.svg');
+  return side==='ct'||side==='t'?ICON_BASE+(side==='ct'?'ct_win.svg':'t_win.svg'):'';
 }
 // 一格回合：这一队赢了就放胜利方式的图标，没赢留空
 function roundCell(round,roundIndex,teamKey,winnerTeam){
   const won=Boolean(round)&&teamKey===winnerTeam;
-  const rawSide=String(round&&round.side||'').toLowerCase();
-  const winnerSide=rawSide==='ct'||rawSide==='t'?rawSide:(winnerTeam==='t1'?'ct':'t');
+  const winnerSide=sideClass(round&&round.side);
   const code=round?reasonCode(round):'completed';
   const cell=document.createElement('span');
   cell.className='round-cell'+(won?' won '+winnerSide:' empty');
@@ -296,8 +296,8 @@ function roundCell(round,roundIndex,teamKey,winnerTeam){
   if(won){
     const img=document.createElement('img');
     img.loading='lazy';img.className='round-result';img.alt='';
-    img.src=reasonIcon(code,winnerSide);
-    cell.appendChild(img);
+    const icon=reasonIcon(code,winnerSide);
+    if(icon){img.src=icon;cell.appendChild(img)}else{cell.textContent='?'}
   }
   return cell;
 }
@@ -347,10 +347,11 @@ function renderOvertime(rounds){
       const round=byOffset.get(index);
       const cell=document.createElement('span');cell.className='ot-round-cell';
       if(round){
-        const winner=String(round.winner||'').toLowerCase(),side=String(round.side||'').toLowerCase();
+        const side=sideClass(round.side);
         const img=document.createElement('img');img.className='ot-round-result';img.alt='';
-        img.src=reasonIcon(reasonCode(round),side==='ct'||side==='t'?side:(winner==='t1'?'ct':'t'));
-        cell.appendChild(img);cell.title=tr('第 '+Number(round.round_number??round.round)+' 回合');
+        const icon=reasonIcon(reasonCode(round),side);
+        if(icon){img.src=icon;cell.appendChild(img)}else{cell.textContent='?'}
+        cell.title=tr('第 '+Number(round.round_number??round.round)+' 回合');
       }
       strip.appendChild(cell);
     }
@@ -370,7 +371,7 @@ function collectFeedEvents(data){
   (data.bomb_events||[]).forEach(function(event,index){
     items.push({id:'plant:'+(event.id||event.round+':'+index+':'+event.player),type:'plant',data:event,order:eventOrder(event,'plant',index)});
   });
-  (data.round_history||[]).forEach(function(event,index){
+  [...(data.round_history||[]),...(data.overtime_history||[])].forEach(function(event,index){
     items.push({id:'round:'+(event.id||event.round+':'+(event.side||event.winner)),type:'round',data:event,order:eventOrder(event,'round',index)});
   });
   return items.sort(function(a,b){return b.order-a.order}).slice(0,36);
@@ -383,6 +384,7 @@ function addText(parent,className,text){
   return node;
 }
 function addIcon(parent,className,src){
+  if(!src)return;
   const icon=document.createElement('img');
   icon.loading='lazy';icon.className=className;icon.src=src;icon.alt='';
   parent.appendChild(icon);
@@ -406,7 +408,7 @@ function updateFeedNode(node,item){
   node.className='kill-line round-over '+side+' reason-'+code.replace(/_/g,'-');
   addIcon(node,'reason-icon',reasonIcon(code,side));
   addText(node,'event-text',tr('回合结束')+' · '+tr('胜方')+' ');
-  addText(node,'round-winner '+side,side.toUpperCase());
+  addText(node,'round-winner '+side,side.toUpperCase()||'?');
   addText(node,'event-text',' ('+Number(event.score_ct||0)+' - '+Number(event.score_t||0)+') · '+reasonLabel(code));
   addText(node,'kill-round','R'+Number((event.round_number??event.round) || 0));
 }
@@ -520,8 +522,8 @@ function render(data){
   const sides=currentTeamSides(team1,team2);
   renderStatus(data,team1,team2);
   renderScores(team1,team2);
-  setText('team1Name',team1.name||tr('队伍 1'));
-  setText('team2Name',team2.name||tr('队伍 2'));
+  setText('team1Name',team1.name||'TBD');
+  setText('team2Name',team2.name||'TBD');
   applyTeamSide(1,sides[0]);
   applyTeamSide(2,sides[1]);
   setText('roundNum',data.round?tr('第 '+data.round+' 回合'):tr('等待回合数据'));

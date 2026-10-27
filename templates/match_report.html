@@ -1,5 +1,8 @@
 {% extends 'base.html' %}
-{% block title %}{{ match.team1_name }} vs {{ match.team2_name }} 战报 - 80GOTV{% endblock %}
+{% set opponents = match_opponents(match) %}
+{% set left_team, right_team = opponents %}
+{% set scored = left_team.score is not none and right_team.score is not none %}
+{% block title %}{{ left_team.name }} vs {{ right_team.name }} 战报 - 80GOTV{% endblock %}
 {% block head %}<link rel="stylesheet" href="{{ versioned_url('static/css/pages/match.css') }}">{% endblock %}
 {% block layout_class %}no-side-layout narrow-layout{% endblock %}
 
@@ -9,6 +12,7 @@
 
 {#- 两队对比一行：数值在两端，名称在中间上方，下面一根两色条 -#}
 {% macro compare_row(label, left, right) %}
+{% if left_team.side == 't2' %}{% set left, right = right, left %}{% endif %}
 {% set left_known = left is not none %}
 {% set right_known = right is not none %}
 {% set left_num = left|float %}
@@ -20,8 +24,8 @@
   <b>{{ label }}</b>
   <div class="match-detailed-compare-track">
     {% if left_known and right_known %}
-    <i class="t1" style="width:{{ left_pct }}%"></i>
-    <i class="t2" style="width:{{ 100 - left_pct }}%"></i>
+    <i class="{{ left_team.side }}" style="width:{{ left_pct }}%"></i>
+    <i class="{{ right_team.side }}" style="width:{{ 100 - left_pct }}%"></i>
     {% endif %}
   </div>
   <span class="match-detailed-compare-right">{{ right if right_known else '-' }}</span>
@@ -36,21 +40,21 @@
 
 <section class="panel report-hero">
   <div class="report-team">
-    {{ report_logo(match.t1_logo, match.t1s) }}
-    <span class="report-team-name" data-i18n-ignore>{{ match.team1_name }}</span>
+    {{ report_logo(left_team.logo, left_team.short) }}
+    <span class="report-team-name" data-i18n-ignore>{{ left_team.name }}</span>
   </div>
   <div class="report-hero-mid">
     <div class="report-event-name" data-i18n-ignore>{{ match.event_name or '' }}</div>
     <div class="report-score">
-      <span class="{% if match.team1_score is not none and match.team2_score is not none and match.team1_score > match.team2_score %}score-win{% elif match.team1_score is not none and match.team2_score is not none and match.team1_score < match.team2_score %}score-lose{% endif %}">{{ match.team1_score if match.team1_score is not none else '-' }}</span>
+      <span class="{% if scored and left_team.score > right_team.score %}score-win{% elif scored and left_team.score < right_team.score %}score-lose{% endif %}">{{ left_team.score if left_team.score is not none else '-' }}</span>
       <span class="sep">:</span>
-      <span class="{% if match.team1_score is not none and match.team2_score is not none and match.team2_score > match.team1_score %}score-win{% elif match.team1_score is not none and match.team2_score is not none and match.team2_score < match.team1_score %}score-lose{% endif %}">{{ match.team2_score if match.team2_score is not none else '-' }}</span>
+      <span class="{% if scored and right_team.score > left_team.score %}score-win{% elif scored and right_team.score < left_team.score %}score-lose{% endif %}">{{ right_team.score if right_team.score is not none else '-' }}</span>
     </div>
     <div class="report-meta">{{ match.bo_format }} · {{ match.match_time|datetime_display if match.match_time else '' }}</div>
   </div>
   <div class="report-team">
-    {{ report_logo(match.t2_logo, match.t2s) }}
-    <span class="report-team-name" data-i18n-ignore>{{ match.team2_name }}</span>
+    {{ report_logo(right_team.logo, right_team.short) }}
+    <span class="report-team-name" data-i18n-ignore>{{ right_team.name }}</span>
   </div>
 </section>
 
@@ -98,16 +102,15 @@
         <span class="map-report-index">图{{ mr.idx }}</span>
         {% if mr.played %}
         <span class="map-report-score">
-          <span class="{% if mr.t1_winner %}win{% elif mr.t2_winner %}lose{% endif %}">{{ mr.t1 if mr.t1 is not none else '-' }}</span>
-          <span class="sep">:</span>
-          <span class="{% if mr.t2_winner %}win{% elif mr.t1_winner %}lose{% endif %}">{{ mr.t2 if mr.t2 is not none else '-' }}</span>
+          {% for opponent in opponents %}<span class="{% if mr[opponent.side ~ '_winner'] %}win{% elif mr['t2_winner' if opponent.side == 't1' else 't1_winner'] %}lose{% endif %}">{{ mr[opponent.side] if mr[opponent.side] is not none else '-' }}</span>{% if not loop.last %}<span class="sep">:</span>{% endif %}{% endfor %}
         </span>
         {% else %}
         <span class="map-report-score is-pending">待定</span>
         {% endif %}
         {% if mr.played and (mr.t1_best or mr.t2_best) %}
         <div class="map-report-best">
-          {% for best, team_tag in [(mr.t1_best, match.t1s), (mr.t2_best, match.t2s)] %}
+          {% for opponent in opponents %}
+          {% set best, team_tag = mr[opponent.side ~ '_best'], opponent.short %}
           {% if best %}
           <a class="best-player-card" href="/players/{{ best.player_id }}">
             <span class="best-player-rating {{ best.rating|rating_class }}">{{ "%.2f"|format(best.rating) if best.rating is not none else '-' }}</span>
@@ -132,8 +135,8 @@
   <div class="panel-head"><h2 class="panel-title">队伍数据对比</h2></div>
   <div class="report-compare">
     <div class="match-detailed-compare-teams">
-      <span>{{ report_logo(match.t1_logo, match.t1s) }}<b data-i18n-ignore>{{ match.team1_name }}</b></span>
-      <span><b data-i18n-ignore>{{ match.team2_name }}</b>{{ report_logo(match.t2_logo, match.t2s) }}</span>
+      <span>{{ report_logo(left_team.logo, left_team.short) }}<b data-i18n-ignore>{{ left_team.name }}</b></span>
+      <span><b data-i18n-ignore>{{ right_team.name }}</b>{{ report_logo(right_team.logo, right_team.short) }}</span>
     </div>
     {{ compare_row('总击杀', team_stats.t1_k, team_stats.t2_k) }}
     {{ compare_row('总死亡', team_stats.t1_d, team_stats.t2_d) }}
@@ -182,16 +185,16 @@
 
 {% block extra_js %}
 {# 先在模板里拼好要复制的文字，再用 tojson 安全地交给 JS（队名里有特殊符号也不会出问题） #}
-{% set team1 = match.team1_name or 'TBD' %}
-{% set team2 = match.team2_name or 'TBD' %}
-{% set score1 = match.team1_score if match.team1_score is not none else '?' %}
-{% set score2 = match.team2_score if match.team2_score is not none else '?' %}
+{% set team1 = left_team.name %}
+{% set team2 = right_team.name %}
+{% set score1 = left_team.score if left_team.score is not none else '?' %}
+{% set score2 = right_team.score if right_team.score is not none else '?' %}
 {% set headline = team1 ~ ' ' ~ score1 ~ '-' ~ score2 ~ ' ' ~ team2 %}
 {% set event_note = (' (' ~ (match.bo_format or 'BO3') ~ ' · ' ~ match.event_name ~ ')') if match.event_name else '' %}
 {% set map_lines = [] %}
 {% for mr in map_reports %}{% if mr.played %}
-  {% set map_score1 = mr.t1 if mr.t1 is not none else '?' %}
-  {% set map_score2 = mr.t2 if mr.t2 is not none else '?' %}
+  {% set map_score1 = mr[left_team.side] if mr[left_team.side] is not none else '?' %}
+  {% set map_score2 = mr[right_team.side] if mr[right_team.side] is not none else '?' %}
   {% set _ = map_lines.append('Map' ~ mr.idx ~ ' ' ~ mr.name ~ ': ' ~ team1 ~ ' ' ~ map_score1 ~ '-' ~ map_score2 ~ ' ' ~ team2) %}
 {% endif %}{% endfor %}
 {% set mvp_name = private_name_for_player(mvp.player_id, mvp.nickname) if mvp else '' %}

@@ -16,7 +16,8 @@
       {% if item.status == 'ok' %}<span class="badge badge-green status ok">正常</span>{% else %}<span class="badge badge-red status error">异常</span>{% endif %}
     </div>
     <div data-i18n-ignore>{{ item.message or '-' }}</div>
-    <div class="muted">比赛：{% if item.match_id %}#{{ item.match_id }} <span data-i18n-ignore>{{ item.team1_name or '' }}</span> VS <span data-i18n-ignore>{{ item.team2_name or '' }}</span>{% else %}-{% endif %}</div>
+    {% set item_left, item_right = match_opponents(item) %}
+    <div class="muted">比赛：{% if item.match_id %}#{{ item.match_id }} <span data-i18n-ignore>{{ item_left.name }}</span> VS <span data-i18n-ignore>{{ item_right.name }}</span>{% else %}-{% endif %}</div>
     <div class="muted">地图：<span data-i18n-ignore>{{ item.map_name|map_display if item.map_name else '-' }}</span></div>
     <div class="muted">最后收到：{{ item.received_at|datetime_display }}</div>
   </article>
@@ -34,7 +35,8 @@
         {% for m in matches %}
         <tr>
           <td class="col-id">#{{ m.id }}</td>
-          <td><a href="{{ url_for('admin.admin_matches_edit', match_id=m.id) }}"><span data-i18n-ignore>{{ m.team1_name or '队伍 1' }}</span> VS <span data-i18n-ignore>{{ m.team2_name or '队伍 2' }}</span></a></td>
+          {% set left_team, right_team = match_opponents(m) %}
+          <td><a href="{{ url_for('admin.admin_matches_edit', match_id=m.id) }}"><span data-i18n-ignore>{{ left_team.name }}</span> VS <span data-i18n-ignore>{{ right_team.name }}</span></a></td>
           <td>
             {% if m.effective_status == 'upcoming' %}<span class="badge badge-upcoming">未开始</span>
             {% elif m.effective_status == 'live' %}<span class="badge badge-live">直播中</span>

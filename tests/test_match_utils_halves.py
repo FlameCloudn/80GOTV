@@ -47,7 +47,7 @@ class MatchHalfScoreUtilsTests(unittest.TestCase):
         self.assertEqual(halves["opening_ct_team"], "t2")
         self.assertEqual(halves["side_source"], "website_bp")
 
-    def test_half_scores_uses_existing_opening_value(self):
+    def test_half_scores_marks_the_current_bp_as_the_source(self):
         self.conn.execute(
             """INSERT INTO matches(
                    id, map1, map_halves, bp_state
@@ -62,7 +62,7 @@ class MatchHalfScoreUtilsTests(unittest.TestCase):
         halves = get_map_half_scores(row, 0, parse_map_halves(row))
 
         self.assertEqual(halves["opening_ct_team"], "t1")
-        self.assertEqual(halves["side_source"], "unknown")
+        self.assertEqual(halves["side_source"], "website_bp")
 
     def test_half_scores_keeps_unknown_when_no_bp_info(self):
         self.conn.execute(

@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
-{% block title %}BP 房间 - {{ team1_name }} 对 {{ team2_name }}{% endblock %}
+{% set opponents = match_opponents(match) %}
+{% block title %}BP 房间 - {{ opponents[0].name }} 对 {{ opponents[1].name }}{% endblock %}
 {% block head %}<link rel="stylesheet" href="{{ versioned_url('static/css/pages/bp.css') }}">{% endblock %}
 {% block layout_class %}no-side-layout{% endblock %}
 
@@ -19,9 +20,10 @@
     {% if is_admin %}<span class="badge badge-red">管理员模式</span>{% endif %}
   </div>
   <div class="bp-teams">
-    {{ bp_team('t1', team1_name, match.t1_logo, match.t1s) }}
-    <span class="bp-vs">VS</span>
-    {{ bp_team('t2', team2_name, match.t2_logo, match.t2s) }}
+    {% for opponent in opponents %}
+    {{ bp_team(opponent.side, opponent.name, opponent.logo, opponent.short) }}
+    {% if not loop.last %}<span class="bp-vs">VS</span>{% endif %}
+    {% endfor %}
   </div>
   {% if my_team %}<p class="bp-role-hint">你可以申请本队 BP 操作席</p>{% endif %}
 </section>
@@ -60,6 +62,7 @@
 var matchId = {{ match.id }};
 var myTeam = {{ ('"' + my_team + '"')|safe if my_team else 'null' }};
 var teamNames = { 't1': {{ team1_name|tojson }}, 't2': {{ team2_name|tojson }} };
+var teamOrder = {{ opponents|map(attribute='side')|list|tojson }};
 var isAdmin = {{ is_admin|tojson }};
 var isCaptain = {{ is_captain|tojson }};
 var bpVerified = {{ bp_verified|tojson }};
@@ -99,13 +102,18 @@ function getActingTeam(stepIdx) {
   if (!bpState || stepIdx >= (bpState.steps||[]).length) return null;
   var step = bpState.steps[stepIdx];
   var fp = bpState.first_picker;
+  if (!['t1', 't2'].includes(fp) || !['first', 'second'].includes(bpState.first_choice)) return null;
   if (step.team === 'first') {
     return bpState.first_choice === 'first' ? fp : (fp === 't1' ? 't2' : 't1');
   }
   return bpState.first_choice === 'first' ? (fp === 't1' ? 't2' : 't1') : fp;
 }
 
-function getTeamName(t) { return t === 't1' ? teamNames.t1 : teamNames.t2; }
+function getTeamName(t) { return teamNames[t] || 'TBD'; }
+function getSideTeam(p) {
+  if (['t1', 't2'].includes(p.side_team)) return p.side_team;
+  return p.picked_by === 't1' ? 't2' : (p.picked_by === 't2' ? 't1' : null);
+}
 
 function verifyBpPassword() {
   var input = document.getElementById('bp-password');
@@ -161,8 +169,7 @@ function getOpTeam() {
       var p = picks[i];
       if (p.picked_by === 'remaining' && bpState.bo !== 'BO1') continue;
       if (!p.side) {
-        if (p.side_team) return p.side_team;
-        if (p.picked_by !== 'remaining') return p.picked_by === 't1' ? 't2' : 't1';
+        if (getSideTeam(p)) return getSideTeam(p);
       }
     }
   }
@@ -303,7 +310,7 @@ function renderPicks() {
     else cls += ' remaining';
     var label = p.map;
     if (p.side) {
-      var sideTeam = p.side_team || (p.picked_by === 't1' ? 't2' : (p.picked_by === 't2' ? 't1' : ''));
+      var sideTeam = getSideTeam(p);
       label += ' (' + (sideTeam ? getTeamName(sideTeam) + ' ' : '') + p.side + ')';
     }
     html += '<div class="' + cls + '">' + label + '<span class="pick-num">图 ' + (i+1) + '</span></div>';
@@ -324,12 +331,15 @@ function renderStatus() {
   if (status === 'rolling') {
     var rolls = bpState.rolls || {};
     var t1r = rolls.t1, t2r = rolls.t2;
+    var rollLabels = teamOrder.map(function(side) {
+      return getTeamName(side) + ' <b>' + (rolls[side] != null ? rolls[side] : '?') + '</b>';
+    }).join(' : ');
     if (t1r == null && t2r == null) {
       html = '双方 Roll 点决定先手 — 点数大者可以选择先 Ban/Pick 或后 Ban/Pick';
     } else if (bpState.first_picker) {
-      html = 'Roll 结果: ' + getTeamName('t1') + ' <b>' + (t1r!=null?t1r:'?') + '</b> — ' + getTeamName('t2') + ' <b>' + (t2r!=null?t2r:'?') + '</b>  →  <span class="bp-good">' + getTeamName(bpState.first_picker) + ' 胜出!</span>';
+      html = 'Roll 结果: ' + rollLabels + ' → <span class="bp-good">' + getTeamName(bpState.first_picker) + ' 胜出!</span>';
     } else {
-      html = 'Roll: ' + getTeamName('t1') + '=<b>' + (t1r!=null?t1r:'?') + '</b>  ' + getTeamName('t2') + '=<b>' + (t2r!=null?t2r:'?') + '</b>  (等待另一方)';
+      html = 'Roll: ' + rollLabels + ' (等待另一方)';
     }
   } else if (status === 'bp') {
     if (bpState.first_choice === null && bpState.first_picker) {
@@ -383,19 +393,21 @@ function renderActions() {
 
     // 两个骰子：点数大的一方变绿
     html = '<div class="roll-dice-row">';
-    html += '<div class="roll-team-dice"><div class="dice-label">' + getTeamName('t1') + '</div>';
-    html += '<div class="roll-dice' + (t1r != null ? ' rolled' : '') + (bpState.first_picker === 't1' ? ' winner' : '') + '">' + (t1r != null ? t1r : '?') + '</div></div>';
-    html += '<div class="roll-vs">VS</div>';
-    html += '<div class="roll-team-dice"><div class="dice-label">' + getTeamName('t2') + '</div>';
-    html += '<div class="roll-dice' + (t2r != null ? ' rolled' : '') + (bpState.first_picker === 't2' ? ' winner' : '') + '">' + (t2r != null ? t2r : '?') + '</div></div>';
+    teamOrder.forEach(function(side, index) {
+      if (index) html += '<div class="roll-vs">VS</div>';
+      var value = rolls[side];
+      html += '<div class="roll-team-dice"><div class="dice-label">' + getTeamName(side) + '</div>';
+      html += '<div class="roll-dice' + (value != null ? ' rolled' : '') + (bpState.first_picker === side ? ' winner' : '') + '">' + (value != null ? value : '?') + '</div></div>';
+    });
     html += '</div>';
 
     if (!bpState.first_picker) {
       html += '<div class="bp-btn-row">';
       if (isAdmin) {
         // 管理员可以替任意一方 Roll
-        if (t1r == null) html += '<button class="btn btn-primary btn-lg" type="button" onclick="doRoll(\x27t1\x27)">' + getTeamName('t1') + ' Roll</button>';
-        if (t2r == null) html += '<button class="btn btn-lg" type="button" onclick="doRoll(\x27t2\x27)">' + getTeamName('t2') + ' Roll</button>';
+        teamOrder.forEach(function(side) {
+          if (rolls[side] == null) html += '<button class="btn btn-lg" type="button" onclick="doRoll(\x27' + side + '\x27)">' + getTeamName(side) + ' Roll</button>';
+        });
       } else if (bpVerified && t1r == null && myTeam === 't1') {
         html += '<button class="btn btn-primary btn-lg" type="button" onclick="doRoll(\x27t1\x27)">' + getTeamName('t1') + ' Roll</button>';
       } else if (bpVerified && t2r == null && myTeam === 't2') {
@@ -444,10 +456,10 @@ function renderActions() {
       var p = picks[i];
       if (p.picked_by === 'remaining' && bpState.bo !== 'BO1') continue;
       if (p.side) continue;
-      var sideTeam = p.side_team || (p.picked_by === 't1' ? 't2' : 't1');
+      var sideTeam = getSideTeam(p);
       var sideLabel = p.picked_by === 'remaining' ? '最后地图' : '被选地图';
       html += '<div class="bp-side-item"><b>' + p.map + '</b> — ' + sideLabel + '，由 ' + getTeamName(sideTeam) + ' 选边';
-      if (bpVerified && (isAdmin || (myTeam && myTeam === sideTeam))) {
+      if (sideTeam && bpVerified && (isAdmin || (myTeam && myTeam === sideTeam))) {
         html += '<div class="side-btns">';
         html += '<button class="side-btn ct" type="button" data-bp-action="choose_side" data-bp-team="' + sideTeam + '" data-bp-map="' + p.map + '" data-bp-side="CT">CT 方</button>';
         html += '<button class="side-btn t" type="button" data-bp-action="choose_side" data-bp-team="' + sideTeam + '" data-bp-map="' + p.map + '" data-bp-side="T">T 方</button>';

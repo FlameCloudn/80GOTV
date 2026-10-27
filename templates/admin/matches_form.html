@@ -51,8 +51,9 @@
       <p class="lock-note">{{ ui.icon('lock') }}比赛已取消：只能修改状态、直播链接和观赛信息。</p>
       {% endif %}
       {% if current_status in ('live', 'ongoing', 'completed') %}
+      {% set score_left, score_right = match_opponents(match) %}
       <div class="score-callout">
-        <span>直播记录比分： <b><span{% if match.team1_name %} data-i18n-ignore{% endif %}>{{ match.team1_name or '队伍1' }}</span> {{ match.team1_score if match.team1_score is not none else '-' }} : {{ match.team2_score if match.team2_score is not none else '-' }} <span{% if match.team2_name %} data-i18n-ignore{% endif %}>{{ match.team2_name or '队伍2' }}</span></b></span>
+        <span>直播记录比分： <b><span data-i18n-ignore>{{ score_left.name }}</span> {{ score_left.score if score_left.score is not none else '-' }} : {{ score_right.score if score_right.score is not none else '-' }} <span data-i18n-ignore>{{ score_right.name }}</span></b></span>
       </div>
       {% endif %}
     </div>
@@ -131,9 +132,9 @@
           <div class="vs-matchup-heading">
             <div>
               <strong>对阵双方</strong>
-              <span class="field-hint">CT / T 由在线 BP 或拼刀局决定</span>
+              <span class="field-hint">开局 CT / T 以 BP 结果为准</span>
             </div>
-            <button type="button" class="btn btn-sm" onclick="swapSides()">{{ ui.icon('reopen') }}互换队伍 1 与队伍 2</button>
+            <button type="button" class="btn btn-sm" onclick="swapSides()">{{ ui.icon('reopen') }}互换参赛双方</button>
           </div>
           <div class="vs-grid">
             {% for side in ('1', '2') %}
@@ -142,13 +143,13 @@
             {% set side_is_team = side_team_id is not none or not side_ids %}
             {% if side == '2' %}<div class="vs-divider" data-i18n-ignore>VS</div>{% endif %}
             <div class="field-section">
-              <h3>队伍 {{ side }}</h3>
+              <h3>参赛方</h3>
               <div class="side-type-row">
                 <label class="check-row"><input type="radio" name="side{{ side }}_type" value="team" {% if side_is_team %}checked{% endif %} onchange="toggleSide('{{ side }}')"> 选择队伍</label>
                 <label class="check-row"><input type="radio" name="side{{ side }}_type" value="players" {% if not side_is_team %}checked{% endif %} onchange="toggleSide('{{ side }}')"> 自选选手</label>
               </div>
               <div id="side{{ side }}_team" {% if not side_is_team %}hidden{% endif %}>
-                <select name="side{{ side }}_id" id="side{{ side }}_select" aria-label="队伍 {{ side }}">
+                <select name="side{{ side }}_id" id="side{{ side }}_select" aria-label="{{ '左侧' if side == '1' else '右侧' }}参赛队伍">
                   <option value="">选择队伍</option>
                   {% for t in teams %}
                   <option value="{{ t.id }}" data-i18n-ignore {% if side_team_id|string == t.id|string %}selected{% endif %}>{{ t.name }}</option>
@@ -157,7 +158,7 @@
               </div>
               <div id="side{{ side }}_players" class="side-players" {% if side_is_team %}hidden{% endif %}>
                 {% for i in range(5) %}
-                <select name="side{{ side }}_p{{ i }}" aria-label="队伍 {{ side }} 选手 {{ i+1 }}">
+                <select name="side{{ side }}_p{{ i }}" aria-label="{{ '左侧' if side == '1' else '右侧' }}参赛方 第{{ i+1 }}位选手">
                   <option value="">选手 {{ i+1 }}</option>
                   {% for p in all_players %}
                   <option value="{{ p.id }}" data-i18n-ignore {% if side_ids|length > i and side_ids[i]|string == p.id|string %}selected{% endif %}>{{ p.nickname }}{% if p.team_name %} ({{ p.team_name }}){% endif %}</option>
@@ -177,7 +178,7 @@
             {% set side_ids = team1_player_ids if side == '1' else team2_player_ids %}
             {% if side == '2' %}<div class="vs-divider" data-i18n-ignore>VS</div>{% endif %}
             <div class="field-section">
-              <h3>队伍 {{ side }}</h3>
+              <h3 data-i18n-ignore>{{ (match.team1_name if side == '1' else match.team2_name) or 'TBD' }}</h3>
               <div class="readonly-teams" data-i18n-ignore>
                 {% if side_ids %}
                   {% for pid in side_ids %}{% for p in all_players %}{% if p.id|string == pid|string %}<span class="player-tag">{{ p.nickname }}</span>{% endif %}{% endfor %}{% endfor %}
@@ -240,8 +241,8 @@
               <span class="field-label">选图方</span>
               <select name="map{{ i }}_picked_by" {% if not setup_editable %}disabled{% endif %}>
                 <option value="">—</option>
-                <option value="t1" {% if pb_val=='t1' %}selected{% endif %}>队伍 1 Pick</option>
-                <option value="t2" {% if pb_val=='t2' %}selected{% endif %}>队伍 2 Pick</option>
+                <option value="t1" {% if pb_val=='t1' %}selected{% endif %}>{{ match.team1_name if match and match.team1_name and match.team1_name != 'TBD' else '左侧参赛方' }} 选图</option>
+                <option value="t2" {% if pb_val=='t2' %}selected{% endif %}>{{ match.team2_name if match and match.team2_name and match.team2_name != 'TBD' else '右侧参赛方' }} 选图</option>
                 <option value="decider" {% if pb_val=='decider' %}selected{% endif %}>决胜图 (Decider)</option>
               </select>
             </label>
@@ -260,13 +261,13 @@
           {% set side_options = match_roster_options.get(side, []) %}
           {% set side_selected = match_roster_selected.get(side, []) %}
           <div class="field-section">
-            <h3>队伍 {{ side }} 出场名单 (5 人)</h3>
+            <h3><span data-i18n-ignore>{{ match['team' ~ side ~ '_name'] if match and match['team' ~ side ~ '_name'] else 'TBD' }}</span> 出场名单 (5 人)</h3>
             {% if side_options %}
             <div class="roster-slots">
               {% for slot in range(5) %}
               <label class="roster-slot">
                 <span>选手 {{ slot + 1 }}</span>
-                <select name="match_team{{ side }}_p{{ slot }}" aria-label="队伍{{ side }} 第{{ slot + 1 }}位选手">
+                <select name="match_team{{ side }}_p{{ slot }}" aria-label="{{ '左侧' if side == 1 else '右侧' }}参赛方 第{{ slot + 1 }}位选手">
                   <option value="">未指定 (位置 {{ slot + 1 }})</option>
                   {% for p in side_options %}
                   <option value="{{ p.id }}" data-i18n-ignore {% if side_selected|length > slot and side_selected[slot]|string == p.id|string %}selected{% endif %}>{{ p.nickname }}{% if p.is_substitute %}（替补队员）{% endif %}{% if not p.has_steam_id %}（缺 Steam ID）{% endif %}</option>

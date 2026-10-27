@@ -10,6 +10,7 @@ from werkzeug.exceptions import HTTPException
 
 from services.match_service import supplement_temp_teams
 from utils.helpers import resolve_event_ref
+from utils.match_display import match_opponents
 
 
 class NewsReferenceError(ValueError):
@@ -170,7 +171,8 @@ def resolve_news_reference(conn, value, request_host=None, _seen=None):
         kind, label, title = PUBLIC_PAGES[endpoint]
     elif endpoint in {"match_detail", "match_detailed_stats", "match_report", "match_live"}:
         match = _match(conn, values.get("slug", values.get("match_id")))
-        title = f"{match['team1_name']} vs {match['team2_name']}"
+        left_team, right_team = match_opponents(match)
+        title = f"{left_team['name']} vs {right_team['name']}"
         kind, label = "match", "比赛"
         url = f"/matches/{match['id']}"
         if endpoint == "match_report":

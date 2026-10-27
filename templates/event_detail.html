@@ -80,8 +80,8 @@
       <p class="event-modal-label">选择你的位置：</p>
       <div class="event-modal-slot-selector" id="slotSelector">
         {% for i in range(5) %}
-        <label class="event-modal-slot-opt{% if i==0 %} is-selected{% endif %}">
-          <input type="radio" name="my_slot" value="{{ i }}" onchange="selectSlot({{ i }})" {% if i==0 %}checked{% endif %}>
+        <label class="event-modal-slot-opt">
+          <input type="radio" name="my_slot" value="{{ i }}" onchange="selectSlot({{ i }})" required>
           <span>位置{{ i+1 }}</span>
         </label>
         {% endfor %}
@@ -90,9 +90,9 @@
       {% for i in range(5) %}
       <div class="event-modal-form-row" id="slotRow{{ i }}">
         <span class="event-modal-slot-num">#{{ i+1 }}</span>
-        <input name="pname_{{ i }}" aria-label="位置{{ i+1 }}选手昵称" placeholder="{% if i==0 %}你的昵称{% else %}选手{{ i+1 }}昵称(可选){% endif %}" class="event-modal-input-sm">
+        <input name="pname_{{ i }}" aria-label="位置{{ i+1 }}选手昵称" placeholder="选手{{ i+1 }}昵称(可选)" class="event-modal-input-sm">
         <input name="psteam_{{ i }}" aria-label="位置{{ i+1 }} Steam ID" placeholder="Steam ID" class="event-modal-input-sm">
-        <span class="event-modal-slot-tag slot-label">{% if i==0 %}你{% endif %}</span>
+        <span class="event-modal-slot-tag slot-label"></span>
       </div>
       {% endfor %}
       <div class="event-modal-actions">
@@ -125,8 +125,11 @@ function selectSlot(n){
     el.classList.toggle('is-selected', i===n);
   });
   document.querySelectorAll('.slot-label').forEach((el,i)=>{el.textContent = i===n ? '你' : ''});
-  document.querySelector('input[name=my_slot][value='+n+']').checked = true;
-  document.getElementById('slotRow'+n).querySelector('input[placeholder*="昵称"]').placeholder = '你的昵称';
+  document.querySelector('input[name="my_slot"][value="'+n+'"]').checked = true;
+  document.querySelectorAll('#regOverlay input[name^="pname_"]').forEach((input,i)=>{
+    const label = i===n ? '你的昵称' : '选手'+(i+1)+'昵称(可选)';
+    input.placeholder = window.siteTranslate ? window.siteTranslate(label) : label;
+  });
 }
 </script>
 {% endif %}
@@ -188,6 +191,7 @@ function selectSlot(n){
     {% for m in matches %}
     {% set team1_is_assigned = m.team1_id or m.team1_players %}
     {% set team2_is_assigned = m.team2_id or m.team2_players %}
+    {% set left, right = match_opponents(m) %}
     {% set done = m.effective_status == 'completed' %}
     {% set scored = done and m.team1_score is not none and m.team2_score is not none %}
     {% set t1_won = scored and m.team1_score > m.team2_score %}
@@ -196,9 +200,9 @@ function selectSlot(n){
     <div class="event-match-row">
       <span class="event-match-time">{{ m.match_time|datetime_display if m.match_time else 'TBD' }}</span>
       <a class="event-match-main" href="/matches/{{ m.slug or m.id }}">
-        <span class="team{% if t1_won %} won{% elif t2_won %} lost{% endif %}" data-i18n-ignore>{{ m.team1_name if team1_is_assigned else 'TBD' }}</span>
-        <span class="vs">{% if done %}<b>{{ m.team1_score }} : {{ m.team2_score }}</b>{% else %}对阵{% endif %}</span>
-        <span class="team right{% if t2_won %} won{% elif t1_won %} lost{% endif %}" data-i18n-ignore>{{ m.team2_name if team2_is_assigned else 'TBD' }}</span>
+        <span class="team{% if scored and left.score > right.score %} won{% elif scored and left.score < right.score %} lost{% endif %}" data-match-side="{{ left.side }}" data-i18n-ignore>{{ left.name }}</span>
+        <span class="vs">{% if done %}<b>{{ left.score if left.score is not none else '-' }} : {{ right.score if right.score is not none else '-' }}</b>{% else %}对阵{% endif %}</span>
+        <span class="team right{% if scored and right.score > left.score %} won{% elif scored and right.score < left.score %} lost{% endif %}" data-match-side="{{ right.side }}" data-i18n-ignore>{{ right.name }}</span>
       </a>
       <span class="event-match-side">
         <span data-i18n-ignore>{{ m.bo_format or 'BO1' }}</span>

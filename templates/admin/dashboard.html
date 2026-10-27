@@ -38,7 +38,8 @@
             <td>{% if m.effective_status == 'live' %}<span class="badge badge-live live-badge">直播中</span>{% else %}<span class="badge badge-upcoming">未开始</span>{% endif %}</td>
             <td class="nowrap cell-datetime">{{ m.match_time|datetime_display if m.match_time else '-' }}</td>
             <td>
-              <b class="cell-title" data-i18n-ignore>{{ m.team1_name or 'TBD' }} VS {{ m.team2_name or 'TBD' }}</b>{% if m.is_test_mode %}<span class="test-badge">测试</span>{% endif %}
+              {% set left_team, right_team = match_opponents(m) %}
+              <b class="cell-title" data-i18n-ignore>{{ left_team.name }} VS {{ right_team.name }}</b>{% if m.is_test_mode %}<span class="test-badge">测试</span>{% endif %}
               <span class="cell-sub" data-i18n-ignore>{{ m.event_name or '-' }}</span>
             </td>
             <td class="col-actions"><div class="row-actions">{{ match_ui.quick_actions(m) }}</div></td>

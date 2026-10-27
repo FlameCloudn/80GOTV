@@ -341,6 +341,38 @@ def _ensure_player_private_remarks_table(cursor):
     )
 
 
+def _ensure_security_state_tables(cursor):
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS request_rate_limits (
+            bucket TEXT NOT NULL,
+            attempted_at REAL NOT NULL,
+            expires_at REAL NOT NULL
+        )
+    """)
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_rate_limits_bucket_time "
+        "ON request_rate_limits(bucket, attempted_at)"
+    )
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_rate_limits_expiry ON request_rate_limits(expires_at)"
+    )
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS email_verification_challenges (
+            id TEXT PRIMARY KEY,
+            email TEXT NOT NULL,
+            digest TEXT NOT NULL,
+            expires_at REAL NOT NULL,
+            attempts INTEGER NOT NULL DEFAULT 0,
+            verified_at REAL,
+            consumed_at REAL
+        )
+    """)
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_email_challenges_email "
+        "ON email_verification_challenges(email)"
+    )
+
+
 def init_tables():
     conn = get_db()
     try:
@@ -404,6 +436,7 @@ def _init_tables(conn):
         _ensure_school_profile_columns(c)
         _ensure_yearly_top10_table(c)
         _ensure_player_private_remarks_table(c)
+        _ensure_security_state_tables(c)
         _ensure_placeholder_accounts_pending(c)
         _ensure_default_admin(c)
         conn.commit()
@@ -1234,6 +1267,7 @@ def _init_tables(conn):
     _ensure_match_decider_columns(c)
     _ensure_school_profile_columns(c)
     _ensure_yearly_top10_table(c)
+    _ensure_security_state_tables(c)
 
     # 旧赛事没有简称时补一个稳定值，避免保存 Demo 时无法生成文件名。
     c.execute("""UPDATE events SET short_name='EVENT_' || id

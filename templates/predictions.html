@@ -55,12 +55,13 @@
     <div class="list">
       {% for m in upcoming_matches %}
       {% set total = m.t1_votes + m.t2_votes %}
+      {% set left_team, right_team = match_opponents(m) %}
       <a href="/matches/{{ m.slug or m.id }}" class="list-row pred-match-row">
         <span class="pred-match-main">
           <small><span data-i18n-ignore>{{ m.event_name or '' }}</span> · {{ m.match_time|datetime_display if m.match_time else '' }}</small>
-          <strong><span data-i18n-ignore>{{ m.team1_name or 'TBD' }}</span> <span class="pred-vs">VS</span> <span data-i18n-ignore>{{ m.team2_name or 'TBD' }}</span></strong>
+          <strong><span data-i18n-ignore>{{ left_team.name }}</span> <span class="pred-vs">VS</span> <span data-i18n-ignore>{{ right_team.name }}</span></strong>
           {% if total > 0 %}
-          <span class="pred-vote-bar" aria-hidden="true"><i class="a" style="width:{{ (m.t1_votes / total * 100)|round }}%"></i><i class="b" style="width:{{ (m.t2_votes / total * 100)|round }}%"></i></span>
+          <span class="pred-vote-bar" aria-hidden="true">{% for opponent in [left_team, right_team] %}<i class="{{ 'a' if opponent.side == 't1' else 'b' }}" style="width:{{ ((m.t1_votes if opponent.side == 't1' else m.t2_votes) / total * 100)|round }}%"></i>{% endfor %}</span>
           {% endif %}
         </span>
         <span class="meta">{{ m.vote_count }} 人预测</span>

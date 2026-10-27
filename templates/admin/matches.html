@@ -48,7 +48,8 @@
         <tr id="match-{{ m.id }}">
           <td class="col-id">#{{ m.id }}</td>
           <td>
-            <a class="cell-title" href="{{ url_for('admin.admin_matches_edit', match_id=m.id) }}" data-i18n-ignore>{{ m.team1_name }} VS {{ m.team2_name }}</a>
+            {% set left_team, right_team = match_opponents(m) %}
+            <a class="cell-title" href="{{ url_for('admin.admin_matches_edit', match_id=m.id) }}" data-i18n-ignore>{{ left_team.name }} VS {{ right_team.name }}</a>
             {% if m.is_test_mode %}<span class="test-badge">测试</span>{% endif %}
             <span class="cell-sub" data-i18n-ignore>{{ m.event_name or '-' }}{% if m.bo_format %} · {{ m.bo_format }}{% endif %}</span>
           </td>

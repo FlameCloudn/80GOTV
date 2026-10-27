@@ -1,5 +1,9 @@
 {% extends 'base.html' %}
-{% block title %}{{ match.team1_name }} vs {{ match.team2_name }} 数据 - 80GOTV{% endblock %}
+{% set opponents = match_opponents(match) %}
+{% set left_team, right_team = opponents %}
+{% set left_summary, right_summary = summary[left_team.side], summary[right_team.side] %}
+{% set score_left, score_right = (score_t1, score_t2) if left_team.side == 't1' else (score_t2, score_t1) %}
+{% block title %}{{ left_team.name }} vs {{ right_team.name }} 数据 - 80GOTV{% endblock %}
 {% block head %}<link rel="stylesheet" href="{{ versioned_url('static/css/pages/match.css') }}">{% endblock %}
 {% block layout_class %}match-detail-layout match-detailed-layout no-side-layout{% endblock %}
 
@@ -85,8 +89,9 @@
 </section>
 {% endmacro %}
 
-{#- 两队对比条：左边队伍 1，右边队伍 2 -#}
+{#- 数值来自原始比赛位置，显示顺序与队名一致。 -#}
 {% macro compare_bar(label, left, right) %}
+{% if left_team.side == 't2' %}{% set left, right = right, left %}{% endif %}
 {% if left is not none and right is not none %}
   {% set total = left + right %}
   {% set left_pct = (left / total * 100) if total else 50 %}
@@ -99,8 +104,8 @@
   <span class="match-detailed-compare-left">{{ metric(left) }}</span>
   <b>{{ label }}</b>
   <div class="match-detailed-compare-track">
-    <i class="t1" style="width:{{ left_pct }}%"></i>
-    <i class="t2" style="width:{{ right_pct }}%"></i>
+    <i class="{{ left_team.side }}" style="width:{{ left_pct }}%"></i>
+    <i class="{{ right_team.side }}" style="width:{{ right_pct }}%"></i>
   </div>
   <span class="match-detailed-compare-right">{{ metric(right) }}</span>
 </div>
@@ -161,8 +166,7 @@
 
 {% macro team_legend() %}
 <span class="match-detailed-legend">
-  <span class="t1" data-i18n-ignore>{{ match.t1s }}</span>
-  <span class="t2" data-i18n-ignore>{{ match.t2s }}</span>
+  {% for opponent in opponents %}<span class="{{ opponent.side }}" data-i18n-ignore>{{ opponent.short }}</span>{% endfor %}
 </span>
 {% endmacro %}
 
@@ -178,7 +182,7 @@
     <a class="match-detailed-map-card match-detailed-all-card{% if selected_map_index == 0 %} active{% endif %}" href="/matches/{{ match.slug or match.id }}/detailed?map=all&tab={{ selected_tab }}" data-map-href="/matches/{{ match.slug or match.id }}/detailed?map=all">
       <span class="match-detailed-map-cover"><span>全部地图</span></span>
       <span class="match-detailed-map-info">
-        <b>{{ match.team1_score if match.team1_score is not none else '-' }} - {{ match.team2_score if match.team2_score is not none else '-' }}</b>
+        <b>{{ left_team.score if left_team.score is not none else '-' }} - {{ right_team.score if right_team.score is not none else '-' }}</b>
         <small>{{ match.bo_format or 'BO1' }}</small>
       </span>
     </a>
@@ -186,7 +190,7 @@
     <a class="match-detailed-map-card{% if selected_map_index == ms.index %} active{% endif %}{% if not ms.has_stats %} muted{% endif %}" href="/matches/{{ match.slug or match.id }}/detailed?map={{ ms.index }}&tab={{ selected_tab }}" data-map-href="/matches/{{ match.slug or match.id }}/detailed?map={{ ms.index }}">
       <span class="match-detailed-map-cover" style="background-image:url('{{ ms.name|map_image }}')"><span>{{ ms.name|map_display }}</span></span>
       <span class="match-detailed-map-info">
-        <b>{{ ms.t1 }} - {{ ms.t2 }}</b>
+        <b>{{ ms[left_team.side] }} - {{ ms[right_team.side] }}</b>
         <small>{% if ms.picked_by == 't1' %}{{ match.t1s }} 选图{% elif ms.picked_by == 't2' %}{{ match.t2s }} 选图{% else %}图 {{ ms.index }}{% endif %}</small>
       </span>
     </a>
@@ -204,27 +208,27 @@
         <div class="match-detailed-date">{{ match.match_time|datetime_display if match.match_time else 'TBD' }}</div>
         <div class="match-detailed-score-card">
           <div class="match-detailed-score-team">
-            {{ team_logo(match.t1_logo, match.team1_name, match.t1s, 'lg') }}
-            <span data-i18n-ignore>{{ match.team1_name }}</span>
+            {{ team_logo(left_team.logo, left_team.name, left_team.short, 'lg') }}
+            <span data-i18n-ignore>{{ left_team.name }}</span>
           </div>
           <div class="match-detailed-score-mid">
             <div class="match-detailed-score-nums">
-              <b class="{% if score_t1 > score_t2 %}score-win{% elif score_t1 < score_t2 %}score-lose{% endif %}">{{ score_t1 }}</b>
+              <b class="{% if score_left > score_right %}score-win{% elif score_left < score_right %}score-lose{% endif %}">{{ score_left }}</b>
               <span>:</span>
-              <b class="{% if score_t2 > score_t1 %}score-win{% elif score_t2 < score_t1 %}score-lose{% endif %}">{{ score_t2 }}</b>
+              <b class="{% if score_right > score_left %}score-win{% elif score_right < score_left %}score-lose{% endif %}">{{ score_right }}</b>
             </div>
             <small>地图</small>
             <strong>{{ selected_label|map_display if selected_label != 'All' else '全部' }}</strong>
           </div>
           <div class="match-detailed-score-team">
-            {{ team_logo(match.t2_logo, match.team2_name, match.t2s, 'lg') }}
-            <span data-i18n-ignore>{{ match.team2_name }}</span>
+            {{ team_logo(right_team.logo, right_team.name, right_team.short, 'lg') }}
+            <span data-i18n-ignore>{{ right_team.name }}</span>
           </div>
         </div>
         <dl class="facts match-detailed-breakdown">
-          <div><dt>队伍 Rating</dt><dd>{{ metric(summary.t1.rating, 2) }} : {{ metric(summary.t2.rating, 2) }}</dd></div>
-          <div><dt>首杀</dt><dd>{{ metric(summary.t1.first_kills) }} : {{ metric(summary.t2.first_kills) }}</dd></div>
-          <div><dt>1vX 残局</dt><dd>{{ metric(summary.t1.clutches) }} : {{ metric(summary.t2.clutches) }}</dd></div>
+          <div><dt>队伍 Rating</dt><dd>{{ metric(left_summary.rating, 2) }} : {{ metric(right_summary.rating, 2) }}</dd></div>
+          <div><dt>首杀</dt><dd>{{ metric(left_summary.first_kills) }} : {{ metric(right_summary.first_kills) }}</dd></div>
+          <div><dt>1vX 残局</dt><dd>{{ metric(left_summary.clutches) }} : {{ metric(right_summary.clutches) }}</dd></div>
         </dl>
         <a class="btn btn-block match-detailed-more" href="/matches/{{ match.slug or match.id }}">返回比赛详情</a>
       </article>
@@ -260,8 +264,7 @@
         </div>
       </div>
       <div class="match-detailed-team-tables">
-        {{ team_table(match.team1_name, match.t1_logo, match.t1s, team1_rows) }}
-        {{ team_table(match.team2_name, match.t2_logo, match.t2s, team2_rows) }}
+        {% for opponent in opponents %}{{ team_table(opponent.name, opponent.logo, opponent.short, team1_rows if opponent.side == 't1' else team2_rows) }}{% endfor %}
       </div>
     </section>
   </div>
@@ -271,8 +274,8 @@
       <div class="match-detailed-section-head"><h3>表现总览</h3></div>
       <div class="match-detailed-compare-panel">
         <div class="match-detailed-compare-teams">
-          <span>{{ team_logo(match.t1_logo, match.team1_name, match.t1s, 'md') }}<b data-i18n-ignore>{{ match.t1s }}</b></span>
-          <span><b data-i18n-ignore>{{ match.t2s }}</b>{{ team_logo(match.t2_logo, match.team2_name, match.t2s, 'md') }}</span>
+          <span>{{ team_logo(left_team.logo, left_team.name, left_team.short, 'md') }}<b data-i18n-ignore>{{ left_team.short }}</b></span>
+          <span><b data-i18n-ignore>{{ right_team.short }}</b>{{ team_logo(right_team.logo, right_team.name, right_team.short, 'md') }}</span>
         </div>
         {{ compare_bar('击杀', summary.t1.kills, summary.t2.kills) }}
         {{ compare_bar('死亡', summary.t1.deaths, summary.t2.deaths) }}
@@ -315,7 +318,7 @@
               <th><span data-i18n-ignore>{{ private_name_for_player(row.player_id, row.nickname) }}</span></th>
               {% for col in kill_matrix.cols %}
               {% set cell = row_cells.get(col.player_id, {'t1': 0, 't2': 0}) %}
-              <td class="kill-cell{% if cell.t1 > cell.t2 %} t1-ahead{% elif cell.t2 > cell.t1 %} t2-ahead{% endif %}"><span class="t1">{{ cell.t1 }}</span><span class="kill-sep">:</span><span class="t2">{{ cell.t2 }}</span></td>
+              <td class="kill-cell{% if cell.t1 > cell.t2 %} t1-ahead{% elif cell.t2 > cell.t1 %} t2-ahead{% endif %}"><span class="{{ left_team.side }}">{{ cell[left_team.side] }}</span><span class="kill-sep">:</span><span class="{{ right_team.side }}">{{ cell[right_team.side] }}</span></td>
               {% endfor %}
             </tr>
             {% endfor %}
@@ -337,14 +340,12 @@
       <div class="match-detailed-section-head"><h3>选手表现总览</h3><small>条越长越好，竖线是平均水平</small></div>
       {% if team1_rows or team2_rows %}
       <div class="perf-columns">
+        {% for opponent in opponents %}
         <div class="perf-column">
-          {{ perf_team_head(match.t1_logo, match.team1_name, match.t1s, 't1', summary.t1.rating) }}
-          {% for p in team1_rows %}{{ perf_card(p, perf_avg) }}{% else %}<p class="empty-state">暂无队伍 1 选手数据</p>{% endfor %}
+          {{ perf_team_head(opponent.logo, opponent.name, opponent.short, opponent.side, summary[opponent.side].rating) }}
+          {% for p in (team1_rows if opponent.side == 't1' else team2_rows) %}{{ perf_card(p, perf_avg) }}{% else %}<p class="empty-state">暂无选手数据</p>{% endfor %}
         </div>
-        <div class="perf-column">
-          {{ perf_team_head(match.t2_logo, match.team2_name, match.t2s, 't2', summary.t2.rating) }}
-          {% for p in team2_rows %}{{ perf_card(p, perf_avg) }}{% else %}<p class="empty-state">暂无队伍 2 选手数据</p>{% endfor %}
-        </div>
+        {% endfor %}
       </div>
       {% else %}
       <p class="empty-state">暂无选手表现数据</p>

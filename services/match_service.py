@@ -7,6 +7,7 @@ import re
 import sqlite3
 from datetime import datetime
 
+from services.match_roster_service import match_registration
 from services.team_logo_service import logo_relative_path
 from utils.helpers import normalize_map_key, row_get, team_abbr
 
@@ -79,7 +80,10 @@ def _single_temp_player_name(value, conn):
         player_ids = json.loads(value) if value else []
     except (TypeError, ValueError, json.JSONDecodeError):
         return None
-    if not isinstance(player_ids, list) or len(player_ids) != 1:
+    if not isinstance(player_ids, list):
+        return None
+    player_ids = [player_id for player_id in player_ids if player_id is not None]
+    if len(player_ids) != 1:
         return None
     try:
         player_id = int(player_ids[0])
@@ -119,18 +123,36 @@ def _event_registration_logo(conn, event_id, team_name):
 def supplement_temp_teams(match_row, conn=None):
     """补齐比赛两侧的临时名称、简称和报名队标。"""
     m = dict(match_row)
-    if (not m.get("team1_id") or m.get("team1_id") == -1) and _has_temp_players(
-        m.get("team1_players")
-    ):
-        name = _single_temp_player_name(m.get("team1_players"), conn)
-        m["team1_name"] = name or "TEAM 1"
-        m["t1s"] = name or "T1"
-    if (not m.get("team2_id") or m.get("team2_id") == -2) and _has_temp_players(
-        m.get("team2_players")
-    ):
-        name = _single_temp_player_name(m.get("team2_players"), conn)
-        m["team2_name"] = name or "TEAM 2"
-        m["t2s"] = name or "T2"
+    missing_short_ids = [
+        m[f"team{side}_id"]
+        for side in (1, 2)
+        if m.get(f"team{side}_id", 0) and m[f"team{side}_id"] > 0 and not m.get(f"t{side}s")
+    ]
+    if conn is not None and missing_short_ids:
+        placeholders = ",".join("?" for _ in missing_short_ids)
+        shorts = {
+            row["id"]: row["short_name"]
+            for row in conn.execute(
+                f"SELECT id, short_name FROM teams WHERE id IN ({placeholders})", missing_short_ids
+            )
+        }
+        for side in (1, 2):
+            if not m.get(f"t{side}s"):
+                m[f"t{side}s"] = shorts.get(m.get(f"team{side}_id"))
+    for side in (1, 2):
+        if (m.get(f"team{side}_id") and m.get(f"team{side}_id") != -side) or not _has_temp_players(
+            m.get(f"team{side}_players")
+        ):
+            continue
+        registration = match_registration(conn, m, side) if conn is not None else None
+        single_name = _single_temp_player_name(m.get(f"team{side}_players"), conn)
+        name = (
+            (registration["team_name"] if registration else None)
+            or single_name
+            or m.get(f"team{side}_name")
+        )
+        m[f"team{side}_name"] = name or "TBD"
+        m[f"t{side}s"] = m.get(f"t{side}s") or (single_name or team_abbr(name) if name else "TBD")
     # 尚未由真实赛果分配的对阵必须在所有页面显示 TBD。
     if not m.get("team1_name"):
         m["team1_name"] = "TBD"
@@ -208,7 +230,9 @@ def add_effective_event_status(event_row, now=None):
 def get_prediction_upcoming_matches(conn):
     """Share the existing HTML upcoming-match selection with the JSON API."""
     rows = conn.execute(
-        """SELECT m.id,m.slug,m.match_time,m.bo_format,
+        """SELECT m.id,m.slug,m.match_time,m.bo_format,m.event_id,
+                  m.team1_id,m.team2_id,m.team1_players,m.team2_players,
+                  t1.short_name AS t1s,t2.short_name AS t2s,
                   COALESCE(t1.name,'TBD') AS team1_name,
                   COALESCE(t2.name,'TBD') AS team2_name,e.name AS event_name,
                   COUNT(v.id) AS vote_count,
@@ -223,7 +247,7 @@ def get_prediction_upcoming_matches(conn):
              AND (m.match_time IS NULL OR datetime(m.match_time)>datetime('now','localtime'))
            GROUP BY m.id ORDER BY vote_count DESC,m.match_time ASC LIMIT 10"""
     ).fetchall()
-    return [dict(row) for row in rows]
+    return [supplement_temp_teams(row, conn) for row in rows]
 
 
 def get_prediction_leaderboard(conn, limit=10):

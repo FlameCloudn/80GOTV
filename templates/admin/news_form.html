@@ -78,8 +78,9 @@
           <select name="related_match_id">
             <option value="">-- 不关联 --</option>
             {% for m in recent_matches %}
+            {% set left_team, right_team = match_opponents(m) %}
             <option value="{{ m.id }}" data-i18n-ignore {% if news and news.related_match_id == m.id %}selected{% endif %}>
-              {{ m.event_name or '' }} | {{ m.team1_name }} {{ m.team1_score }}:{{ m.team2_score }} {{ m.team2_name }} | {{ m.match_time|date_display if m.match_time else '' }}
+              {{ m.event_name or '' }} | {{ left_team.name }} {{ left_team.score if left_team.score is not none else '-' }}:{{ right_team.score if right_team.score is not none else '-' }} {{ right_team.name }} | {{ m.match_time|date_display if m.match_time else '' }}
             </option>
             {% endfor %}
           </select>

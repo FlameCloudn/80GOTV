@@ -11,16 +11,17 @@ class StatsUiRegressionTests(unittest.TestCase):
 
         self.assertNotIn("data-front-matches", template)
         self.assertNotIn("static/js/front_api.js", template)
-        self.assertIn("{{ m.team1_name if team1_is_assigned else 'TBD' }}", template)
-        self.assertIn("{{ m.team2_name if team2_is_assigned else 'TBD' }}", template)
+        self.assertIn("match_opponents(m)", template)
+        self.assertIn("{{ opponent.name }}", template)
 
     def test_event_matches_hide_cancelled_rows_and_use_tbd_placeholders(self):
         route = (ROOT / "routes/events.py").read_text(encoding="utf-8")
         template = (ROOT / "templates/event_detail.html").read_text(encoding="utf-8")
 
         self.assertIn("COALESCE(m.status, '') != 'cancelled'", route)
-        self.assertIn("{{ m.team1_name if team1_is_assigned else 'TBD' }}", template)
-        self.assertIn("{{ m.team2_name if team2_is_assigned else 'TBD' }}", template)
+        self.assertIn("match_opponents(m)", template)
+        self.assertIn("{{ left.name }}", template)
+        self.assertIn("{{ right.name }}", template)
         self.assertIn("m.match_time|datetime_display if m.match_time else 'TBD'", template)
 
     def test_history_requires_a_completed_match_with_a_real_score(self):
@@ -45,8 +46,11 @@ class StatsUiRegressionTests(unittest.TestCase):
         template = (ROOT / "templates/match_detail.html").read_text(encoding="utf-8")
 
         self.assertIn(
-            '}}">{{ ms.halves.h1_t1 }}</span>:<span class="{{',
+            "{{ ms.halves['h1_' ~ opponent.side] }}",
             template,
+        )
+        self.assertIn(
+            "'ct-side' if side_label == 'CT' else 't-side' if side_label == 'T' else ''", template
         )
         self.assertNotIn("{{ t1_h1_side }} {{ ms.halves.h1_t1 }}", template)
         self.assertNotIn("{{ t2_h2_side }} {{ ms.halves.h2_t2 }}", template)
@@ -89,7 +93,11 @@ class StatsUiRegressionTests(unittest.TestCase):
         self.assertIn("t1_logo|team_logo_url", popup_template)
         self.assertIn("t2_logo|team_logo_url", popup_template)
         self.assertIn('class="bmp-versus"', popup_template)
-        self.assertIn("data-i18n-ignore>Lineups</div>", popup_template)
+        self.assertIn('class="bmp-section-title">出场阵容</div>', popup_template)
+        self.assertIn("由近期数据统计所得", popup_template)
+        self.assertIn("由当前比赛表现所得", popup_template)
+        translations = (ROOT / "static/js/i18n.js").read_text(encoding="utf-8")
+        self.assertIn("'出场阵容': 'Lineups'", translations)
 
     def test_bracket_popup_roster_columns_are_equal_and_mirrored(self):
         css = (ROOT / "static/css/pages/event.css").read_text(encoding="utf-8")

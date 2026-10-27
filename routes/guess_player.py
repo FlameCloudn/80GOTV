@@ -226,6 +226,7 @@ def guess_player_practice_new():
     try:
         conn.execute("BEGIN IMMEDIATE")
         create_practice_game(conn, session["user_id"], pool_mode)
+        conn.commit()
     finally:
         conn.close()
     return redirect(url_for("guess_player_practice_page", difficulty=pool_mode))
