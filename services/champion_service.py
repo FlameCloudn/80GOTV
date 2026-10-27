@@ -63,7 +63,7 @@ def _historical_members(conn, event_id, team_id):
         for stat in conn.execute(
             """SELECT player_id, LOWER(TRIM(match_team_side)) AS side FROM match_stats
                WHERE match_id=? AND player_id IS NOT NULL
-                 AND COALESCE(data_status,'final') <> 'superseded'
+                 AND COALESCE(data_status,'final')='final'
                  AND LOWER(TRIM(match_team_side)) IN ('t1','t2')""",
             (match["id"],),
         ):

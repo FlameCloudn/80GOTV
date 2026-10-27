@@ -106,6 +106,50 @@ def _replace_snapshot_player_id(raw_value, source_id, target_id):
         return raw_value
 
 
+def _match_roster_contains_both(conn, match, source_id, target_id):
+    """Return True when both profiles occupy the same match's stored roster."""
+    def contains_both(values):
+        if not isinstance(values, list):
+            return False
+        ids = {
+            int(value)
+            for value in values
+            if not isinstance(value, bool) and str(value).isdigit() and int(value) > 0
+        }
+        return source_id in ids and target_id in ids
+
+    explicit_values = []
+    for field in ("team1_players", "team2_players"):
+        raw = match[field]
+        try:
+            values = json.loads(raw) if isinstance(raw, str) else raw
+        except (TypeError, ValueError):
+            values = None
+        if isinstance(values, list):
+            explicit_values.extend(values)
+    if contains_both(explicit_values):
+        return True
+
+    raw_snapshot = match["roster_snapshot"]
+    if raw_snapshot:
+        try:
+            snapshot = json.loads(raw_snapshot) if isinstance(raw_snapshot, str) else raw_snapshot
+            teams = snapshot.get("teams") if isinstance(snapshot, dict) else None
+            if isinstance(teams, dict):
+                all_values = [
+                    player.get("id")
+                    for team in teams.values()
+                    if isinstance(team, dict)
+                    for player in team.get("players", [])
+                    if isinstance(player, dict)
+                ]
+                if contains_both(all_values):
+                    return True
+        except (TypeError, ValueError):
+            pass
+    return False
+
+
 def merge_player_records(conn, source_id, target_id):
     """Merge an explicitly selected duplicate player into the retained profile."""
     source_id = int(source_id)
@@ -125,6 +169,19 @@ def merge_player_records(conn, source_id, target_id):
     ).fetchone()
     if ranking_conflict:
         raise ValueError("两个选手档案在同一年各有年度排名，请先确认排名后再合并")
+
+    roster_matches = conn.execute(
+        """SELECT id,team1_players,team2_players,roster_snapshot FROM matches
+           WHERE team1_players IS NOT NULL OR team2_players IS NOT NULL
+              OR roster_snapshot IS NOT NULL"""
+    ).fetchall()
+    if any(
+        _match_roster_contains_both(conn, match, source_id, target_id)
+        for match in roster_matches
+    ):
+        raise ValueError(
+            "这两个选手同时出现在同一场比赛的阵容中，无法安全合并；请先处理该比赛的重复身份"
+        )
 
     record_player_nickname(conn, target_id, target["nickname"], "website")
     record_player_nickname(conn, target_id, source["nickname"], "merge")
