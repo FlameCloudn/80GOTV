@@ -115,7 +115,7 @@
       <tbody>
         {% for ms in map_stats %}
         <tr>
-          <td><span class="stats-map-cell"><span class="stats-map-thumb" style="background-image:url('{{ ms.map_name|map_image }}')"></span><b>{{ ms.map_name|map_display }}</b></span></td>
+          <td><b>{{ ms.map_name|map_display }}</b></td>
           <td data-val="{{ ms.times_played }}">{{ ms.times_played }}</td>
           <td class="rt-cell {{ ms.avg_rating|rating_class }}" data-val="{{ ms.avg_rating }}"><b>{{ "%.2f"|format(ms.avg_rating) }}</b></td>
           <td data-val="{{ ms.avg_kd or 0 }}">{{ "%.2f"|format(ms.avg_kd) if ms.avg_kd else '-' }}</td>

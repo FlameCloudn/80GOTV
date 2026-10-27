@@ -201,3 +201,22 @@ test('后台右上角提示避开标题行右边的按钮，标题行没有按�
   const header = await page.locator('.admin-topbar').boundingBox();
   expect((await page.locator('.site-toast').first().boundingBox()).y).toBeLessThan(header.y + header.height + 24);
 });
+
+test('比赛页侧栏状态徽标一样宽，后面的名字从同一处开始（中英文）', async ({ page }) => {
+  await useLanguage(page, 'en');
+  const fixture = await (await page.request.get('/__e2e__/live-fixture')).json();
+  for (const language of ['en', 'zh']) {
+    await page.evaluate(value => localStorage.setItem('siteLang', value), language).catch(() => {});
+    await page.goto(`/matches/${fixture.match_id}`);
+    for (const list of await page.locator('.sidebar-status-list').all()) {
+      const rows = await list.locator('.sidebar-event-item').evaluateAll(items => items.map(item => ({
+        badge: item.querySelector('.sidebar-event-status').getBoundingClientRect().width,
+        name: item.querySelector('.sidebar-event-name').getBoundingClientRect().left,
+      })));
+      if (rows.length < 2) continue;
+      const spread = values => Math.max(...values) - Math.min(...values);
+      expect(spread(rows.map(row => row.badge)), language).toBeLessThanOrEqual(1);
+      expect(spread(rows.map(row => row.name)), language).toBeLessThanOrEqual(1);
+    }
+  }
+});

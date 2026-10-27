@@ -21,6 +21,16 @@
 .award-champion-name { flex: 1 1 auto; min-width: 0; overflow: hidden; font-size: var(--font-lg); font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .award-medals > .award-medal-row:first-child { border-top: 0; }
 
+/* 获奖名单：各行共用列宽——队伍简称在同一处右对齐，MVP / EVP 徽标一样宽（没有队伍简称的行也不错位） */
+.award-medal-row .badge { justify-self: stretch; justify-content: center; }
+
+@supports (grid-template-columns: subgrid) {
+  .award-medals { display: grid; grid-template-columns: max-content minmax(0, 1fr) max-content max-content; column-gap: var(--space-md); }
+  .award-medal-row { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; }
+  .award-medal-row .meta { grid-column: 3; justify-self: end; }
+  .award-medal-row .badge { grid-column: 4; }
+}
+
 @media (max-width: 760px) {
   .dashboard-grid { grid-template-columns: minmax(0, 1fr); }
   .chart-canvas-wrap { height: 240px; padding: var(--space-sm) var(--space-md) var(--space-md); }

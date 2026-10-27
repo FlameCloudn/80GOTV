@@ -745,7 +745,7 @@ document.addEventListener('click', function(e) {
 {% block side %}
 <section class="panel">
   <div class="panel-head"><h2 class="panel-title">赛事</h2></div>
-  <div class="list">
+  <div class="list sidebar-status-list">
     {% if sidebar_events %}
       {% for ev in sidebar_events %}
       <a href="{{ event_path(ev) }}" class="list-row sidebar-event-item">
@@ -764,7 +764,7 @@ document.addEventListener('click', function(e) {
 
 <section class="panel">
   <div class="panel-head"><h2 class="panel-title">比赛</h2></div>
-  <div class="list">
+  <div class="list sidebar-status-list">
     {% if sidebar_matches %}
       {% for m in sidebar_matches %}
       <a href="/matches/{{ m.slug or m.id }}" class="list-row sidebar-event-item">

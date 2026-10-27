@@ -130,6 +130,39 @@ class FrontendPolishRuleTests(unittest.TestCase):
             self.assertNotRegex(html, r"最大 [25]MB", path)
         self.assertNotIn("WebP", read("static/js/i18n.js"))
 
+    def test_map_tables_show_names_without_cropped_thumbnails(self):
+        # 地图统计表里 48x24 的地图小图裁出来只是色块，只显示地图名
+        for path in ("templates/event_stats.html", "templates/stats.html"):
+            html = read(path)
+            self.assertNotIn("stats-map-thumb", html, path)
+        self.assertNotIn(".stats-map-thumb", read("static/css/pages/stats.css"))
+        self.assertIn(
+            "<td><b>{{ ms.map_name|map_display }}</b></td>", read("templates/event_stats.html")
+        )
+        self.assertIn(
+            "<td><b>{{ map_stat.map_name|map_display }}</b></td>", read("templates/stats.html")
+        )
+
+    def test_badge_lists_share_column_widths(self):
+        # BP 步骤 / 选边、比赛页侧栏状态、获奖名单：各行共用列宽，徽标按最宽的定宽，后面的文字对齐
+        match_css = read("static/css/pages/match.css")
+        for rule in (
+            ".bp-step { grid-column: 1 / -1; grid-template-columns: subgrid; }",
+            ".bp-side-row { grid-column: 1 / -1; grid-template-columns: subgrid; }",
+            ".sidebar-status-list > .list-row { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; }",
+            ".bp-act, .bp-side-row .badge { justify-self: stretch; justify-content: center; }",
+        ):
+            self.assertIn(rule, match_css)
+        self.assertEqual(
+            read("templates/match_detail.html").count('<div class="list sidebar-status-list">'), 2
+        )
+        awards_css = read("static/css/pages/dashboard.css")
+        self.assertIn(
+            ".award-medal-row { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; }",
+            awards_css,
+        )
+        self.assertIn(".award-medal-row .badge { grid-column: 4; }", awards_css)
+
 
 if __name__ == "__main__":
     unittest.main()

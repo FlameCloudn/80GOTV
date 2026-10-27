@@ -237,7 +237,7 @@
         {% for map_stat in map_stats %}
         {% set top = map_top_players.get(map_stat.map_name) %}
         <tr>
-          <td><span class="stats-map-cell"><span class="stats-map-thumb" style="background-image:url('{{ map_stat.map_name|map_image }}')"></span><b>{{ map_stat.map_name|map_display }}</b></span></td>
+          <td><b>{{ map_stat.map_name|map_display }}</b></td>
           <td class="num">{{ map_stat.times_played }}</td>
           <td class="num">{{ "%.1f"|format(map_stat.pick_rate) }}%</td>
           <td class="num side-t">{% if map_stat.t_win_pct is not none %}<b>{{ "%.1f"|format(map_stat.t_win_pct) }}%</b>{% else %}-{% endif %}</td>

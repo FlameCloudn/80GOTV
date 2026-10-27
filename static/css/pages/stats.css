@@ -79,8 +79,6 @@
 .side-ct b { color: var(--color-ct); }
 
 /* 地图格：小地图图 + 名字 */
-.stats-map-cell { display: inline-flex; align-items: center; gap: var(--space-sm); }
-.stats-map-thumb { flex: 0 0 auto; width: 48px; height: 24px; background-color: var(--surface-soft); background-position: center; background-size: cover; border-radius: var(--radius-sm); }
 
 /* ---------- 4. 比赛数据：日期 | 队伍 比分 队伍 | 赛事 · 赛制 · 地图数 ---------- */
 /* 每行三列共用一套列宽（列表定列宽，行用 subgrid 跟着）：右边赛事信息长短不一，中间的比分也上下对齐 */

@@ -250,6 +250,18 @@
   font-size: var(--font-sm);
 }
 
+/* BP 步骤、选边：各行共用一套列宽，像表格一样上下对齐。动作徽标（禁图 / 选图 / 决胜图，英文 BAN / PICK / DECIDER）
+   和 T / CT 徽标都按这一列最宽的那个定宽、文字居中，队伍简称在同一处右对齐（不会因为 T 比 CT 窄而错位） */
+.bp-act, .bp-side-row .badge { justify-self: stretch; justify-content: center; }
+
+@supports (grid-template-columns: subgrid) {
+  .bp-steps { grid-template-columns: 18px max-content minmax(0, 1fr) max-content; column-gap: var(--space-sm); }
+  .bp-step { grid-column: 1 / -1; grid-template-columns: subgrid; }
+  .bp-sides { grid-template-columns: minmax(0, 1fr) max-content max-content; column-gap: var(--space-sm); }
+  .bp-sides-title { grid-column: 1 / -1; }
+  .bp-side-row { grid-column: 1 / -1; grid-template-columns: subgrid; }
+}
+
 /* 认不出格式的 BP 记录：原样显示文字 */
 .mh-veto {
   padding: var(--space-md) var(--space-lg);
@@ -746,6 +758,15 @@
 .sidebar-event-status.upcoming { color: var(--accent); background: var(--accent-soft); border-color: transparent; }
 .sidebar-event-status.completed, .sidebar-event-status.cancelled { color: var(--text-muted); }
 .sidebar-event-name { flex: 1 1 auto; min-width: 0; }
+
+/* 侧栏“赛事 / 比赛”：状态徽标（进行中 / 即将 / 已结束，中英文长短不一）那一列按最宽的定宽、文字居中，后面的名字从同一处开始 */
+.sidebar-event-status { justify-self: stretch; justify-content: center; }
+
+@supports (grid-template-columns: subgrid) {
+  .sidebar-status-list { display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: var(--space-sm); }
+  .sidebar-status-list > .list-row { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; }
+  .sidebar-status-list > .empty-state { grid-column: 1 / -1; }
+}
 
 /* 右侧栏还在旁边、正文只有 600–740px 时（961–1100），地图卡和“直播与回放”上下排，
    地图卡占满正文宽度，队名不被挤成“Nova …” */
