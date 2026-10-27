@@ -124,13 +124,11 @@ def frozen_match_teams(match):
 
 
 def _historical_player_slots(conn, match, side):
-    completed = str(row_get(match, "status") or "").lower() == "completed"
     rows = conn.execute(
         """SELECT player_id,team_id,LOWER(TRIM(match_team_side)) AS match_side
            FROM match_stats WHERE match_id=? AND player_id IS NOT NULL
-             AND (COALESCE(data_status,'final')='final' OR
-                  (? AND COALESCE(data_status,'final')<>'superseded')) ORDER BY id""",
-        (row_get(match, "id"), completed),
+             AND COALESCE(data_status,'final')='final' ORDER BY id""",
+        (row_get(match, "id"),),
     ).fetchall()
     if not rows:
         return None

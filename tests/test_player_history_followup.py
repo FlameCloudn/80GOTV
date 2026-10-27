@@ -151,6 +151,61 @@ class PlayerHistoryFollowupTests(StatsDatabaseCase):
         self.assertEqual(len(player_championships(self.conn, self.player_id)), 1)
 
 
+    def test_provisional_stats_do_not_establish_champion_membership(self):
+        from services.champion_service import player_championships, save_champion
+
+        self.conn.execute(
+            "UPDATE matches SET status='completed', team1_players=NULL, team2_players=NULL WHERE id=?",
+            (self.match_id,),
+        )
+        add_stat(
+            self.conn, self.match_id, self.player_id, self.team2, "Mirage", match_team_side="t2"
+        )
+        self.conn.execute(
+            "UPDATE match_stats SET data_status='provisional' WHERE match_id=? AND player_id=?",
+            (self.match_id, self.player_id),
+        )
+        save_champion(self.conn, self.event_id, self.team2)
+        self.assertEqual(player_championships(self.conn, self.player_id), [])
+
+    def test_merge_rejects_two_profiles_in_the_same_frozen_roster_without_mutation(self):
+        target = self.conn.execute(
+            "INSERT INTO players(nickname,steam_id) VALUES('Merge Target','76561198000009998')"
+        ).lastrowid
+        snapshot = {
+            "version": 1,
+            "evidence": "confirmed_match",
+            "teams": {
+                "1": {
+                    "players": [
+                        {"id": self.player_id, "slot": 1, "nickname": "Source"},
+                        {"id": target, "slot": 2, "nickname": "Target"},
+                    ]
+                },
+                "2": {"players": []},
+            },
+        }
+        raw_snapshot = json.dumps(snapshot)
+        self.conn.execute(
+            "UPDATE matches SET roster_snapshot=? WHERE id=?", (raw_snapshot, self.match_id)
+        )
+        self.conn.commit()
+
+        with self.assertRaisesRegex(ValueError, "同时出现在同一场比赛的阵容中"):
+            merge_player_records(self.conn, self.player_id, target)
+
+        self.assertIsNotNone(
+            self.conn.execute("SELECT 1 FROM players WHERE id=?", (self.player_id,)).fetchone()
+        )
+        self.assertIsNotNone(
+            self.conn.execute("SELECT 1 FROM players WHERE id=?", (target,)).fetchone()
+        )
+        actual = self.conn.execute(
+            "SELECT roster_snapshot FROM matches WHERE id=?", (self.match_id,)
+        ).fetchone()["roster_snapshot"]
+        self.assertEqual(actual, raw_snapshot)
+
+
 class ChampionEvidenceFollowupTests(RegisteredMatchCase):
     def test_explicitly_confirmed_match_snapshot_awards_registered_member(self):
         from services.champion_service import player_championships, save_champion
