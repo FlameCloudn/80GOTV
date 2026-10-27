@@ -14,7 +14,7 @@
         {% elif event.effective_event_status == 'ongoing' %}进行中
         {% else %}已结束{% endif %}
       </span>
-      <span>{{ event.start_date|date_display }} ~ {{ event.end_date|date_display }}</span>
+      <span>{{ event.start_date|date_range_display(event.end_date) }}</span>
       <span>{{ event.format }}</span>
     </div>
     <h1 data-i18n-ignore>{{ event.name }}</h1>

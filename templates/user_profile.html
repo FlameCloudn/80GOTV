@@ -38,7 +38,7 @@
       <span class="grow">
         <span class="title" data-i18n-ignore>{{ ev.name }}</span>
         <span class="profile-event-meta">
-          {{ ev.start_date|date_display if ev.start_date else '-' }} ~ {{ ev.end_date|date_display if ev.end_date else '-' }}
+          {{ ev.start_date|date_range_display(ev.end_date) or '-' }}
           · {{ ev.match_count }} 场比赛
           {% if ev.is_active %}<span class="badge badge-live">进行中</span>{% endif %}
         </span>

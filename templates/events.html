@@ -17,8 +17,7 @@
         {% elif e.effective_event_status == 'ongoing' %}进行中
         {% else %}已结束{% endif %}
       </span>
-      {% set start_day = e.start_date|date_display %}{% set end_day = e.end_date|date_display %}
-      <span class="event-list-date">{{ start_day }}{% if end_day and end_day != start_day %} ~ {{ end_day }}{% endif %}</span>
+      <span class="event-list-date">{{ e.start_date|date_range_display(e.end_date) }}</span>
     </span>
     <span class="meta">{{ e.format }} · {{ e.team_count }} 支队伍 · {{ e.match_count }} 场比赛</span>
   </span>

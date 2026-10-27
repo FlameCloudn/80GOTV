@@ -31,7 +31,7 @@
             <a class="cell-title" href="{{ url_for('admin.admin_events_edit', event_id=e.id) }}" data-i18n-ignore>{{ e.name }}</a>
             <span class="cell-sub" data-i18n-ignore>{{ e.short_name or '' }}{% if e.short_name and e.format %} · {% endif %}{{ e.format or '' }}</span>
           </td>
-          <td class="nowrap">{{ e.start_date|date_display }} – {{ e.end_date|date_display }}</td>
+          <td class="nowrap">{{ e.start_date|date_range_display(e.end_date) or '-' }}</td>
           <td>
             {% if event_status == 'upcoming' %}<span class="badge badge-upcoming status-badge status-upcoming">即将开始</span>
             {% elif event_status == 'ongoing' %}<span class="badge badge-live status-badge status-ongoing">进行中</span>

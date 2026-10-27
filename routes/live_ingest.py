@@ -46,7 +46,12 @@ from utils.match_utils import (
     get_sql_match_live,
 )
 from utils.rate_limiter import rate_limit
-from utils.stats_calc import HLTV2_ESTIMATE_METHOD, calculate_rating, estimate_hltv2_impact
+from utils.stats_calc import (
+    HLTV2_ESTIMATE_METHOD,
+    calculate_rating,
+    estimate_hltv2_impact,
+    non_negative_impact,
+)
 from web_app import app, logger
 
 
@@ -1318,16 +1323,18 @@ def _save_gotv_payload(
                 stat, "damage_delta_per_round", -100000, 100000
             )
         stat.setdefault("rounds_played", rounds_count)
-        stat["impact"] = estimate_hltv2_impact(
+        # Rating 按回归原值算（和 CSDA 一致）；保存的 Impact 最低记 0
+        raw_impact = estimate_hltv2_impact(
             stat.get("kills"), stat.get("assists"), stat["rounds_played"]
         )
+        stat["impact"] = non_negative_impact(raw_impact)
         stat["rating"], stat["kpr"], stat["dpr"] = calculate_rating(
             stat.get("kills"),
             stat.get("deaths"),
             stat["rounds_played"],
             adr=stat.get("adr"),
             kast=stat.get("kast"),
-            impact=stat["impact"],
+            impact=raw_impact,
         )
         if not stat["rounds_played"]:
             stat["rating"] = None

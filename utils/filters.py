@@ -55,6 +55,15 @@ def date_display_filter(value):
     return f"{dt_val.year}年{dt_val.month}月{dt_val.day}日"
 
 
+def date_range_display_filter(start, end=None):
+    """赛事起止日期：同一天只写一天（2026年5月2日），否则写“2026年5月2日 ~ 2026年5月4日”；只有一头就写那一头。"""
+    start_day = date_display_filter(start) if start else ""
+    end_day = date_display_filter(end) if end else ""
+    if not start_day or not end_day or start_day == end_day:
+        return start_day or end_day
+    return f"{start_day} ~ {end_day}"
+
+
 def compact_date_display_filter(value):
     """紧凑日期：2026/06/03。"""
     dt_val = _parse_display_datetime(value)

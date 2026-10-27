@@ -141,7 +141,8 @@ class ImpactRecalculationTests(unittest.TestCase):
         self.assertEqual([item["before"]["id"] for item in plan["rows"]], [1])
         self.assertEqual(len(plan["skipped"]), len(cases))
 
-    def test_real_zero_assists_and_negative_estimate_are_preserved(self):
+    def test_zero_kills_and_assists_never_write_a_negative_impact(self):
+        # 回归公式在 0 杀 0 助攻时是 -0.41；保存的 Impact 最低记 0，原来已是 0 的记录不用改
         self.insert_stat(
             2,
             kills=0,
@@ -152,9 +153,11 @@ class ImpactRecalculationTests(unittest.TestCase):
             multi2k=0,
             clutches_won=0,
         )
-        result = apply_plan(self.database, build_plan(self.database), self.backup)
-        self.assertEqual(result["updated_rows"], 2)
-        self.assertEqual(self.contents()["match_stats"][1][12], -0.41)
+        plan = build_plan(self.database)
+        self.assertNotIn(2, [item["before"]["id"] for item in plan["rows"]])
+        result = apply_plan(self.database, plan, self.backup)
+        self.assertEqual(result["updated_rows"], 1)
+        self.assertEqual(self.contents()["match_stats"][1][12], 0)
 
     def test_changed_input_invalidates_the_reviewed_plan(self):
         plan = build_plan(self.database)

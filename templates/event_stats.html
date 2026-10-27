@@ -12,7 +12,7 @@
 <section class="panel event-header">
   <div class="event-header-main">
     <div class="event-meta">
-      <span>{{ event.start_date|date_display }} ~ {{ event.end_date|date_display }}</span>
+      <span>{{ event.start_date|date_range_display(event.end_date) }}</span>
       <span>{{ event.format }}</span>
     </div>
     <h1 data-i18n-ignore>{{ event.name }}</h1>
@@ -53,7 +53,7 @@
           <td data-val="{{ r.kd }}">{{ "%.2f"|format(r.kd) if r.kd else '-' }}</td>
           <td data-val="{{ r.adr }}">{{ "%.1f"|format(r.adr) }}</td>
           <td data-val="{{ r.kast }}">{{ "%.1f"|format(r.kast) }}%</td>
-          <td data-val="{{ r.impact }}">{{ "%.1f"|format(r.impact) }}</td>
+          <td data-val="{{ r.impact }}">{{ "%.2f"|format(r.impact) if r.impact is not none else '-' }}</td>
           <td data-val="{{ r.hs }}">{{ "%.1f"|format(r.hs) }}%</td>
         </tr>
         {% endfor %}
@@ -90,7 +90,7 @@
             <span class="{% if wr >= 60 %}stat-pos{% elif wr >= 40 %}stat-mid{% else %}stat-neg{% endif %}">{{ wr }}%</span>
             {% else %}-{% endif %}
           </td>
-          <td data-val="{{ t.avg_score or 0 }}">{{ "%.1f"|format(t.avg_score) if t.avg_score else '-' }}</td>
+          <td data-val="{{ t.avg_score or 0 }}">{{ "%.1f"|format(t.avg_score) if t.avg_score is not none else '-' }}</td>
         </tr>
         {% endfor %}
       </tbody>

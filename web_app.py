@@ -61,6 +61,7 @@ from utils.filters import (  # noqa: E402
     cn_time_filter,
     compact_date_display_filter,
     date_display_filter,
+    date_range_display_filter,
     datetime_display_filter,
     json_loads_filter,
     map_background_filter,
@@ -78,6 +79,7 @@ app.template_filter("json_loads")(json_loads_filter)
 app.template_filter("cn_time")(cn_time_filter)
 app.template_filter("compact_date_display")(compact_date_display_filter)
 app.template_filter("date_display")(date_display_filter)
+app.template_filter("date_range_display")(date_range_display_filter)
 app.template_filter("datetime_display")(datetime_display_filter)
 app.template_filter("relative_date_display")(relative_date_display_filter)
 app.template_filter("time_display")(time_display_filter)

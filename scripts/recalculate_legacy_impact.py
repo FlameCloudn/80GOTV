@@ -20,6 +20,7 @@ from utils.stats_calc import (  # noqa: E402
     HLTV2_ESTIMATE_SOURCE,
     calculate_impact,
     estimate_hltv2_impact,
+    non_negative_impact,
 )
 
 ROW_FIELDS = (
@@ -81,7 +82,12 @@ def _candidate(row):
             return None, "原始计数缺失或不合法"
     if row["rounds_played"] <= 0 or not _finite(row["impact"]):
         return None, "缺少有效回合数或原 Impact"
-    impact = round(estimate_hltv2_impact(row["kills"], row["assists"], row["rounds_played"]), 2)
+    shown = non_negative_impact(
+        estimate_hltv2_impact(row["kills"], row["assists"], row["rounds_played"])
+    )
+    if shown is None:
+        return None, "缺少有效回合数或原 Impact"
+    impact = round(shown, 2)
     if math.isclose(row["impact"], impact, abs_tol=0.005):
         return None, "已经符合当前计算方式"
     legacy = calculate_impact(

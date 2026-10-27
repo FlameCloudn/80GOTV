@@ -69,7 +69,8 @@ class DemoCalculationTests(unittest.TestCase):
         )[0]
         self.assertEqual(player["rating"], 0)
         self.assertEqual(player["kast"], 0)
-        self.assertEqual(player["impact"], -0.41)
+        # 回归公式算出 -0.41，保存的 Impact 最低记 0（真实的 0 仍是 0，不会变成“没有数据”）
+        self.assertEqual(player["impact"], 0)
 
     def test_match_roster_beats_players_current_team_after_transfer(self):
         result = _infer_demo_team_order(

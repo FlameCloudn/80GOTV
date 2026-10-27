@@ -36,9 +36,10 @@ from services.steam_playtime_service import (
     refresh_registration_playtimes,
 )
 from utils.db_helpers import remove_uploaded_team_logo, save_uploaded_team_logo
-from utils.helpers import event_path, resolve_event_ref
+from utils.helpers import event_path, resolve_event_ref, team_abbr
 from utils.match_utils import get_sql_effective_status
 from utils.rate_limiter import rate_limit
+from utils.stats_display import resolve_match_team_side
 from utils.web_helpers import csrf_required
 from web_app import app
 
@@ -1720,6 +1721,95 @@ def event_registration_transfer_captain(event_id, reg_id, slot):
     return _registration_success(event_id, f'已任命 "{new_captain_name}" 为队长')
 
 
+def _event_matches_with_teams(conn, event_id):
+    """本赛事的比赛（补齐临时队伍、报名队伍的名称）：比赛编号 → 比赛。"""
+    rows = conn.execute(
+        f"""
+        SELECT m.*, t1.name AS team1_name, t2.name AS team2_name,
+               t1.short_name AS t1s, t2.short_name AS t2s,
+               {_SQL_EFFECTIVE_STATUS}
+        FROM matches m
+        LEFT JOIN teams t1 ON m.team1_id=t1.id
+        LEFT JOIN teams t2 ON m.team2_id=t2.id
+        WHERE m.event_id=?
+        """,
+        (event_id,),
+    ).fetchall()
+    return {row["id"]: supplement_temp_teams(row, conn) for row in rows}
+
+
+def _side_team_label(match, side):
+    """这一方在本场的队伍叫法：正式队伍用简称；临时 / 报名队伍没有简称时用队名（比自动缩写 T3 好认）。"""
+    number = side[1]
+    name = str(match.get(f"team{number}_name") or "").strip()
+    short = str(match.get(f"t{number}s") or "").strip()
+    team_id = match.get(f"team{number}_id")
+    if (not team_id or team_id < 0) and short == team_abbr(name):
+        return name or None
+    return short or name or None
+
+
+def _event_player_teams(conn, event_id, matches):
+    """每名选手在本赛事代表的队伍（按每场数据记的是哪一方）：换过队的记 None（页面写“-”），认不出哪一方的记录不算。"""
+    found = {}
+    records = conn.execute(
+        """
+        SELECT ms.player_id, ms.match_id, ms.team_id, ms.match_team_side
+        FROM match_stats ms
+        JOIN matches m ON ms.match_id=m.id
+        WHERE m.event_id=? AND ms.player_id IS NOT NULL
+          AND COALESCE(ms.data_status, 'final') <> 'superseded'
+        """,
+        (event_id,),
+    ).fetchall()
+    for record in records:
+        match = matches.get(record["match_id"])
+        side = resolve_match_team_side(dict(record), match) if match else None
+        label = _side_team_label(match, side) if side else None
+        if label:
+            found.setdefault(record["player_id"], set()).add(label)
+    return {
+        player_id: labels.pop() if len(labels) == 1 else None for player_id, labels in found.items()
+    }
+
+
+def _event_team_rankings(matches):
+    """队伍排名：已结束比赛的双方（临时队伍也算）各打了几场、赢了几场、场均赢下几张图。"""
+    table = {}
+    for match in matches.values():
+        if match.get("effective_status") != "completed":
+            continue
+        scores = (match.get("team1_score") or 0, match.get("team2_score") or 0)
+        for index, side in enumerate(("t1", "t2")):
+            label = _side_team_label(match, side)
+            if not label or label == "TBD":
+                continue
+            team_id = match.get(f"team{side[1]}_id")
+            key = ("team", team_id) if team_id and team_id > 0 else ("name", label.casefold())
+            entry = table.setdefault(
+                key,
+                {
+                    "team_name": match.get(f"team{side[1]}_name") or label,
+                    "team_short": label,
+                    "match_count": 0,
+                    "wins": 0,
+                    "score_total": 0,
+                },
+            )
+            own, other = scores[index], scores[1 - index]
+            entry["match_count"] += 1
+            entry["wins"] += 1 if own > other else 0
+            entry["score_total"] += own
+    rankings = []
+    for entry in table.values():
+        entry["avg_score"] = entry.pop("score_total") / entry["match_count"]
+        rankings.append(entry)
+    return sorted(
+        rankings,
+        key=lambda t: (-t["wins"], -t["wins"] / t["match_count"], t["team_short"].casefold()),
+    )
+
+
 @app.route("/events/<event_id>/stats")
 def event_stats(event_id):
     """赛事数据统计"""
@@ -1759,6 +1849,13 @@ def event_stats(event_id):
     """,
         (event_id,),
     ).fetchall()
+    matches = _event_matches_with_teams(conn, event_id)
+    player_teams = _event_player_teams(conn, event_id, matches)
+    # 认得出比赛里是哪一方的按比赛取；一条都认不出的才用正式队伍库的简称
+    rankings = [
+        dict(row, team=player_teams[row["id"]] if row["id"] in player_teams else row["team"])
+        for row in rankings
+    ]
 
     # 地图统计
     map_stats = conn.execute(
@@ -1777,24 +1874,8 @@ def event_stats(event_id):
         (event_id,),
     ).fetchall()
 
-    # 队伍数据
-    team_rankings = conn.execute(
-        """
-        SELECT t.name AS team_name, t.short_name AS team_short, t.id AS team_id,
-               COUNT(DISTINCT m.id) AS match_count,
-               SUM(CASE WHEN
-                   (m.team1_id = t.id AND m.team1_score > m.team2_score) OR
-                   (m.team2_id = t.id AND m.team2_score > m.team1_score)
-               THEN 1 ELSE 0 END) AS wins,
-               AVG(CASE WHEN m.team1_id = t.id THEN m.team1_score ELSE m.team2_score END) AS avg_score
-        FROM matches m
-        JOIN teams t ON (m.team1_id = t.id OR m.team2_id = t.id)
-        WHERE m.event_id=? AND m.team1_score IS NOT NULL
-        GROUP BY t.id
-        ORDER BY wins DESC
-    """,
-        (event_id,),
-    ).fetchall()
+    # 队伍数据：只算已结束的比赛，临时组队、报名队伍也算
+    team_rankings = _event_team_rankings(matches)
 
     team_count = _event_team_count(conn, event_id) or event["total_teams"]
     conn.close()

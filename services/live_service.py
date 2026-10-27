@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal, overload
 
-from utils.stats_calc import calculate_rating, estimate_hltv2_impact
+from utils.stats_calc import calculate_rating, estimate_hltv2_impact, non_negative_impact
 
 
 class IngestValidationError(ValueError):
@@ -207,7 +207,8 @@ def parse_director_player_stat(payload):
         "rating": rating if rounds else None,
         "kpr": kpr if rounds else None,
         "dpr": dpr if rounds else None,
-        "impact": impact,
+        # Rating 按回归原值算（和 CSDA 一致）；保存的 Impact 最低记 0
+        "impact": non_negative_impact(impact),
         "headshot_percentage": (round(headshots * 100 / kills, 1) if kills else 0)
         if headshots is not None and kills is not None
         else None,

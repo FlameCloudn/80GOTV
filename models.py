@@ -320,6 +320,21 @@ def _ensure_match_stats_unique_result_index(cursor):
     return sorted({row[1] for row in duplicates})
 
 
+def _ensure_non_negative_impact(cursor):
+    """Impact 最低记 0：以前按回归公式存下的负数（击杀很少时会出现）改成 0，只改 impact 这一列。
+
+    返回受影响的选手，用来刷新他们的汇总数据。重复执行不会再改到任何记录。
+    """
+    columns = {row[1] for row in cursor.execute("PRAGMA table_info(match_stats)").fetchall()}
+    if not {"impact", "player_id"}.issubset(columns):
+        return []
+    players = cursor.execute(
+        "SELECT DISTINCT player_id FROM match_stats WHERE impact < 0 AND player_id IS NOT NULL"
+    ).fetchall()
+    cursor.execute("UPDATE match_stats SET impact = 0 WHERE impact < 0")
+    return sorted({row[0] for row in players})
+
+
 def _ensure_school_profile_columns(cursor):
     additions = {
         "users": {"is_bashizhong_student": "INTEGER"},
@@ -480,7 +495,8 @@ def _init_tables(conn):
         _ensure_match_stats_team_side_column(c)
         _ensure_match_stats_data_version_columns(c)
         _ensure_match_stats_flash_recorded_column(c)
-        affected_players = _ensure_match_stats_unique_result_index(c)
+        affected_players = set(_ensure_match_stats_unique_result_index(c))
+        affected_players.update(_ensure_non_negative_impact(c))
         summary_exists = c.execute(
             "SELECT 1 FROM sqlite_master WHERE type='table' AND name='player_performance_summary'"
         ).fetchone()

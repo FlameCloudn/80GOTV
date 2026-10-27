@@ -739,13 +739,19 @@ def parse_player_stats(match_data):
             event_stats = {key: None for key in event_stats}
         clutches_won = event_stats["clutches_won"]
 
-        from utils.stats_calc import HLTV2_ESTIMATE_METHOD, estimate_hltv2_impact
+        from utils.stats_calc import (
+            HLTV2_ESTIMATE_METHOD,
+            estimate_hltv2_impact,
+            non_negative_impact,
+        )
 
         impact = estimate_hltv2_impact(
             metric(player, "killCount"),
             metric(player, "assistCount"),
             rounds_count,
         )
+        # Rating 取自 CSDA（按回归原值算）；保存的 Impact 最低记 0
+        shown_impact = non_negative_impact(impact)
 
         sk = side_kills.get(steam_id, {"T": 0, "CT": 0})
         sd = side_deaths.get(steam_id, {"T": 0, "CT": 0})
@@ -845,7 +851,7 @@ def parse_player_stats(match_data):
                 "headshot_percentage": metric(player, "headshotPercent", 1),
                 "headshot_count": metric(player, "headshotCount"),
                 "rating": metric(player, "hltvRating2", 2),
-                "impact": round(impact, 2) if impact is not None else None,
+                "impact": round(shown_impact, 2) if shown_impact is not None else None,
                 "impact_method": HLTV2_ESTIMATE_METHOD,
                 "rating_method": HLTV2_ESTIMATE_METHOD,
                 "mvp_count": metric(player, "mvpCount"),

@@ -26,6 +26,17 @@ def estimate_hltv2_impact(kills, assists, rounds_played):
     return 2.13 * kills / rounds_played + 0.42 * assists / rounds_played - 0.41
 
 
+def non_negative_impact(value):
+    """保存和展示用的 Impact：最低记 0。
+
+    上面的回归近似在击杀、助攻很少时会算出负数（0 杀 0 助攻得 -0.41），这只是直线公式往外推的结果；
+    HLTV 的 Impact 由多杀、首杀、残局获胜等加分项构成，不会是负数。Rating 仍用回归原值计算，和 CSDA 一致。
+    """
+    if value is None:
+        return None
+    return max(0.0, float(value))
+
+
 def calculate_rating(kills, deaths, rounds_played, adr=None, kast=None, impact=None):
     """
     计算与 CSDA 同口径的 Rating 2.0 回归近似，非 HLTV 官方精确公式。
