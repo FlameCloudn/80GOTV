@@ -8,7 +8,7 @@ from datetime import datetime
 from flask import jsonify
 
 from models import get_db
-from services.match_roster_service import match_player_slots
+from services.match_roster_service import match_player_slots, resolve_match_roster
 from services.match_service import supplement_temp_teams
 from services.team_logo_service import team_logo_static_path
 from utils.bp_manager import ensure_bp_started
@@ -67,14 +67,8 @@ def _player_ids(raw_value):
     return [int(value) for value in values if str(value).isdigit()]
 
 
-def _team_players(conn, match, side):
-    ordered_rows = match_player_slots(conn, match, side)
-
-    team_id = match.get(f"team{side}_id")
-    try:
-        team_id = int(team_id) if team_id else None
-    except (TypeError, ValueError):
-        team_id = None
+def _team_players(conn, match, side, slots=None):
+    ordered_rows = match_player_slots(conn, match, side) if slots is None else slots
     reserve_ids = {
         int(player["id"])
         for player in _event_substitutes(conn, match.get("event_id"))
@@ -93,8 +87,11 @@ def _team_players(conn, match, side):
             "is_bashizhong_student": row.get("is_bashizhong_student"),
             **(
                 {"role": "substitute"}
-                if row["id"] in reserve_ids
-                or (row["id"] and team_id and row.get("team_id") != team_id)
+                if (
+                    bool(row.get("is_substitute"))
+                    if row.get("roster_frozen")
+                    else row["id"] in reserve_ids
+                )
                 else {}
             ),
         }
@@ -266,20 +263,12 @@ def _match_payload(row, conn):
     if bp_changed:
         conn.commit()
     substitutes = _event_substitutes(conn, match.get("event_id"))
-    roster_issues = []
-    roster_steam_ids = []
-    selected_players = {}
-    for side in (1, 2):
-        selected_players[side] = _team_players(conn, match, side)
-        if len(selected_players[side]) != 5:
-            roster_issues.append(f"team{side}_needs_five_players")
-        for player in selected_players[side]:
-            steam_id = str(player.get("steam_id") or "").strip()
-            if not steam_id:
-                roster_issues.append(f"team{side}_missing_steam_id")
-            roster_steam_ids.append(steam_id)
-    if len(roster_steam_ids) == 10 and len(set(roster_steam_ids)) != 10:
-        roster_issues.append("duplicate_steam_id")
+    roster = resolve_match_roster(conn, match)
+    roster_issues = roster["issues"]
+    roster_steam_ids = roster["steam_ids"]
+    selected_players = {
+        side: _team_players(conn, match, side, roster["players"][side]) for side in (1, 2)
+    }
     roster_revision = hashlib.sha256(
         json.dumps(roster_steam_ids, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     ).hexdigest()[:16]
@@ -368,7 +357,8 @@ def _match_payload(row, conn):
         "roster_locked": not roster_issues,
         "roster_issues": roster_issues,
         "ready_for_start": not roster_issues
-        and bool(bp_state and bp_state.get("status") == "completed"),
+        and bool(bp_state and bp_state.get("status") == "completed")
+        and str(match.get("status") or "").lower() not in {"completed", "cancelled"},
         "bp_can_start": str(match.get("status") or "").lower() not in {"completed", "cancelled"},
         "decider": decider,
         "live_api": f"/api/live/{match['id']}",

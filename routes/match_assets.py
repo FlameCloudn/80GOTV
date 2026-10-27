@@ -18,17 +18,31 @@ from services.live_log_service import load_match_timeline
 from services.match_service import match_stat_belongs_to_side, supplement_temp_teams
 from services.performance_service import weighted_average_sql
 from utils.demo_naming import build_demo_download_name
-from utils.helpers import normalize_map_key, resolve_match_slug, row_get
+from utils.helpers import normalize_map_key, resolve_match_ref, row_get
 from web_app import DEMOS_DIR, app
+
+
+def _redirect_to_current_match_url(endpoint, requested_slug, match):
+    canonical_slug = match["slug"] or str(match["id"])
+    if str(requested_slug) == str(canonical_slug):
+        return None
+    target = url_for(endpoint, slug=canonical_slug)
+    if request.query_string:
+        target += "?" + request.query_string.decode("latin-1")
+    return redirect(target, code=301)
 
 
 @app.route("/matches/<slug>/download-demo")
 def download_demo(slug):
     if not session.get("user_id") and not session.get("admin_id"):
         return redirect(url_for("user_login", next=request.full_path.rstrip("?")))
-    match_id = resolve_match_slug(slug)
-    if not match_id:
+    match_ref = resolve_match_ref(slug)
+    if not match_ref:
         return "比赛不存在", 404
+    canonical_redirect = _redirect_to_current_match_url("download_demo", slug, match_ref)
+    if canonical_redirect:
+        return canonical_redirect
+    match_id = match_ref["id"]
     conn = get_db()
     match = conn.execute(
         "SELECT demo_file, map1, map2, map3, map4, map5 FROM matches WHERE id=?",
@@ -67,9 +81,13 @@ def download_demo(slug):
 
 @app.route("/matches/<slug>/poster")
 def match_poster(slug):
-    match_id = resolve_match_slug(slug)
-    if not match_id:
+    match_ref = resolve_match_ref(slug)
+    if not match_ref:
         return "比赛不存在", 404
+    canonical_redirect = _redirect_to_current_match_url("match_poster", slug, match_ref)
+    if canonical_redirect:
+        return canonical_redirect
+    match_id = match_ref["id"]
     from utils.poster import generate_match_poster
 
     conn = get_db()

@@ -9,6 +9,7 @@ import re
 import secrets
 import smtplib
 import time
+import unicodedata
 import urllib.parse
 import urllib.request
 import uuid
@@ -436,14 +437,41 @@ def _redirect_after_steam(purpose, message, category="error"):
 
 def _safe_next_target(default_endpoint="index"):
     """登录后只允许跳回本站内部路径。"""
-    target = (request.form.get("next") or request.args.get("next") or "").strip()
+    target = request.form.get("next") or request.args.get("next") or ""
+    fallback = url_for(default_endpoint)
     if not target:
-        return url_for(default_endpoint)
+        return fallback
+    if not isinstance(target, str) or target != target.strip():
+        return fallback
+
+    # Check each decoding layer. Browsers treat backslashes as path separators,
+    # and encoded separators or controls can hide a protocol-relative target.
+    probe = target
+    try:
+        while True:
+            if any(unicodedata.category(character) == "Cc" for character in probe):
+                return fallback
+            if "\\" in probe or not probe.startswith("/") or probe.startswith("//"):
+                return fallback
+            parsed = urllib.parse.urlsplit(probe)
+            if parsed.scheme or parsed.netloc or not parsed.path.startswith("/"):
+                return fallback
+
+            decoded_path = urllib.parse.unquote(parsed.path, errors="strict")
+            decoded_target = urllib.parse.unquote(probe, errors="strict")
+            decoded_parts = urllib.parse.urlsplit(decoded_target)
+            if (
+                decoded_path.count("/") != parsed.path.count("/")
+                or decoded_parts.path != decoded_path
+            ):
+                return fallback
+            if decoded_target == probe:
+                break
+            probe = decoded_target
+    except (UnicodeDecodeError, ValueError):
+        return fallback
+
     parsed = urllib.parse.urlsplit(target)
-    # 反斜杠必须一并拦掉：浏览器按 WHATWG 规范把 "\" 当作 "/"，
-    # 于是 "/\evil.com" 会被解释成协议相对的 "//evil.com" 从而跳出本站。
-    if parsed.scheme or parsed.netloc or "\\" in target or not target.startswith("/"):
-        return url_for(default_endpoint)
     return urllib.parse.urlunsplit(("", "", parsed.path or "/", parsed.query, parsed.fragment))
 
 

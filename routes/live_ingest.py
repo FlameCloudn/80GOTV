@@ -34,6 +34,7 @@ from services.live_service import (
 from services.live_service import (
     read_ingest_number as _bounded_number,
 )
+from services.match_roster_service import freeze_match_roster, resolve_match_roster
 from services.match_service import get_series_result, supplement_temp_teams
 from services.performance_service import refresh_player_performance
 from services.player_service import record_observed_player_nickname
@@ -365,8 +366,7 @@ def _probe_broadcast_match(conn, match_id):
     """Return a small, non-sensitive identity check for the selected broadcast match."""
     match = conn.execute(
         """
-        SELECT m.id, m.team1_id, m.team2_id, m.team1_players, m.team2_players,
-               m.bp_state,
+        SELECT m.*,
                COALESCE(t1.name, '') AS team1_name,
                COALESCE(t1.short_name, '') AS t1s,
                COALESCE(t2.name, '') AS team2_name,
@@ -382,15 +382,8 @@ def _probe_broadcast_match(conn, match_id):
         return _receiver_error("gsi", "未找到比赛", 404, match_id)
     match = supplement_temp_teams(match, conn)
 
-    def _five_ids(raw):
-        try:
-            values = json.loads(raw) if raw else []
-        except (TypeError, ValueError, json.JSONDecodeError):
-            return []
-        return values if isinstance(values, list) else []
-
-    roster_ids = _five_ids(match["team1_players"]) + _five_ids(match["team2_players"])
-    roster_locked = len(roster_ids) == 10 and len(set(str(value) for value in roster_ids)) == 10
+    roster = resolve_match_roster(conn, match)
+    roster_locked = roster["locked"]
     bp_state = {}
     try:
         bp_state = json.loads(match["bp_state"] or "{}")
@@ -404,58 +397,13 @@ def _probe_broadcast_match(conn, match_id):
             "team2_name": match["team2_name"],
             "bp_revision": int(bp_state.get("revision", 0) or 0),
             "roster_locked": roster_locked,
-            "ready_for_start": roster_locked and bp_state.get("status") == "completed",
+            "roster_issues": roster["issues"],
+            "ready_for_start": roster_locked
+            and bp_state.get("status") == "completed"
+            and str(match.get("status") or "").lower() not in {"completed", "cancelled"},
             "server_time": datetime.now(timezone.utc).isoformat(),
         }
     )
-
-
-def _locked_roster_steamids(conn, match):
-    """Return the exact ten Steam IDs when the website roster is locked."""
-    player_ids = []
-    for field in ("team1_players", "team2_players"):
-        raw = match[field] if field in match.keys() else None
-        try:
-            values = json.loads(raw) if raw else []
-        except (TypeError, ValueError, json.JSONDecodeError):
-            values = []
-        if not isinstance(values, list) or len(values) != 5:
-            return set()
-        try:
-            player_ids.extend(int(value) for value in values)
-        except (TypeError, ValueError):
-            return set()
-    if len(player_ids) != 10 or len(set(player_ids)) != 10:
-        return set()
-    placeholders = ",".join("?" for _ in player_ids)
-    rows = conn.execute(
-        f"SELECT id, steam_id FROM players WHERE id IN ({placeholders})", player_ids
-    ).fetchall()
-    steam_ids = {str(row["steam_id"] or "").strip() for row in rows}
-    if len(rows) != 10 or len(steam_ids) != 10 or "" in steam_ids:
-        return set()
-    return steam_ids
-
-
-def _locked_roster_side_by_steamid(conn, match):
-    sides = {}
-    for field, side in (("team1_players", "team1"), ("team2_players", "team2")):
-        raw = match[field] if field in match.keys() else None
-        try:
-            values = json.loads(raw) if raw else []
-        except (TypeError, ValueError, json.JSONDecodeError):
-            return {}
-        if not isinstance(values, list) or len(values) != 5:
-            return {}
-        placeholders = ",".join("?" for _ in values)
-        rows = conn.execute(
-            f"SELECT steam_id FROM players WHERE id IN ({placeholders})", values
-        ).fetchall()
-        for row in rows:
-            steam_id = str(row["steam_id"] or "").strip()
-            if steam_id:
-                sides[steam_id] = side
-    return sides if len(sides) == 10 else {}
 
 
 @app.route("/api/broadcast/matches/<int:match_id>/map-result", methods=["POST"])
@@ -527,8 +475,12 @@ def _save_broadcast_map_result(conn, payload, match_id):
             "map_result", "比赛已取消，拒绝覆盖统计数据", 409, match_id, map_name
         )
 
-    locked_roster = _locked_roster_steamids(conn, match)
-    known_sides = _roster_side_by_steamid(conn, match)
+    roster = resolve_match_roster(conn, match)
+    locked_roster = set(roster["steam_ids"]) if roster["locked"] else set()
+    known_sides = {
+        steam_id: "team1" if side == "t1" else "team2"
+        for steam_id, side in roster["side_by_steam_id"].items()
+    }
     if any(
         known_sides.get(steam_id) not in (None, player["team_side"])
         for steam_id, player in zip(supplied_ids, players)
@@ -537,7 +489,7 @@ def _save_broadcast_map_result(conn, payload, match_id):
             "map_result", "选手队伍归属与比赛名单不一致", 409, match_id, map_name
         )
     if locked_roster:
-        locked_sides = _locked_roster_side_by_steamid(conn, match)
+        locked_sides = known_sides
         if len(players) != 10:
             return _receiver_error(
                 "map_result",
@@ -591,6 +543,17 @@ def _save_broadcast_map_result(conn, payload, match_id):
         )
     map_slot = matching_slots[0]
     db_map_name = map_names[map_slot]
+    if (
+        not locked_roster
+        and conn.execute(
+            """SELECT 1 FROM match_stats WHERE match_id=? AND map_name=?
+           AND COALESCE(data_status, 'final')='final' LIMIT 1""",
+            (match_id, db_map_name),
+        ).fetchone()
+    ):
+        return _receiver_error(
+            "map_result", "本场十人名单尚未完整确认，保留原正式统计", 409, match_id, map_name
+        )
     if not stats:
         return _receiver_error("map_result", "没有可保存的选手", 400, match_id, map_name)
     if locked_roster and len(stats) != 10:
@@ -631,14 +594,6 @@ def _save_broadcast_map_result(conn, payload, match_id):
         if isinstance(existing_state, dict)
         else ""
     )
-    if active_session and incoming_session and active_session != incoming_session:
-        return _receiver_error(
-            "map_result", "地图结算会话与当前导播会话不一致", 409, match_id, map_name
-        )
-    if active_session and not incoming_session:
-        return _receiver_error(
-            "map_result", "当前比赛已有导播会话，拒绝无会话结算覆盖", 409, match_id, map_name
-        )
     duplicate_result = next(
         (
             item
@@ -690,6 +645,14 @@ def _save_broadcast_map_result(conn, payload, match_id):
                 "series_complete": confirmed_result.get("series_complete", False),
             }
         )
+    if active_session and incoming_session and active_session != incoming_session:
+        return _receiver_error(
+            "map_result", "地图结算会话与当前导播会话不一致", 409, match_id, map_name
+        )
+    if active_session and not incoming_session:
+        return _receiver_error(
+            "map_result", "当前比赛已有导播会话，拒绝无会话结算覆盖", 409, match_id, map_name
+        )
     frame_seq = payload.get("frame_seq")
     if match["status"] == "completed":
         return _receiver_error(
@@ -700,7 +663,11 @@ def _save_broadcast_map_result(conn, payload, match_id):
         assert frame_seq is not None
         try:
             previous_seq_raw = (
-                previous_result.get("frame_seq") if isinstance(previous_result, dict) else None
+                previous_result.get("frame_seq")
+                if isinstance(previous_result, dict)
+                and previous_result.get("session_id") is not None
+                and str(previous_result["session_id"]) == incoming_session
+                else None
             )
             previous_seq = int(str(previous_seq_raw)) if previous_seq_raw is not None else None
         except (TypeError, ValueError):
@@ -818,6 +785,8 @@ def _save_broadcast_map_result(conn, payload, match_id):
             "map_result", "地图比分无法保存，本次结算未保存", 409, match_id, map_name
         )
     refresh_player_performance(conn, affected_player_ids)
+    if locked_roster:
+        freeze_match_roster(conn, match, confirmed=True)
 
     existing = conn.execute(
         "SELECT live_state FROM live_match_data WHERE match_id=?", (match_id,)
@@ -832,6 +801,7 @@ def _save_broadcast_map_result(conn, payload, match_id):
     result_record = {
         "result_id": result_id,
         "payload_fingerprint": payload_fingerprint,
+        "session_id": incoming_session,
         "frame_seq": frame_seq,
         "map_name": db_map_name,
         "map_slot": map_slot,
@@ -1096,6 +1066,8 @@ def _save_gsi_payload(conn, data, map_name, forced_match_id=None):
     if incoming_seq is not None:
         merged["gsi_frame_seq"] = incoming_seq
     merged["gsi_received_at"] = datetime.now(timezone.utc).isoformat()
+    if resolve_match_roster(conn, match)["locked"]:
+        freeze_match_roster(conn, match, confirmed=True)
     persist_live_match_events(conn, match_id, merged)
     record_ingest_status(conn, "gsi", "ok", "观战账号数据正常", match_id, map_name)
 

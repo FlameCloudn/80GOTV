@@ -19,6 +19,10 @@
 {% set t2_db_key = t2_info.db_id|string if t2_info and t2_info.db_id else None %}
 {% set t1_pids = team_players_map.get(t1_db_key) or team_players_map.get(mt1) or team_players_map.get(t1_name) or team_players_map.get(t1_name|lower) or [] %}
 {% set t2_pids = team_players_map.get(t2_db_key) or team_players_map.get(mt2) or team_players_map.get(t2_name) or team_players_map.get(t2_name|lower) or [] %}
+{% if mid_int and match_players_map is defined and mid_int in match_players_map %}
+{% set t1_pids = match_players_map[mid_int][1] %}
+{% set t2_pids = match_players_map[mid_int][2] %}
+{% endif %}
 {% set map_list = m.get('maps') or [] %}
 {% set card_opponents = match_opponents({'team1_name': t1_name, 'team2_name': t2_name, 't1s': t1_short, 't2s': t2_short}) %}
 {% set display_swapped = card_opponents[0].side == 't2' %}
@@ -34,7 +38,7 @@
 {% set t2_win = ms1 != None and ms2 != None and ms2 > ms1 %}
 
 {% macro player_row(p, side) %}
-  {% set player_display_name = private_name_for_player(p.id, p.nickname) if private_name_for_player is defined else p.nickname %}
+  {% set player_display_name = (private_name_for_player(p.id, p.nickname) if private_name_for_player is defined else p.nickname) or 'TBD' %}
   {% if side == 'left' %}
   <div class="bp-player-row">
     {% if p.avatar %}
@@ -43,13 +47,13 @@
     {% else %}
     <span class="bp-player-avatar bp-avatar-fb" aria-hidden="true">{{ player_display_name[:1]|upper }}</span>
     {% endif %}
-    <span class="bp-player-name">{{ player_display_name }}</span>
+    <span class="bp-player-name"{% if p.slot is defined %} data-player-slot="{{ p.slot }}"{% endif %}>{{ player_display_name }}</span>
     <span class="bp-player-rating">{{ '%.2f'|format(p.rating) if p.rating is defined and p.rating is not none else '-' }}</span>
   </div>
   {% else %}
   <div class="bp-player-row bp-player-row-right">
     <span class="bp-player-rating">{{ '%.2f'|format(p.rating) if p.rating is defined and p.rating is not none else '-' }}</span>
-    <span class="bp-player-name">{{ player_display_name }}</span>
+    <span class="bp-player-name"{% if p.slot is defined %} data-player-slot="{{ p.slot }}"{% endif %}>{{ player_display_name }}</span>
     {% if p.avatar %}
     <img class="bp-player-avatar" src="{{ avatar_thumbnail_url(p.avatar) or '/static/avatars/default.png' }}" alt="{{ player_display_name }}"
          loading="lazy" onerror="this.onerror=null;this.src='/static/avatars/default.png'">

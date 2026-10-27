@@ -8,6 +8,7 @@ from flask import flash, redirect, render_template, request, url_for
 from blueprints.admin import admin_bp
 from models import get_db
 from services.bracket_service import build_event_bracket, refresh_event_bracket
+from services.champion_service import save_champion
 from services.match_service import add_effective_event_status
 from utils.demo_naming import normalize_event_short_name
 from utils.helpers import (
@@ -129,12 +130,7 @@ def _refresh_event_match_slugs(conn, event_id):
 def _save_event_awards(conn, event_id):
     """赛后荣誉只在编辑已有赛事时保存。"""
     champion_team_id = request.form.get("champion_team_id", "")
-    conn.execute("DELETE FROM event_champions WHERE event_id=?", (event_id,))
-    if champion_team_id.isdigit():
-        conn.execute(
-            "INSERT INTO event_champions(event_id, team_id) VALUES(?,?)",
-            (event_id, int(champion_team_id)),
-        )
+    save_champion(conn, event_id, int(champion_team_id) if champion_team_id.isdigit() else None)
 
     mvp_player_id = request.form.get("mvp_player_id", "")
     conn.execute("DELETE FROM player_medals WHERE event_id=? AND type='MVP'", (event_id,))

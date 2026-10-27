@@ -19,6 +19,7 @@ from utils.helpers import (
     build_comment_tree,
     normalize_http_url,
     normalize_map_key,
+    resolve_match_ref,
     resolve_match_slug,
     row_get,
 )
@@ -278,19 +279,17 @@ def match_vote(slug):
 @app.route("/matches/<slug>")
 def match_detail(slug):
     """比赛详情（支持 slug 或数字 ID；ID 访问时 301 跳转到 slug 版）"""
-    match_id = resolve_match_slug(slug)
-    if not match_id:
+    match = resolve_match_ref(slug)
+    if not match:
         return "比赛不存在", 404
-    conn = get_db()
-    match = conn.execute(
-        "SELECT id, slug FROM matches WHERE id=?",
-        (match_id,),
-    ).fetchone()
-    conn.close()
-    # 数字 ID 或旧网址名称都会跳到当前规范地址。
-    if match["slug"] and slug != match["slug"]:
-        return redirect(url_for("match_detail", slug=match["slug"]), code=301)
-    return _render_match_detail(match_id)
+    canonical_slug = match["slug"] or str(match["id"])
+    if str(slug) != str(canonical_slug):
+        suffix = "/stats" if request.path.endswith("/stats") else ""
+        target = url_for("match_detail", slug=canonical_slug) + suffix
+        if request.query_string:
+            target += "?" + request.query_string.decode("latin-1")
+        return redirect(target, code=301)
+    return _render_match_detail(match["id"])
 
 
 def _render_match_detail(match_id):
@@ -363,16 +362,8 @@ def _render_match_detail(match_id):
     # 队伍名单（队标悬停浮窗用；只展示已生效的五人名单，替补用角色标记）
     from routes.broadcast import _team_players
 
-    team1_roster = (
-        _team_players(conn, match, 1)
-        if (match.get("team1_id") or match.get("team1_players"))
-        else []
-    )
-    team2_roster = (
-        _team_players(conn, match, 2)
-        if (match.get("team2_id") or match.get("team2_players"))
-        else []
-    )
+    team1_roster = _team_players(conn, match, 1)
+    team2_roster = _team_players(conn, match, 2)
 
     conn.close()
 
@@ -775,6 +766,7 @@ def _render_match_detail(match_id):
         CASE WHEN {_SQL_MATCH_COMPLETED} THEN 3 ELSE 1 END,
         m.match_time DESC LIMIT 9
     """).fetchall()
+    sidebar_matches = [supplement_temp_teams(row, conn) for row in sidebar_matches]
     sidebar_news = conn.execute(
         "SELECT id, title, created_at FROM news ORDER BY created_at DESC LIMIT 3"
     ).fetchall()
@@ -1624,10 +1616,16 @@ def _build_match_detailed_context(match_id):
 @app.route("/matches/<slug>/detailed")
 def match_detailed_stats(slug):
     """HLTV 风格的比赛详细数据页。"""
-    match_id = resolve_match_slug(slug)
-    if not match_id:
+    match = resolve_match_ref(slug)
+    if not match:
         return "比赛不存在", 404
-    context = _build_match_detailed_context(match_id)
+    canonical_slug = match["slug"] or str(match["id"])
+    if str(slug) != str(canonical_slug):
+        target = url_for("match_detailed_stats", slug=canonical_slug)
+        if request.query_string:
+            target += "?" + request.query_string.decode("latin-1")
+        return redirect(target, code=301)
+    context = _build_match_detailed_context(match["id"])
     if not context:
         return "比赛不存在", 404
     return render_template("match_detailed.html", **context)

@@ -7,7 +7,7 @@ import re
 import sqlite3
 from datetime import datetime
 
-from services.match_roster_service import match_registration
+from services.match_roster_service import frozen_match_teams, match_registration
 from services.team_logo_service import logo_relative_path
 from utils.helpers import normalize_map_key, row_get, team_abbr
 
@@ -123,6 +123,20 @@ def _event_registration_logo(conn, event_id, team_name):
 def supplement_temp_teams(match_row, conn=None):
     """补齐比赛两侧的临时名称、简称和报名队标。"""
     m = dict(match_row)
+    frozen = frozen_match_teams(m)
+    if frozen:
+        for side in (1, 2):
+            info = frozen[str(side)]
+            m[f"team{side}_name"] = info.get("name") or "TBD"
+            m[f"t{side}s"] = info.get("short_name") or team_abbr(m[f"team{side}_name"])
+            for key in (f"team{side}_logo", f"t{side}_logo"):
+                m[key] = info.get("logo") or ""
+    elif conn is not None:
+        for side in (1, 2):
+            if m.get(f"team{side}_registration_id"):
+                registration = match_registration(conn, m, side)
+                if registration:
+                    m[f"team{side}_name"] = registration["team_name"]
     missing_short_ids = [
         m[f"team{side}_id"]
         for side in (1, 2)
@@ -140,6 +154,8 @@ def supplement_temp_teams(match_row, conn=None):
             if not m.get(f"t{side}s"):
                 m[f"t{side}s"] = shorts.get(m.get(f"team{side}_id"))
     for side in (1, 2):
+        if frozen:
+            continue
         if (m.get(f"team{side}_id") and m.get(f"team{side}_id") != -side) or not _has_temp_players(
             m.get(f"team{side}_players")
         ):
@@ -167,6 +183,8 @@ def supplement_temp_teams(match_row, conn=None):
     # uploaded logo everywhere so a newer event logo cannot be hidden by an old
     # permanent team logo.
     for side in (1, 2):
+        if frozen:
+            continue
         logo = _event_registration_logo(conn, m.get("event_id"), m.get(f"team{side}_name"))
         if not logo:
             continue
@@ -232,6 +250,7 @@ def get_prediction_upcoming_matches(conn):
     rows = conn.execute(
         """SELECT m.id,m.slug,m.match_time,m.bo_format,m.event_id,
                   m.team1_id,m.team2_id,m.team1_players,m.team2_players,
+                  m.roster_snapshot,m.team1_registration_id,m.team2_registration_id,
                   t1.short_name AS t1s,t2.short_name AS t2s,
                   COALESCE(t1.name,'TBD') AS team1_name,
                   COALESCE(t2.name,'TBD') AS team2_name,e.name AS event_name,

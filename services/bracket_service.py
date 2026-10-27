@@ -5,7 +5,7 @@ from copy import deepcopy
 from datetime import datetime
 
 from services.match_service import _has_temp_players, get_series_result
-from utils.helpers import ensure_unique_match_slug, make_match_slug
+from utils.helpers import ensure_unique_match_slug, make_match_slug, record_match_slug_alias
 
 FORMAT_SPECS = {
     "4se": {
@@ -315,7 +315,7 @@ def _ensure_team(teams, team_row):
 
 def _update_match_slug(conn, match_id):
     row = conn.execute(
-        """SELECT m.match_time,
+        """SELECT m.match_time,m.slug AS old_slug,
                   COALESCE(t1.short_name,t1.name,'tbd') AS t1n,
                   COALESCE(t2.short_name,t2.name,'tbd') AS t2n,
                   COALESCE(e.slug,e.short_name,e.name,'event') AS event_name
@@ -329,9 +329,12 @@ def _update_match_slug(conn, match_id):
     if not row:
         return
     base = make_match_slug(row["t1n"], row["t2n"], row["match_time"], row["event_name"])
+    slug = ensure_unique_match_slug(conn, match_id, base)
+    if row["old_slug"] and row["old_slug"] != slug:
+        record_match_slug_alias(conn, row["old_slug"], match_id)
     conn.execute(
         "UPDATE matches SET slug=? WHERE id=?",
-        (ensure_unique_match_slug(conn, match_id, base), match_id),
+        (slug, match_id),
     )
 
 

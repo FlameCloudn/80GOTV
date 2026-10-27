@@ -6,6 +6,7 @@ from flask import flash, redirect, render_template, request, session, url_for
 
 from models import get_db
 from routes.stats import SIDE_OPTIONS, SIDE_VALUES, TIME_FILTER_MAP, TIME_FILTERS
+from services.champion_service import player_championships
 from services.match_service import supplement_temp_teams
 from services.performance_service import summary_metric_sql, weighted_average_sql, weighted_rate_sql
 from services.player_awards_service import build_award_page, build_top10_page
@@ -1069,17 +1070,7 @@ def player_detail(player_id):
     ).fetchall()
 
     # 冠军
-    championships = conn.execute(
-        """
-        SELECT ec.*, e.name AS event_name, e.id AS event_id, e.slug AS event_slug, e.start_date AS event_date
-        FROM event_champions ec
-        JOIN events e ON ec.event_id = e.id
-        JOIN players p ON p.team_id = ec.team_id
-        WHERE p.id = ?
-        ORDER BY e.start_date DESC
-    """,
-        (player_id,),
-    ).fetchall()
+    championships = player_championships(conn, player_id)
 
     nickname_history = conn.execute(
         """
@@ -1519,17 +1510,7 @@ def player_stats_detail(player_id):
     """,
         (player_id,),
     ).fetchall()
-    championships = conn.execute(
-        """
-        SELECT ec.*, e.name AS event_name, e.id AS event_id, e.slug AS event_slug, e.start_date AS event_date
-        FROM event_champions ec
-        JOIN events e ON ec.event_id = e.id
-        JOIN players p ON p.team_id = ec.team_id
-        WHERE p.id = ?
-        ORDER BY e.start_date DESC
-    """,
-        (player_id,),
-    ).fetchall()
+    championships = player_championships(conn, player_id)
 
     player_summary, player_category_cards, player_statistics = _build_player_blocks(overall)
     map_options = _player_available_maps(conn)

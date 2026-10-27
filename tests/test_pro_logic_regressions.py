@@ -131,9 +131,14 @@ class ProLogicRegressionTests(ProDatabaseCase):
     def test_regular_edit_does_not_overwrite_scores_written_after_its_read(self):
         original = admin_matches._preserve_managed_match_fields
         halves = json.dumps({"0": {"h1_t1": 6, "h1_t2": 4}})
+        changed_before_lock = False
 
         def after_read(values, existing):
+            nonlocal changed_before_lock
             result = original(values, existing)
+            if changed_before_lock:
+                return result
+            changed_before_lock = True
             with closing(sqlite3.connect(self.database_path)) as live:
                 live.execute(
                     """UPDATE matches SET map1_t1=6,map1_t2=4,team1_score=1,
@@ -145,6 +150,7 @@ class ProLogicRegressionTests(ProDatabaseCase):
 
         with patch.object(admin_matches, "_preserve_managed_match_fields", side_effect=after_read):
             response = self._edit(stream_url="https://live.bilibili.com/123")
+        self.assertTrue(changed_before_lock)
         self.assertEqual(response.status_code, 302)
         match = self.conn.execute("SELECT * FROM matches WHERE id=?", (self.match_id,)).fetchone()
         self.assertEqual((match["map1_t1"], match["map1_t2"]), (6, 4))
@@ -157,9 +163,14 @@ class ProLogicRegressionTests(ProDatabaseCase):
         self.conn.execute("UPDATE matches SET status='upcoming' WHERE id=?", (self.match_id,))
         self.conn.commit()
         original = admin_matches._preserve_managed_match_fields
+        changed_before_lock = False
 
         def after_read(values, existing):
+            nonlocal changed_before_lock
             result = original(values, existing)
+            if changed_before_lock:
+                return result
+            changed_before_lock = True
             with closing(sqlite3.connect(self.database_path)) as live:
                 live.execute("UPDATE matches SET status='live' WHERE id=?", (self.match_id,))
                 live.commit()
@@ -167,6 +178,7 @@ class ProLogicRegressionTests(ProDatabaseCase):
 
         with patch.object(admin_matches, "_preserve_managed_match_fields", side_effect=after_read):
             response = self._edit(status="upcoming", map1="de_mirage")
+        self.assertTrue(changed_before_lock)
         self.assertEqual(response.status_code, 400)
         match = self.conn.execute(
             "SELECT status,map1 FROM matches WHERE id=?", (self.match_id,)

@@ -9,6 +9,7 @@ from copy import deepcopy
 from flask import flash, g, jsonify, redirect, render_template, request, session, url_for
 
 from models import get_db
+from services.match_roster_service import resolve_match_roster
 from services.match_service import supplement_temp_teams
 from utils.bp_manager import (
     ensure_bp_started,
@@ -85,52 +86,32 @@ def _clear_bp_generated_maps(conn, match_id, bo_format):
 def _load_player_ids(raw_value):
     try:
         values = json.loads(raw_value) if raw_value else []
-        return [int(value) for value in values] if isinstance(values, list) else []
+        return (
+            [int(value) for value in values if not isinstance(value, bool) and str(value).isdigit()]
+            if isinstance(values, list)
+            else []
+        )
     except (TypeError, ValueError, json.JSONDecodeError):
         return []
 
 
-def _get_player_team(player, match):
+def _get_player_team(player, match, conn):
     """确定选手属于 t1 还是 t2，无法确定返回 None。"""
     if not player:
         return None
-    # The locked match roster wins over a player's permanent team. This is
-    # what makes an approved substitute belong to the correct side.
-    roster1 = _load_player_ids(match["team1_players"])
-    roster2 = _load_player_ids(match["team2_players"])
-    if player["id"] in roster1 and player["id"] in roster2:
-        return None
-    if player["id"] in roster1:
-        return "t1"
-    if player["id"] in roster2:
-        return "t2"
-    if (
-        not roster1
-        and match["team1_id"]
-        and match["team1_id"] > 0
-        and player["team_id"] == match["team1_id"]
-    ):
-        return "t1"
-    if (
-        not roster2
-        and match["team2_id"]
-        and match["team2_id"] > 0
-        and player["team_id"] == match["team2_id"]
-    ):
-        return "t2"
-    return None
+    steam_id = str(player["steam_id"] or "").strip()
+    return resolve_match_roster(conn, match)["side_by_steam_id"].get(steam_id)
 
 
 def _get_current_player_team(conn, match):
     if "user_id" not in session:
         return None
-    user = conn.execute("SELECT steam_id64 FROM users WHERE id=?", (session["user_id"],)).fetchone()
-    if not user or not user["steam_id64"]:
-        return None
-    player = conn.execute(
-        "SELECT id, team_id FROM players WHERE steam_id=?", (user["steam_id64"],)
+    user = conn.execute(
+        "SELECT steam_id64 AS steam_id FROM users WHERE id=?", (session["user_id"],)
     ).fetchone()
-    return _get_player_team(player, match) if player else None
+    if not user or not user["steam_id"]:
+        return None
+    return _get_player_team(user, match, conn)
 
 
 def _match_team_captain_user_id(conn, match, team):
@@ -245,7 +226,7 @@ def bp_room(match_id):
         conn.close()
         flash("比赛不存在", "error")
         return redirect(url_for("user_profile"))
-    match = supplement_temp_teams(match)
+    match = supplement_temp_teams(match, conn)
 
     team1_name = match["team1_name"]
     team2_name = match["team2_name"]
@@ -261,37 +242,10 @@ def bp_room(match_id):
                 "SELECT * FROM players WHERE steam_id=?", (user["steam_id64"],)
             ).fetchone()
 
-    if player:
-        my_team = _get_player_team(player, match)
-
-        # 检查是否参赛（match_stats 或队伍名单）
-        if not my_team:
-            in_match = conn.execute(
-                "SELECT 1 FROM match_stats WHERE match_id=? AND player_id=?",
-                (match_id, player["id"]),
-            ).fetchone()
-            if not in_match:
-                import json as _json2
-
-                t1p = (
-                    [int(x) for x in _json2.loads(match["team1_players"])]
-                    if match["team1_players"]
-                    else []
-                )
-                t2p = (
-                    [int(x) for x in _json2.loads(match["team2_players"])]
-                    if match["team2_players"]
-                    else []
-                )
-                if player["id"] not in t1p and player["id"] not in t2p:
-                    if not is_admin:
-                        conn.close()
-                        flash("你未参加该比赛", "error")
-                        return redirect(url_for("user_profile"))
-
-    if not player and not is_admin:
+    my_team = _get_current_player_team(conn, match)
+    if not my_team and not is_admin:
         conn.close()
-        flash("请先在个人主页绑定 Steam ID", "error")
+        flash("你未参加该比赛", "error")
         return redirect(url_for("user_profile"))
 
     # A match may have a shared BP password. It is stored as a hash; the

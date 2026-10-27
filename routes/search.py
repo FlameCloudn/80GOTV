@@ -102,6 +102,7 @@ def search():
             f"""
             SELECT m.id, m.slug, m.match_time, m.team1_score, m.team2_score, m.bo_format,
                    m.event_id,m.team1_id,m.team2_id,m.team1_players,m.team2_players,
+                   m.roster_snapshot,m.team1_registration_id,m.team2_registration_id,
                    t1.short_name AS t1s,t2.short_name AS t2s,
                    t1.name AS team1_name, t2.name AS team2_name, e.name AS event_name,
                    {_SQL_EFFECTIVE_STATUS}
@@ -222,6 +223,7 @@ def api_search():
                 f"""
             SELECT m.id, m.slug, m.match_time, m.team1_score, m.team2_score,
                    m.event_id,m.team1_id,m.team2_id,m.team1_players,m.team2_players,
+                   m.roster_snapshot,m.team1_registration_id,m.team2_registration_id,
                    t1.name AS team1_name, t1.short_name AS t1s,
                    t2.name AS team2_name, t2.short_name AS t2s,
                    e.name AS event_name,

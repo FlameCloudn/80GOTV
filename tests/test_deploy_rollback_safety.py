@@ -28,6 +28,11 @@ class DeploymentRollbackSafetyTests(unittest.TestCase):
         self.script.write_text(
             (ROOT / "deploy/update.sh").read_text(encoding="utf-8"), encoding="utf-8", newline="\n"
         )
+        self.candidate_fixture = self.root / "candidate-fixture"
+        (self.candidate_fixture / "tests").mkdir(parents=True)
+        (self.candidate_fixture / "deploy").mkdir()
+        (self.candidate_fixture / "tests/test_example.py").write_text("", encoding="utf-8")
+        shutil.copy2(self.script, self.candidate_fixture / "deploy/update.sh")
         self.data = self.root / "data.db"
         self.data.write_text("before\n", encoding="utf-8", newline="\n")
         self.events = self.root / "events.log"
@@ -49,9 +54,13 @@ exec "$@"
             "git",
             """case "$*" in
   *"status --porcelain"*) exit 0 ;;
-  *"rev-parse HEAD"*) printf '%040d\\n' 1 ;;
+  *"rev-parse HEAD"*)
+    if [[ "$(cat "$APP_DIR/code-revision")" == new ]]; then printf '%040d\\n' 2; else printf '%040d\\n' 1; fi ;;
+  *"rev-parse origin/main"*) printf '%040d\\n' 2 ;;
+  *"fetch origin"*) echo fetch >> "$EVENTS" ;;
+  *"archive "*) echo archive >> "$EVENTS"; tar -cf - -C "$CANDIDATE_FIXTURE" . ;;
   *"merge --ff-only"*) printf new > "$APP_DIR/code-revision"; echo merge >> "$EVENTS" ;;
-  *"reset --hard"*) printf old > "$APP_DIR/code-revision"; echo rollback-code >> "$EVENTS" ;;
+  *"switch --detach"*) printf old > "$APP_DIR/code-revision"; echo rollback-code >> "$EVENTS" ;;
 esac
 """,
         )
@@ -71,25 +80,40 @@ fi
 """,
         )
         self._tool("sleep", "exit 0\n")
-        self._tool(
-            "mktemp",
-            """touch "$APP_DIR/isolated-test.db"
-printf '%s\\n' "$APP_DIR/isolated-test.db"
-""",
-        )
         self._write(
             self.venv / "bin/python",
-            """if [[ "$1" == -m && "$2" == pip ]]; then
-  echo pip >> "$EVENTS"
+            """if [[ "$1" == -m && "$2" == venv ]]; then
+  mkdir -p "$3/bin"
+  cp "$0" "$3/bin/python"
+  chmod +x "$3/bin/python"
+  echo candidate-environment >> "$EVENTS"
+  exit 0
+fi
+scope=candidate
+[[ "$0" != "$VENV_DIR/bin/python" ]] || scope=live
+if [[ "$1" == -m && "$2" == pip && "$3" == list ]]; then
+  printf 'fixture-dependency==1.0\\n'
+  exit 0
+fi
+if [[ "$1" == -m && "$2" == pip && "$3" == install ]]; then
+  echo "pip-$scope" >> "$EVENTS"
   if [[ ! -e "$APP_DIR/preparation-write" ]]; then
     echo during-preparation >> "$DATA_FILE"
     touch "$APP_DIR/preparation-write"
   fi
-  [[ "$FAIL_STAGE" != pip ]]
+  if [[ "$FAIL_STAGE" == pip && "$scope" == candidate ]]; then exit 1; fi
+  if [[ "$FAIL_STAGE" == live-pip && "$scope" == live && "$(cat "$APP_DIR/code-revision")" == new ]]; then exit 1; fi
+  exit 0
+fi
+if [[ "$1" == -m && "$2" == compileall ]]; then
+  echo "syntax-$scope" >> "$EVENTS"
+  [[ "$FAIL_STAGE" != syntax ]]
   exit $?
 fi
 if [[ "$1" == -m && "$2" == unittest ]]; then
   echo tests >> "$EVENTS"
+  echo "tests-active-$(cat "$APP_DIR/code-revision")" >> "$EVENTS"
+  [[ "$DATABASE_PATH" != "$DATA_FILE" ]] || echo unsafe-test-db >> "$EVENTS"
   [[ "$FAIL_STAGE" != tests ]]
   exit $?
 fi
@@ -144,6 +168,7 @@ esac
             MSYS_NO_PATHCONV="1",
             MOCK_BIN=self.tools.as_posix(),
             MOCK_SCRIPT=self.script.as_posix(),
+            CANDIDATE_FIXTURE=self.candidate_fixture.as_posix(),
             BASH_ENV="",
         )
         bootstrap = """if command -v cygpath >/dev/null 2>&1; then
@@ -164,20 +189,42 @@ exec bash "$MOCK_SCRIPT"
             timeout=25,
         )
         events = self.events.read_text(encoding="utf-8").splitlines()
-        self.assertIn("merge", events, result.stdout + result.stderr)
+        self.assertIn("fetch", events, result.stdout + result.stderr)
         return result, events, self.data.read_text(encoding="utf-8")
 
     def test_dependency_failure_never_restores_a_database(self):
         result, events, data = self._run("pip")
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("rollback-code", events)
+        self.assertNotIn("merge", events)
+        self.assertNotIn("stop", events)
+        self.assertNotIn("pip-live", events)
         self.assertNotIn("restore-database", events)
         self.assertIn("during-preparation", data)
+
+    def test_active_code_is_not_replaced_until_independent_checks_and_stop_finish(self):
+        result, events, _data = self._run("")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertLess(events.index("tests"), events.index("merge"))
+        self.assertLess(events.index("stop"), events.index("merge"))
+        self.assertLess(events.index("pip-candidate"), events.index("tests"))
+        self.assertLess(events.index("stop"), events.index("pip-live"))
+        self.assertIn("tests-active-old", events)
+        self.assertNotIn("tests-active-new", events)
+        self.assertNotIn("unsafe-test-db", events)
+
+    def test_failed_candidate_checks_leave_active_code_and_services_untouched(self):
+        result, events, _data = self._run("tests")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn("merge", events)
+        self.assertNotIn("stop", events)
+        self.assertNotIn("rollback-code", events)
 
     def test_test_failure_never_restores_a_database(self):
         result, events, data = self._run("tests")
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("rollback-code", events)
+        self.assertNotIn("merge", events)
+        self.assertNotIn("stop", events)
+        self.assertNotIn("pip-live", events)
         self.assertNotIn("restore-database", events)
         self.assertIn("during-preparation", data)
 
@@ -187,6 +234,21 @@ exec bash "$MOCK_SCRIPT"
         self.assertLess(events.index("stop"), events.index("backup"))
         self.assertLess(events.index("backup"), events.index("migrate"))
         self.assertIn("restore-database", events)
+        self.assertIn("during-preparation", data)
+        self.assertNotIn("migration-write", data)
+
+    def test_syntax_failure_leaves_active_code_and_environment_unchanged(self):
+        result, events, _data = self._run("syntax")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn("stop", events)
+        self.assertNotIn("merge", events)
+        self.assertNotIn("pip-live", events)
+
+    def test_live_dependency_failure_restores_old_code_without_replacing_data(self):
+        result, events, data = self._run("live-pip")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(events.count("rollback-code"), 1)
+        self.assertNotIn("restore-database", events)
         self.assertIn("during-preparation", data)
         self.assertNotIn("migration-write", data)
 
@@ -206,10 +268,13 @@ exec bash "$MOCK_SCRIPT"
         self.assertIn("during-preparation", data)
         self.assertIn("migration-write", data)
 
-    def test_backup_failure_keeps_live_writes_and_rolls_back_only_once(self):
+    def test_backup_failure_restarts_original_code_without_a_database_restore(self):
         result, events, data = self._run("backup")
         self.assertNotEqual(result.returncode, 0)
-        self.assertEqual(events.count("rollback-code"), 1)
+        self.assertNotIn("merge", events)
+        self.assertNotIn("rollback-code", events)
+        self.assertNotIn("pip-live", events)
+        self.assertIn("start", events)
         self.assertNotIn("restore-database", events)
         self.assertIn("during-preparation", data)
 

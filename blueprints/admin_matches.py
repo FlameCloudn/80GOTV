@@ -20,7 +20,11 @@ from services.bracket_service import (
 )
 from services.demo_service import analyze_demo, import_demo_data
 from services.live_log_service import persist_live_match_events
-from services.match_roster_service import match_player_slots
+from services.match_roster_service import (
+    freeze_match_roster,
+    match_player_slots,
+    registration_player_slots,
+)
 from services.match_service import (
     completed_match_result_error,
     score_predictions,
@@ -28,7 +32,13 @@ from services.match_service import (
 )
 from services.performance_service import refresh_player_performance
 from utils.demo_naming import build_demo_filename
-from utils.helpers import ensure_unique_match_slug, make_match_slug, normalize_http_url, row_get
+from utils.helpers import (
+    ensure_unique_match_slug,
+    make_match_slug,
+    normalize_http_url,
+    record_match_slug_alias,
+    row_get,
+)
 from utils.match_utils import get_demo_upload_slot_count, get_sql_effective_status
 from utils.stats_calc import calculate_rating
 from utils.web_helpers import admin_required as login_required
@@ -188,7 +198,7 @@ def _preserve_managed_match_fields(values, existing):
     current_status = existing["status"] or "upcoming"
     if current_status == "ongoing":
         current_status = "live"
-    if current_status != "upcoming":
+    if current_status != "upcoming" or row_get(existing, "bp_state"):
         for field in LOCKED_AFTER_START_FIELDS:
             values[field] = existing[field]
         for slot in range(1, 6):
@@ -211,6 +221,38 @@ def _preserve_managed_match_fields(values, existing):
     if not values.get("decider_start_side"):
         values["decider_start_side"] = existing["decider_start_side"]
     return values
+
+
+def _match_setup_editable(match):
+    status = row_get(match, "status") or "upcoming"
+    if str(status).lower() == "ongoing":
+        status = "live"
+    return status == "upcoming" and not row_get(match, "bp_state")
+
+
+def _started_bp_setup_change(values, existing):
+    if not row_get(existing, "bp_state"):
+        return False
+    for field in LOCKED_AFTER_START_FIELDS:
+        if field not in request.form:
+            continue
+        submitted = values.get(field)
+        current = row_get(existing, field)
+        if field == "event_id":
+            submitted = str(submitted or "").strip()
+            current = str(current or "").strip()
+        elif field == "match_time":
+            submitted = str(submitted or "").strip()[:16]
+            current = str(current or "").strip()[:16]
+        elif field == "bo_format":
+            submitted = str(submitted or "").strip().upper()
+            current = str(current or "").strip().upper()
+        else:
+            submitted = str(submitted or "").strip()
+            current = str(current or "").strip()
+        if submitted != current:
+            return True
+    return False
 
 
 def _get_form_dropdowns(conn):
@@ -260,28 +302,14 @@ def _event_reserve_player_ids(conn, event_id):
 
 def _match_roster_options(conn, match, side):
     """Build the small player list an admin can use for a match substitution."""
-    team_id = row_get(match, f"team{side}_id")
-    try:
-        team_id = int(team_id) if team_id else None
-    except (TypeError, ValueError):
-        team_id = None
-    current_ids = []
-    for player_id in _match_player_ids(match, f"team{side}_players"):
-        try:
-            current_ids.append(int(player_id))
-        except (TypeError, ValueError):
-            continue
-    team_ids = []
-    if team_id:
-        team_ids = [
-            row["id"]
-            for row in conn.execute(
-                "SELECT id FROM players WHERE team_id=? ORDER BY nickname COLLATE NOCASE",
-                (team_id,),
-            ).fetchall()
-        ]
+    current_ids = [
+        player["id"] for player in match_player_slots(conn, match, side) if player.get("id")
+    ]
+    registered_ids = [
+        player["id"] for player in registration_player_slots(conn, match, side) if player.get("id")
+    ]
     reserve_ids = _event_reserve_player_ids(conn, row_get(match, "event_id"))
-    candidate_ids = list(dict.fromkeys(current_ids + team_ids + reserve_ids))
+    candidate_ids = list(dict.fromkeys(current_ids + registered_ids + reserve_ids))
     if not candidate_ids:
         return []
     placeholders = ",".join("?" for _ in candidate_ids)
@@ -304,8 +332,7 @@ def _match_roster_options(conn, match, side):
             "nickname": row["nickname"] or "",
             "team_name": row["team_name"] or "",
             "has_steam_id": bool(str(row["steam_id"] or "").strip()),
-            "is_substitute": row["id"] in reserve_set
-            or bool(team_id and row["team_id"] != team_id),
+            "is_substitute": row["id"] in reserve_set,
         }
         for row in ordered
     ]
@@ -352,6 +379,16 @@ def _parse_match_roster(conn, match, side, *, team_id=None):
         roster_match = dict(match)
         roster_match[f"team{side}_id"] = team_id
         roster_match[f"team{side}_players"] = None
+        roster_match[f"team{side}_registration_id"] = None
+        roster_match["roster_snapshot"] = None
+        other_side = 2 if side == 1 else 1
+        if str(team_id) == str(row_get(match, f"team{other_side}_id")):
+            roster_match[f"team{side}_players"] = json.dumps(
+                _match_roster_selected(conn, match, other_side)
+            )
+            roster_match[f"team{side}_registration_id"] = row_get(
+                match, f"team{other_side}_registration_id"
+            )
     roster_options = _match_roster_options(conn, roster_match, side)
     allowed = {str(option["id"]) for option in roster_options}
     if any(value not in allowed for value in values):
@@ -384,7 +421,7 @@ def _match_form_response(conn, match=None, status=200):
     if match and "_setup_editable" in match.keys():
         match_setup_editable = bool(match["_setup_editable"])
     elif match:
-        match_setup_editable = (row_get(match, "status") or "upcoming") == "upcoming"
+        match_setup_editable = _match_setup_editable(match)
     else:
         match_setup_editable = False
     return render_template(
@@ -411,9 +448,7 @@ def _match_form_state(
     could click save, lose all their edits, and see no useful explanation.
     """
     state = dict(current_match) if current_match else {}
-    state["_setup_editable"] = bool(
-        current_match and (current_match["status"] or "upcoming") == "upcoming"
-    )
+    state["_setup_editable"] = bool(current_match and _match_setup_editable(current_match))
     for key, value in (values or {}).items():
         if key.endswith("_pb"):
             state[key[:-3] + "_picked_by"] = value
@@ -562,10 +597,7 @@ def _generate_match_slug(conn, match_id):
     slug = make_match_slug(match["t1n"], match["t2n"], match["match_time"], match["esn"])
     slug = ensure_unique_match_slug(conn, match_id, slug)
     if match["old_slug"] and match["old_slug"] != slug:
-        conn.execute(
-            "INSERT OR IGNORE INTO match_slug_aliases(slug,match_id) VALUES(?,?)",
-            (match["old_slug"], match_id),
-        )
+        record_match_slug_alias(conn, match["old_slug"], match_id)
     conn.execute("UPDATE matches SET slug=? WHERE id=?", (slug, match_id))
 
 
@@ -782,6 +814,9 @@ def admin_matches_edit(match_id):
         return "比赛不存在", 404
     if request.method == "POST":
         f = _parse_match_form(request, include_results=True)
+        if _started_bp_setup_change(f, current_match):
+            flash("BP 已开始，不能更改赛制或地图等比赛设置", "error")
+            return _match_form_response(conn, _match_form_state(current_match), 400)
         f = _preserve_managed_match_fields(f, current_match)
         error = _match_validation_error(conn, f)
         if error:
@@ -903,8 +938,28 @@ def admin_matches_edit(match_id):
                 ),
                 400,
             )
+        guard_status = existing["status"] or "upcoming"
+        guard_event_id = existing["event_id"]
+        roster_fields = ("team1_id", "team2_id", "team1_players", "team2_players")
+        guard_roster = tuple(existing[field] for field in roster_fields)
+        bp_setup_conflict = False
         try:
             conn.execute("BEGIN IMMEDIATE")
+            # 表单校验期间 BP 可能开始；拿到写锁后必须按最新行再次检查。
+            latest_match = _get_match_form_row(conn, match_id)
+            if not latest_match:
+                raise ValueError("比赛已不存在，请刷新页面后重试")
+            if tuple(latest_match[field] for field in roster_fields) != guard_roster:
+                raise ValueError("比赛阵容已更新，请刷新页面后再保存")
+            if _started_bp_setup_change(f, latest_match):
+                current_match = latest_match
+                bp_setup_conflict = True
+                raise ValueError("BP 已开始，不能更改赛制或地图等比赛设置")
+            current_match = existing = latest_match
+            f = _preserve_managed_match_fields(f, existing)
+            error = _match_validation_error(conn, f)
+            if error:
+                raise ValueError(error)
             if str(f["event_id"]) != str(existing["event_id"]) and match_is_bound_to_bracket(
                 conn, existing["event_id"], match_id
             ):
@@ -923,6 +978,25 @@ def admin_matches_edit(match_id):
                 for column, value in zip(columns, values)
                 if column not in LIVE_SCORE_FIELDS
             }
+            roster_changed = False
+            for side, selected_id, selected_players in (
+                (1, team1_id, team1_players),
+                (2, team2_id, team2_players),
+            ):
+                if (
+                    str(selected_id or "") != str(existing[f"team{side}_id"] or "")
+                    or selected_players != existing[f"team{side}_players"]
+                ):
+                    editable[f"team{side}_registration_id"] = None
+                    roster_changed = True
+            if str(f["event_id"]) != str(existing["event_id"]):
+                editable.update(team1_registration_id=None, team2_registration_id=None)
+                if existing["status"] in {"live", "completed"} or existing["bp_state"]:
+                    freeze_match_roster(conn, existing)
+                else:
+                    roster_changed = True
+            if roster_changed:
+                editable["roster_snapshot"] = None
             cursor = conn.execute(
                 "UPDATE matches SET "
                 + ",".join(f"{column}=?" for column in editable)
@@ -930,8 +1004,8 @@ def admin_matches_edit(match_id):
                 (
                     *editable.values(),
                     match_id,
-                    existing["status"] or "upcoming",
-                    existing["event_id"],
+                    guard_status,
+                    guard_event_id,
                 ),
             )
             if cursor.rowcount != 1:
@@ -948,6 +1022,8 @@ def admin_matches_edit(match_id):
             _generate_match_slug(conn, match_id)
             refresh_bracket_for_match(conn, match_id)
             if f["status"] == "completed":
+                finished = conn.execute("SELECT * FROM matches WHERE id=?", (match_id,)).fetchone()
+                freeze_match_roster(conn, finished, confirmed=existing["status"] != "completed")
                 score_predictions(conn, match_id)
             conn.commit()
         except Exception as exc:
@@ -957,11 +1033,16 @@ def admin_matches_edit(match_id):
             else:
                 logger.exception("更新比赛失败 match_id=%s", match_id)
                 flash("比赛保存失败，请稍后重试", "error")
+            form_state = (
+                _match_form_state(current_match)
+                if bp_setup_conflict
+                else _match_form_state(
+                    current_match, f, team1_id, team2_id, team1_players, team2_players
+                )
+            )
             return _match_form_response(
                 conn,
-                _match_form_state(
-                    current_match, f, team1_id, team2_id, team1_players, team2_players
-                ),
+                form_state,
                 400,
             )
         conn.close()
@@ -1046,6 +1127,7 @@ def admin_match_complete(match_id):
                     live_state = None
                 if isinstance(live_state, dict):
                     saved = persist_live_match_events(conn, match_id, live_state)
+        freeze_match_roster(conn, match, confirmed=True)
         conn.execute("UPDATE matches SET status='completed' WHERE id=?", (match_id,))
         refresh_bracket_for_match(conn, match_id)
         score_predictions(conn, match_id)

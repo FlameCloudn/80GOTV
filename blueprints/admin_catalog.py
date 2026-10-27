@@ -9,6 +9,7 @@ from werkzeug.security import generate_password_hash
 from blueprints.admin import admin_bp
 from config import BASE_DIR
 from models import get_db
+from services.match_roster_service import preserve_team_rosters
 from services.player_service import record_player_nickname, update_player_nickname
 from services.steam_playtime_service import (
     attach_latest_playtime,
@@ -255,6 +256,7 @@ def admin_teams_edit(team_id):
                     "logo": team["logo"],
                 },
             ), 400
+        preserve_team_rosters(conn, team_id)
         if logo_filename:
             conn.execute(
                 "UPDATE teams SET name=?, short_name=?, description=?, logo=? WHERE id=?",

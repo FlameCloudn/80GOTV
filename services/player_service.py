@@ -63,22 +63,47 @@ def load_unique_player_alias_ids(conn):
 
 def _replace_temp_player_id(raw_value, source_id, target_id):
     try:
-        player_ids = json.loads(raw_value) if raw_value else []
+        player_ids = json.loads(raw_value)
     except (TypeError, ValueError):
         return raw_value
     if not isinstance(player_ids, list):
         return raw_value
-    replaced = []
-    for player_id in player_ids:
-        try:
-            player_id = int(player_id)
-        except (TypeError, ValueError):
-            continue
-        if player_id == source_id:
-            player_id = target_id
-        if player_id not in replaced:
-            replaced.append(player_id)
-    return json.dumps(replaced, ensure_ascii=False)
+
+    def is_source(value):
+        return not isinstance(value, bool) and str(value).isdigit() and int(value) == source_id
+
+    if not any(is_source(value) for value in player_ids):
+        return raw_value
+    return json.dumps(
+        [target_id if is_source(value) else value for value in player_ids], ensure_ascii=False
+    )
+
+
+def _replace_snapshot_player_id(raw_value, source_id, target_id):
+    try:
+        snapshot = json.loads(raw_value)
+        teams = snapshot["teams"]
+        if not isinstance(teams, dict):
+            return raw_value
+        changed = False
+        for team in teams.values():
+            if not isinstance(team, dict) or not isinstance(team.get("players"), list):
+                continue
+            for player in team["players"]:
+                if not isinstance(player, dict):
+                    continue
+                player_id = player.get("id")
+                player_id_text = str(player_id)
+                if (
+                    not isinstance(player_id, bool)
+                    and player_id_text.isdigit()
+                    and int(player_id_text) == source_id
+                ):
+                    player["id"] = target_id
+                    changed = True
+        return json.dumps(snapshot, ensure_ascii=False) if changed else raw_value
+    except (TypeError, ValueError, KeyError):
+        return raw_value
 
 
 def merge_player_records(conn, source_id, target_id):
@@ -161,15 +186,29 @@ def merge_player_records(conn, source_id, target_id):
             )
 
     for match in conn.execute(
-        "SELECT id, team1_players, team2_players FROM matches "
-        "WHERE team1_players IS NOT NULL OR team2_players IS NOT NULL"
+        "SELECT id, team1_players, team2_players, roster_snapshot FROM matches "
+        "WHERE team1_players IS NOT NULL OR team2_players IS NOT NULL OR roster_snapshot IS NOT NULL"
     ).fetchall():
         team1_players = _replace_temp_player_id(match["team1_players"], source_id, target_id)
         team2_players = _replace_temp_player_id(match["team2_players"], source_id, target_id)
-        conn.execute(
-            "UPDATE matches SET team1_players=?, team2_players=? WHERE id=?",
-            (team1_players, team2_players, match["id"]),
-        )
+        if team1_players != match["team1_players"]:
+            conn.execute(
+                "UPDATE matches SET team1_players=? WHERE id=?", (team1_players, match["id"])
+            )
+        if team2_players != match["team2_players"]:
+            conn.execute(
+                "UPDATE matches SET team2_players=? WHERE id=?", (team2_players, match["id"])
+            )
+        snapshot = _replace_snapshot_player_id(match["roster_snapshot"], source_id, target_id)
+        if snapshot != match["roster_snapshot"]:
+            conn.execute("UPDATE matches SET roster_snapshot=? WHERE id=?", (snapshot, match["id"]))
+
+    conn.execute(
+        """INSERT OR IGNORE INTO event_champion_players(champion_id, player_id)
+           SELECT champion_id, ? FROM event_champion_players WHERE player_id=?""",
+        (target_id, source_id),
+    )
+    conn.execute("DELETE FROM event_champion_players WHERE player_id=?", (source_id,))
 
     conn.execute(
         """

@@ -21,6 +21,7 @@ MAX_NEWS_CONTENT_BYTES = 100 * 1024
 
 RECENT_MATCHES_SQL = """SELECT m.id, m.event_id, m.match_time, m.team1_id, m.team2_id,
     m.team1_players, m.team2_players, m.team1_score, m.team2_score,
+    m.roster_snapshot, m.team1_registration_id, m.team2_registration_id,
     t1.name AS team1_name, t2.name AS team2_name, t1.short_name AS t1s, t2.short_name AS t2s,
     e.name AS event_name
     FROM matches m LEFT JOIN teams t1 ON m.team1_id=t1.id LEFT JOIN teams t2 ON m.team2_id=t2.id
@@ -28,7 +29,7 @@ RECENT_MATCHES_SQL = """SELECT m.id, m.event_id, m.match_time, m.team1_id, m.tea
 
 
 def _recent_matches(conn):
-    """关联比赛下拉框：自选选手组成的临时队伍用和比赛列表相同的名称（如 TEAM 1 / TEAM 2）。"""
+    """关联比赛下拉框与比赛页面使用同一份真实队伍名称。"""
     return [supplement_temp_teams(row, conn) for row in conn.execute(RECENT_MATCHES_SQL).fetchall()]
 
 

@@ -22,6 +22,11 @@ from services.award_service import (
     find_event_award_player,
     list_event_award_players,
 )
+from services.match_roster_service import (
+    match_snapshot_uses_logo,
+    preserve_event_rosters,
+    resolve_match_roster,
+)
 from services.match_service import add_effective_event_status, supplement_temp_teams
 from services.performance_service import weighted_average_sql
 from services.steam_playtime_service import (
@@ -30,7 +35,6 @@ from services.steam_playtime_service import (
     build_balanced_roster_plan,
     refresh_registration_playtimes,
 )
-from services.team_logo_service import logo_relative_path
 from utils.db_helpers import remove_uploaded_team_logo, save_uploaded_team_logo
 from utils.helpers import event_path, resolve_event_ref
 from utils.match_utils import get_sql_effective_status
@@ -258,11 +262,29 @@ def _can_manage_registration(registration):
 
 def _registration_slot_is_open(slot):
     """Only use truly empty slots; never overwrite a captain's reserved player."""
+    player_name = str(slot.get("player_name") or "").strip()
+    try:
+        slot_index = int(slot.get("slot_index"))
+    except (TypeError, ValueError):
+        slot_index = None
+    placeholder = f"位置{slot_index + 1}" if slot_index is not None else ""
     return bool(
         not slot.get("user_id")
         and not str(slot.get("steam_id") or "").strip()
         and not int(slot.get("filled_by_creator") or 0)
+        and (not player_name or player_name == placeholder)
     )
+
+
+def _begin_registration_write(conn):
+    conn.execute("BEGIN IMMEDIATE")
+
+
+def _rollback_registration_write(conn):
+    try:
+        conn.rollback()
+    finally:
+        conn.close()
 
 
 def _move_individual_registration_to_reserve(conn, event_id, user_id):
@@ -353,109 +375,37 @@ def event_detail(event_id):
     for match in matches:
         match["bp_window_open"] = _bp_window_is_open(match)
 
-    # 赛事报名名单是这项赛事的实际阵容，应优先于选手当前所属队伍。
+    # 参赛者可能每场重新组队，只使用本场名单或本赛事报名，不读取长期队籍。
     registrations = _load_event_registrations(conn, event_id)
-    registration_rosters = {}
-    registration_logos = {}
-    registration_steam_ids = {
-        str(slot.get("steam_id") or "").strip()
-        for registration in registrations
-        for slot in registration["slots"]
-        if str(slot.get("steam_id") or "").strip()
-    }
-    registration_player_by_steam = {}
-    if registration_steam_ids:
-        placeholders = ",".join("?" * len(registration_steam_ids))
-        rows = conn.execute(
-            f"""
-            SELECT id, nickname, avatar, steam_id
-            FROM players
-            WHERE steam_id IN ({placeholders})
-            """,
-            tuple(sorted(registration_steam_ids)),
-        ).fetchall()
-        registration_player_by_steam = {str(row["steam_id"]): dict(row) for row in rows}
-
-    for registration in registrations:
-        info = registration["info"]
-        team_key = str(info.get("team_name") or "").strip().casefold()
-        if not team_key:
-            continue
-        roster = []
-        for slot in registration["slots"]:
-            steam_id = str(slot.get("steam_id") or "").strip()
-            player = registration_player_by_steam.get(steam_id)
-            if player:
-                roster.append(dict(player))
-            elif str(slot.get("player_name") or "").strip():
-                roster.append(
-                    {
-                        "id": 0,
-                        "nickname": str(slot["player_name"]).strip(),
-                        "avatar": "",
-                        "steam_id": steam_id,
-                    }
-                )
-        registration_rosters[team_key] = roster
-        registration_logo = logo_relative_path(info.get("team_logo"))
-        if registration_logo:
-            registration_logos[team_key] = registration_logo
-
-    # 从比赛列表自动提取参赛队伍（含临时队伍）
-    import json as _json
-
-    team_map = {}  # key: team_id or "temp_<side>_<player_ids>"
-    all_player_ids = set()
+    team_map = {}
+    match_players_map = {}
     for m in matches:
-        for side, tid_key, pkey in [
-            ("side1", "team1_id", "team1_players"),
-            ("side2", "team2_id", "team2_players"),
-        ]:
-            tid = m.get(tid_key)
-            pids_str = m.get(pkey)
+        match_players_map[m["id"]] = resolve_match_roster(conn, m)["players"]
+        for side in (1, 2):
+            tid = m.get(f"team{side}_id")
+            slots = match_players_map[m["id"]][side]
+            players = [p for p in slots if p.get("id") or p.get("steam_id") or p.get("nickname")]
             if tid and tid > 0:
                 key = ("team", tid)
-                if key not in team_map:
-                    team_map[key] = {
-                        "id": tid,
-                        "name": m.get("team1_name" if side == "side1" else "team2_name", ""),
-                        "short_name": m.get("t1s" if side == "side1" else "t2s", ""),
-                        "logo": m.get("t1_logo" if side == "side1" else "t2_logo", ""),
-                        "is_temp": False,
-                        "player_ids": [],
-                    }
-            elif pids_str:
-                try:
-                    pids = _json.loads(pids_str) if isinstance(pids_str, str) else pids_str
-                    pids = [int(p) for p in pids] if isinstance(pids, list) else []
-                except (TypeError, ValueError):
-                    pids = []
-                if pids:
-                    key = ("temp", side, tuple(pids))
-                    if key not in team_map:
-                        team_map[key] = {
-                            "id": None,
-                            "name": m.get("team1_name" if side == "side1" else "team2_name", ""),
-                            "short_name": m.get("t1s" if side == "side1" else "t2s", "") or "TMP",
-                            "logo": "",
-                            "is_temp": True,
-                            "player_ids": pids,
-                        }
-                    all_player_ids.update(pids)
+            elif players:
+                key = (
+                    "temp",
+                    m.get(f"team{side}_name"),
+                    tuple((p.get("id"), p.get("steam_id"), p["slot"]) for p in players),
+                )
+            else:
+                continue
+            if key not in team_map:
+                team_map[key] = {
+                    "id": tid if tid and tid > 0 else None,
+                    "name": m.get(f"team{side}_name", ""),
+                    "short_name": m.get(f"t{side}s", ""),
+                    "logo": m.get(f"t{side}_logo", ""),
+                    "is_temp": not (tid and tid > 0),
+                    "players": players,
+                }
 
-    # 批量查询选手信息
-    player_info = {}
-    if all_player_ids:
-        placeholders = ",".join("?" * len(all_player_ids))
-        rows = conn.execute(
-            f"SELECT id, nickname, avatar FROM players WHERE id IN ({placeholders})",
-            tuple(all_player_ids),
-        ).fetchall()
-        player_info = {r["id"]: r for r in rows}
-
-    # Bracket hover cards use the current event statistics. The old query only
-    # loaded names and avatars, so every rating rendered as a dash even when
-    # the match had already produced stats.
+    # 已结束的场次只展示该场表现；未开赛的场次使用本赛事已有的数据。
     event_ratings = conn.execute(
         f"""
         SELECT ms.player_id,
@@ -473,74 +423,38 @@ def event_detail(event_id):
         for row in event_ratings
         if row["player_id"] and row["rating"] is not None
     }
-    for player_id, player in list(player_info.items()):
-        if player_id in rating_by_player:
-            player_info[player_id] = {**dict(player), "rating": rating_by_player[player_id]}
-    for team_key, roster in list(registration_rosters.items()):
-        registration_rosters[team_key] = [
-            {
-                **player,
-                **(
-                    {"rating": rating_by_player[int(player["id"])]}
-                    if str(player.get("id", "")).isdigit() and int(player["id"]) in rating_by_player
-                    else {}
-                ),
-            }
-            for player in roster
-        ]
-
-    # 为注册队伍查选手
-    reg_team_ids = [v["id"] for k, v in team_map.items() if k[0] == "team"]
-    if reg_team_ids:
-        ph = ",".join("?" * len(reg_team_ids))
-        rows = conn.execute(
-            f"SELECT id, nickname, avatar, team_id FROM players WHERE team_id IN ({ph})",
-            tuple(reg_team_ids),
-        ).fetchall()
-        for r in rows:
-            key = ("team", r["team_id"])
-            if key in team_map:
-                team_map[key].setdefault("player_ids", []).append(r["id"])
-                player_info[r["id"]] = r
-    for player_id, player in list(player_info.items()):
-        if player_id in rating_by_player:
-            player_info[player_id] = {**dict(player), "rating": rating_by_player[player_id]}
-
-    # 组装最终 teams 列表
-    teams = []
-    for key, t in team_map.items():
-        players = []
-        for pid in t["player_ids"]:
-            if pid in player_info:
-                players.append(dict(player_info[pid]))
-        team_key = str(t["name"] or "").strip().casefold()
-        if team_key in registration_rosters:
-            players = registration_rosters[team_key]
-        teams.append(
-            {
-                "id": t["id"],
-                "name": t["name"],
-                "short_name": t["short_name"],
-                "logo": registration_logos.get(team_key) or t.get("logo") or "",
-                "is_temp": t["is_temp"],
-                "players": players,
-            }
+    match_ratings = {
+        (row["match_id"], row["player_id"]): round(float(row["rating"]), 2)
+        for row in conn.execute(
+            f"""SELECT ms.match_id,ms.player_id,
+                       {weighted_average_sql("ms.rating", "ms.rounds_played")} AS rating
+                FROM match_stats ms JOIN matches m ON m.id=ms.match_id
+                WHERE m.event_id=? AND COALESCE(ms.data_status,'final')<>'superseded'
+                GROUP BY ms.match_id,ms.player_id""",
+            (event_id,),
         )
+        if row["rating"] is not None
+    }
+    for match in matches:
+        for slots in match_players_map[match["id"]].values():
+            for player in slots:
+                player["rating"] = (
+                    match_ratings.get((match["id"], player.get("id")))
+                    if match["effective_status"] == "completed"
+                    else rating_by_player.get(player.get("id"))
+                )
+    teams = list(team_map.values())
     teams.sort(key=lambda t: (t["is_temp"], t["name"]))
 
     # 构建 team_id → players 映射（供对阵图卡片悬停用）
     team_players_map = {}
     for t in teams:
-        # 只调整原本展示的五名选手的顺序，不因排序换掉阵容。
-        players_by_rating = sorted(
-            t["players"][:5],
-            key=lambda player: (player.get("rating") is None, -(player.get("rating") or 0)),
-        )
+        players = t["players"][:5]
         if t["id"] is not None:
-            team_players_map[str(t["id"])] = players_by_rating
+            team_players_map[str(t["id"])] = players
         if t["is_temp"]:
-            team_players_map[t["name"]] = players_by_rating
-            team_players_map[t["name"].lower()] = players_by_rating
+            team_players_map[t["name"]] = players
+            team_players_map[t["name"].lower()] = players
 
     # 赛事图池从比赛配置汇总；不再让详情页写死一套地图。
     event_map_pool = []
@@ -579,6 +493,7 @@ def event_detail(event_id):
         matches=matches,
         teams=teams,
         team_players_map=team_players_map,
+        match_players_map=match_players_map,
         event_map_pool=event_map_pool,
         registrations=registrations,
         individual_registration=individual_registration,
@@ -640,16 +555,17 @@ def event_register(event_id):
         return redirect(url_for("event_detail", event_id=event_id))
 
     conn = get_db()
+    _begin_registration_write(conn)
     event = conn.execute("SELECT * FROM events WHERE id=?", (event_id,)).fetchone()
     if not event or not event["registration_open"]:
-        conn.close()
+        _rollback_registration_write(conn)
         flash("该赛事未开放报名", "error")
         return redirect(url_for("event_detail", event_id=event_id))
     user = conn.execute(
         "SELECT username, steam_id64 FROM users WHERE id=?", (session["user_id"],)
     ).fetchone()
     if not user or not user["steam_id64"]:
-        conn.close()
+        _rollback_registration_write(conn)
         flash("报名赛事前请先绑定 Steam 账号", "error")
         return redirect(url_for("user_profile"))
 
@@ -659,11 +575,11 @@ def event_register(event_id):
     except (TypeError, ValueError):
         my_slot = -1
     if not team_name:
-        conn.close()
+        _rollback_registration_write(conn)
         flash("请输入队伍名", "error")
         return redirect(url_for("event_detail", event_id=event_id))
     if my_slot not in range(5):
-        conn.close()
+        _rollback_registration_write(conn)
         flash("请选择有效的位置", "error")
         return redirect(url_for("event_detail", event_id=event_id))
     already_joined = conn.execute(
@@ -675,7 +591,7 @@ def event_register(event_id):
         (event_id, session["user_id"]),
     ).fetchone()
     if already_joined:
-        conn.close()
+        _rollback_registration_write(conn)
         flash("你已经加入该赛事的一支报名队伍", "error")
         return redirect(url_for("event_detail", event_id=event_id))
     individual_entry = conn.execute(
@@ -683,7 +599,7 @@ def event_register(event_id):
         (event_id, session["user_id"]),
     ).fetchone()
     if individual_entry:
-        conn.close()
+        _rollback_registration_write(conn)
         flash("你已经选择个人报名，请先取消个人报名", "error")
         return redirect(url_for("event_detail", event_id=event_id))
     duplicate_name = conn.execute(
@@ -691,7 +607,7 @@ def event_register(event_id):
         (event_id, team_name),
     ).fetchone()
     if duplicate_name:
-        conn.close()
+        _rollback_registration_write(conn)
         flash("该队伍名已经提交过报名", "error")
         return redirect(url_for("event_detail", event_id=event_id))
 
@@ -700,7 +616,7 @@ def event_register(event_id):
         pname = request.form.get(f"pname_{i}", "").strip()
         psteam = request.form.get(f"psteam_{i}", "").strip()
         if psteam and (not psteam.isdigit() or len(psteam) != 17):
-            conn.close()
+            _rollback_registration_write(conn)
             flash(f"位置 {i + 1} 的 SteamID 格式不正确", "error")
             return redirect(url_for("event_detail", event_id=event_id))
         slot_user_id = session["user_id"] if i == my_slot else None
@@ -714,7 +630,7 @@ def event_register(event_id):
     if logo_file and logo_file.filename:
         team_logo = save_uploaded_team_logo(logo_file, BASE_DIR)
         if not team_logo:
-            conn.close()
+            _rollback_registration_write(conn)
             flash("队标无效，请上传不超过 10MB 的 PNG、JPG 或 GIF 图片", "error")
             return redirect(url_for("event_detail", event_id=event_id))
 
@@ -773,16 +689,17 @@ def event_register_individual(event_id):
         return _registration_failure(event_id, "请先登录后再报名", 401)
 
     conn = get_db()
+    _begin_registration_write(conn)
     event = conn.execute("SELECT * FROM events WHERE id=?", (event_id,)).fetchone()
     if not event or not event["registration_open"]:
-        conn.close()
+        _rollback_registration_write(conn)
         return _registration_failure(event_id, "该赛事未开放报名", 403)
     user = conn.execute(
         "SELECT id, username, steam_id64 FROM users WHERE id=?",
         (session["user_id"],),
     ).fetchone()
     if not user or not user["steam_id64"]:
-        conn.close()
+        _rollback_registration_write(conn)
         return _registration_failure(event_id, "个人报名需要先绑定 Steam 账号")
     if conn.execute(
         """
@@ -792,7 +709,7 @@ def event_register_individual(event_id):
         """,
         (event_id,),
     ).fetchone():
-        conn.close()
+        _rollback_registration_write(conn)
         return _registration_failure(event_id, "本次个人报名已经完成分队", 409)
     if conn.execute(
         """
@@ -802,13 +719,13 @@ def event_register_individual(event_id):
         """,
         (event_id, session["user_id"]),
     ).fetchone():
-        conn.close()
+        _rollback_registration_write(conn)
         return _registration_failure(event_id, "你已经加入该赛事的一支报名队伍", 409)
     if conn.execute(
         "SELECT 1 FROM event_individual_registrations WHERE event_id=? AND user_id=?",
         (event_id, session["user_id"]),
     ).fetchone():
-        conn.close()
+        _rollback_registration_write(conn)
         return _registration_failure(event_id, "你已经提交过个人报名", 409)
 
     conn.execute(
@@ -834,16 +751,23 @@ def event_register_substitute(event_id):
         return _registration_failure(event_id, "报名操作过于频繁，请稍后再试", 429)
 
     conn = get_db()
+    _begin_registration_write(conn)
     event = conn.execute("SELECT * FROM events WHERE id=?", (event_id,)).fetchone()
     if not event:
-        conn.close()
+        _rollback_registration_write(conn)
         return _registration_failure(event_id, "赛事不存在", 404)
+    if (
+        str(event["status"] or "").strip().lower() == "completed"
+        or add_effective_event_status(event)["effective_event_status"] == "completed"
+    ):
+        _rollback_registration_write(conn)
+        return _registration_failure(event_id, "赛事已经结束，无法报名替补", 409)
     user = conn.execute(
         "SELECT id, username, steam_id64 FROM users WHERE id=?",
         (session["user_id"],),
     ).fetchone()
     if not user or not user["steam_id64"]:
-        conn.close()
+        _rollback_registration_write(conn)
         return _registration_failure(event_id, "替补报名需要先绑定 Steam 账号")
 
     preferred_registration_id = None
@@ -853,7 +777,7 @@ def event_register_substitute(event_id):
         try:
             preferred_registration_id = int(raw_preferred_id)
         except ValueError:
-            conn.close()
+            _rollback_registration_write(conn)
             return _registration_failure(event_id, "请选择有效的替补队伍")
         preferred_registration = conn.execute(
             """SELECT id, team_name FROM event_registrations
@@ -861,7 +785,7 @@ def event_register_substitute(event_id):
             (preferred_registration_id, event_id),
         ).fetchone()
         if not preferred_registration:
-            conn.close()
+            _rollback_registration_write(conn)
             return _registration_failure(event_id, "所选队伍不属于当前赛事", 409)
         preferred_team_name = preferred_registration["team_name"]
 
@@ -882,7 +806,7 @@ def event_register_substitute(event_id):
         (event_id,),
     ).fetchone()
     if not finalized:
-        conn.close()
+        _rollback_registration_write(conn)
         return _registration_failure(event_id, "正式分队完成后才会开放替补报名", 409)
 
     formal_member = conn.execute(
@@ -896,7 +820,7 @@ def event_register_substitute(event_id):
         (event_id, user["id"]),
     ).fetchone()
     if formal_member:
-        conn.close()
+        _rollback_registration_write(conn)
         return _registration_failure(event_id, "你已经是该赛事的正式队员", 409)
 
     existing = conn.execute(
@@ -922,7 +846,7 @@ def event_register_substitute(event_id):
                 else "已改为赛事公共替补，可替补任意队伍"
             )
             return _registration_success(event_id, message)
-        conn.close()
+        _rollback_registration_write(conn)
         return _registration_failure(event_id, "你已经参加该赛事的报名", 409)
 
     conn.execute(
@@ -959,6 +883,7 @@ def event_withdraw_individual(event_id):
     if "user_id" not in session:
         return _registration_failure(event_id, "请先登录", 401)
     conn = get_db()
+    _begin_registration_write(conn)
     entry = conn.execute(
         """
         SELECT * FROM event_individual_registrations
@@ -967,10 +892,10 @@ def event_withdraw_individual(event_id):
         (event_id, session["user_id"]),
     ).fetchone()
     if not entry:
-        conn.close()
+        _rollback_registration_write(conn)
         return _registration_failure(event_id, "没有找到你的个人报名", 404)
     if entry["assignment_status"] == "assigned":
-        conn.close()
+        _rollback_registration_write(conn)
         return _registration_failure(event_id, "你已经进入正式队伍，请联系队长或管理员调整", 409)
     was_substitute = entry["assignment_status"] == "reserve"
     conn.execute("DELETE FROM event_individual_registrations WHERE id=?", (entry["id"],))
@@ -1166,6 +1091,7 @@ def event_finalize_individual_teams(event_id):
 
     try:
         conn.execute("BEGIN IMMEDIATE")
+        preserve_event_rosters(conn, event_id)
         if conn.execute(
             """
             SELECT 1
@@ -1391,11 +1317,12 @@ def event_join_slot(event_id, reg_id, slot):
         return _registration_failure(event_id, "该位置不存在", 404)
 
     conn = get_db()
+    _begin_registration_write(conn)
     user = conn.execute(
         "SELECT username, steam_id64 FROM users WHERE id=?", (session["user_id"],)
     ).fetchone()
     if not user or not user["steam_id64"]:
-        conn.close()
+        _rollback_registration_write(conn)
         return _registration_failure(event_id, "加入队伍前请先绑定 Steam 账号")
     slot_row = conn.execute(
         """
@@ -1408,10 +1335,10 @@ def event_join_slot(event_id, reg_id, slot):
         (reg_id, slot, event_id),
     ).fetchone()
     if not slot_row:
-        conn.close()
+        _rollback_registration_write(conn)
         return _registration_failure(event_id, "该位置不存在", 404)
-    if slot_row["user_id"]:
-        conn.close()
+    if not _registration_slot_is_open(dict(slot_row)):
+        _rollback_registration_write(conn)
         return _registration_failure(event_id, "该位置已被占用", 409)
 
     already_joined = conn.execute(
@@ -1423,21 +1350,31 @@ def event_join_slot(event_id, reg_id, slot):
         (event_id, session["user_id"]),
     ).fetchone()
     if already_joined:
-        conn.close()
+        _rollback_registration_write(conn)
         return _registration_failure(event_id, "你已经加入该赛事的一支报名队伍", 409)
     individual_entry = conn.execute(
         "SELECT 1 FROM event_individual_registrations WHERE event_id=? AND user_id=?",
         (event_id, session["user_id"]),
     ).fetchone()
     if individual_entry:
-        conn.close()
+        _rollback_registration_write(conn)
         return _registration_failure(event_id, "你已经选择个人报名，请先取消个人报名", 409)
 
+    preserve_event_rosters(conn, event_id, reg_id)
     conn.execute(
         """UPDATE event_registration_slots
                     SET user_id=?, player_name=?, steam_id=?
-                    WHERE id=? AND user_id IS NULL""",
-        (session["user_id"], user["username"], user["steam_id64"], slot_row["id"]),
+                    WHERE id=? AND user_id IS NULL
+                      AND TRIM(COALESCE(steam_id, ''))=''
+                      AND COALESCE(filled_by_creator, 0)=0
+                      AND TRIM(COALESCE(player_name, '')) IN ('', ?)""",
+        (
+            session["user_id"],
+            user["username"],
+            user["steam_id64"],
+            slot_row["id"],
+            f"位置{slot + 1}",
+        ),
     )
     changed = conn.execute("SELECT changes()").fetchone()[0]
     if changed != 1:
@@ -1460,6 +1397,7 @@ def event_leave_slot(event_id, reg_id, slot):
         return _registration_failure(event_id, "该位置不存在", 404)
 
     conn = get_db()
+    _begin_registration_write(conn)
     slot_row = conn.execute(
         """
         SELECT s.id, s.slot_index, r.team_name, r.creator_user_id
@@ -1479,6 +1417,7 @@ def event_leave_slot(event_id, reg_id, slot):
         conn.close()
         return _registration_failure(event_id, "队长不能直接退出，请解散队伍", 403)
 
+    preserve_event_rosters(conn, event_id, reg_id)
     conn.execute(
         """
         UPDATE event_registration_slots
@@ -1510,6 +1449,7 @@ def event_leave_slot(event_id, reg_id, slot):
 def event_registration_rename(event_id, reg_id):
     """队长或管理员直接修改报名队伍名称。"""
     conn = get_db()
+    _begin_registration_write(conn)
     registration = _registration_for_management(conn, event_id, reg_id)
     if not _can_manage_registration(registration):
         conn.close()
@@ -1529,6 +1469,7 @@ def event_registration_rename(event_id, reg_id):
         conn.close()
         return _registration_failure(event_id, "该队伍名已经被使用", 409)
 
+    preserve_event_rosters(conn, event_id, reg_id)
     conn.execute("UPDATE event_registrations SET team_name=? WHERE id=?", (team_name, reg_id))
     conn.commit()
     conn.close()
@@ -1555,6 +1496,8 @@ def event_registration_upload_logo(event_id, reg_id):
 
     old_logo = registration["team_logo"]
     try:
+        preserve_event_rosters(conn, event_id, reg_id)
+        retain_logo = match_snapshot_uses_logo(conn, old_logo)
         conn.execute(
             "UPDATE event_registrations SET team_logo=? WHERE id=?",
             (new_logo, reg_id),
@@ -1566,7 +1509,8 @@ def event_registration_upload_logo(event_id, reg_id):
         remove_uploaded_team_logo(BASE_DIR, new_logo)
         return _registration_failure(event_id, "队标保存失败，请稍后重试", 500)
     conn.close()
-    remove_uploaded_team_logo(BASE_DIR, old_logo)
+    if not retain_logo:
+        remove_uploaded_team_logo(BASE_DIR, old_logo)
     return _registration_success(event_id, "队标已更新")
 
 
@@ -1584,10 +1528,13 @@ def event_registration_remove_logo(event_id, reg_id):
         return _registration_failure(event_id, "只有队长或管理员可以移除队标", 403)
 
     old_logo = registration["team_logo"]
+    preserve_event_rosters(conn, event_id, reg_id)
+    retain_logo = match_snapshot_uses_logo(conn, old_logo)
     conn.execute("UPDATE event_registrations SET team_logo=NULL WHERE id=?", (reg_id,))
     conn.commit()
     conn.close()
-    remove_uploaded_team_logo(BASE_DIR, old_logo)
+    if not retain_logo:
+        remove_uploaded_team_logo(BASE_DIR, old_logo)
     return _registration_success(event_id, "队标已移除")
 
 
@@ -1605,6 +1552,8 @@ def event_registration_dissolve(event_id, reg_id):
     team_logo = registration["team_logo"]
     try:
         conn.execute("BEGIN IMMEDIATE")
+        preserve_event_rosters(conn, event_id, reg_id)
+        retain_logo = match_snapshot_uses_logo(conn, team_logo)
         member_rows = conn.execute(
             "SELECT user_id FROM event_registration_slots WHERE registration_id=?",
             (reg_id,),
@@ -1625,7 +1574,8 @@ def event_registration_dissolve(event_id, reg_id):
         return _registration_failure(event_id, "队伍解散失败，所有资料均已保留，请稍后重试", 500)
     finally:
         conn.close()
-    remove_uploaded_team_logo(BASE_DIR, team_logo)
+    if not retain_logo:
+        remove_uploaded_team_logo(BASE_DIR, team_logo)
     return _registration_success(event_id, f'队伍 "{team_name}" 已解散')
 
 
@@ -1640,6 +1590,7 @@ def event_registration_remove_member(event_id, reg_id, slot):
         return _registration_failure(event_id, "该位置不存在", 404)
 
     conn = get_db()
+    _begin_registration_write(conn)
     registration = _registration_for_management(conn, event_id, reg_id)
     if not _can_manage_registration(registration):
         conn.close()
@@ -1657,6 +1608,7 @@ def event_registration_remove_member(event_id, reg_id, slot):
         return _registration_failure(event_id, "队长位置不能被移除，请解散队伍", 403)
 
     removed_name = slot_row["player_name"]
+    preserve_event_rosters(conn, event_id, reg_id)
     conn.execute(
         """UPDATE event_registration_slots
            SET user_id=NULL, player_name=?, steam_id='', filled_by_creator=0
@@ -1680,6 +1632,7 @@ def event_registration_update_member(event_id, reg_id, slot):
         return _registration_failure(event_id, "该位置不存在", 404)
 
     conn = get_db()
+    _begin_registration_write(conn)
     registration = _registration_for_management(conn, event_id, reg_id)
     if not _can_manage_registration(registration):
         conn.close()
@@ -1713,6 +1666,7 @@ def event_registration_update_member(event_id, reg_id, slot):
     filled_by_creator = slot_row["filled_by_creator"]
     if not slot_row["user_id"]:
         filled_by_creator = 1 if player_name else 0
+    preserve_event_rosters(conn, event_id, reg_id)
     conn.execute(
         """UPDATE event_registration_slots
            SET player_name=?, steam_id=?, filled_by_creator=? WHERE id=?""",

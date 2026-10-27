@@ -13,6 +13,7 @@ from routes.bp import _get_player_team
 from services import match_service
 from services.match_service import score_predictions
 from tests.test_bp_manager import complete_bp, ready_state
+from tests.test_pro_logic_regressions import ProDatabaseCase
 from utils.bp_manager import ban_map, ensure_bp_started, init_bp_state, pick_map, process_roll
 from utils.match_utils import calculate_map_wins
 from utils.web_helpers import hash_bp_password
@@ -432,7 +433,7 @@ class MatchIntegrityTests(unittest.TestCase):
         self.assertIsNotNone(state["rolls"]["t1"])
 
 
-class BPPhaseIntegrityTests(unittest.TestCase):
+class BPPhaseIntegrityTests(ProDatabaseCase):
     def test_map_aliases_cannot_put_the_same_real_map_in_a_pool_twice(self):
         with self.assertRaisesRegex(ValueError, "重复"):
             init_bp_state("BO1", ["Dust2", "de_dust2"])
@@ -457,14 +458,18 @@ class BPPhaseIntegrityTests(unittest.TestCase):
 
     def test_locked_roster_excludes_unselected_permanent_teammates(self):
         match = {
-            "team1_id": 10,
-            "team2_id": 20,
-            "team1_players": "[101]",
-            "team2_players": "[201]",
+            "team1_id": self.team_ids[0],
+            "team2_id": self.team_ids[1],
+            "team1_players": json.dumps([self.player_id]),
+            "team2_players": "[]",
         }
-        self.assertIsNone(_get_player_team({"id": 102, "team_id": 10}, match))
-        self.assertEqual(_get_player_team({"id": 101, "team_id": 20}, match), "t1")
+        self.assertIsNone(_get_player_team({"id": 999, "steam_id": "999"}, match, self.conn))
+        self.assertEqual(
+            _get_player_team({"id": self.player_id, "steam_id": "111"}, match, self.conn), "t1"
+        )
 
-    def test_legacy_empty_roster_still_uses_permanent_membership(self):
+    def test_empty_roster_does_not_grant_bp_permission_from_permanent_membership(self):
         match = {"team1_id": 10, "team2_id": 20, "team1_players": None, "team2_players": "[]"}
-        self.assertEqual(_get_player_team({"id": 102, "team_id": 10}, match), "t1")
+        self.assertIsNone(
+            _get_player_team({"id": self.player_id, "steam_id": "111"}, match, self.conn)
+        )

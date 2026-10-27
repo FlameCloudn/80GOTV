@@ -3,6 +3,7 @@ import os
 import shutil
 import tempfile
 import unittest
+from datetime import date, timedelta
 from unittest.mock import patch
 
 from PIL import Image
@@ -38,13 +39,17 @@ class EventRegistrationManagementTests(unittest.TestCase):
         self.client = app.test_client()
 
         conn = get_db()
+        today = date.today()
         conn.execute(
             """INSERT INTO events(
                    name, slug, registration_open, status, start_date, end_date
-               ) VALUES(
-                   'Registration Test', 'registration-test', 1, 'upcoming',
-                   '2026-07-24', '2026-07-31'
-               )"""
+               ) VALUES(?, ?, 1, 'upcoming', ?, ?)""",
+            (
+                "Registration Test",
+                "registration-test",
+                (today - timedelta(days=1)).isoformat(),
+                (today + timedelta(days=7)).isoformat(),
+            ),
         )
         self.event_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
         self.captain_id = self._insert_user(conn, "Captain", "76561198000000101")

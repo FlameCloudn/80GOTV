@@ -12,7 +12,7 @@ from services.live_service import (
     _load_live_player_profiles,
     _position_to_radar,
 )
-from services.match_roster_service import match_player_slots
+from services.match_roster_service import resolve_match_roster
 from utils.demo_parser import normalize_map_name
 from web_app import app
 
@@ -57,13 +57,9 @@ def _roster_profiles_by_steamid(conn, row):
     """
     result = {}
     ambiguous = set()
+    roster = resolve_match_roster(conn, row)
     for side in (1, 2):
-        team_id = row.get(f"team{side}_id") if hasattr(row, "get") else row[f"team{side}_id"]
-        try:
-            team_id = int(team_id) if team_id else None
-        except (TypeError, ValueError):
-            team_id = None
-        for player in match_player_slots(conn, row, side):
+        for player in roster["players"][side]:
             steam_id = str(player.get("steam_id") or "").strip()
             if not steam_id:
                 continue
@@ -80,12 +76,7 @@ def _roster_profiles_by_steamid(conn, row):
                 "avatar": avatar,
                 "team": f"team{side}",
                 "slot": player["slot"],
-                "is_substitute": bool(
-                    player.get("id")
-                    and team_id
-                    and player.get("roster_source") == "admin"
-                    and player.get("team_id") != team_id
-                ),
+                "is_substitute": player["is_substitute"],
             }
     return result
 
@@ -169,7 +160,8 @@ def api_live_match(match_id):
                t1.name AS scheduled_team1_name, t2.name AS scheduled_team2_name,
                t1.short_name AS scheduled_team1_short,
                t2.short_name AS scheduled_team2_short,
-               m.event_id, m.team1_id, m.team2_id, m.team1_players, m.team2_players
+               m.event_id, m.team1_id, m.team2_id, m.team1_players, m.team2_players,
+               m.roster_snapshot, m.team1_registration_id, m.team2_registration_id
         FROM live_match_data l
         LEFT JOIN matches m ON l.match_id=m.id
         LEFT JOIN teams t1 ON m.team1_id=t1.id

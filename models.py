@@ -203,6 +203,51 @@ def _ensure_match_decider_columns(cursor):
             cursor.execute(f"ALTER TABLE matches ADD COLUMN {name} {definition}")
 
 
+def _ensure_match_roster_snapshot_columns(cursor):
+    table = cursor.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='matches'"
+    ).fetchone()
+    if not table:
+        return
+    columns = {row[1] for row in cursor.execute("PRAGMA table_info(matches)").fetchall()}
+    additions = {
+        "roster_snapshot": "TEXT",
+        "team1_registration_id": ("INTEGER REFERENCES event_registrations(id) ON DELETE SET NULL"),
+        "team2_registration_id": ("INTEGER REFERENCES event_registrations(id) ON DELETE SET NULL"),
+    }
+    for name, definition in additions.items():
+        if name not in columns:
+            cursor.execute(f"ALTER TABLE matches ADD COLUMN {name} {definition}")
+
+
+def _ensure_event_champion_snapshot_tables(cursor):
+    cursor.execute(
+        """CREATE TABLE IF NOT EXISTS event_champions (
+               id INTEGER PRIMARY KEY AUTOINCREMENT,
+               event_id INTEGER NOT NULL,
+               team_id INTEGER NOT NULL,
+               players_snapshot_at TEXT,
+               created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+               FOREIGN KEY(event_id) REFERENCES events(id),
+               FOREIGN KEY(team_id) REFERENCES teams(id)
+           )"""
+    )
+    champion_columns = {
+        row[1] for row in cursor.execute("PRAGMA table_info(event_champions)").fetchall()
+    }
+    if "players_snapshot_at" not in champion_columns:
+        cursor.execute("ALTER TABLE event_champions ADD COLUMN players_snapshot_at TEXT")
+    cursor.execute(
+        """CREATE TABLE IF NOT EXISTS event_champion_players (
+               champion_id INTEGER NOT NULL,
+               player_id INTEGER NOT NULL,
+               PRIMARY KEY(champion_id, player_id),
+               FOREIGN KEY(champion_id) REFERENCES event_champions(id) ON DELETE CASCADE,
+               FOREIGN KEY(player_id) REFERENCES players(id) ON DELETE CASCADE
+           )"""
+    )
+
+
 def _ensure_match_stats_team_side_column(cursor):
     table = cursor.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name='match_stats'"
@@ -377,6 +422,14 @@ def init_tables():
     conn = get_db()
     try:
         _init_tables(conn)
+        champions_table = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='event_champions'"
+        ).fetchone()
+        if champions_table:
+            from services.champion_service import backfill_champion_members
+
+            backfill_champion_members(conn)
+        conn.commit()
     except Exception:
         try:
             conn.rollback()
@@ -422,6 +475,8 @@ def _init_tables(conn):
         _ensure_player_playtime_columns(c)
         _ensure_match_test_mode_column(c)
         _ensure_match_decider_columns(c)
+        _ensure_match_roster_snapshot_columns(c)
+        _ensure_event_champion_snapshot_tables(c)
         _ensure_match_stats_team_side_column(c)
         _ensure_match_stats_data_version_columns(c)
         _ensure_match_stats_flash_recorded_column(c)
@@ -542,6 +597,9 @@ def _init_tables(conn):
         bp_process TEXT,
         bp_password TEXT DEFAULT NULL,
         bp_state TEXT DEFAULT NULL,
+        roster_snapshot TEXT,
+        team1_registration_id INTEGER,
+        team2_registration_id INTEGER,
         decider_knife_winner TEXT,
         decider_start_side TEXT,
         stream_url TEXT,
@@ -556,7 +614,9 @@ def _init_tables(conn):
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY(event_id) REFERENCES events(id),
         FOREIGN KEY(team1_id) REFERENCES teams(id),
-        FOREIGN KEY(team2_id) REFERENCES teams(id)
+        FOREIGN KEY(team2_id) REFERENCES teams(id),
+        FOREIGN KEY(team1_registration_id) REFERENCES event_registrations(id) ON DELETE SET NULL,
+        FOREIGN KEY(team2_registration_id) REFERENCES event_registrations(id) ON DELETE SET NULL
     );
 
     CREATE TABLE IF NOT EXISTS match_stats (
@@ -843,9 +903,18 @@ def _init_tables(conn):
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         event_id INTEGER NOT NULL,
         team_id INTEGER NOT NULL,
+        players_snapshot_at TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY(event_id) REFERENCES events(id),
         FOREIGN KEY(team_id) REFERENCES teams(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS event_champion_players (
+        champion_id INTEGER NOT NULL,
+        player_id INTEGER NOT NULL,
+        PRIMARY KEY(champion_id, player_id),
+        FOREIGN KEY(champion_id) REFERENCES event_champions(id) ON DELETE CASCADE,
+        FOREIGN KEY(player_id) REFERENCES players(id) ON DELETE CASCADE
     );
 
     CREATE TABLE IF NOT EXISTS match_votes (
@@ -1265,6 +1334,8 @@ def _init_tables(conn):
     _ensure_player_playtime_columns(c)
     _ensure_match_test_mode_column(c)
     _ensure_match_decider_columns(c)
+    _ensure_match_roster_snapshot_columns(c)
+    _ensure_event_champion_snapshot_tables(c)
     _ensure_school_profile_columns(c)
     _ensure_yearly_top10_table(c)
     _ensure_security_state_tables(c)

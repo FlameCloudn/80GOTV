@@ -81,8 +81,9 @@ class StatsUiRegressionTests(unittest.TestCase):
         template = (ROOT / "templates/event_detail.html").read_text(encoding="utf-8")
 
         self.assertIn("t1.logo AS t1_logo, t2.logo AS t2_logo", route)
-        self.assertIn("registration_rosters[team_key] = roster", route)
-        self.assertIn("registration_logos.get(team_key)", route)
+        self.assertIn('resolve_match_roster(conn, m)["players"]', route)
+        self.assertIn('"logo": m.get(f"t{side}_logo", "")', route)
+        self.assertIn("supplement_temp_teams(m, conn)", route)
         self.assertNotIn("# 补充所有注册队伍的选手", route)
         self.assertIn('class="event-team-logo"', template)
         self.assertIn("{{ t.name }}", template)

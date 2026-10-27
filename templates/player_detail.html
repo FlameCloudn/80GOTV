@@ -242,7 +242,7 @@
             </a>
           </td>
           <td class="num">{{ m.kills if m.kills is not none else '-' }}-{{ m.deaths if m.deaths is not none else '-' }}-{{ m.assists if m.assists is not none else '-' }}</td>
-          <td class="center num">{{ m.team1_score if m.team1_score is not none else '-' }} : {{ m.team2_score if m.team2_score is not none else '-' }}</td>
+          <td class="center num">{{ left_team.score if left_team.score is not none else '-' }} : {{ right_team.score if right_team.score is not none else '-' }}</td>
           <td class="num {{ m.rating|rating_class }}"><b>{{ "%.2f"|format(m.rating) if m.rating is not none else '-' }}</b></td>
         </tr>
         {% endfor %}
