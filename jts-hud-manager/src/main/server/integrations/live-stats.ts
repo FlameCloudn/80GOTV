@@ -25,6 +25,7 @@ type KillRecord = {
   killerSide: Side | null
   victimSide: Side
   at: number
+  source: 'event' | 'snapshot'
 }
 
 type RoundEvents = {
@@ -49,6 +50,8 @@ const cleanMap = (value: string) => value.substring(value.lastIndexOf('/') + 1)
 const roundKey = (mapName: string, round: number) => `${cleanMap(mapName)}:${round}`
 const opposingSide = (side: Side): Side => (side === 'CT' ? 'T' : 'CT')
 const roundNumberForEvents = (game: CSGO) => Number(game.map.round || 0) + 1
+const isHostileKill = (entry: KillRecord) =>
+  Boolean(entry.killerSteamid && entry.killerSide && entry.killerSide !== entry.victimSide)
 
 export class LiveStatsTracker {
   private rounds = new Map<string, RoundEvents>()
@@ -77,13 +80,12 @@ export class LiveStatsTracker {
   private recordHostileKill(
     events: RoundEvents,
     killer: Player,
-    victim: Player
+    victim: Player,
+    source: KillRecord['source']
   ) {
     const now = Date.now()
-    if (!events.kills.some((entry) => entry.killerSide !== entry.victimSide)) {
-      this.counter(events, killer.steamid).firstKills += 1
-      this.counter(events, victim.steamid).firstDeaths += 1
-    }
+    this.counter(events, killer.steamid)
+    this.counter(events, victim.steamid)
 
     const traded = [...events.kills]
       .reverse()
@@ -102,7 +104,8 @@ export class LiveStatsTracker {
       victimSteamid: victim.steamid,
       killerSide: killer.team.side,
       victimSide: victim.team.side,
-      at: now
+      at: now,
+      source
     })
   }
 
@@ -118,7 +121,7 @@ export class LiveStatsTracker {
         killer.team.side !== victim.team.side
     )
     if (hostileKill && killer) {
-      this.recordHostileKill(events, killer, victim)
+      this.recordHostileKill(events, killer, victim, 'event')
       if (event.flashed && event.assister?.steamid) {
         this.counter(events, event.assister.steamid).flashAssists += 1
       }
@@ -128,20 +131,24 @@ export class LiveStatsTracker {
         victimSteamid: victim.steamid,
         killerSide: killer?.team.side || null,
         victimSide: victim.team.side,
-        at: Date.now()
+        at: Date.now(),
+        source: 'event'
       })
     }
   }
 
   recordSnapshot(previous: CSGO | null | undefined, current: CSGO) {
     const events = this.round(current)
+    const orderedPlayers = [...current.players]
+      .filter((player) => player.steamid)
+      .sort((left, right) => left.steamid.localeCompare(right.steamid))
     const previousPlayers = new Map(
       (previous && cleanMap(previous.map.name) === cleanMap(current.map.name)
         ? previous.players
         : []
       ).map((player) => [player.steamid, player])
     )
-    const newlyDead = current.players.filter((player) => {
+    const newlyDead = orderedPlayers.filter((player) => {
       if (!player.steamid) return false
       const old = previousPlayers.get(player.steamid)
       if (!old) return Number(player.state.health) <= 0
@@ -155,11 +162,10 @@ export class LiveStatsTracker {
       (player) => !alreadyRecordedVictims.has(player.steamid)
     )
 
-    current.players.forEach((killer) => {
+    orderedPlayers.forEach((killer) => {
       if (!killer.steamid) return
       const recordedKills = events.kills.filter(
-        (entry) =>
-          entry.killerSteamid === killer.steamid && entry.killerSide !== entry.victimSide
+        (entry) => entry.killerSteamid === killer.steamid && isHostileKill(entry)
       ).length
       let missingKills = Math.max(0, Number(killer.state.round_kills) - recordedKills)
       while (missingKills > 0) {
@@ -167,7 +173,7 @@ export class LiveStatsTracker {
           (victim) => victim.team.side !== killer.team.side
         )
         if (victimIndex < 0) {
-          victimIndex = current.players.findIndex(
+          victimIndex = orderedPlayers.findIndex(
             (victim) =>
               victim.steamid &&
               victim.team.side !== killer.team.side &&
@@ -175,11 +181,11 @@ export class LiveStatsTracker {
               !events.kills.some((entry) => entry.victimSteamid === victim.steamid)
           )
           if (victimIndex < 0) break
-          const victim = current.players[victimIndex]
-          this.recordHostileKill(events, killer, victim)
+          const victim = orderedPlayers[victimIndex]
+          this.recordHostileKill(events, killer, victim, 'snapshot')
         } else {
           const [victim] = availableVictims.splice(victimIndex, 1)
-          this.recordHostileKill(events, killer, victim)
+          this.recordHostileKill(events, killer, victim, 'snapshot')
         }
         missingKills -= 1
       }
@@ -213,6 +219,23 @@ export class LiveStatsTracker {
   consume(mapName: string, round: number, players: Player[], winner: Side) {
     const key = roundKey(mapName, round)
     const events = this.rounds.get(key) || { players: {}, kills: [] }
+    Object.values(events.players).forEach((counter) => {
+      counter.firstKills = 0
+      counter.firstDeaths = 0
+    })
+    const firstKill = events.kills
+      .filter(isHostileKill)
+      .sort((left, right) => {
+        if (left.source !== right.source) return left.source === 'event' ? -1 : 1
+        if (left.at !== right.at) return left.at - right.at
+        if (left.source === 'event') return 0
+        return left.killerSteamid.localeCompare(right.killerSteamid) ||
+          left.victimSteamid.localeCompare(right.victimSteamid)
+      })[0]
+    if (firstKill) {
+      this.counter(events, firstKill.killerSteamid).firstKills = 1
+      this.counter(events, firstKill.victimSteamid).firstDeaths = 1
+    }
     const alive: Record<Side, Set<string>> = { CT: new Set(), T: new Set() }
     players.forEach((player) => {
       if (player.steamid) alive[player.team.side].add(player.steamid)
@@ -247,6 +270,23 @@ export const liveStatsTracker = new LiveStatsTracker()
 const sum = (rows: PlayerRoundData[], key: keyof PlayerRoundData) =>
   rows.reduce((total, row) => total + (Number(row[key]) || 0), 0)
 
+// 和网站同一套 Rating 2.0 近似（CSDA 用的公开回归，网站见 utils/stats_calc.py）：
+// Impact = 2.13×场均击杀 + 0.42×场均助攻 − 0.41。显示、上传的 Impact 最低记 0；Rating 用原值算，最低 0。
+// 这样直播画面上的 Rating 和网站上同一张图的 Rating 一致。
+const impactEstimate = (kpr: number, apr: number) => 2.13 * kpr + 0.42 * apr - 0.41
+
+type RatingInputs = { kast: number; kpr: number; dpr: number; apr: number; adr: number }
+const ratingEstimate = ({ kast, kpr, dpr, apr, adr }: RatingInputs) =>
+  Math.max(
+    0,
+    0.0073 * kast +
+      0.3591 * kpr -
+      0.5329 * dpr +
+      0.2372 * impactEstimate(kpr, apr) +
+      0.0032 * adr +
+      0.1587
+  )
+
 const roundMetrics = (rows: PlayerRoundData[]): MapSidePlayerData => {
   const roundsPlayed = rows.length
   const kills = sum(rows, 'kills')
@@ -264,24 +304,8 @@ const roundMetrics = (rows: PlayerRoundData[]): MapSidePlayerData => {
   const kpr = roundsPlayed ? kills / roundsPlayed : 0
   const dpr = roundsPlayed ? deaths / roundsPlayed : 0
   const kast = roundsPlayed ? (kastRounds * 100) / roundsPlayed : 0
-  const impact = roundsPlayed
-    ? (sum(rows, 'firstKills') * 1.5 -
-        sum(rows, 'firstDeaths') * 0.7 +
-        rows.filter((row) => Number(row.kills) >= 2).length * 0.5 +
-        rows.filter((row) => Number(row.clutchSize) > 0).length * 2) /
-      roundsPlayed
-    : 0
-  // A calculated Impact of zero is valid; do not silently replace it with a
-  // second formula just because it is falsy.
-  const effectiveImpact = impact
-  const rating = roundsPlayed
-    ? 0.0073 * kast +
-      0.3591 * kpr -
-      0.5329 * dpr +
-      0.2372 * effectiveImpact +
-      0.0032 * adr +
-      0.2698
-    : 0
+  const apr = roundsPlayed ? assists / roundsPlayed : 0
+  const rating = roundsPlayed ? ratingEstimate({ kast, kpr, dpr, apr, adr }) : 0
   return {
     kills,
     deaths,
@@ -293,16 +317,175 @@ const roundMetrics = (rows: PlayerRoundData[]): MapSidePlayerData => {
     kpr: Number(kpr.toFixed(2)),
     dpr: Number(dpr.toFixed(2)),
     kast: Number(kast.toFixed(1)),
-    rating: Number(Math.max(0, Math.min(3, rating)).toFixed(2))
+    rating: Number(rating.toFixed(2))
   }
 }
 
 const mappedTeamId = (teamId: string | null, isReversed: boolean, ctId: string, tId: string) => {
   const value = teamId || ''
+  if (value && (value === ctId || value === tId)) return value
   if (!isReversed) return value
   if (value === ctId) return tId
   if (value === tId) return ctId
   return value
+}
+
+export type ScoreboardTotals = { kills: number; deaths: number; assists: number }
+export type DamageObservation = { damage: number; rounds: number }
+
+type MapTotals = ScoreboardTotals & {
+  roundsPlayed: number
+  roundsRecorded: number
+  scale: number
+  damage: number
+  kastRounds: number
+}
+
+// 导播全程记录到每一回合时，直接按回合相加。漏回合时，KDA 使用终场计分板，KAST 用 K/A/D 能确认的最低回合数；
+// 伤害优先使用完整回合 round_totaldmg 观测值的均值估算整图，没有观测样本才使用 GSI 的 ADR。
+const mapTotals = (
+  playerRounds: PlayerRoundData[],
+  player: Player | undefined,
+  scoreboard: ScoreboardTotals | undefined,
+  damageObservation: DamageObservation | undefined,
+  fallbackRounds: number
+): MapTotals => {
+  const recorded = playerRounds.length
+  const mapRounds = Math.max(1, Number(fallbackRounds) || 1)
+  const totals = roundMetrics(playerRounds)
+  if (recorded && recorded >= mapRounds) {
+    const { kills, deaths, assists, damage, kastRounds } = totals
+    return { roundsPlayed: recorded, roundsRecorded: recorded, scale: 1, kills, deaths, assists, damage, kastRounds }
+  }
+  const finalStat = (key: keyof ScoreboardTotals) => {
+    const boardValue = scoreboard?.[key]
+    if (boardValue !== undefined && boardValue !== null && Number.isFinite(Number(boardValue))) {
+      return Math.max(0, Number(boardValue))
+    }
+    return Math.max(0, Number(player?.stats[key]) || 0)
+  }
+  const board = {
+    kills: finalStat('kills'),
+    deaths: finalStat('deaths'),
+    assists: finalStat('assists')
+  }
+  const observationDamage = Number(damageObservation?.damage)
+  const observationRounds = Number(damageObservation?.rounds)
+  const hasDamageObservation =
+    damageObservation?.damage !== undefined &&
+    damageObservation.damage !== null &&
+    Number.isFinite(observationDamage) &&
+    observationDamage >= 0 &&
+    damageObservation.rounds !== undefined &&
+    damageObservation.rounds !== null &&
+    Number.isFinite(observationRounds) &&
+    observationRounds > 0
+  const estimatedDamage = hasDamageObservation
+    ? Math.round((observationDamage / observationRounds) * mapRounds)
+    : Math.round((Math.max(0, Number(player?.state.adr) || 0)) * mapRounds)
+  const kastRounds = Math.min(mapRounds, Math.max(board.kills, board.assists, mapRounds - board.deaths))
+  if (!recorded) {
+    // 一回合都没记到：使用终场计分板；KAST 取 K/A/D 能确认的最低回合数。
+    return {
+      roundsPlayed: mapRounds,
+      roundsRecorded: 0,
+      scale: 1,
+      ...board,
+      damage: estimatedDamage,
+      kastRounds
+    }
+  }
+  const scale = mapRounds / recorded
+  return {
+    roundsPlayed: mapRounds,
+    roundsRecorded: recorded,
+    scale,
+    ...board,
+    damage: estimatedDamage,
+    kastRounds
+  }
+}
+
+// 多杀、残局只能按记录到的回合数（漏掉的回合补不回来）
+const eventCounts = (playerRounds: PlayerRoundData[]) => {
+  const multi = [1, 2, 3, 4, 5].map(
+    (amount) => playerRounds.filter((row) => Math.min(5, Number(row.kills) || 0) === amount).length
+  )
+  const clutches = [1, 2, 3, 4, 5].map(
+    (size) => playerRounds.filter((row) => Number(row.clutchSize) === size).length
+  )
+  return { multi, clutches, clutchesWon: clutches.reduce((total, value) => total + value, 0) }
+}
+
+// 每个赢下的回合里，这名选手的伤害占本方伤害的百分比之和
+const rwsPointsFor = (rounds: (RoundData | null)[], steamid: string) =>
+  rounds.reduce((total, round) => {
+    const row = round?.players?.[steamid]
+    if (!round || !row?.side || round.winner !== row.side) return total
+    const teamDamage = Object.values(round.players)
+      .filter((candidate) => candidate.side === row.side)
+      .reduce((amount, candidate) => amount + (Number(candidate.damage) || 0), 0)
+    return teamDamage > 0 ? total + ((Number(row.damage) || 0) * 100) / teamDamage : total
+  }, 0)
+
+type PlayerMapInput = {
+  steamid: string
+  player: Player | undefined
+  playerRounds: PlayerRoundData[]
+  rounds: (RoundData | null)[]
+  scoreboard: ScoreboardTotals | undefined
+  damageObservation: DamageObservation | undefined
+  fallbackRounds: number
+  teamId: string
+}
+
+const buildPlayerMapData = (input: PlayerMapInput): MapPlayerData => {
+  const { steamid, player, playerRounds } = input
+  const totals = mapTotals(
+    playerRounds,
+    player,
+    input.scoreboard,
+    input.damageObservation,
+    input.fallbackRounds
+  )
+  const { roundsPlayed, kills, deaths, assists, damage, kastRounds } = totals
+  const [adr, kpr, dpr, apr] = [damage, kills, deaths, assists].map((value) => value / roundsPlayed)
+  const kast = (kastRounds * 100) / roundsPlayed
+  const damageTaken = Math.round(sum(playerRounds, 'damageTaken') * totals.scale)
+  const utilityDamage = Math.round(sum(playerRounds, 'utilityDamage') * totals.scale)
+  const { multi, clutches, clutchesWon } = eventCounts(playerRounds)
+  const latestRound = [...playerRounds].reverse()[0]
+  return {
+    name: player?.name || latestRound?.name || 'PLAYER',
+    avatar: player?.avatar || latestRound?.avatar || undefined,
+    teamId: latestRound?.teamId || input.teamId,
+    kills, deaths, assists, damage, damageTaken, roundsPlayed, kastRounds,
+    roundsRecorded: totals.roundsRecorded,
+    headshots: sum(playerRounds, 'killshs'),
+    adr: Number(adr.toFixed(1)),
+    kpr: Number(kpr.toFixed(2)),
+    dpr: Number(dpr.toFixed(2)),
+    kast: Number(kast.toFixed(1)),
+    impact: Number(Math.max(0, impactEstimate(kpr, apr)).toFixed(2)),
+    rating: Number(ratingEstimate({ kast, kpr, dpr, apr, adr }).toFixed(2)),
+    firstKills: sum(playerRounds, 'firstKills'),
+    firstDeaths: sum(playerRounds, 'firstDeaths'),
+    multi1k: multi[0], multi2k: multi[1], multi3k: multi[2], multi4k: multi[3], multi5k: multi[4],
+    tradeKills: sum(playerRounds, 'tradeKills'),
+    tradeDeaths: sum(playerRounds, 'tradeDeaths'),
+    clutchesWon,
+    clutch1v1: clutches[0], clutch1v2: clutches[1], clutch1v3: clutches[2], clutch1v4: clutches[3], clutch1v5: clutches[4],
+    mvpCount: sum(playerRounds, 'mvpCount'),
+    utilityDamage,
+    utilityDamagePerRound: Number((utilityDamage / roundsPlayed).toFixed(1)),
+    damageDeltaPerRound: Number(((damage - damageTaken) / roundsPlayed).toFixed(1)),
+    bombPlants: sum(playerRounds, 'bombPlants'),
+    bombDefuses: sum(playerRounds, 'bombDefuses'),
+    flashAssists: sum(playerRounds, 'flashAssists'),
+    rwsBasic: Number((rwsPointsFor(input.rounds, steamid) / Math.max(1, totals.roundsRecorded || roundsPlayed)).toFixed(2)),
+    tStats: roundMetrics(playerRounds.filter((row) => row.side === 'T')),
+    ctStats: roundMetrics(playerRounds.filter((row) => row.side === 'CT'))
+  }
 }
 
 export const buildMapPlayerStats = ({
@@ -311,7 +494,9 @@ export const buildMapPlayerStats = ({
   isReversed,
   ctId,
   tId,
-  fallbackRounds
+  fallbackRounds,
+  scoreboard = {},
+  damageObservations = {}
 }: {
   players: Player[]
   rounds: (RoundData | null)[]
@@ -319,6 +504,10 @@ export const buildMapPlayerStats = ({
   ctId: string
   tId: string
   fallbackRounds: number
+  // CS2 计分板的整图累计（已扣热身），按 steamid；漏回合时用它补正击杀、死亡、助攻
+  scoreboard?: Record<string, ScoreboardTotals>
+  // 完整回合的 round_totaldmg 观测值合计；只用于补估漏回合的整图伤害
+  damageObservations?: Record<string, DamageObservation>
 }): Record<string, MapPlayerData> => {
   const current = new Map(players.filter((player) => player.steamid).map((player) => [player.steamid, player]))
   const steamids = new Set(current.keys())
@@ -330,122 +519,19 @@ export const buildMapPlayerStats = ({
       const playerRounds = rounds
         .map((round) => round?.players?.[steamid])
         .filter((row): row is PlayerRoundData => Boolean(row))
-      const fallbackRoundCount = Math.max(1, Number(fallbackRounds) || 1)
-      const roundsPlayed = playerRounds.length || fallbackRoundCount
-      const roundTotals = roundMetrics(playerRounds)
-      const hasOfficialRounds = playerRounds.length > 0
-      const kills = hasOfficialRounds ? roundTotals.kills : Number(player?.stats.kills) || 0
-      const deaths = hasOfficialRounds ? roundTotals.deaths : Number(player?.stats.deaths) || 0
-      const assists = hasOfficialRounds ? roundTotals.assists : Number(player?.stats.assists) || 0
-      const damage = hasOfficialRounds
-        ? roundTotals.damage
-        : Math.round((Number(player?.state.adr) || 0) * roundsPlayed)
-      const adr = roundsPlayed ? damage / roundsPlayed : 0
-      const kpr = roundsPlayed ? kills / roundsPlayed : 0
-      const dpr = roundsPlayed ? deaths / roundsPlayed : 0
-      const officialKastRounds = playerRounds.filter(
-        (row) =>
-          Number(row.kills) > 0 ||
-          Number(row.assists) > 0 ||
-          Boolean(row.survived) ||
-          Number(row.tradeDeaths) > 0
-      ).length
-      // If a disconnect skipped the round buffer, do not treat every round as
-      // a KAST miss. The official K/D line still tells us the minimum likely
-      // KAST: kills/assists or rounds survived (rounds minus deaths).
-      const fallbackKastRounds = Math.min(
-        roundsPlayed,
-        Math.max(kills, assists, roundsPlayed - deaths)
-      )
-      const kastRounds = hasOfficialRounds ? officialKastRounds : fallbackKastRounds
-      const kast = roundsPlayed ? (kastRounds * 100) / roundsPlayed : 0
-      const firstKills = sum(playerRounds, 'firstKills')
-      const firstDeaths = sum(playerRounds, 'firstDeaths')
-      const multi = [1, 2, 3, 4, 5].map(
-        (amount) => playerRounds.filter((row) => Math.min(5, Number(row.kills) || 0) === amount).length
-      )
-      const clutches = [1, 2, 3, 4, 5].map(
-        (size) => playerRounds.filter((row) => Number(row.clutchSize) === size).length
-      )
-      const clutchesWon = clutches.reduce((total, value) => total + value, 0)
-      const impact = roundsPlayed
-        ? (firstKills * 1.5 -
-            firstDeaths * 0.7 +
-            multi.slice(1).reduce((total, value) => total + value, 0) * 0.5 +
-            clutchesWon * 2) /
-          roundsPlayed
-        : 0
-      const effectiveImpact = impact
-      const rating =
-        0.0073 * kast +
-        0.3591 * kpr -
-        0.5329 * dpr +
-        0.2372 * effectiveImpact +
-        0.0032 * adr +
-        0.2698
-      const damageTaken = sum(playerRounds, 'damageTaken')
-      const tStats = roundMetrics(playerRounds.filter((row) => row.side === 'T'))
-      const ctStats = roundMetrics(playerRounds.filter((row) => row.side === 'CT'))
-      const rwsPoints = rounds.reduce((total, round) => {
-        const row = round?.players?.[steamid]
-        if (!round || !row?.side || round.winner !== row.side) return total
-        const teamDamage = Object.values(round.players)
-          .filter((candidate) => candidate.side === row.side)
-          .reduce((amount, candidate) => amount + (Number(candidate.damage) || 0), 0)
-        return teamDamage > 0 ? total + ((Number(row.damage) || 0) * 100) / teamDamage : total
-      }, 0)
       const latestRound = [...playerRounds].reverse()[0]
-      const currentTeamId = player
-        ? mappedTeamId(player.team.id, isReversed, ctId, tId)
-        : latestRound?.teamId || ''
-
-      return [
+      const teamId = player ? mappedTeamId(player.team.id, isReversed, ctId, tId) : latestRound?.teamId || ''
+      const data = buildPlayerMapData({
         steamid,
-        {
-          name: player?.name || latestRound?.name || 'PLAYER',
-          avatar: player?.avatar || latestRound?.avatar || undefined,
-          teamId: latestRound?.teamId || currentTeamId,
-          kills,
-          deaths,
-          assists,
-          damage,
-          damageTaken,
-          roundsPlayed,
-          headshots: sum(playerRounds, 'killshs'),
-          adr: Number(adr.toFixed(1)),
-          kpr: Number(kpr.toFixed(2)),
-          dpr: Number(dpr.toFixed(2)),
-          kast: Number(kast.toFixed(1)),
-          kastRounds,
-          impact: Number(Math.max(0, impact).toFixed(2)),
-          rating: Number(Math.max(0, Math.min(3, rating)).toFixed(2)),
-          firstKills,
-          firstDeaths,
-          multi1k: multi[0],
-          multi2k: multi[1],
-          multi3k: multi[2],
-          multi4k: multi[3],
-          multi5k: multi[4],
-          tradeKills: sum(playerRounds, 'tradeKills'),
-          tradeDeaths: sum(playerRounds, 'tradeDeaths'),
-          clutchesWon,
-          clutch1v1: clutches[0],
-          clutch1v2: clutches[1],
-          clutch1v3: clutches[2],
-          clutch1v4: clutches[3],
-          clutch1v5: clutches[4],
-          mvpCount: sum(playerRounds, 'mvpCount'),
-          utilityDamage: sum(playerRounds, 'utilityDamage'),
-          utilityDamagePerRound: Number((sum(playerRounds, 'utilityDamage') / roundsPlayed).toFixed(1)),
-          damageDeltaPerRound: Number(((damage - damageTaken) / roundsPlayed).toFixed(1)),
-          bombPlants: sum(playerRounds, 'bombPlants'),
-          bombDefuses: sum(playerRounds, 'bombDefuses'),
-          flashAssists: sum(playerRounds, 'flashAssists'),
-          rwsBasic: Number((rwsPoints / roundsPlayed).toFixed(2)),
-          tStats,
-          ctStats
-        } satisfies MapPlayerData
-      ]
+        player,
+        playerRounds,
+        rounds,
+        scoreboard: scoreboard[steamid],
+        damageObservation: damageObservations[steamid],
+        fallbackRounds,
+        teamId
+      })
+      return [steamid, data]
     })
   )
 }

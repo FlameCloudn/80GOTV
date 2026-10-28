@@ -1,6 +1,7 @@
 import { ref, onMounted } from 'vue'
 import { API_URL } from '../../../index'
 import { useHuds } from './useHuds'
+import { showToast } from '../../../composables/useToasts'
 
 export function useHudsView() {
   const { huds, isLoading, fetchHuds, deleteHud } = useHuds()
@@ -20,6 +21,7 @@ export function useHudsView() {
       await fetchHuds()
     } catch (err: any) {
       importError.value = err.message
+      showToast(`HUD 导入失败：${err.message}`, 'error', { key: 'hud-import' })
     } finally {
       importing.value = false
     }

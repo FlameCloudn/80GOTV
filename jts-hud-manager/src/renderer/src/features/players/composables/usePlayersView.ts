@@ -2,6 +2,7 @@ import { ref, computed, onMounted } from 'vue'
 import { usePlayers } from './usePlayers'
 import { useTeams } from '../../teams/composables/useTeams'
 import { usePlayerExcel } from '../../../composables/useExcel'
+import { errorText, showToast } from '../../../composables/useToasts'
 
 const TABLE_HEADERS = [
   { key: 'avatar', label: '头像' },
@@ -95,9 +96,14 @@ export function usePlayersView() {
   const editingId = ref<string | null>(null)
   const formData = ref(getEmptyForm())
 
+  // 保存失败：右上角提示，弹窗不关，填好的内容还在
   const handleSave = async (payload: any, file: File | null) => {
-    await savePlayer(payload, isEditing.value ? editingId.value : null, file)
-    isModalOpen.value = false
+    try {
+      await savePlayer(payload, isEditing.value ? editingId.value : null, file)
+      isModalOpen.value = false
+    } catch (error) {
+      showToast(errorText(error), 'error', { key: 'player-save' })
+    }
   }
 
   const openCreateModal = () => {

@@ -41,6 +41,8 @@ export interface MapPlayerData {
   damage?: number
   damageTaken?: number
   roundsPlayed?: number
+  // 导播实际记录到的回合数（中途进服或断线时比 roundsPlayed 少）
+  roundsRecorded?: number
   headshots?: number
   adr?: number
   kpr?: number
@@ -93,6 +95,10 @@ export interface MapSidePlayerData {
 export interface Veto {
   teamId: string
   mapName: string
+  // Website map slot (one-based); distinguishes repeated map names in a series.
+  mapSlot?: number
+  // Incremented when this exact scheduled map is explicitly replayed.
+  mapGeneration?: number
   side: 'CT' | 'T' | 'NO'
   type: 'ban' | 'pick' | 'decider'
   reverseSide?: boolean

@@ -2,6 +2,7 @@ import { onMounted, onUnmounted, ref } from 'vue'
 import { API_URL } from '../../../index'
 import { useConfirmation } from '../../../composables/useConfirmation'
 import { socket } from '../../../socket'
+import { errorText, showToast } from '../../../composables/useToasts'
 
 export function useTeams() {
   const teams = ref<any[]>([])
@@ -70,6 +71,7 @@ export function useTeams() {
       return true
     } catch (error) {
       console.error(error)
+      showToast(errorText(error), 'error', { key: 'teams' })
       return false
     }
   }
@@ -94,6 +96,7 @@ export function useTeams() {
       return true
     } catch (error) {
       console.error(error)
+      showToast(errorText(error), 'error', { key: 'teams' })
       return false
     }
   }

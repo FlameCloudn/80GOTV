@@ -1,4 +1,5 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { showToast } from '../../../composables/useToasts'
 import { useRoute } from 'vue-router'
 import { API_URL } from '../../../index'
 import { useTeams } from '../../teams/composables/useTeams'
@@ -118,8 +119,10 @@ export function useHudPanelView() {
         body: JSON.stringify(config.value)
       })
       sectionStatus.value[sectionName] = res.ok ? 'saved' : 'error'
+      if (!res.ok) showToast('控制面板设置没有发送成功，请再试一次', 'error', { key: 'hud-panel' })
     } catch {
       sectionStatus.value[sectionName] = 'error'
+      showToast('控制面板设置没有发送成功：连不上导播服务', 'error', { key: 'hud-panel' })
     } finally {
       setTimeout(() => {
         sectionStatus.value[sectionName] = 'idle'

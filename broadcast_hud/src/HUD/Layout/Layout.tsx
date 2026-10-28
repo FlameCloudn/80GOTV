@@ -37,6 +37,8 @@ const Layout = ({game,match}: Props) => {
   const [ forceHide, setForceHide ] = useState(false);
   const [directorScene, setDirectorScene] = useState<DirectorScene>("auto");
   const [directorVisible, setDirectorVisible] = useState(true);
+  const [gsiFresh, setGsiFresh] = useState(false);
+  const [hudConnected, setHudConnected] = useState(false);
   const sceneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const countdownPause = getPauseKind(game.phase_countdowns?.phase);
@@ -73,6 +75,11 @@ const Layout = ({game,match}: Props) => {
     setDirectorVisible(state !== "hide");
   }, [], true);
 
+  useAction('gsiFreshness', (state) => {
+    setGsiFresh(state === "fresh");
+    setHudConnected(state !== "disconnected");
+  }, [], true);
+
   const left = game.map.team_ct.orientation === "left" ? game.map.team_ct : game.map.team_t;
   const right = game.map.team_ct.orientation === "left" ? game.map.team_t : game.map.team_ct;
 
@@ -80,8 +87,8 @@ const Layout = ({game,match}: Props) => {
   const rightPlayers = game.players.filter(player => player.team.side === right.side);
   const isFreezetime = (game.round && game.round.phase === "freezetime") || game.phase_countdowns.phase === "freezetime";
   const activeScene = directorScene === "auto" ? automaticDirectorScene(game, detectedPause) : directorScene;
-  const showGameHud = activeScene === "game";
-  if (!directorVisible) return null;
+  const showGameHud = activeScene === "game" && gsiFresh;
+  if (!directorVisible || !hudConnected) return null;
 
   return (
     <div className="layout live-hud">

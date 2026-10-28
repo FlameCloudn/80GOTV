@@ -1,74 +1,58 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-import type { GsiPlayer } from '../composables/useLiveView';
-import BaseButton from '@renderer/components/base/BaseButton.vue';
-import BaseBadge from '@renderer/components/base/BaseBadge.vue';
+// 一边（CT 或 T）的选手：名字、是否已录入、击杀 / 死亡 / 助攻；可编辑、可整队加入战队
+import AppIcon from '../../../components/ui/AppIcon.vue'
+import type { GsiPlayer } from '../composables/useLiveView'
 
-const props = defineProps<{
-  side: 'CT' | 'T';
-  players: GsiPlayer[];
-}>();
-
-const emit = defineEmits<{
-  edit: [player: GsiPlayer];
-  addAll: [];
-}>();
-
-const theme = computed(() =>
-  props.side === 'CT'
-    ? {
-        border: 'border-blue-900/50',
-        header: 'bg-blue-900/30 border-blue-900/50',
-        label: 'text-blue-400',
-        addAllBtn: 'bg-blue-700/40 border-blue-600/50 text-blue-300 hover:bg-blue-600 hover:text-text-main',
-        editHover: 'hover:bg-blue-600',
-      }
-    : {
-        border: 'border-yellow-900/50',
-        header: 'bg-yellow-900/30 border-yellow-900/50',
-        label: 'text-yellow-400',
-        addAllBtn: 'bg-yellow-700/40 border-yellow-600/50 text-yellow-300 hover:bg-yellow-600 hover:text-text-main',
-        editHover: 'hover:bg-yellow-600',
-      }
-);
-
-const sideLabel = computed(() => props.side === 'CT' ? 'CT 选手' : 'T 选手');
+defineProps<{ side: 'CT' | 'T'; players: GsiPlayer[] }>()
+const emit = defineEmits<{ edit: [player: GsiPlayer]; addAll: [] }>()
 </script>
 
 <template>
-  <div class="bg-zinc-800/50 rounded-xl overflow-hidden" :class="`border ${theme.border}`">
-    <div class="px-4 py-3 border-b flex justify-between items-center" :class="theme.header">
-      <span class="font-bold text-sm uppercase" :class="theme.label">{{ sideLabel }}</span>
-      <button
-        @click="emit('addAll')"
-        class="px-3 py-1 rounded text-xs font-bold border transition-colors"
-        :class="theme.addAllBtn"
-      >全部加入战队</button>
-    </div>
-
-    <div class="p-4 space-y-1.5">
-      <div
-        v-for="player in players"
-        :key="player.steamid"
-        class="rounded-lg p-3 flex justify-between items-center transition-colors"
-        :class="player.isCoach
-          ? 'bg-red-950/20 border border-red-700/60 hover:border-red-500'
-          : 'bg-surface border border-zinc-700 hover:border-primary'"
-      >
-        <div>
-          <div class="font-bold flex items-center gap-2" :class="player.isCoach ? 'text-red-300' : 'text-text-main'">
-            {{ player.name }}
-            <BaseBadge v-if="player.isCoach" variant="red">教练</BaseBadge>
-            <BaseBadge v-else-if="player.inDB" variant="emerald">已录入</BaseBadge>
-          </div>
-          <div class="text-xs text-zinc-400 mt-1">击杀：{{ player.stats?.kills || 0 }} · 死亡：{{ player.stats?.deaths || 0 }}</div>
+  <section class="panel side-panel" :class="side.toLowerCase()">
+    <header class="side-head">
+      <span class="side-name">{{ side }}</span>
+      <span class="hint num">{{ players.length }} 名选手</span>
+      <button type="button" class="btn btn-sm" :disabled="!players.length" @click="emit('addAll')"><AppIcon name="users" />全部加入战队</button>
+    </header>
+    <p v-if="!players.length" class="side-empty">这一边还没有选手。</p>
+    <div v-for="player in players" :key="player.steamid" class="player-row" :class="{ coach: player.isCoach }">
+      <div class="player-main">
+        <div class="player-line">
+          <b>{{ player.name }}</b>
+          <span v-if="player.isCoach" class="tag tag-bad">教练</span>
+          <span v-else-if="player.inDB" class="tag tag-ok">已录入</span>
+          <span v-else class="tag tag-warn">未录入</span>
         </div>
-        <BaseButton
-          @click="emit('edit', player)"
-          variant="secondary"
-          :class="player.isCoach && 'hover:bg-red-600'"
-        >编辑</BaseButton>
+        <small class="num">{{ player.steamid }}</small>
       </div>
+      <span class="kda num" title="击杀 / 死亡 / 助攻">
+        {{ player.stats?.kills || 0 }}<i>/</i>{{ player.stats?.deaths || 0 }}<i>/</i>{{ player.stats?.assists || 0 }}
+      </span>
+      <button type="button" class="btn btn-sm" @click="emit('edit', player)">
+        <AppIcon :name="player.inDB ? 'edit' : 'plus'" />{{ player.inDB ? '编辑' : '录入' }}
+      </button>
     </div>
-  </div>
+  </section>
 </template>
+
+<style scoped>
+.side-panel { overflow: hidden; }
+.side-head { display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 16px; border-bottom: 1px solid var(--border); }
+.ct .side-head { background: linear-gradient(90deg, var(--ct-soft), transparent 70%); box-shadow: inset 3px 0 0 var(--ct); }
+.t .side-head { background: linear-gradient(90deg, var(--t-soft), transparent 70%); box-shadow: inset 3px 0 0 var(--t); }
+.side-name { font: 800 14px/1 'Montserrat', sans-serif; letter-spacing: 0.06em; }
+.ct .side-name { color: var(--ct); }
+.t .side-name { color: var(--t); }
+.side-head .btn { margin-left: auto; }
+.side-empty { padding: 20px 16px; font-size: 13px; color: var(--text-3); }
+.player-row { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 12px 8px 16px; border-bottom: 1px solid var(--border); }
+.player-row:last-child { border-bottom: none; }
+.player-row:hover { background: var(--bg-hover); }
+.player-row.coach { background: rgba(239, 91, 82, 0.06); }
+.player-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.player-line { display: flex; align-items: center; gap: 6px; }
+.player-line b { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.player-main small { font-size: 11px; color: var(--text-3); }
+.kda { font-size: 14px; font-weight: 700; color: var(--text); }
+.kda i { font-style: normal; margin: 0 3px; color: var(--text-3); font-weight: 500; }
+</style>

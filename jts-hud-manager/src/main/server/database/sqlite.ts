@@ -14,10 +14,17 @@ if (!fs.existsSync(dbDir)) {
 
 const dbPath = path.join(dbDir, 'jts-hud-manager.sqlite')
 
+// 表都建好后才算就绪：启动时要读本地设置、待上传队列的代码先等它（全新安装时表还没建好）
+let markDbReady: () => void = () => undefined
+export const dbReady = new Promise<void>((resolve) => {
+  markDbReady = resolve
+})
+
 // Initialize SQLite Database
 export const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
     console.error('Error opening SQLite database:', err.message)
+    markDbReady()
   } else {
     console.log('Connected to the SQLite database at:', dbPath)
     initializeTables()
@@ -187,5 +194,7 @@ async function initializeTables() {
     console.log('SQLite tables initialized successfully.')
   } catch (error) {
     console.error('Failed to initialize SQLite tables:', error)
+  } finally {
+    markDbReady()
   }
 }

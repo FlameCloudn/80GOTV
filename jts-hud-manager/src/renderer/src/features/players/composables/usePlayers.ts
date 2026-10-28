@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { errorText, showToast } from '../../../composables/useToasts'
 import { API_URL } from '../../../index'
 import { useConfirmation } from '../../../composables/useConfirmation'
 
@@ -58,6 +59,7 @@ export function usePlayers() {
       return true
     } catch (error) {
       console.error(error)
+      showToast(errorText(error), 'error', { key: 'players' })
       return false
     }
   }
@@ -73,6 +75,7 @@ export function usePlayers() {
       return true
     } catch (error) {
       console.error(error)
+      showToast(errorText(error), 'error', { key: 'players' })
       return false
     }
   }

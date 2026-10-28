@@ -1,4 +1,4 @@
-import { app, BrowserWindow, net } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { createWindow } from './window'
 import { registerIpcHandlers } from './ipc'
@@ -42,10 +42,7 @@ app.whenReady().then(() => {
   // Start local servers
   startServers()
 
-  // Update check
-  if (app.isPackaged) {
-    checkForUpdate()
-  }
+  // 80GOTV 中文版不检查原作者仓库的新版本：那边的原版没有 80GOTV 对接，导播照提示安装会丢掉全部同步功能
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -59,27 +56,6 @@ app.on('render-process-gone', (_, webContents, details) => {
 app.on('child-process-gone', (_, details) => {
   console.error(`[ChildProcess] Gone; type=${details.type} reason=${details.reason} exitCode=${details.exitCode}`)
 })
-
-async function checkForUpdate(): Promise<void> {
-  try {
-    const response = await net.fetch(
-      'https://api.github.com/repos/JohnTimmermann/JTs-Hud-Manager/releases/latest',
-      { headers: { 'User-Agent': 'jts-hud-manager-electron' } }
-    )
-    if (!response.ok) return
-    const data = (await response.json()) as { tag_name: string }
-    const latestVersion = data.tag_name.replace(/^v/, '')
-    const currentVersion = app.getVersion()
-    if (latestVersion !== currentVersion) {
-      const win = BrowserWindow.getAllWindows()[0]
-      if (win && !win.isDestroyed()) {
-        win.webContents.send('update-available', latestVersion)
-      }
-    }
-  } catch {
-    // Silently ignore update check failures
-  }
-}
 
 app.on('window-all-closed', () => {
   unregisterShortcuts()

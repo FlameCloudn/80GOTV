@@ -5,7 +5,7 @@ import { MatchService } from '../domains/matches/match.service'
 import { TeamService } from '../domains/teams/team.service'
 import { PlayerRepository } from '../domains/players/player.repository'
 import { getSettings } from '../domains/settings/settings.routes'
-import { RoundData } from '../domains/matches/match.types'
+import { Match, RoundData, Veto } from '../domains/matches/match.types'
 import {
   applyWebsitePlayerPresentation,
   getWebsitePlayerPresentation,
@@ -17,6 +17,8 @@ import { buildMapPlayerStats, liveStatsTracker } from './live-stats'
 const matchService = new MatchService()
 const teamService = new TeamService()
 const playerRepo = new PlayerRepository()
+const GSI_STATE_MAX_AGE_MS = 5000
+let teamSyncGeneration = 0
 
 // --- COACH FILTER CACHE ---
 // Stores steamids of players marked as coaches so they can be stripped
@@ -60,51 +62,123 @@ const recordGsiInput = () => {
 // Call this whenever the match changes or on startup
 // This may actually not be needed as huds create their own GSI instance, need to verify this
 export const syncGSITeams = async () => {
+  const generation = ++teamSyncGeneration
   try {
     const match = await matchService.getCurrentMatch()
+    if (generation !== teamSyncGeneration) return
 
-    if (match.left.id) {
-      const left = await teamService.getTeamById(match.left.id)
-      if (left) {
-        const data = {
-          id: left._id,
-          name: left.name,
-          country: left.country,
-          logo: left.logo,
-          map_score: match.left.wins,
-          extra: left.extra
-        }
-        GSI.teams.left = data
-      }
-    } else {
+    if (!match) {
+      setActiveMatch(null)
       GSI.teams.left = null
+      GSI.teams.right = null
+      activeMapIdentity = null
+      return
     }
 
-    if (match.right.id) {
-      const right = await teamService.getTeamById(match.right.id)
-      if (right) {
-        const data = {
-          id: right._id,
-          name: right.name,
-          country: right.country,
-          logo: right.logo,
-          map_score: match.right.wins,
-          extra: right.extra
-        }
-        GSI.teams.right = data
-      }
-    } else {
-      GSI.teams.right = null
+    const [left, right] = await Promise.all([
+      match.left.id ? teamService.getTeamById(match.left.id) : Promise.resolve(null),
+      match.right.id ? teamService.getTeamById(match.right.id) : Promise.resolve(null)
+    ])
+    if (generation !== teamSyncGeneration) return
+
+    setActiveMatch(match)
+    GSI.teams = {
+      left: left ? {
+        id: left._id,
+        name: left.name,
+        country: left.country,
+        logo: left.logo,
+        map_score: match.left.wins,
+        extra: left.extra
+      } : null,
+      right: right ? {
+        id: right._id,
+        name: right.name,
+        country: right.country,
+        logo: right.logo,
+        map_score: match.right.wins,
+        extra: right.extra
+      } : null
     }
+
+    const currentMap = normalizedMapName(GSI.current?.map?.name || GSI.last?.map?.name || '')
+    if (currentMap) setActiveMapIdentity(mapIdentityFor(match, currentMap))
   } catch {
     // No current match — clear team data
+    setActiveMatch(null)
     GSI.teams.left = null
     GSI.teams.right = null
   }
 }
 
 let lastGSIState: CSGORaw | null = null
+let lastGSIStateReceivedAt: number | null = null
 let lastPhaseSignature = ''
+
+export const isFreshGsiStateAt = (receivedAt: number | null, now: number = Date.now()): boolean =>
+  receivedAt !== null && now >= receivedAt && now - receivedAt <= GSI_STATE_MAX_AGE_MS
+
+export const getLastGSIState = (): CSGORaw | null =>
+  isFreshGsiStateAt(lastGSIStateReceivedAt) ? lastGSIState : null
+
+export const getLastGSIStateReceivedAt = (): number | null =>
+  lastGSIStateReceivedAt
+
+export type GsiMapIdentity = {
+  matchId: string
+  mapName: string
+  mapSlot: number
+  mapGeneration: number
+}
+
+export const mapLifecycleKey = (identity: GsiMapIdentity): string =>
+  `${identity.matchId}|${identity.mapSlot}|${identity.mapGeneration}|${identity.mapName}`
+
+export const stableTeamId = (
+  teamId: string | null | undefined,
+  side: string | null | undefined,
+  leftId: string | null,
+  rightId: string | null,
+  isReversed: boolean,
+  openingCtTeamId?: string
+): string => {
+  const value = String(teamId || '')
+  if (value && (value === leftId || value === rightId)) return value
+
+  const openingCt = openingCtTeamId === leftId || openingCtTeamId === rightId
+    ? openingCtTeamId
+    : leftId
+  const openingT = openingCt === leftId ? rightId : leftId
+  const currentCt = isReversed ? openingT : openingCt
+  const currentT = isReversed ? openingCt : openingT
+  if (String(side || '').toUpperCase() === 'CT') return currentCt || value
+  if (String(side || '').toUpperCase() === 'T') return currentT || value
+  return value
+}
+
+export const isReversedForMap = (
+  veto: Pick<Veto, 'openingCtTeamId' | 'reverseSide'>,
+  ctId: string,
+  tId: string
+): boolean => {
+  if (veto.openingCtTeamId) {
+    if (ctId === veto.openingCtTeamId) return false
+    if (tId === veto.openingCtTeamId) return true
+  }
+  return Boolean(veto.reverseSide)
+}
+
+export const captureRoundFrameSnapshot = (
+  score: Score,
+  current: CSGO | null | undefined,
+  identity: GsiMapIdentity,
+  match: Match | null = null
+) => ({
+  score: JSON.parse(JSON.stringify(score)) as Score,
+  players: JSON.parse(JSON.stringify(current?.players || [])) as Player[],
+  identity: { ...identity },
+  match: match ? JSON.parse(JSON.stringify(match)) as Match : null
+})
 
 type MatchStatKey = 'assists' | 'deaths' | 'mvps' | 'kills' | 'damage'
 type MatchStatBaseline = Record<MatchStatKey, number>
@@ -113,10 +187,94 @@ type PhaseState = {
   phase_countdowns?: { phase?: string }
 }
 
+type WebsiteDamagePlayerTotals = {
+  round: number
+  last: number
+  total: number
+  roundDamage: Map<number, number>
+}
+
+let activeMatch: Match | null = null
+let activeMapIdentity: GsiMapIdentity | null = null
+let mapGenerationWrite: Promise<void> = Promise.resolve()
+const mapGenerationTransitions = new Set<string>()
 const warmupTotals = new Map<string, Map<string, MatchStatBaseline>>()
 const officialBaselines = new Map<string, Map<string, MatchStatBaseline>>()
 const deciderStability = new Map<string, { signature: string; count: number }>()
 const cleanMapName = (value = '') => value.substring(value.lastIndexOf('/') + 1)
+const normalizedMapName = (value = '') => cleanMapName(value).trim().toLowerCase()
+
+const vetoesForMap = (match: Match | null, mapName: string): Veto[] =>
+  (match?.vetos || []).filter(
+    (veto) => veto.type !== 'ban' && normalizedMapName(veto.mapName) === normalizedMapName(mapName)
+  )
+
+const mapSlotForVeto = (match: Match, veto: Veto): number => {
+  if (Number.isInteger(veto.mapSlot) && Number(veto.mapSlot) > 0) return Number(veto.mapSlot)
+  return match.vetos.filter((entry) => entry.type !== 'ban').indexOf(veto) + 1
+}
+
+const findVetoForMap = (match: Match | null, mapName: string): Veto | null => {
+  const candidates = vetoesForMap(match, mapName)
+  return candidates.find((veto) => !veto.mapEnd) || candidates[candidates.length - 1] || null
+}
+
+const mapIdentityFor = (match: Match | null, mapName: string): GsiMapIdentity => {
+  const normalized = normalizedMapName(mapName)
+  const veto = findVetoForMap(match, normalized)
+  const fallbackSlot = veto && match ? mapSlotForVeto(match, veto) : 0
+  return {
+    matchId: match?.id || 'unbound',
+    mapName: normalized,
+    mapSlot: fallbackSlot,
+    mapGeneration: Math.max(0, Number(veto?.mapGeneration) || 0)
+  }
+}
+
+const clearMapRuntimeCaches = (identity?: GsiMapIdentity | null) => {
+  if (identity) {
+    const key = mapLifecycleKey(identity)
+    warmupTotals.delete(key)
+    officialBaselines.delete(key)
+    websiteRoundEvents.delete(key)
+    websiteDeathMarkers.delete(key)
+    websiteDamageTotals.delete(key)
+    deciderStability.delete(key)
+    liveStatsTracker.resetMap(identity.mapName)
+  } else {
+    warmupTotals.clear()
+    officialBaselines.clear()
+    websiteRoundEvents.clear()
+    websiteDeathMarkers.clear()
+    websiteDamageTotals.clear()
+    deciderStability.clear()
+    const currentMap = normalizedMapName(GSI.current?.map?.name || '')
+    if (currentMap) liveStatsTracker.resetMap(currentMap)
+  }
+  websitePreviousRaw = null
+  const deadPositions = (global as any).deadPlayerPositions as Record<string, unknown> | undefined
+  if (deadPositions) {
+    for (const steamid of Object.keys(deadPositions)) delete deadPositions[steamid]
+  }
+}
+
+const setActiveMatch = (match: Match | null) => {
+  const changed = activeMatch?.id !== match?.id
+  activeMatch = match
+  if (changed) {
+    activeMapIdentity = null
+    mapGenerationTransitions.clear()
+    clearMapRuntimeCaches()
+  }
+}
+
+const setActiveMapIdentity = (identity: GsiMapIdentity) => {
+  if (activeMapIdentity && mapLifecycleKey(activeMapIdentity) !== mapLifecycleKey(identity)) {
+    clearMapRuntimeCaches(activeMapIdentity)
+  }
+  activeMapIdentity = identity
+}
+
 const isWarmupState = (game: PhaseState | null | undefined) => {
   const phases = [game?.map?.phase, game?.phase_countdowns?.phase]
   return phases.some((phase) => String(phase || '').trim().toLowerCase() === 'warmup')
@@ -128,38 +286,98 @@ const playerMatchStats = (player: Player): MatchStatBaseline => ({
   kills: Number((player.stats as any).kills) || 0,
   damage: Number((player.stats as any).damage) || 0
 })
-const captureWarmupTotals = (game: CSGO) => {
-  const mapName = cleanMapName(game.map.name)
-  warmupTotals.set(
-    mapName,
-    new Map(
-      game.players
-        .filter((player) => player.steamid)
-        .map((player) => [player.steamid, playerMatchStats(player)])
-    )
-  )
+
+export const mergeWarmupTotals = (
+  previous: Map<string, MatchStatBaseline>,
+  players: Player[]
+): Map<string, MatchStatBaseline> => {
+  const next = new Map(previous)
+  for (const player of players) {
+    if (player.steamid) next.set(player.steamid, playerMatchStats(player))
+  }
+  return next
 }
-const beginOfficialStats = (game: CSGO) => {
-  const mapName = cleanMapName(game.map.name)
-  const warmup = warmupTotals.get(mapName) || new Map<string, MatchStatBaseline>()
-  officialBaselines.set(
-    mapName,
-    new Map(
-      game.players
-        .filter((player) => player.steamid)
-        .map((player) => {
-          const current = playerMatchStats(player)
-          const previous = warmup.get(player.steamid)
-          const baseline: MatchStatBaseline = { assists: 0, deaths: 0, mvps: 0, kills: 0, damage: 0 }
-          if (previous) {
-            for (const key of ['assists', 'deaths', 'mvps', 'kills', 'damage'] as MatchStatKey[]) {
-              baseline[key] = current[key] >= previous[key] ? previous[key] : 0
-            }
+
+export const buildOfficialBaselines = (
+  warmup: Map<string, MatchStatBaseline>,
+  players: Player[]
+): Map<string, MatchStatBaseline> => {
+  const baselines = new Map(warmup)
+  for (const player of players) {
+    if (!player.steamid) continue
+    const current = playerMatchStats(player)
+    const previous = warmup.get(player.steamid)
+    const baseline: MatchStatBaseline = { assists: 0, deaths: 0, mvps: 0, kills: 0, damage: 0 }
+    if (previous) {
+      for (const key of ['assists', 'deaths', 'mvps', 'kills', 'damage'] as MatchStatKey[]) {
+        baseline[key] = current[key] >= previous[key] ? previous[key] : 0
+      }
+    }
+    baselines.set(player.steamid, baseline)
+  }
+  return baselines
+}
+
+const captureWarmupTotals = (game: CSGO, identity: GsiMapIdentity) => {
+  const key = mapLifecycleKey(identity)
+  const previous = warmupTotals.get(key) || new Map<string, MatchStatBaseline>()
+  warmupTotals.set(key, mergeWarmupTotals(previous, game.players))
+}
+
+const beginOfficialStats = (game: CSGO, identity: GsiMapIdentity) => {
+  const key = mapLifecycleKey(identity)
+  const warmup = warmupTotals.get(key) || new Map<string, MatchStatBaseline>()
+  officialBaselines.set(key, buildOfficialBaselines(warmup, game.players))
+}
+
+const vetoForIdentity = (match: Match | null, identity: GsiMapIdentity): Veto | null => {
+  if (!match) return null
+  return match.vetos.find(
+    (veto) =>
+      veto.type !== 'ban' &&
+      normalizedMapName(veto.mapName) === identity.mapName &&
+      mapSlotForVeto(match, veto) === identity.mapSlot &&
+      Math.max(0, Number(veto.mapGeneration) || 0) === identity.mapGeneration
+  ) || null
+}
+
+const beginMapGenerationIfComplete = async (identity: GsiMapIdentity): Promise<void> => {
+  const key = mapLifecycleKey(identity)
+  if (mapGenerationTransitions.has(key)) return
+  const currentMatch = activeMatch
+  const currentVeto = vetoForIdentity(currentMatch, identity)
+  if (!currentMatch || !currentVeto?.mapEnd) return
+
+  mapGenerationTransitions.add(key)
+  try {
+    const emptyScore = {
+      ...(currentMatch.left.id ? { [currentMatch.left.id]: 0 } : {}),
+      ...(currentMatch.right.id ? { [currentMatch.right.id]: 0 } : {})
+    }
+    const updatedVetos = currentMatch.vetos.map((veto) =>
+      veto === currentVeto
+        ? {
+            ...veto,
+            mapGeneration: identity.mapGeneration + 1,
+            rounds: [],
+            score: emptyScore,
+            winner: '',
+            mapEnd: false,
+            playerStats: undefined
           }
-          return [player.steamid, baseline]
-        })
+        : veto
     )
-  )
+    const updated = await matchService.updateMatch(currentMatch.id, { vetos: updatedVetos })
+    if (!updated) return
+    activeMatch = updated
+    clearMapRuntimeCaches(identity)
+    activeMapIdentity = {
+      ...identity,
+      mapGeneration: identity.mapGeneration + 1
+    }
+  } catch (error) {
+    console.error('[GSI] Could not begin a new map generation:', error)
+  }
 }
 
 const lockStableDeciderSide = async (game: CSGO | null | undefined) => {
@@ -177,9 +395,11 @@ const lockStableDeciderSide = async (game: CSGO | null | undefined) => {
 
   const match = await matchService.getCurrentMatch()
   if (!match) return
-  const veto = match.vetos.find((entry) => entry.mapName === mapName && entry.type === 'decider')
+  setActiveMatch(match)
+  const veto = vetoesForMap(match, mapName).find((entry) => entry.type === 'decider')
   if (!veto || veto.openingCtTeamId) return
-  const key = `${match.id}:${mapName}`
+  const identity = mapIdentityFor(match, mapName)
+  const key = mapLifecycleKey(identity)
   const signature = `${ctId}|${tId}|${[...ctPlayers].sort().join(',')}|${[...tPlayers].sort().join(',')}`
   const previous = deciderStability.get(key)
   const next = previous && previous.signature === signature
@@ -189,16 +409,14 @@ const lockStableDeciderSide = async (game: CSGO | null | undefined) => {
   if (next.count < 2) return
 
   const updatedVetos = match.vetos.map((entry) =>
-    entry.mapName === mapName && entry.type === 'decider'
-      ? { ...entry, openingCtTeamId: ctId, sideSource: 'tgpro_stable_gsi' as const }
-      : entry
+    entry === veto ? { ...entry, openingCtTeamId: ctId, sideSource: 'tgpro_stable_gsi' as const } : entry
   )
   await matchService.updateMatch(match.id, { vetos: updatedVetos })
   console.log(`[GSI] Decider side locked from stable 5v5: ${mapName} CT=${ctId}`)
 }
-const officialMatchStat = (mapName: string, player: Player, key: MatchStatKey) => {
+const officialMatchStat = (identity: GsiMapIdentity, player: Player, key: MatchStatKey) => {
   const value = Number(player.stats[key]) || 0
-  const baseline = officialBaselines.get(cleanMapName(mapName))?.get(player.steamid)?.[key] || 0
+  const baseline = officialBaselines.get(mapLifecycleKey(identity))?.get(player.steamid)?.[key] || 0
   return Math.max(0, value - baseline)
 }
 
@@ -232,8 +450,46 @@ type WebsiteDeathMarker = {
 
 const websiteRoundEvents = new Map<string, WebsiteRoundEvent[]>()
 const websiteDeathMarkers = new Map<string, WebsiteDeathMarker[]>()
-const websiteDamageTotals = new Map<string, Map<string, { round: number; last: number; total: number }>>()
+const websiteDamageTotals = new Map<string, Map<string, WebsiteDamagePlayerTotals>>()
 let websitePreviousRaw: any = null
+
+export const captureCompleteDamageRound = (
+  totals: Map<string, WebsiteDamagePlayerTotals>,
+  round: number,
+  players: Player[]
+): void => {
+  for (const player of players) {
+    if (!player.steamid) continue
+    const damage = Number(player.state?.round_totaldmg)
+    if (!Number.isFinite(damage) || damage < 0) continue
+    const current = totals.get(player.steamid) || {
+      round,
+      last: damage,
+      total: 0,
+      roundDamage: new Map<number, number>()
+    }
+    const previousRoundDamage = current.roundDamage.get(round) || 0
+    current.roundDamage.set(round, Math.max(previousRoundDamage, damage))
+    current.last = current.round === round ? Math.max(current.last, damage) : damage
+    current.round = round
+    totals.set(player.steamid, current)
+  }
+}
+
+export const buildDamageObservations = (
+  totals: Map<string, WebsiteDamagePlayerTotals>
+): Record<string, { damage: number; rounds: number }> =>
+  Object.fromEntries(
+    [...totals.entries()]
+      .filter(([, value]) => value.roundDamage.size > 0)
+      .map(([steamid, value]) => [
+        steamid,
+        {
+          damage: [...value.roundDamage.values()].reduce((total, damage) => total + damage, 0),
+          rounds: value.roundDamage.size
+        }
+      ])
+  )
 
 const websiteFormalRoundNumber = (rawRound: unknown): number =>
   Math.max(1, Number(rawRound || 0) + 1)
@@ -256,17 +512,19 @@ const websiteReasonCode = (outcome: unknown): string => {
   }
 }
 
-const recordWebsiteRoundEvent = (score: Score): void => {
+const recordWebsiteRoundEvent = (score: Score, identity: GsiMapIdentity): void => {
   const mapName = websiteMapName(score.map?.name)
   if (!mapName || isWarmupState(score)) return
   const round = websiteFormalRoundNumber(score.map?.round)
-  if (round > 24) return
+  // 网站常规时间存 24 回合、加时另存最多 24 回合（共 48），加时回合也要上传
+  if (round > 48) return
   const roundWins = score.map?.round_wins || {}
   const rawRound = Number(score.map?.round || 0)
   const outcome = roundWins[String(rawRound)] || roundWins[String(rawRound + 1)]
   const now = Date.now()
+  const cacheKey = mapLifecycleKey(identity)
   const event: WebsiteRoundEvent = {
-    id: `round-${mapName}-${round}`,
+    id: `round-${identity.matchId}-${identity.mapSlot}-${identity.mapGeneration}-${round}`,
     round,
     round_number: round,
     winner_side: String(score.winner?.side || '').toUpperCase(),
@@ -277,25 +535,24 @@ const recordWebsiteRoundEvent = (score: Score): void => {
     captured_at: new Date(now).toISOString(),
     captured_at_epoch: now / 1000
   }
-  const events = websiteRoundEvents.get(mapName) || []
+  const events = websiteRoundEvents.get(cacheKey) || []
   if (!events.some((item) => item.id === event.id)) {
-    websiteRoundEvents.set(mapName, [...events, event].sort((a, b) => a.round - b.round).slice(-24))
+    websiteRoundEvents.set(cacheKey, [...events, event].sort((a, b) => a.round - b.round).slice(-48))
   }
 }
 
-const captureWebsiteDeathMarkers = (raw: any): void => {
+const captureWebsiteDeathMarkers = (raw: any, identity: GsiMapIdentity): void => {
   const mapName = websiteMapName(raw?.map?.name)
+  const cacheKey = mapLifecycleKey(identity)
   if (!mapName || isWarmupState(raw)) {
     websitePreviousRaw = raw
     return
   }
-  const previousMap = websiteMapName(websitePreviousRaw?.map?.name)
-  if (previousMap !== mapName) websiteDeathMarkers.delete(mapName)
   const rawRound = Number(raw?.map?.round || 0)
   const round = websiteFormalRoundNumber(rawRound)
   const previousPlayers = websitePreviousRaw?.allplayers || {}
   const currentPlayers = raw?.allplayers || {}
-  const markers = websiteDeathMarkers.get(mapName) || []
+  const markers = websiteDeathMarkers.get(cacheKey) || []
   for (const [steamid, player] of Object.entries(currentPlayers) as [string, any][]) {
     const oldPlayer = previousPlayers[steamid] || {}
     const oldHealth = Number(oldPlayer?.state?.health ?? 0)
@@ -307,7 +564,7 @@ const captureWebsiteDeathMarkers = (raw: any): void => {
     if (values.length < 2 || values.some((value: number) => !Number.isFinite(value))) continue
     const now = Date.now()
     const marker: WebsiteDeathMarker = {
-      id: `death-${mapName}-${round}-${steamid}-${now}`,
+      id: `death-${identity.matchId}-${identity.mapSlot}-${identity.mapGeneration}-${round}-${steamid}-${now}`,
       steamid,
       name: String(player?.name || ''),
       side: String(player?.team || '').toUpperCase(),
@@ -322,20 +579,26 @@ const captureWebsiteDeathMarkers = (raw: any): void => {
     }
     markers.push(marker)
   }
-  websiteDeathMarkers.set(mapName, markers.slice(-24))
+  websiteDeathMarkers.set(cacheKey, markers.slice(-24))
   websitePreviousRaw = JSON.parse(JSON.stringify(raw))
 }
 
-const recordWebsiteDamage = (raw: any): void => {
+const recordWebsiteDamage = (raw: any, identity: GsiMapIdentity): void => {
   const mapName = websiteMapName(raw?.map?.name)
   if (!mapName || isWarmupState(raw)) return
   const round = websiteFormalRoundNumber(raw?.map?.round)
-  const totals = websiteDamageTotals.get(mapName) || new Map<string, { round: number; last: number; total: number }>()
+  const cacheKey = mapLifecycleKey(identity)
+  const totals = websiteDamageTotals.get(cacheKey) || new Map<string, WebsiteDamagePlayerTotals>()
   for (const [steamid, player] of Object.entries(raw?.allplayers || {}) as [string, any][]) {
     const current = Math.max(0, Number(player?.state?.round_totaldmg || 0))
     const previous = totals.get(steamid)
     if (!previous) {
-      totals.set(steamid, { round, last: current, total: 0 })
+      totals.set(steamid, {
+        round,
+        last: current,
+        total: 0,
+        roundDamage: new Map<number, number>()
+      })
     } else if (previous.round !== round) {
       previous.total += previous.last
       previous.round = round
@@ -344,16 +607,16 @@ const recordWebsiteDamage = (raw: any): void => {
       previous.last = Math.max(previous.last, current)
     }
   }
-  websiteDamageTotals.set(mapName, totals)
+  websiteDamageTotals.set(cacheKey, totals)
 }
 
-const withOfficialWebsiteStats = (raw: any): any => {
+const withOfficialWebsiteStats = (raw: any, identity: GsiMapIdentity): any => {
   const payload = JSON.parse(JSON.stringify(raw || {}))
-  const mapName = websiteMapName(payload?.map?.name)
   for (const [steamid, player] of Object.entries(payload?.allplayers || {}) as [string, any][]) {
     const rawStats = player?.match_stats || {}
-    const baseline = officialBaselines.get(mapName)?.get(steamid)
+    const baseline = officialBaselines.get(mapLifecycleKey(identity))?.get(steamid)
     if (!baseline) continue
+    const damageTotal = websiteDamageTotals.get(mapLifecycleKey(identity))?.get(steamid)
     player.match_stats = {
       ...rawStats,
       kills: Math.max(0, Number(rawStats.kills || 0) - baseline.kills),
@@ -361,14 +624,12 @@ const withOfficialWebsiteStats = (raw: any): any => {
       assists: Math.max(0, Number(rawStats.assists || 0) - baseline.assists),
       damage: Math.max(
         0,
-        Number(websiteDamageTotals.get(mapName)?.get(steamid)?.total || rawStats.damage || 0) - baseline.damage
+        Number(damageTotal ? damageTotal.total + damageTotal.last : rawStats.damage || 0) - baseline.damage
       )
     }
   }
   return payload
 }
-
-export const getLastGSIState = (): CSGORaw | null => lastGSIState
 
 // csgogsi applies the locally configured team extension after parsing the raw
 // frame. When a match id is reused, that extension may contain an old series
@@ -416,8 +677,12 @@ export const setupGSI = (io: Server) => {
   GSI.on('data', (data) => {
     const prevMap = GSI.last?.map?.name
     const nextMap = data.map?.name
+    const mapName = normalizedMapName(nextMap || '')
+    const identity = mapIdentityFor(activeMatch, mapName)
+    const identityChanged = !activeMapIdentity || mapLifecycleKey(activeMapIdentity) !== mapLifecycleKey(identity)
+    setActiveMapIdentity(identity)
     const phaseSignature = [
-      cleanMapName(nextMap || ''),
+      mapName,
       data.map?.phase || '',
       data.round?.phase || '',
       data.phase_countdowns?.phase || '',
@@ -428,29 +693,21 @@ export const setupGSI = (io: Server) => {
       lastPhaseSignature = phaseSignature
       console.log(`[GSI] Phase state: ${phaseSignature}`)
     }
-    if (nextMap && nextMap !== prevMap) {
-      const mapName = cleanMapName(nextMap)
-      warmupTotals.delete(mapName)
-      officialBaselines.delete(mapName)
-      websiteRoundEvents.delete(mapName)
-      websiteDeathMarkers.delete(mapName)
-      websiteDamageTotals.delete(mapName)
-      websitePreviousRaw = null
-      liveStatsTracker.resetMap(nextMap)
-      syncGSITeams()
-    }
+    if (nextMap && nextMap !== prevMap) void syncGSITeams()
     const warmup = isWarmupState(data)
     const wasWarmup = isWarmupState(GSI.last)
     if (warmup) {
-      captureWarmupTotals(data)
+      captureWarmupTotals(data, identity)
       liveStatsTracker.resetMap(nextMap || '')
+      if (!wasWarmup) mapGenerationWrite = beginMapGenerationIfComplete(identity)
       return
     }
     if (wasWarmup) {
-      beginOfficialStats(data)
+      beginOfficialStats(data, identity)
       liveStatsTracker.resetMap(nextMap || '')
     }
-    liveStatsTracker.recordSnapshot(wasWarmup ? null : GSI.last, data)
+    if (identityChanged) liveStatsTracker.resetMap(nextMap || '')
+    liveStatsTracker.recordSnapshot(wasWarmup || identityChanged ? null : GSI.last, data)
   })
 
   // Halftime Logic: flip reverseSide on the current map veto so team sides stay correct.
@@ -536,222 +793,298 @@ export const setupGSI = (io: Server) => {
     }
   }
 
-  const persistRoundEnd = async (score: Score) => {
-    if (!GSI.current) return
-    if (isWarmupState(GSI.current) || isWarmupState(score)) return
-    const players = GSI.current.players
-    const match = await matchService.getCurrentMatch()
-    if (!match) return
+const persistRoundEnd = async (snapshot: ReturnType<typeof captureRoundFrameSnapshot>) => {
+  const { score, players, identity } = snapshot
+  const eventMatch = snapshot.match
+  if (
+    !eventMatch ||
+    eventMatch.id !== identity.matchId ||
+    identity.matchId === 'unbound' ||
+    identity.mapSlot < 1 ||
+    isWarmupState(score)
+  ) return
 
-    const mapName = score.map.name.substring(score.map.name.lastIndexOf('/') + 1)
-    const veto = match.vetos.find((entry) => entry.mapName === mapName && !entry.mapEnd)
-    if (!veto) return
-    const roundNumber = websiteFormalRoundNumber(score.map.round)
-    if (veto.rounds?.[roundNumber - 1]) return
+  const match = await matchService.getMatchById(identity.matchId)
+  const eventVeto = vetoForIdentity(eventMatch, identity)
+  const veto = vetoForIdentity(match, identity)
+  if (!match || !eventVeto || !veto || veto.mapEnd) return
 
-    const eventStats = liveStatsTracker.consume(mapName, roundNumber, players, score.winner.side)
-    const previousRounds = (veto.rounds || []).slice(0, roundNumber - 1)
-    const previousTotal = (steamid: string, key: 'assists' | 'deaths' | 'mvpCount') =>
-      previousRounds.reduce(
-        (total, round) => total + (Number(round?.players?.[steamid]?.[key]) || 0),
-        0
-      )
-    const ctId = score.map.team_ct.id || ''
-    const tId = score.map.team_t.id || ''
-    const isReversed = veto.openingCtTeamId
-      ? Boolean(ctId && tId && ctId !== veto.openingCtTeamId && tId === veto.openingCtTeamId)
-      : Boolean(veto.reverseSide)
-    const mapTeamId = (teamId: string | null) => {
-      const value = teamId || ''
-      if (!isReversed) return value
-      if (value === ctId) return tId
-      if (value === tId) return ctId
-      return value
-    }
-    const rawRound = Number(score.map.round || 0)
-    const roundOutcome = score.map.round_wins?.[rawRound] || score.map.round_wins?.[rawRound + 1]
-    const roundData: RoundData = {
-      round: roundNumber,
-      winner: score.winner.side,
-      win_type: roundOutcome ? getWinType(roundOutcome) : 'elimination',
-      players: Object.fromEntries(
-        players
-          .filter((player) => player.steamid)
-          .map((player) => {
-            const counters = eventStats.counters[player.steamid] || {}
-            return [
-              player.steamid,
-              {
-                name: player.name || player.defaultName || 'PLAYER',
-                avatar: player.avatar || undefined,
-                teamId: mapTeamId(player.team.id),
-                side: player.team.side,
-                kills: Number(player.state.round_kills) || 0,
-                killshs: Number(player.state.round_killhs) || 0,
-                damage: Number(player.state.round_totaldmg) || 0,
-                assists: Math.max(
-                  0,
-                  officialMatchStat(mapName, player, 'assists') -
-                    previousTotal(player.steamid, 'assists')
-                ),
-                deaths: Math.max(
-                  0,
-                  officialMatchStat(mapName, player, 'deaths') -
-                    previousTotal(player.steamid, 'deaths')
-                ),
-                survived: eventStats.hadKillEvents
-                  ? eventStats.survivors.has(player.steamid)
-                  : Number(player.state.health) > 0,
-                firstKills: Number(counters.firstKills) || 0,
-                firstDeaths: Number(counters.firstDeaths) || 0,
-                tradeKills: Number(counters.tradeKills) || 0,
-                tradeDeaths: Number(counters.tradeDeaths) || 0,
-                clutchSize:
-                  eventStats.clutchWinner === player.steamid ? eventStats.clutchSize : 0,
-                utilityDamage: Number(counters.utilityDamage) || 0,
-                damageTaken: Number(counters.damageTaken) || 0,
-                mvpCount: Math.max(
-                  0,
-                  officialMatchStat(mapName, player, 'mvps') -
-                    previousTotal(player.steamid, 'mvpCount')
-                ),
-                bombPlants: Number(counters.bombPlants) || 0,
-                bombDefuses: Number(counters.bombDefuses) || 0,
-                flashAssists: Number(counters.flashAssists) || 0
-              }
-            ]
-          })
-      )
-    }
+  const mapName = identity.mapName
+  const roundNumber = websiteFormalRoundNumber(score.map.round)
+  if (veto.rounds?.[roundNumber - 1]) return
 
-    const updatedVetos = match.vetos.map((entry) => {
-      if (entry.mapName !== mapName) return entry
-      const rounds = [...(entry.rounds ?? [])]
-      rounds[roundNumber - 1] = roundData
-      return { ...entry, rounds: rounds.slice(0, roundNumber) }
-    })
-    await matchService.updateMatch(match.id, { vetos: updatedVetos })
-    io.emit('match')
+  const eventStats = liveStatsTracker.consume(mapName, roundNumber, players, score.winner.side)
+  const previousRounds = (veto.rounds || []).slice(0, roundNumber - 1)
+  const previousTotal = (steamid: string, key: 'assists' | 'deaths' | 'mvpCount') =>
+    previousRounds.reduce(
+      (total, round) => total + (Number(round?.players?.[steamid]?.[key]) || 0),
+      0
+    )
+  const ctId = score.map.team_ct.id || ''
+  const tId = score.map.team_t.id || ''
+  const isReversed = isReversedForMap(eventVeto, ctId, tId)
+  const mapTeamId = (teamId: string | null, side: string | null) =>
+    stableTeamId(
+      teamId,
+      side,
+      eventMatch.left.id,
+      eventMatch.right.id,
+      isReversed,
+      eventVeto.openingCtTeamId
+    )
+  const rawRound = Number(score.map.round || 0)
+  const roundOutcome = score.map.round_wins?.[rawRound] || score.map.round_wins?.[rawRound + 1]
+  const roundData: RoundData = {
+    round: roundNumber,
+    winner: score.winner.side,
+    win_type: roundOutcome ? getWinType(roundOutcome) : 'elimination',
+    players: Object.fromEntries(
+      players
+        .filter((player) => player.steamid)
+        .map((player) => {
+          const counters = eventStats.counters[player.steamid] || {}
+          return [
+            player.steamid,
+            {
+              name: player.name || player.defaultName || 'PLAYER',
+              avatar: player.avatar || undefined,
+              teamId: mapTeamId(player.team.id, player.team.side),
+              side: player.team.side,
+              kills: Number(player.state.round_kills) || 0,
+              killshs: Number(player.state.round_killhs) || 0,
+              damage: Number(player.state.round_totaldmg) || 0,
+              assists: Math.max(
+                0,
+                officialMatchStat(identity, player, 'assists') -
+                  previousTotal(player.steamid, 'assists')
+              ),
+              deaths: Math.max(
+                0,
+                officialMatchStat(identity, player, 'deaths') -
+                  previousTotal(player.steamid, 'deaths')
+              ),
+              survived: eventStats.hadKillEvents
+                ? eventStats.survivors.has(player.steamid)
+                : Number(player.state.health) > 0,
+              firstKills: Number(counters.firstKills) || 0,
+              firstDeaths: Number(counters.firstDeaths) || 0,
+              tradeKills: Number(counters.tradeKills) || 0,
+              tradeDeaths: Number(counters.tradeDeaths) || 0,
+              clutchSize:
+                eventStats.clutchWinner === player.steamid ? eventStats.clutchSize : 0,
+              utilityDamage: Number(counters.utilityDamage) || 0,
+              damageTaken: Number(counters.damageTaken) || 0,
+              mvpCount: Math.max(
+                0,
+                officialMatchStat(identity, player, 'mvps') -
+                  previousTotal(player.steamid, 'mvpCount')
+              ),
+              bombPlants: Number(counters.bombPlants) || 0,
+              bombDefuses: Number(counters.bombDefuses) || 0,
+              flashAssists: Number(counters.flashAssists) || 0
+            }
+          ]
+        })
+    )
   }
+
+  const updatedVetos = match.vetos.map((entry) => {
+    if (entry !== veto) return entry
+    const rounds = [...(entry.rounds ?? [])]
+    rounds[roundNumber - 1] = roundData
+    return { ...entry, rounds: rounds.slice(0, roundNumber) }
+  })
+  await matchService.updateMatch(match.id, { vetos: updatedVetos })
+  io.emit('match')
+}
 
   let roundWriteQueue: Promise<void> = Promise.resolve()
   GSI.on('roundEnd', (score: Score) => {
-    recordWebsiteRoundEvent(score)
+    const identity = activeMapIdentity || mapIdentityFor(activeMatch, websiteMapName(score.map?.name))
+    const snapshot = captureRoundFrameSnapshot(score, GSI.current, identity, activeMatch)
+    recordWebsiteRoundEvent(snapshot.score, identity)
+
+    if (identity.mapSlot > 0 && identity.matchId !== 'unbound') {
+      const key = mapLifecycleKey(identity)
+      const totals = websiteDamageTotals.get(key) || new Map<string, WebsiteDamagePlayerTotals>()
+      captureCompleteDamageRound(totals, websiteFormalRoundNumber(score.map?.round), snapshot.players)
+      websiteDamageTotals.set(key, totals)
+    }
+
     roundWriteQueue = roundWriteQueue
-      .then(() => persistRoundEnd(score))
+      .then(async () => {
+        await mapGenerationWrite
+        await persistRoundEnd(snapshot)
+      })
       .catch((error) => console.error('[GSI] roundEnd error:', error))
   })
 
-  // Map end logic: record final score, winner, mapEnd flag, and increment series wins
-  GSI.on('matchEnd', async (score: Score) => {
-    try {
-      await roundWriteQueue
-      const match = await matchService.getCurrentMatch()
-      if (!match) return
+  const persistMapEnd = async (snapshot: ReturnType<typeof captureRoundFrameSnapshot>) => {
+    const { score, players, identity } = snapshot
+    const eventMatch = snapshot.match
+    if (
+      !eventMatch ||
+      eventMatch.id !== identity.matchId ||
+      identity.matchId === 'unbound' ||
+      identity.mapSlot < 1
+    ) return
 
-      const mapName = score.map.name.substring(score.map.name.lastIndexOf('/') + 1)
-      const ctId = score.map.team_ct.id || ''
-      const tId = score.map.team_t.id || ''
-      const ctScore = score.map.team_ct.score
-      const tScore = score.map.team_t.score
+    const match = await matchService.getMatchById(identity.matchId)
+    const eventVeto = vetoForIdentity(eventMatch, identity)
+    const activeVeto = vetoForIdentity(match, identity)
+    if (
+      !match ||
+      !eventVeto ||
+      !activeVeto ||
+      activeVeto.mapEnd ||
+      match.left.id !== eventMatch.left.id ||
+      match.right.id !== eventMatch.right.id
+    ) return
 
-      const activeVeto = match.vetos.find((veto) => veto.mapName === mapName)
-      if (!activeVeto || activeVeto.mapEnd) return
-      const isReversed = activeVeto.openingCtTeamId
-        ? Boolean(
-            ctId &&
-              tId &&
-              ctId !== activeVeto.openingCtTeamId &&
-              tId === activeVeto.openingCtTeamId
-          )
-        : Boolean(activeVeto.reverseSide)
-      const playerStats = buildMapPlayerStats({
-        players: GSI.current?.players || [],
-        rounds: activeVeto?.rounds || [],
-        isReversed,
-        ctId,
-        tId,
-        fallbackRounds: ctScore + tScore
+    const mapName = identity.mapName
+    const ctId = score.map.team_ct.id || ''
+    const tId = score.map.team_t.id || ''
+    const ctScore = Number(score.map.team_ct.score) || 0
+    const tScore = Number(score.map.team_t.score) || 0
+    const leftId = eventMatch.left.id
+    const rightId = eventMatch.right.id
+    const isReversed = isReversedForMap(eventVeto, ctId, tId)
+    const stableCtId = stableTeamId(ctId, 'CT', leftId, rightId, isReversed, eventVeto.openingCtTeamId)
+    const stableTId = stableTeamId(tId, 'T', leftId, rightId, isReversed, eventVeto.openingCtTeamId)
+    if (
+      !leftId ||
+      !rightId ||
+      !stableCtId ||
+      !stableTId ||
+      stableCtId === stableTId ||
+      ![leftId, rightId].includes(stableCtId) ||
+      ![leftId, rightId].includes(stableTId)
+    ) return
+
+    const roundNumber = websiteFormalRoundNumber(score.map.round)
+    const damageKey = mapLifecycleKey(identity)
+    const damageTotals = websiteDamageTotals.get(damageKey) || new Map<string, WebsiteDamagePlayerTotals>()
+    captureCompleteDamageRound(damageTotals, roundNumber, players)
+    websiteDamageTotals.set(damageKey, damageTotals)
+
+    // 终场玩家帧是比赛事件的一部分，不从延迟执行时的 GSI.current 读取。
+    const scoreboard = Object.fromEntries(
+      players
+        .filter((player) => player.steamid)
+        .map((player) => [
+          player.steamid,
+          {
+            kills: officialMatchStat(identity, player, 'kills'),
+            deaths: officialMatchStat(identity, player, 'deaths'),
+            assists: officialMatchStat(identity, player, 'assists')
+          }
+        ])
+    )
+    const stablePlayers = players.map((player) => ({
+      ...player,
+      team: {
+        ...player.team,
+        id: stableTeamId(
+          player.team.id,
+          player.team.side,
+          leftId,
+          rightId,
+          isReversed,
+          eventVeto.openingCtTeamId
+        )
+      }
+    }))
+    const playerStats = buildMapPlayerStats({
+      players: stablePlayers,
+      rounds: activeVeto.rounds || [],
+      isReversed,
+      ctId: stableCtId,
+      tId: stableTId,
+      fallbackRounds: ctScore + tScore,
+      scoreboard,
+      damageObservations: buildDamageObservations(damageTotals)
+    })
+    const presentedPlayerStats = Object.fromEntries(
+      Object.entries(playerStats).map(([steamid, stats]) => {
+        const presentation = getWebsitePlayerPresentation(steamid)
+        return [
+          steamid,
+          presentation
+            ? {
+                ...stats,
+                name: presentation.name || stats.name,
+                avatar: presentation.avatar || stats.avatar
+              }
+            : stats
+        ]
       })
-      const presentedPlayerStats = Object.fromEntries(
-        Object.entries(playerStats).map(([steamid, stats]) => {
-          const presentation = getWebsitePlayerPresentation(steamid)
-          return [
-            steamid,
-            presentation
-              ? {
-                  ...stats,
-                  name: presentation.name || stats.name,
-                  avatar: presentation.avatar || stats.avatar
-                }
-              : stats
-          ]
-        })
-      )
+    )
 
-      const updatedVetos = match.vetos.map((veto) => {
-        if (veto.mapName !== mapName || !ctId || !tId) return veto
+    const leftScore = stableCtId === leftId ? ctScore : tScore
+    const rightScore = stableCtId === rightId ? ctScore : tScore
+    const winnerTeamId = ctScore > tScore ? stableCtId : stableTId
+    const updatedVetos = match.vetos.map((veto) =>
+      veto === activeVeto
+        ? {
+            ...veto,
+            winner: winnerTeamId,
+            mapEnd: true,
+            score: { [leftId]: leftScore, [rightId]: rightScore },
+            playerStats: Object.keys(presentedPlayerStats).length ? presentedPlayerStats : veto.playerStats
+          }
+        : veto
+    )
 
-        // Determine winner based on score and reverseSide
-        const ctWon = ctScore > tScore
-        const winnerSideId = ctWon ? ctId : tId
-        const winnerTeamId = isReversed
-          ? ctWon
-            ? tId
-            : ctId // reversed: CT in-game = T in database
-          : winnerSideId
+    // Do not trust TGPro's raw series wins. Recompute from the confirmed map winners.
+    const confirmedWins = updatedVetos.reduce(
+      (totals, veto) => {
+        if (veto.mapEnd && veto.winner === match.left.id) totals.left += 1
+        if (veto.mapEnd && veto.winner === match.right.id) totals.right += 1
+        return totals
+      },
+      { left: 0, right: 0 }
+    )
+    const left = { ...match.left, wins: confirmedWins.left }
+    const right = { ...match.right, wins: confirmedWins.right }
+    const updated = await matchService.updateMatch(match.id, { vetos: updatedVetos, left, right })
+    if (!updated) return
 
-        return {
-          ...veto,
-          winner: winnerTeamId,
-          mapEnd: true,
-          score: isReversed
-            ? { [ctId]: tScore, [tId]: ctScore } // swap scores back to match DB orientation
-            : { [ctId]: ctScore, [tId]: tScore },
-          playerStats: Object.keys(presentedPlayerStats).length ? presentedPlayerStats : veto.playerStats
-        }
-      })
-
-      // Do not trust TGPro's raw series wins. Recompute from the confirmed
-      // map winners so a repeated matchEnd cannot add a second series point.
-      const confirmedWins = updatedVetos.reduce(
-        (totals, veto) => {
-          if (veto.mapEnd && veto.winner === match.left.id) totals.left += 1
-          if (veto.mapEnd && veto.winner === match.right.id) totals.right += 1
-          return totals
-        },
-        { left: 0, right: 0 }
-      )
-      const left = { ...match.left, wins: confirmedWins.left }
-      const right = { ...match.right, wins: confirmedWins.right }
-
-      await matchService.updateMatch(match.id, { vetos: updatedVetos, left, right })
-      const completedVeto = updatedVetos.find((veto) => veto.mapName === mapName)
-      const leftId = match.left.id
-      const rightId = match.right.id
-      const resultPlayers = Object.entries(presentedPlayerStats)
-        .filter(([, stats]) => stats.teamId === leftId || stats.teamId === rightId)
-        .map(([steamid, stats]) => ({
-          steam_id: steamid,
-          ...stats,
-          team_side: stats.teamId === leftId ? 'team1' : 'team2'
-        }))
-      const bestOf = Math.max(1, Number(match.matchType.replace(/^bo/i, '')) || 1)
-      const winsRequired = Math.floor(bestOf / 2) + 1
-      queueWebsiteMapResult({
+    const completedVeto = vetoForIdentity(updated, identity)
+    const resultPlayers = Object.entries(presentedPlayerStats)
+      .filter(([, stats]) => stats.teamId === leftId || stats.teamId === rightId)
+      .map(([steamid, stats]) => ({
+        steam_id: steamid,
+        ...stats,
+        team_side: stats.teamId === leftId ? 'team1' : 'team2'
+      }))
+    const bestOf = Math.max(1, Number(match.matchType.replace(/^bo/i, '')) || 1)
+    const winsRequired = Math.floor(bestOf / 2) + 1
+    await queueWebsiteMapResult(
+      {
         map_name: mapName,
-        map_slot: Math.max(1, match.vetos.filter((veto) => veto.type !== 'ban').findIndex((veto) => veto.mapName === mapName) + 1),
+        map_slot: identity.mapSlot,
+        map_generation: identity.mapGeneration,
         team1_score: leftId ? Number(completedVeto?.score?.[leftId]) || 0 : 0,
         team2_score: rightId ? Number(completedVeto?.score?.[rightId]) || 0 : 0,
         series_complete: Math.max(left.wins, right.wins) >= winsRequired,
         players: resultPlayers
+      },
+      identity.matchId
+    ).catch((error) => console.error('[GSI] could not queue website map result:', error))
+    await syncGSITeams()
+    io.emit('match')
+    console.log(`[GSI] Map ended: ${mapName} — winner: ${score.winner.name}`)
+  }
+
+  GSI.on('matchEnd', (score: Score) => {
+    const identity = activeMapIdentity || mapIdentityFor(activeMatch, websiteMapName(score.map?.name))
+    const snapshot = captureRoundFrameSnapshot(score, GSI.current, identity, activeMatch)
+    roundWriteQueue = roundWriteQueue
+      .then(async () => {
+        await mapGenerationWrite
+        await persistMapEnd(snapshot)
       })
-      await syncGSITeams()
-      io.emit('match')
-      console.log(`[GSI] Map ended: ${mapName} — winner: ${score.winner.name}`)
-    } catch (err) {
-      console.error('[GSI] matchEnd error:', err)
-    }
+      .catch((error) => console.error('[GSI] matchEnd error:', error))
   })
 
   // --- GSI HTTP endpoint ---
@@ -797,8 +1130,11 @@ export const setupGSI = (io: Server) => {
       // Keep a local formal-match event buffer before parsing the frame. The
       // website receives these canonical events together with the snapshot,
       // so a skipped 300 ms upload can be recovered by the next one.
-      captureWebsiteDeathMarkers(req.body)
+      const identity = mapIdentityFor(activeMatch, websiteMapName(req.body?.map?.name))
+      setActiveMapIdentity(identity)
+      captureWebsiteDeathMarkers(req.body, identity)
       lastGSIState = req.body
+      lastGSIStateReceivedAt = Date.now()
 
       // Build payload for for HUDs
       let hudPayload = req.body
@@ -857,11 +1193,11 @@ export const setupGSI = (io: Server) => {
       const rawTeamTId = String(req.body?.map?.team_t?.id || parsed?.map.team_t.id || '')
       const teamCT = matchSide(rawTeamCTId)
       const teamT = matchSide(rawTeamTId)
-      recordWebsiteDamage(req.body)
-      const officialPayload = withOfficialWebsiteStats(req.body)
+      recordWebsiteDamage(req.body, identity)
+      const officialPayload = withOfficialWebsiteStats(req.body, identity)
       const presentedPayload = applyWebsitePlayerPresentation(officialPayload)
-      const mapName = websiteMapName(req.body?.map?.name)
-      const roundEvents = (websiteRoundEvents.get(mapName) || []).map((event) => ({
+      const mapKey = mapLifecycleKey(identity)
+      const roundEvents = (websiteRoundEvents.get(mapKey) || []).map((event) => ({
         ...event,
         winner:
           event.winner_side === 'CT'
@@ -871,7 +1207,7 @@ export const setupGSI = (io: Server) => {
               : '',
         side: event.winner_side.toLowerCase()
       }))
-      const deathMarkers = (websiteDeathMarkers.get(mapName) || []).map((marker) => {
+      const deathMarkers = (websiteDeathMarkers.get(mapKey) || []).map((marker) => {
         const presentation = getWebsitePlayerPresentation(marker.steamid)
         return presentation ? { ...marker, name: presentation.name || marker.name } : marker
       })

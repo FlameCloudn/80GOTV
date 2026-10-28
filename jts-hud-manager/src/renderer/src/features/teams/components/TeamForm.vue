@@ -3,9 +3,9 @@ import { ref, watch, computed } from 'vue';
 import type { SelectOption } from '@renderer/components/base/BaseSelect.vue';
 import BaseInput from '@renderer/components/base/BaseInput.vue';
 import BaseSelect from '@renderer/components/base/BaseSelect.vue';
-import BaseButton from '@renderer/components/base/BaseButton.vue';
+import AppIcon from '@renderer/components/ui/AppIcon.vue';
+import { assetUrl } from '@renderer/utils/display';
 import { countryOptions } from '@renderer/utils/countries';
-import { API_URL } from '@renderer/index';
 
 const props = defineProps<{ initialData: any; isEditing: boolean; players: any[]; }>();
 const emit = defineEmits(['submit']);
@@ -13,7 +13,6 @@ const form = ref({ ...props.initialData });
 const logoFile = ref<File | null>(null);
 const logoPreview = ref<string | null>(null);
 const playerSearch = ref('');
-const baseUrl = API_URL.replace('/api', '');
 
 const countrySelectOptions = computed((): SelectOption[] =>
   countryOptions.map(c => ({ value: c.code, label: `${c.name} (${c.code})` }))
@@ -61,108 +60,75 @@ const onFileChange = (e: Event) => {
 </script>
 
 <template>
-  <form id="teamForm" @submit.prevent="emit('submit', form, logoFile)" class="p-6 space-y-6">
-
-    <!-- Logo + Primary Info -->
-    <div class="flex gap-6 items-start">
-
-      <!-- Logo upload -->
-      <div class="flex flex-col items-center gap-2 shrink-0">
-        <div class="w-36 h-36 rounded-xl overflow-hidden border-2 border-zinc-700 bg-surface flex items-center justify-center p-3">
-          <img v-if="logoPreview" :src="logoPreview" class="w-full h-full object-contain" />
-          <img v-else-if="form.logo" :src="`http://localhost:1349${form.logo}`" class="w-full h-full object-contain" />
-          <span v-else class="text-zinc-600 text-6xl font-black select-none">T</span>
+  <form id="teamForm" class="team-form" @submit.prevent="emit('submit', form, logoFile)">
+    <div class="identity">
+      <div class="logo-box">
+        <div class="logo-preview">
+          <img v-if="logoPreview" :src="logoPreview" alt="" />
+          <img v-else-if="form.logo" :src="assetUrl(form.logo)" alt="" />
+          <span v-else class="logo-empty num">{{ (form.shortName || form.name || 'T').slice(0, 2).toUpperCase() }}</span>
         </div>
-        <BaseButton @click="fileInputRef?.click()" class="w-full justify-center">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-          上传队标
-        </BaseButton>
-        <input ref="fileInputRef" type="file" accept="image/*" @change="onFileChange" class="hidden" />
+        <button type="button" class="btn btn-sm logo-btn" @click="fileInputRef?.click()"><AppIcon name="upload" />上传队标</button>
+        <input ref="fileInputRef" type="file" accept="image/*" class="hidden-file" @change="onFileChange" />
       </div>
-
-      <!-- Team Name + Short Name -->
-      <div class="flex-1 space-y-4">
-        <BaseInput
-          v-model="form.name"
-          label="战队名称"
-          type="text"
-          size="md"
-        />
-        <BaseInput
-          v-model="form.shortName"
-          label="战队简称"
-          type="text"
-          placeholder="例如：NAVI"
-          size="md"
-        />
+      <div class="identity-fields">
+        <BaseInput v-model="form.name" label="战队名称" type="text" />
+        <BaseInput v-model="form.shortName" label="战队简称" type="text" placeholder="例如：NAVI" />
+        <BaseSelect v-model="form.country" label="国家或地区" placeholder="未选择" :options="countrySelectOptions" />
       </div>
     </div>
 
-    <div class="border-t border-zinc-700/50"></div>
-
-    <!-- Country -->
-    <BaseSelect
-      v-model="form.country"
-      label="国家或地区"
-      placeholder="未选择"
-      :options="countrySelectOptions"
-      size="md"
-    />
-
-    <template v-if="isEditing">
-      <div class="border-t border-zinc-700/50"></div>
-
-      <section class="space-y-3">
-        <div class="flex items-center justify-between gap-3">
-          <h3 class="text-sm font-bold text-zinc-200">战队选手</h3>
-          <span class="text-xs text-zinc-500">已选择 {{ (form.playerIds || []).length }} 人</span>
-        </div>
-
-        <BaseInput
-          v-model="playerSearch"
-          type="text"
-          placeholder="搜索昵称、姓名或 Steam64 ID"
-          size="md"
-        />
-
-        <div class="max-h-64 overflow-y-auto border border-zinc-700 rounded-lg divide-y divide-zinc-800 bg-zinc-950/30">
-          <label
-            v-for="player in filteredPlayers"
-            :key="player._id"
-            class="min-h-14 px-3 py-2 flex items-center gap-3 cursor-pointer hover:bg-zinc-800/70 transition-colors"
-          >
-            <input
-              type="checkbox"
-              class="size-4 shrink-0 accent-blue-500"
-              :checked="isPlayerSelected(player._id)"
-              @change="togglePlayer(player._id)"
-            />
-            <div class="size-9 shrink-0 overflow-hidden rounded-md bg-zinc-800 flex items-center justify-center">
-              <img
-                v-if="player.avatar"
-                :src="`${baseUrl}${player.avatar}`"
-                class="size-full object-cover"
-              />
-              <span v-else class="text-xs font-bold text-zinc-500">{{ player.username?.slice(0, 1) || '?' }}</span>
-            </div>
-            <div class="min-w-0 flex-1">
-              <div class="text-sm font-semibold text-zinc-200 truncate">{{ player.username || '未命名选手' }}</div>
-              <div class="text-xs text-zinc-500 truncate">{{ player.steamid || '没有 Steam64 ID' }}</div>
-            </div>
-            <span
-              class="text-xs shrink-0"
-              :class="player.team && player.team !== form._id ? 'text-amber-400' : 'text-zinc-500'"
-            >
-              {{ playerStatus(player) }}
-            </span>
-          </label>
-
-          <div v-if="filteredPlayers.length === 0" class="h-20 flex items-center justify-center text-sm text-zinc-600">
-            没有找到选手
-          </div>
-        </div>
-      </section>
-    </template>
-
+    <section v-if="isEditing" class="roster">
+      <div class="roster-head">
+        <h3>战队选手</h3>
+        <span class="hint">已选择 <b class="num">{{ (form.playerIds || []).length }}</b> 人</span>
+      </div>
+      <BaseInput v-model="playerSearch" type="text" placeholder="搜索昵称、姓名或 Steam64 ID" />
+      <div class="roster-list">
+        <label v-for="player in filteredPlayers" :key="player._id" class="roster-row" :class="{ picked: isPlayerSelected(player._id) }">
+          <input type="checkbox" class="check" :checked="isPlayerSelected(player._id)" @change="togglePlayer(player._id)" />
+          <span class="avatar">
+            <img v-if="player.avatar" :src="assetUrl(player.avatar)" alt="" />
+            <template v-else>{{ player.username?.slice(0, 1) || '?' }}</template>
+          </span>
+          <span class="roster-main">
+            <b>{{ player.username || '未命名选手' }}</b>
+            <small class="num">{{ player.steamid || '没有 Steam64 ID' }}</small>
+          </span>
+          <span class="roster-state" :class="{ other: player.team && player.team !== form._id }">{{ playerStatus(player) }}</span>
+        </label>
+        <div v-if="filteredPlayers.length === 0" class="roster-empty">没有找到选手</div>
+      </div>
+    </section>
   </form>
 </template>
+
+<style scoped>
+.team-form { display: flex; flex-direction: column; gap: 18px; }
+.identity { display: flex; gap: 18px; align-items: flex-start; }
+.logo-box { width: 132px; flex: none; display: flex; flex-direction: column; gap: 8px; }
+.logo-preview { width: 132px; height: 132px; display: grid; place-items: center; padding: 12px; border-radius: var(--radius-lg); background: var(--bg-input); border: 1px solid var(--border-strong); }
+.logo-preview img { width: 100%; height: 100%; object-fit: contain; }
+.logo-empty { font-size: 34px; font-weight: 800; color: var(--text-3); }
+.logo-btn { width: 100%; }
+.hidden-file { display: none; }
+.identity-fields { flex: 1; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.roster { display: flex; flex-direction: column; gap: 10px; padding-top: 16px; border-top: 1px solid var(--border); }
+.roster-head { display: flex; align-items: center; justify-content: space-between; }
+.roster-head h3 { font-size: 14px; font-weight: 700; }
+.roster-head b { color: var(--accent); }
+.roster-list { max-height: 260px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-input); }
+.roster-row { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 6px 12px; border-bottom: 1px solid var(--border); cursor: pointer; }
+.roster-row:last-child { border-bottom: none; }
+.roster-row:hover { background: var(--bg-hover); }
+.roster-row.picked { background: var(--accent-soft); }
+.check { width: 14px; height: 14px; accent-color: var(--accent); flex: none; }
+.avatar { width: 34px; height: 34px; flex: none; display: grid; place-items: center; overflow: hidden; border-radius: var(--radius-md); background: var(--bg-raised); color: var(--text-3); font-weight: 700; }
+.avatar img { width: 100%; height: 100%; object-fit: cover; }
+.roster-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.roster-main b { font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.roster-main small { font-size: 11px; color: var(--text-3); }
+.roster-state { flex: none; font-size: 12px; color: var(--text-3); }
+.roster-state.other { color: var(--gold); }
+.roster-empty { padding: 24px; text-align: center; font-size: 13px; color: var(--text-3); }
+</style>

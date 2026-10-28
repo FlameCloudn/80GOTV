@@ -33,7 +33,7 @@ const zipUpload = multer({ storage: multer.memoryStorage() })
 const playerRepo = new PlayerRepository()
 const teamRepo = new TeamRepository()
 const matchRepo = new MatchRepository()
-const BUILTIN_HUD_CACHE_VERSION = '80gotv-cn-obs-10'
+const BUILTIN_HUD_CACHE_VERSION = '80gotv-cn-obs-11'
 const directorScenes = new Map<string, string>()
 const directorVisibility = new Map<string, boolean>()
 
@@ -46,12 +46,26 @@ const emitDirectorAction = (io: Server, hudId: string, action: string, data: str
   io.emit('hud_action', { action, data: data ?? null })
 }
 
-const applyDirectorCommand = async (io: Server, hudId: string, command: string): Promise<string> => {
+type DirectorCommandResult = {
+  scene: string
+  delivery?: 'sent' | 'pending'
+  hudClients?: number
+}
+
+const applyDirectorCommand = async (
+  io: Server,
+  hudId: string,
+  command: string
+): Promise<DirectorCommandResult> => {
   const normalized = String(command || '').trim().toLowerCase()
   if (normalized === 'hide_all' || normalized === 'hide') {
-    emitDirectorAction(io, hudId, 'bpShowcaseState', 'hide')
-    emitDirectorAction(io, hudId, 'directorVisibility', 'hide')
-    return 'hide_all'
+    const hudClients = (await io.in('huds').fetchSockets()).length
+    directorVisibility.set(hudId, false)
+    if (hudClients > 0) {
+      emitDirectorAction(io, hudId, 'bpShowcaseState', 'hide')
+      emitDirectorAction(io, hudId, 'directorVisibility', 'hide')
+    }
+    return { scene: 'hide_all', delivery: hudClients > 0 ? 'sent' : 'pending', hudClients }
   }
   if (normalized === 'bp' || normalized === 'bp_show') {
     emitDirectorAction(io, hudId, 'directorVisibility', 'show')
@@ -59,7 +73,7 @@ const applyDirectorCommand = async (io: Server, hudId: string, command: string):
     emitDirectorAction(io, hudId, 'bpShowcaseState', 'hide')
     await new Promise((resolve) => setTimeout(resolve, 80))
     emitDirectorAction(io, hudId, 'bpShowcaseState', 'show')
-    return 'bp'
+    return { scene: 'bp' }
   }
   const scenes: Record<string, string> = {
     auto: 'auto',
@@ -78,7 +92,7 @@ const applyDirectorCommand = async (io: Server, hudId: string, command: string):
   emitDirectorAction(io, hudId, 'directorScene', 'game')
   if (scene !== 'game') await new Promise((resolve) => setTimeout(resolve, 80))
   emitDirectorAction(io, hudId, 'directorScene', scene)
-  return scene
+  return { scene }
 }
 
 // Enrich raw config (which stores plain IDs) with full player/team/match objects,
@@ -388,8 +402,8 @@ const createHudRouter = (io: Server) => {
   // POST /api/huds/:hudId/director-command — one command shared by buttons and shortcuts
   router.post('/:hudId/director-command', async (req: Request, res: Response) => {
     try {
-      const scene = await applyDirectorCommand(io, req.params.hudId as string, req.body?.command)
-      return res.json({ ok: true, scene })
+      const result = await applyDirectorCommand(io, req.params.hudId as string, req.body?.command)
+      return res.json({ ok: true, ...result })
     } catch (error: any) {
       return res.status(400).json({ ok: false, error: error?.message || '导播命令失败' })
     }

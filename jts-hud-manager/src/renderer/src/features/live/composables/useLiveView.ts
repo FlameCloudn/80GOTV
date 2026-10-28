@@ -4,6 +4,7 @@ import { API_URL } from '../../../index'
 import type { CSGORaw } from 'csgogsi'
 import { usePlayers } from '../../players/composables/usePlayers'
 import { useTeams } from '../../teams/composables/useTeams'
+import { errorText, showToast } from '../../../composables/useToasts'
 
 export interface GsiPlayer {
   steamid: string
@@ -61,6 +62,7 @@ export function useLiveView() {
       isModalOpen.value = false
     } catch (error) {
       console.error('Failed to save player from LiveView:', error)
+      showToast(errorText(error), 'error', { key: 'live-player' })
     }
   }
 
@@ -118,6 +120,7 @@ export function useLiveView() {
       isAddAllModalOpen.value = false
     } catch (error) {
       console.error('Failed to add all players:', error)
+      showToast(`没能全部加入战队：${errorText(error)}`, 'error', { key: 'live-add-all' })
     } finally {
       isAddingAll.value = false
     }

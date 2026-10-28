@@ -10,19 +10,23 @@
     "nuke": {
       "resolution": 6.98,
       "offset": {"x": 3290, "y": 5990},
+      "radarImage": "de_nuke_combined.png",
+      "transform": {"originX": 473.1284773048749, "originY": 190, "pxPerUX": 0.17970119908658634, "pxPerUY": -0.18420838669024532},
       "floors": [
-        {"name": "upper", "min_z": -480, "max_z": 5000},
-        {"name": "lower", "min_z": -2500, "max_z": -481}
+        {"name": "upper", "min_z": -495, "max_z": 14000, "transform": {"originX": 473.1284773048749, "originY": 190, "pxPerUX": 0.17970119908658634, "pxPerUY": -0.18420838669024532}},
+        {"name": "lower", "min_z": -2500, "max_z": -495, "imageFile": "de_nuke_lower.png", "transform": {"originX": 100, "originY": 570, "pxPerUX": 0.179508593298534, "pxPerUY": -0.18166758135658676}}
       ]
     },
-    "overpass": {"resolution": 5.18, "offset": {"x": 4830, "y": 3540}},
-    "train": {"resolution": 4.74, "offset": {"x": 2730, "y": 2360}},
+    "overpass": {"resolution": 5.18, "offset": {"x": 4830, "y": 3540}, "radarImage": "de_overpass.png", "transform": {"originX": 927.3988878244819, "originY": 343.8221009185496, "pxPerUX": 0.1923720959212443, "pxPerUY": -0.19427507725530338}},
+    "train": {"resolution": 4.74, "offset": {"x": 2730, "y": 2360}, "radarImage": "de_train.png", "transform": {"originX": 557.7279495268139, "originY": 507.83243734804853, "pxPerUX": 0.22712933753943218, "pxPerUY": -0.23013108811174968}},
     "vertigo": {
       "resolution": 4.96,
       "offset": {"x": 3890, "y": 3800},
+      "radarImage": "de_vertigo.png",
+      "transform": {"originX": 784.4793452283254, "originY": 255.42597837029027, "pxPerUX": 0.19856123172015677, "pxPerUY": -0.19820052722907044},
       "floors": [
-        {"name": "upper", "min_z": 11680, "max_z": 14000},
-        {"name": "lower", "min_z": 0, "max_z": 11679}
+        {"name": "upper", "min_z": 11700, "max_z": 14000, "transform": {"originX": 784.4793452283254, "originY": 255.42597837029027, "pxPerUX": 0.19856123172015677, "pxPerUY": -0.19820052722907044}},
+        {"name": "lower", "min_z": 0, "max_z": 11700, "imageFile": "de_vertigo_lower.png", "transform": {"originX": 780.5145858437052, "originY": 695.4259783702903, "pxPerUX": 0.1989615567841087, "pxPerUY": -0.19820052722907044}}
       ]
     }
   }

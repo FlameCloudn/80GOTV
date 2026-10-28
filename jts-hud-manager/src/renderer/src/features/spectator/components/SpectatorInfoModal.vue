@@ -1,77 +1,66 @@
 <script setup lang="ts">
-import CloseIcon from '@renderer/assets/icons/CloseIcon.vue';
+// 观战按键使用说明
+import AppIcon from '../../../components/ui/AppIcon.vue'
 
-
-defineProps<{
-  show: boolean;
-}>();
-
-defineEmits<{
-  (e: 'close'): void;
-}>();
+defineProps<{ show: boolean }>()
+defineEmits<{ (e: 'close'): void }>()
 </script>
 
 <template>
   <Teleport to="body">
-    <div
-      v-if="show"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
-      @click.self="$emit('close')"
-    >
-      <div class="bg-surface border border-zinc-700 rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
-        <!-- Modal header -->
-        <div class="flex items-center justify-between px-6 py-4 border-b border-border">
-          <h2 class="text-lg font-bold text-text-main">观战按键使用说明</h2>
-          <button @click="$emit('close')" class="text-zinc-500 hover:text-zinc-200 transition-colors">
-            <CloseIcon name="close" class="size-6" />
-          </button>
+    <div v-if="show" class="dialog-backdrop" @mousedown.self="$emit('close')">
+      <div class="dialog info-dialog" role="dialog" aria-label="观战按键使用说明">
+        <div class="dialog-head">
+          <AppIcon name="info" />
+          <h2>观战按键使用说明</h2>
+          <button type="button" class="icon-btn dialog-close" title="关闭" @click="$emit('close')"><AppIcon name="x" /></button>
         </div>
-        <!-- Modal body -->
-        <div class="px-6 py-5 space-y-4 text-sm text-zinc-300 leading-relaxed overflow-y-auto max-h-[70vh]">
-          <section class="bg-blue-950 p-1.5 rounded-lg">
-            <h3 class="text-blue-300 font-semibold mb-1">开始前请注意：</h3>
-            <ul class="text-xs list-decimal list-inside font-bold">
+        <div class="dialog-body info-body">
+          <section class="notice">
+            <b>开始前请注意</b>
+            <ol>
               <li>名字以数字开头的选手无法使用绑定命令，这是 CS2 本身的限制。</li>
-              <br/>
               <li>使用这个工具可能影响比赛地图胜场统计，目前仍在修复。</li>
-            </ul>
+            </ol>
           </section>
-
           <section>
-            <h3 class="text-text-main font-semibold mb-1">功能说明</h3>
-            <p>这个页面可以把数字键 <code class="bg-zinc-800 px-1 rounded">1</code> 到 <code class="bg-zinc-800 px-1 rounded">0</code> 固定分配给指定选手。</p>
-            <br/>
-            <p>这只是导播显示层面的调整，不会修改游戏里的真实选手位置。程序会在数据发给 HUD 前重新对应选手，并让数字键切换到正确的人。</p>
+            <h3>功能说明</h3>
+            <p>把数字键 <code>1</code> 到 <code>0</code> 固定分给指定选手。这只改导播看到的对应关系，不会改游戏里的真实选手位置：程序在把数据发给 HUD 前重新对应选手，让数字键切到正确的人。</p>
           </section>
-
           <section>
-            <h3 class="text-text-main font-semibold mb-1">分配选手</h3>
-            <p>可以使用数字键下方的下拉框，也可以点击“当前比赛选手”快速加入第一个空位。“从 CS2 自动填写”会读取 GSI 数据中的 <code class="bg-zinc-800 px-1 rounded">observer_slot</code>。</p>
+            <h3>分配选手</h3>
+            <p>用数字键下面的下拉框选人，或者点“当前比赛选手”里的名字放进第一个空键。“从 CS2 自动填写”会读取 GSI 数据里的 <code>observer_slot</code>。</p>
           </section>
-
           <section>
-            <h3 class="text-text-main font-semibold mb-1">自动应用按键</h3>
-            <p>在 CS2 启动项加入 <code class="bg-zinc-800 px-1 rounded font-mono">-netconport 2020</code> 后，点击“应用到 CS2”，程序就会自动发送按键命令。</p>
+            <h3>自动应用</h3>
+            <p>CS2 启动项加上 <code>-netconport 2020</code> 后，点“应用到 CS2”，程序会自动把按键命令发过去。</p>
           </section>
-
           <section>
-            <h3 class="text-text-main font-semibold mb-1">手动应用按键</h3>
-            <p>如果自动连接不可用，可以在“命令预览”中点击“复制命令”，再粘贴到 CS2 控制台（<code class="bg-zinc-800 px-1 rounded">~</code>）。</p>
+            <h3>手动应用</h3>
+            <p>自动连接用不了时，在“命令预览”里点“复制命令”，再粘到 CS2 控制台（<code>~</code> 键）里回车。</p>
           </section>
-
           <section>
-            <h3 class="text-text-main font-semibold mb-1">清空按键</h3>
-            <p>“全部清空”会删除页面上的全部选手位置，解除观战绑定，并恢复默认武器数字键。单独清空某个按键只会恢复那一个数字键。</p>
+            <h3>清空按键</h3>
+            <p>“全部清空”会删掉页面上全部选手位置、解除观战绑定，并恢复默认武器数字键。单独清空某个键只恢复那一个数字键。</p>
           </section>
-
           <section>
-            <h3 class="text-text-main font-semibold mb-1">CS2 启动项</h3>
-            <p>在 Steam 的 CS2 启动项中加入：</p>
-            <pre class="bg-zinc-950 border border-border rounded-lg px-3 py-2 font-mono text-xs text-zinc-400 mt-1">-netconport 2020</pre>
-            <p class="text-zinc-500 text-xs mt-1">端口可以在本页面的“连接设置”中修改。</p>
+            <h3>CS2 启动项</h3>
+            <pre>-netconport 2020</pre>
+            <p class="hint">端口可以在本页的“连接设置”里改。</p>
           </section>
         </div>
       </div>
     </div>
   </Teleport>
 </template>
+
+<style scoped>
+.info-dialog { max-width: 540px; }
+.info-body { display: flex; flex-direction: column; gap: 16px; font-size: 13px; line-height: 1.7; color: var(--text-2); }
+.info-body h3 { margin-bottom: 2px; font-size: 13px; font-weight: 700; color: var(--text); }
+.notice { padding: 10px 12px; border-radius: var(--radius-md); background: var(--accent-soft); border: 1px solid rgba(107, 159, 209, 0.35); }
+.notice b { color: var(--accent); }
+.notice ol { margin: 4px 0 0; padding-left: 18px; }
+code { padding: 1px 5px; border-radius: var(--radius-sm); background: var(--bg-raised); font-family: Consolas, monospace; font-size: 12px; color: var(--text); }
+pre { margin: 4px 0; padding: 8px 12px; border-radius: var(--radius-md); background: var(--bg-input); border: 1px solid var(--border); font: 12px/1.5 Consolas, monospace; color: var(--text-2); }
+</style>

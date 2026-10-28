@@ -58,18 +58,39 @@ export function useSpectator() {
     }
   }
 
-  const loadSlots = () => {
+  const applySlots = (source: Record<number, string> | null | undefined) => {
+    for (let i = 1; i <= 10; i++) {
+      slots.value[i] = typeof source?.[i] === 'string' ? source[i] : ''
+    }
+  }
+
+  const loadSlots = async () => {
+    let localSlots: Record<number, string> | null = null
     try {
       const saved = localStorage.getItem(STORAGE_KEY)
       if (saved) {
         const parsed = JSON.parse(saved)
-        for (let i = 1; i <= 10; i++) {
-          slots.value[i] = parsed[i] ?? ''
-        }
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) localSlots = parsed
       }
     } catch {
       /* ignore */
     }
+
+    try {
+      const res = await fetch(`${API_URL}/spectator/slots`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data?.slots && typeof data.slots === 'object' && !Array.isArray(data.slots)) {
+          applySlots(data.slots)
+          return true
+        }
+      }
+    } catch {
+      /* use the legacy local setting when the server is unavailable */
+    }
+
+    applySlots(localSlots)
+    return false
   }
 
   watch(
@@ -289,9 +310,9 @@ export function useSpectator() {
   }
 
   onMounted(async () => {
-    loadSlots()
+    const restoredFromSettings = await loadSlots()
     await loadSettings()
-    await pushSlots()
+    if (!restoredFromSettings) await pushSlots()
     socket.on('update', onUpdate)
   })
 

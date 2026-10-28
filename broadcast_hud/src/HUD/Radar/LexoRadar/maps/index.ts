@@ -78,7 +78,7 @@ api.maps
                         },
                         isVisible: (height: number) =>
                             (m.visibleUnderHeight !== null
-                                ? m.visibleUnderHeight < height
+                                ? m.visibleUnderHeight <= height
                                 : true) &&
                             (m.visibleOverHeight !== null
                                 ? m.visibleOverHeight > height

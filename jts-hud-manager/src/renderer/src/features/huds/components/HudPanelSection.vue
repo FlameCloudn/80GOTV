@@ -2,7 +2,8 @@
 import { computed } from 'vue';
 import type { PanelSection } from '../composables/useHudPanelView';
 import type { SelectOption } from '@renderer/components/base/BaseSelect.vue';
-import BaseButton from '@renderer/components/base/BaseButton.vue';
+import AppIcon from '@renderer/components/ui/AppIcon.vue';
+import { boLabel } from '@renderer/utils/display';
 import BaseInput from '@renderer/components/base/BaseInput.vue';
 import BaseCheckbox from '@renderer/components/base/BaseCheckbox.vue';
 import BaseSelect from '@renderer/components/base/BaseSelect.vue';
@@ -61,202 +62,102 @@ const playerOptions = computed((): SelectOption[] =>
 );
 
 // Convert matches to SelectOption[]
+// 比赛选项写“队名 VS 队名 · BO3”（原来显示的是战队编号）
+const teamNameOf = (id?: string | null) => (id ? props.teams.find(t => t._id === id)?.name ?? '未知战队' : '待定');
 const matchOptions = computed((): SelectOption[] =>
   props.matches.map(m => ({
     value: m._id || m.id,
-    label: `${m.left?.id ?? '待定'} 对阵 ${m.right?.id ?? '待定'} (${m.matchType})`,
+    label: `${teamNameOf(m.left?.id)} VS ${teamNameOf(m.right?.id)} · ${boLabel(m.matchType) || m.matchType}`,
   }))
 );
 </script>
 
 <template>
-  <div class="bg-zinc-800 border border-zinc-700 rounded-xl overflow-hidden">
-
-    <!-- Section header -->
-    <div class="px-5 py-3 border-b border-zinc-700 bg-surface/50 flex items-center justify-between">
-      <h2 class="text-sm font-bold text-text-main tracking-tight">{{ section.label }}</h2>
-      <label v-if="hasPlayerInput" class="flex items-center gap-2 cursor-pointer select-none group">
-        <span class="text-xs text-zinc-500 group-hover:text-zinc-300 transition-colors">
-          只显示当前比赛中的选手
-        </span>
-        <span
-          class="relative inline-flex w-9 h-5 rounded-full transition-colors shrink-0"
-          :class="showOnlyActivePlayers ? 'bg-emerald-600' : 'bg-zinc-700'"
-          @click="emit('toggle-active-players')"
-        >
-          <span
-            class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform"
-            :class="showOnlyActivePlayers ? 'translate-x-4' : 'translate-x-0'"
-          />
-        </span>
+  <section class="panel hud-section">
+    <header class="section-head">
+      <h2>{{ section.label }}</h2>
+      <label v-if="hasPlayerInput" class="active-toggle">
+        <span>只显示当前比赛中的选手</span>
+        <button type="button" class="switch" :class="{ on: showOnlyActivePlayers }" role="switch" :aria-checked="showOnlyActivePlayers" @click="emit('toggle-active-players')" />
       </label>
-    </div>
+    </header>
 
-    <!-- Inputs -->
-    <div class="p-5 grid grid-cols-2 gap-4">
-      <div v-for="input in section.inputs" :key="input.name">
-
-        <!-- TEXT -->
-        <template v-if="input.type === 'text'">
-          <BaseInput
-            v-model="sectionConfig[input.name]"
-            :label="input.label"
-            :placeholder="input.label"
-            size="md"
-          />
-        </template>
-
-        <!-- CHECKBOX -->
-        <template v-else-if="input.type === 'checkbox'">
-          <BaseCheckbox
-            v-model="sectionConfig[input.name]"
-            :label="input.label"
-            size="md"
-          />
-        </template>
-
-        <!-- SELECT -->
-        <template v-else-if="input.type === 'select'">
-          <BaseSelect
-            v-model="sectionConfig[input.name]"
-            :label="input.label"
-            :options="getSelectOptions(input)"
-            size="md"
-          />
-        </template>
-
-        <!-- PLAYER -->
+    <div class="section-grid">
+      <div v-for="input in section.inputs" :key="input.name" class="section-field" :class="{ wide: input.type === 'action' || input.type === 'images' }">
+        <BaseInput v-if="input.type === 'text'" v-model="sectionConfig[input.name]" :label="input.label" :placeholder="input.label" />
+        <BaseCheckbox v-else-if="input.type === 'checkbox'" v-model="sectionConfig[input.name]" :label="input.label" class="checkbox-field" />
+        <BaseSelect v-else-if="input.type === 'select'" v-model="sectionConfig[input.name]" :label="input.label" :options="getSelectOptions(input)" />
         <template v-else-if="input.type === 'player'">
-          <BaseSelect
-            v-model="sectionConfig[input.name]"
-            :label="input.label"
-            :options="playerOptions"
-            size="md"
-          />
-          <p v-if="showOnlyActivePlayers && !liveDataAvailable" class="mt-1.5 text-xs text-amber-500">
-            未检测到实时比赛，当前显示全部选手。
-          </p>
+          <BaseSelect v-model="sectionConfig[input.name]" :label="input.label" :options="playerOptions" />
+          <p v-if="showOnlyActivePlayers && !liveDataAvailable" class="field-note">没检测到实时比赛，先显示全部选手。</p>
         </template>
+        <BaseSelect v-else-if="input.type === 'team'" v-model="sectionConfig[input.name]" :label="input.label" :options="teamOptions" />
+        <BaseSelect v-else-if="input.type === 'match'" v-model="sectionConfig[input.name]" :label="input.label" :options="matchOptions" />
 
-        <!-- TEAM -->
-        <template v-else-if="input.type === 'team'">
-          <BaseSelect
-            v-model="sectionConfig[input.name]"
-            :label="input.label"
-            :options="teamOptions"
-            size="md"
-          />
-        </template>
-
-        <!-- MATCH -->
-        <template v-else-if="input.type === 'match'">
-          <BaseSelect
-            v-model="sectionConfig[input.name]"
-            :label="input.label"
-            :options="matchOptions"
-            size="md"
-          />
-        </template>
-
-        <!-- IMAGE (single) -->
-        <template v-else-if="input.type === 'image'">
-          <label class="block text-xs font-semibold text-zinc-400 mb-1.5">{{ input.label }}</label>
-          <div class="flex items-center gap-3">
-            <div v-if="sectionConfig?.[input.name]" class="relative w-12 h-12 border border-zinc-700 rounded-lg overflow-hidden bg-zinc-950 flex items-center justify-center shrink-0 group">
-              <img :src="sectionConfig[input.name]" class="w-full h-full object-contain" />
-              <button
-                type="button"
-                @click="emit('clear-image', input.name)"
-                class="absolute inset-0 bg-black/60 hidden group-hover:flex items-center justify-center text-red-400"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                </svg>
-              </button>
+        <div v-else-if="input.type === 'image'" class="field">
+          <span class="field-label">{{ input.label }}</span>
+          <div class="image-row">
+            <div v-if="sectionConfig?.[input.name]" class="image-thumb">
+              <img :src="sectionConfig[input.name]" alt="" />
+              <button type="button" class="image-remove" title="清除这张图" @click="emit('clear-image', input.name)"><AppIcon name="x" /></button>
             </div>
-            <label class="cursor-pointer flex items-center gap-2 px-3 py-2 bg-surface border border-zinc-700 rounded-lg text-xs text-zinc-400 hover:text-zinc-200 hover:border-zinc-500 transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-              </svg>
-              {{ sectionConfig?.[input.name] ? '替换图片' : '上传图片' }}
-              <input type="file" accept="image/*" class="hidden" @change="onFileChange(input.name, $event, false)" />
+            <label class="btn btn-sm upload-label">
+              <AppIcon name="image" />{{ sectionConfig?.[input.name] ? '替换图片' : '上传图片' }}
+              <input type="file" accept="image/*" class="hidden-file" @change="onFileChange(input.name, $event, false)" />
             </label>
           </div>
-        </template>
+        </div>
 
-        <!-- IMAGES (multi) -->
-        <template v-else-if="input.type === 'images'">
-          <label class="block text-xs font-semibold text-zinc-400 mb-1.5">{{ input.label }}</label>
-          <div class="space-y-2">
-            <div v-if="(sectionConfig?.[input.name] as string[])?.length" class="flex flex-wrap gap-2">
-              <div
-                v-for="url in (sectionConfig[input.name] as string[])"
-                :key="url"
-                class="relative w-16 h-16 border border-zinc-700 rounded-lg overflow-hidden bg-zinc-950 group"
-              >
-                <img :src="url" class="w-full h-full object-contain" />
-                <button
-                  type="button"
-                  @click="emit('remove-image-from-list', input.name, url)"
-                  class="absolute inset-0 bg-black/60 hidden group-hover:flex items-center justify-center text-red-400"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                  </svg>
-                </button>
-              </div>
+        <div v-else-if="input.type === 'images'" class="field">
+          <span class="field-label">{{ input.label }}</span>
+          <div class="image-row">
+            <div v-for="url in ((sectionConfig?.[input.name] as string[]) || [])" :key="url" class="image-thumb">
+              <img :src="url" alt="" />
+              <button type="button" class="image-remove" title="移除这张图" @click="emit('remove-image-from-list', input.name, url)"><AppIcon name="x" /></button>
             </div>
-            <label class="cursor-pointer inline-flex items-center gap-2 px-3 py-2 bg-surface border border-zinc-700 rounded-lg text-xs text-zinc-400 hover:text-zinc-200 hover:border-zinc-500 transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-              </svg>
-              添加图片
-              <input type="file" accept="image/*" class="hidden" @change="onFileChange(input.name, $event, true)" />
+            <label class="btn btn-sm upload-label">
+              <AppIcon name="plus" />添加图片
+              <input type="file" accept="image/*" class="hidden-file" @change="onFileChange(input.name, $event, true)" />
             </label>
           </div>
-        </template>
+        </div>
 
-        <!-- ACTION -->
-        <template v-else-if="input.type === 'action'">
-          <label class="block text-xs font-semibold text-zinc-400 mb-2">{{ input.label }}</label>
-          <div class="flex flex-wrap gap-2">
-            <BaseButton
-              v-for="val in input.values"
-              :key="val.name"
-              @click="emit('fire-action', input.name, val.name)"
-              variant="secondary"
-              class="bg-zinc-700!"
-            >
-              {{ val.label }}
-            </BaseButton>
+        <div v-else-if="input.type === 'action'" class="field">
+          <span class="field-label">{{ input.label }}</span>
+          <div class="action-row">
+            <button v-for="val in input.values" :key="val.name" type="button" class="btn" @click="emit('fire-action', input.name, val.name)">{{ val.label }}</button>
           </div>
-        </template>
-
+        </div>
       </div>
     </div>
 
-    <!-- Section footer -->
-    <div
-      v-if="hasNonActionInputs"
-      class="px-5 py-3 border-t border-zinc-700 bg-surface/30 flex items-center justify-end gap-3"
-    >
-      <span v-if="status === 'saved'" class="text-emerald-400 text-xs flex items-center gap-1">
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-        </svg>
-        已发送！
-      </span>
-      <span v-else-if="status === 'error'" class="text-red-400 text-xs">发送失败</span>
-      <BaseButton
-        variant="primary"
-        @click="emit('save')"
-        :disabled="status === 'saving'"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
-        </svg>
-        {{ status === 'saving' ? '正在发送...' : '保存并发送' }}
-      </BaseButton>
-    </div>
-  </div>
+    <footer v-if="hasNonActionInputs" class="section-foot">
+      <span v-if="status === 'saved'" class="sent"><AppIcon name="check" />已发送</span>
+      <button type="button" class="btn btn-primary" :disabled="status === 'saving'" @click="emit('save')">
+        <AppIcon name="zap" />{{ status === 'saving' ? '正在发送…' : '保存并发送' }}
+      </button>
+    </footer>
+  </section>
 </template>
+
+<style scoped>
+.hud-section { overflow: hidden; }
+.section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.section-head h2 { font-size: 14px; font-weight: 700; }
+.active-toggle { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--text-2); cursor: pointer; }
+.section-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; padding: 16px; }
+.section-field.wide { grid-column: 1 / -1; }
+.checkbox-field { height: 100%; align-items: flex-end; padding-bottom: 7px; }
+.field-note { margin-top: 6px; font-size: 12px; color: var(--gold); }
+.image-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.image-thumb { position: relative; width: 56px; height: 56px; display: grid; place-items: center; overflow: hidden; border-radius: var(--radius-md); background: var(--bg-input); border: 1px solid var(--border-strong); }
+.image-thumb img { width: 100%; height: 100%; object-fit: contain; }
+.image-remove { position: absolute; inset: 0; display: none; place-items: center; border: none; background: rgba(0, 0, 0, 0.6); color: #ff9d95; }
+.image-thumb:hover .image-remove { display: grid; }
+.upload-label { cursor: pointer; }
+.hidden-file { display: none; }
+.action-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.section-foot { display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 10px 16px; border-top: 1px solid var(--border); background: var(--bg-raised); }
+.sent { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: #8fd3ad; }
+.sent .icon { width: 13px; height: 13px; }
+</style>

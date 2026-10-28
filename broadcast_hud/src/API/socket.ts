@@ -7,6 +7,18 @@ import type { CSGO } from "csgogsi";
 import type { Match } from "./types";
 
 export const socket = io(isDev ? `localhost:${port}` : '/');
+actions.execute('gsiFreshness', 'disconnected');
+let freshnessTimer: ReturnType<typeof setTimeout> | null = null;
+const markGsiStale = (disconnected = false) => {
+    if (freshnessTimer) clearTimeout(freshnessTimer);
+    freshnessTimer = null;
+    actions.execute('gsiFreshness', disconnected ? 'disconnected' : 'stale');
+};
+const markGsiFresh = () => {
+    if (freshnessTimer) clearTimeout(freshnessTimer);
+    actions.execute('gsiFreshness', 'fresh');
+    freshnessTimer = setTimeout(markGsiStale, 5000);
+};
 
 let activeMatch: Match | null = null;
 
@@ -149,6 +161,9 @@ const digestAndCanonicalize = (data: CSGORaw) => {
 };
 
 socket.on("update", (data: any, damage: any) => {
+    if (data?.map && typeof data.map === 'object') {
+        markGsiFresh();
+    }
     if (damage) {
         GSI.damage = damage;
     }
@@ -159,6 +174,7 @@ const isInWindow = !!window.parent.ipcApi;
 
 if(isInWindow){
 	window.parent.ipcApi.receive('raw', (data: CSGORaw, damage?: RoundDamage[]) => {
+		if (data?.map) markGsiFresh();
 		if(damage){
 			GSI.damage = damage;
 		}
@@ -170,6 +186,10 @@ const href = window.location.href;
 
 socket.on("connect", () => {
     socket.emit("started");
+});
+
+socket.on("disconnect", () => {
+    markGsiStale(true);
 });
 
 if (isDev) {
@@ -187,6 +207,10 @@ socket.on(`hud_config`, (data: any) => {
     configs.save(data);
 });
 socket.on(`hud_action`, (data: any) => {
+    if (data.action === 'gsiFreshness' && data.data === 'stale') {
+        markGsiStale();
+        return;
+    }
     actions.execute(data.action, data.data);
 });
 socket.on('keybindAction', (action: string) => {

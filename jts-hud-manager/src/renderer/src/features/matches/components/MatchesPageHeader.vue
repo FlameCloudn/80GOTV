@@ -1,24 +1,36 @@
 <script setup lang="ts">
-import BaseButton from '../../../components/base/BaseButton.vue';
+// 比赛页标题行：筛选（全部 / 网站同步 / 手动创建）+ 搜索 + 创建比赛
+import AppIcon from '../../../components/ui/AppIcon.vue'
+import PageHeader from '../../../components/ui/PageHeader.vue'
+import type { MatchFilter } from '../composables/useMatchesView'
 
-defineEmits<{
-  create: [];
-}>();
+defineProps<{ filter: MatchFilter; search: string; counts: Record<MatchFilter, number> }>()
+const emit = defineEmits<{ create: []; 'update:filter': [value: MatchFilter]; 'update:search': [value: string] }>()
+
+const FILTERS: { key: MatchFilter; label: string }[] = [
+  { key: 'all', label: '全部' },
+  { key: 'website', label: '网站同步' },
+  { key: 'manual', label: '手动创建' }
+]
 </script>
 
 <template>
-  <div class="flex justify-between items-center mb-6">
-    <div>
-      <h1 class="text-2xl font-bold text-text-main tracking-tight">比赛</h1>
-      <p class="text-zinc-400 text-sm mt-1">创建比赛并选择当前正在进行的对局。</p>
+  <PageHeader kicker="Matches" title="比赛">
+    <div class="seg">
+      <button v-for="item in FILTERS" :key="item.key" type="button" :class="{ active: filter === item.key }" @click="emit('update:filter', item.key)">
+        {{ item.label }}<span class="count">{{ counts[item.key] }}</span>
+      </button>
     </div>
-    <div class="flex gap-3">
-      <BaseButton variant="primary" @click="$emit('create')">
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-        </svg>
-        创建比赛
-      </BaseButton>
+    <div class="search">
+      <AppIcon name="search" class="search-icon" />
+      <input class="input" :value="search" placeholder="搜索战队" @input="emit('update:search', ($event.target as HTMLInputElement).value)" />
     </div>
-  </div>
+    <button type="button" class="btn btn-primary" @click="emit('create')"><AppIcon name="plus" />创建比赛</button>
+  </PageHeader>
 </template>
+
+<style scoped>
+.search { position: relative; }
+.search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-3); pointer-events: none; }
+.search .input { width: 200px; padding-left: 32px; }
+</style>

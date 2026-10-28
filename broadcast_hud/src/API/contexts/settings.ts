@@ -48,4 +48,8 @@ type ActionValueMapper<T extends Settings[number]["inputs"]> = { [K in T[number]
 
 type GetActionsFromSection<T extends Settings[number]["inputs"]> = { [K in NonNeverKeys<ActionValueMapper<T>>]: ActionValueMapper<T>[K]};
 
-export type AllActions = Prettify<GetActionsFromSection<Settings[number]["inputs"]> & { [K in  Keybinds[number]["action"]]: never }>;
+export type AllActions = Prettify<
+    GetActionsFromSection<Settings[number]["inputs"]> &
+    { [K in Keybinds[number]["action"]]: never } &
+    { gsiFreshness: "fresh" | "stale" | "disconnected" }
+>;

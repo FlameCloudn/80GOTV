@@ -4,9 +4,10 @@ import type { SelectOption } from '@renderer/components/base/BaseSelect.vue';
 import BaseInput from '@renderer/components/base/BaseInput.vue';
 import BaseSelect from '@renderer/components/base/BaseSelect.vue';
 import BaseCheckbox from '@renderer/components/base/BaseCheckbox.vue';
-import BaseButton from '@renderer/components/base/BaseButton.vue';
+import AppIcon from '@renderer/components/ui/AppIcon.vue';
+import { assetUrl } from '@renderer/utils/display';
+import { showToast } from '@renderer/composables/useToasts';
 import { countryOptions } from '@renderer/utils/countries';
-import RefreshIcon from '@renderer/assets/icons/RefreshIcon.vue';
 import { API_URL } from '@renderer/index';
 
 const props = defineProps<{
@@ -76,6 +77,7 @@ const resolveSteamProfile = async () => {
 
   if (!/^\d{17}$/.test(steamid)) {
     steamResolveError.value = '请输入 17 位数字的 Steam64 ID';
+    showToast(steamResolveError.value, 'error', { key: 'steam-profile' });
     return;
   }
 
@@ -94,8 +96,10 @@ const resolveSteamProfile = async () => {
     steamResolveMessage.value = result.avatarUrl
       ? '已获取 Steam 昵称和头像'
       : '已获取 Steam 昵称，公开头像不可用';
+    showToast(steamResolveMessage.value, result.avatarUrl ? 'success' : 'info', { key: 'steam-profile' });
   } catch (error: any) {
     steamResolveError.value = error?.message || 'Steam 资料读取失败';
+    showToast(steamResolveError.value, 'error', { key: 'steam-profile' });
   } finally {
     isResolvingSteam.value = false;
   }
@@ -106,109 +110,64 @@ const handleSubmit = () => { emit('submit', form.value, avatarFile.value); };
 </script>
 
 <template>
-  <form id="playerForm" @submit.prevent="handleSubmit" class="p-6 space-y-6">
-
-    <!-- Avatar + Primary Identity -->
-    <div class="flex gap-6 items-start">
-
-      <!-- Avatar upload -->
-      <div class="flex flex-col items-center gap-2 shrink-0">
-        <div class="w-36 h-36 rounded-xl overflow-hidden border-2 border-zinc-700 bg-surface flex items-center justify-center">
-          <img v-if="avatarPreview" :src="avatarPreview" class="w-full h-full object-cover" />
-          <img v-else-if="form.avatar" :src="`http://localhost:1349${form.avatar}`" class="w-full h-full object-cover" />
-          <span v-else class="text-zinc-600 text-6xl select-none">?</span>
+  <form id="playerForm" class="player-form" @submit.prevent="handleSubmit">
+    <div class="identity">
+      <div class="avatar-box">
+        <div class="avatar-preview">
+          <img v-if="avatarPreview" :src="avatarPreview" alt="" />
+          <img v-else-if="form.avatar" :src="assetUrl(form.avatar)" alt="" />
+          <span v-else class="avatar-empty">{{ (form.username || '?').slice(0, 1).toUpperCase() }}</span>
         </div>
-        <BaseButton @click="fileInputRef?.click()" class="w-full justify-center ">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-          上传头像
-        </BaseButton>
-        <input ref="fileInputRef" type="file" accept="image/*" @change="onFileChange" class="hidden" />
+        <button type="button" class="btn btn-sm avatar-btn" @click="fileInputRef?.click()"><AppIcon name="upload" />上传头像</button>
+        <input ref="fileInputRef" type="file" accept="image/*" class="hidden-file" @change="onFileChange" />
       </div>
-
-      <!-- Steam ID + Username -->
-      <div class="flex-1 space-y-4">
-        <div>
-          <BaseInput
-            v-model="form.steamid"
-            label="Steam ID 64"
-            type="text"
-            :disabled="lockSteamId"
-            size="md"
-          />
-          <div class="mt-2 flex items-center justify-between gap-3">
-            <p v-if="steamResolveError" class="text-xs text-red-400">{{ steamResolveError }}</p>
-            <p v-else-if="steamResolveMessage" class="text-xs text-emerald-400">{{ steamResolveMessage }}</p>
-            <span v-else></span>
-            <BaseButton
-              size="sm"
-              class="shrink-0"
-              :disabled="isResolvingSteam"
-              @click="resolveSteamProfile"
-            >
-              <RefreshIcon class="w-3.5 h-3.5" :class="isResolvingSteam && 'animate-spin'" />
-              {{ isResolvingSteam ? '正在获取' : '自动获取' }}
-            </BaseButton>
-          </div>
+      <div class="identity-fields">
+        <div class="steam-row">
+          <BaseInput v-model="form.steamid" label="Steam64 ID" type="text" :disabled="lockSteamId" :invalid="Boolean(steamResolveError)" />
+          <button type="button" class="btn steam-btn" :disabled="isResolvingSteam" title="用 Steam64 ID 自动填昵称和头像" @click="resolveSteamProfile">
+            <AppIcon name="refresh" :class="{ spinning: isResolvingSteam }" />{{ isResolvingSteam ? '正在获取' : '自动获取' }}
+          </button>
         </div>
-        <BaseInput
-          v-model="form.username"
-          label="游戏昵称"
-          type="text"
-          size="md"
-        />
+        <p v-if="steamResolveMessage" class="steam-ok"><AppIcon name="check" />{{ steamResolveMessage }}</p>
+        <BaseInput v-model="form.username" label="游戏昵称" type="text" />
       </div>
     </div>
 
-    <div class="border-t border-zinc-700/50"></div>
-
-    <!-- Name row -->
-    <div class="grid grid-cols-2 gap-4">
-      <BaseInput
-        v-model="form.firstName"
-        label="名字"
-        type="text"
-        size="md"
-      />
-      <BaseInput
-        v-model="form.lastName"
-        label="姓氏"
-        type="text"
-        size="md"
-      />
+    <div class="two-col">
+      <BaseInput v-model="form.firstName" label="名字" type="text" />
+      <BaseInput v-model="form.lastName" label="姓氏" type="text" />
+    </div>
+    <div class="two-col">
+      <BaseSelect v-model="form.country" label="国家或地区" placeholder="未选择" :options="countrySelectOptions" />
+      <BaseSelect v-model="form.team" label="所属战队" placeholder="未加入战队" :options="teamSelectOptions" :searchable="true" />
     </div>
 
-    <!-- Country + Team row -->
-    <div class="grid grid-cols-2 gap-4">
-      <BaseSelect
-        v-model="form.country"
-        label="国家或地区"
-        placeholder="未选择"
-        :options="countrySelectOptions"
-        size="md"
-      />
-      <BaseSelect
-        v-model="form.team"
-        label="所属战队"
-        placeholder="未加入战队"
-        :options="teamSelectOptions"
-        :searchable="true"
-        size="md"
-      />
-    </div>
-
-    <!-- Coach toggle -->
-    <div class="p-4 rounded-lg border border-zinc-700 bg-surface/50">
-      <div class="flex items-center justify-between">
-        <div>
-          <span class="text-sm font-semibold text-zinc-200">设为教练</span>
-          <p class="text-xs text-zinc-500 mt-0.5">教练不会出现在发送给导播 HUD 的选手数据中</p>
-        </div>
-        <BaseCheckbox
-          v-model="form.isCoach"
-          size="md"
-        />
+    <div class="coach-row">
+      <div>
+        <b>设为教练</b>
+        <p class="hint">教练不会出现在发送给导播 HUD 的选手数据里</p>
       </div>
+      <BaseCheckbox v-model="form.isCoach" />
     </div>
-
   </form>
 </template>
+
+<style scoped>
+.player-form { display: flex; flex-direction: column; gap: 16px; }
+.identity { display: flex; gap: 18px; align-items: flex-start; }
+.avatar-box { width: 132px; flex: none; display: flex; flex-direction: column; gap: 8px; }
+.avatar-preview { width: 132px; height: 132px; display: grid; place-items: center; overflow: hidden; border-radius: var(--radius-lg); background: var(--bg-input); border: 1px solid var(--border-strong); }
+.avatar-preview img { width: 100%; height: 100%; object-fit: cover; }
+.avatar-empty { font: 800 40px/1 'Montserrat', sans-serif; color: var(--text-3); }
+.avatar-btn { width: 100%; }
+.hidden-file { display: none; }
+.identity-fields { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.steam-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 8px; }
+.steam-btn .icon.spinning { animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.steam-ok { display: flex; align-items: center; gap: 6px; margin-top: -4px; font-size: 12px; color: #8fd3ad; }
+.steam-ok .icon { width: 13px; height: 13px; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.coach-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border-radius: var(--radius-md); background: var(--bg-raised); border: 1px solid var(--border); }
+.coach-row b { font-size: 13px; }
+</style>

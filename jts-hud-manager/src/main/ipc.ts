@@ -1,4 +1,4 @@
-import { shell, BrowserWindow, ipcMain, dialog, clipboard } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog, clipboard } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import net from 'net'
@@ -241,6 +241,12 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('copy-text', (_, value: string) => {
     clipboard.writeText(String(value || ''))
   })
+
+  // 界面底部状态栏显示的版本号和 CS2 数据端口
+  ipcMain.handle('app-info', () => ({
+    version: app.getVersion(),
+    gsiPort: Number(process.env.GSI_PORT ?? 23415)
+  }))
 
   ipcMain.handle('configure-director-shortcuts', (_, bindings: Record<string, string>) =>
     configureDirectorShortcuts(bindings && typeof bindings === 'object' ? bindings : {})

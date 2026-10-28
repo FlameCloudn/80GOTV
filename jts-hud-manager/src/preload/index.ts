@@ -7,6 +7,9 @@ const api = {
 
   copyText: (value: string): Promise<void> => ipcRenderer.invoke('copy-text', value),
 
+  // 版本号和 CS2 数据端口（底部状态栏用）
+  getAppInfo: (): Promise<{ version: string; gsiPort: number }> => ipcRenderer.invoke('app-info'),
+
   configureDirectorShortcuts: (bindings: Record<string, string>) =>
     ipcRenderer.invoke('configure-director-shortcuts', bindings),
 

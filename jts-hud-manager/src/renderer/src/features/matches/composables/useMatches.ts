@@ -2,6 +2,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { API_URL } from '../../../index'
 import { useConfirmation } from '../../../composables/useConfirmation'
 import { socket } from '../../../socket'
+import { errorText, showToast } from '../../../composables/useToasts'
 
 export function useMatches() {
   const matches = ref<any[]>([])
@@ -57,6 +58,7 @@ export function useMatches() {
       return true
     } catch (error) {
       console.error(error)
+      showToast(errorText(error), 'error', { key: 'matches' })
       return false
     }
   }
@@ -73,6 +75,7 @@ export function useMatches() {
       await fetchMatches()
     } catch (error) {
       console.error(error)
+      showToast(errorText(error), 'error', { key: 'matches' })
     }
   }
 

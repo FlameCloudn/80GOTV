@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { errorText, showToast } from '../../../composables/useToasts'
 import { API_URL } from '../../../index'
 
 export interface HudData {
@@ -61,9 +62,16 @@ export function useHuds() {
     window.electron.ipcRenderer.send('open-huds-folder')
   }
 
+  // 删除失败（比如内置 HUD 不能删）：右上角提示，列表里保留
   const deleteHud = async (id: string) => {
-    await fetch(`${API_URL}/huds/${encodeURIComponent(id)}`, { method: 'DELETE' })
-    huds.value = huds.value.filter((h) => h.id !== id)
+    try {
+      const res = await fetch(`${API_URL}/huds/${encodeURIComponent(id)}`, { method: 'DELETE' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || '删除 HUD 失败')
+      huds.value = huds.value.filter((h) => h.id !== id)
+    } catch (error) {
+      showToast(errorText(error), 'error', { key: 'hud-delete' })
+    }
   }
 
   return {

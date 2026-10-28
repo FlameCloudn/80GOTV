@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import BaseButton from './BaseButton.vue';
+import AppIcon from '../ui/AppIcon.vue';
 
 const props = withDefaults(defineProps<{
   headers: { key: string; label: string; sortable?: boolean }[];
@@ -121,132 +121,72 @@ const handleSort = (header: { key: string; sortable?: boolean }) => {
 </script>
 
 <template>
-  <div class="bg-zinc-800 rounded-xl border border-zinc-700 overflow-hidden">
-    <!-- Search bar -->
-    <div v-if="searchable" class="px-4 py-3 border-b border-zinc-700 bg-surface/30">
-      <div class="relative">
-        <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-zinc-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
-        </svg>
-        <input
-          v-model="searchQuery"
-          type="text"
-          :placeholder="searchPlaceholder"
-          class="w-full bg-zinc-800 border border-zinc-700 text-zinc-200 placeholder-zinc-500 rounded-lg pl-9 pr-9 py-2 text-sm focus:outline-none focus:border-primary transition-colors"
-        />
-        <button
-          v-if="searchQuery"
-          @click="searchQuery = ''"
-          class="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-          </svg>
-        </button>
-      </div>
+  <div class="panel table-panel">
+    <div v-if="searchable" class="table-search">
+      <AppIcon name="search" class="search-icon" />
+      <input v-model="searchQuery" type="text" class="input search-input" :placeholder="searchPlaceholder" />
+      <button v-if="searchQuery" type="button" class="search-clear" title="清空搜索" @click="searchQuery = ''">
+        <AppIcon name="x" />
+      </button>
     </div>
 
-    <div v-if="isLoading" class="p-12 text-center text-zinc-400 italic">
-      正在加载数据...
-    </div>
+    <div v-if="isLoading" class="table-state">正在加载数据…</div>
 
-    <div v-else-if="filteredItems.length === 0" class="p-12 text-center text-zinc-400">
-      <span v-if="searchQuery">没有找到与 <span class="text-zinc-200 font-medium">“{{ searchQuery }}”</span> 相关的结果。</span>
+    <div v-else-if="filteredItems.length === 0" class="table-state">
+      <span v-if="searchQuery">没有找到与“<b>{{ searchQuery }}</b>”相关的结果。</span>
       <span v-else>暂无记录。</span>
     </div>
 
-    <div v-else class="overflow-x-auto">
-      <table class="w-full text-left border-collapse">
+    <div v-else class="table-scroll">
+      <table class="table">
         <thead>
-          <tr class="bg-surface/50 border-b border-zinc-700">
-            <!-- Checkbox column -->
-            <th v-if="selectable" class="px-4 py-4 w-10">
+          <tr>
+            <th v-if="selectable" class="col-check">
               <input
                 type="checkbox"
+                class="check"
                 :checked="allSelected"
                 :indeterminate="someSelected"
+                title="全选"
                 @change="toggleSelectAll"
-                class="size-3.5 rounded border-zinc-600 bg-zinc-700 accent-primary cursor-pointer"
               />
             </th>
             <th
               v-for="header in headers"
               :key="header.key"
-              :class="[
-                'px-6 py-4 text-xs font-bold capitalize text-zinc-400',
-                header.sortable ? 'cursor-pointer select-none hover:text-zinc-200 transition-colors' : ''
-              ]"
+              :class="{ sortable: header.sortable, sorted: sortKey === header.key }"
               @click="handleSort(header)"
             >
-              <span class="flex items-center gap-1">
+              <span class="th-inner">
                 {{ header.label }}
-                <!-- Sort indicator: only show when actively sorting this column -->
-                <svg
-                  v-if="sortKey === header.key"
-                  :class="['size-2.5 text-primary transition-transform', sortDir === 'desc' ? 'rotate-180' : '']"
-                  viewBox="0 0 10 6"
-                  fill="currentColor"
-                >
-                  <path d="M5 0L10 6H0L5 0Z"/>
-                </svg>
+                <AppIcon v-if="sortKey === header.key" name="chevronDown" class="sort-icon" :class="{ asc: sortDir === 'asc' }" />
               </span>
             </th>
-            <th class="px-6 py-4 text-xs font-bold text-zinc-400 text-right">操作</th>
+            <th class="col-actions">操作</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-zinc-700/50">
+        <tbody>
           <tr
             v-for="item in pagedItems"
             :key="item._id"
-            :class="[
-              'transition-colors group',
-              selectable && isSelected(item._id || item.id)
-                ? 'bg-primary/10 hover:bg-primary/15'
-                : 'hover:bg-zinc-700/30'
-            ]"
+            :class="{ selected: selectable && isSelected(item._id || item.id) }"
           >
-            <!-- Checkbox cell -->
-            <td v-if="selectable" class="px-4 py-4">
+            <td v-if="selectable" class="col-check">
               <input
                 type="checkbox"
+                class="check"
                 :checked="isSelected(item._id || item.id)"
                 @change="toggleSelectItem(item._id || item.id)"
-                class="size-3.5 rounded border-zinc-600 bg-zinc-700 accent-primary cursor-pointer"
               />
             </td>
-            <td v-for="header in headers" :key="header.key" class="px-4 py-2 text-sm text-zinc-300">
-              <slot :name="`cell-${header.key}`" :item="item">
-                {{ item[header.key] }}
-              </slot>
+            <td v-for="header in headers" :key="header.key">
+              <slot :name="`cell-${header.key}`" :item="item">{{ item[header.key] }}</slot>
             </td>
-
-            <td class="px-6 py-4 text-right">
-              <div class="flex items-center justify-end gap-1">
+            <td class="col-actions">
+              <div class="row-actions">
                 <slot name="row-actions" :item="item" />
-                <BaseButton
-                  @click="$emit('edit', item)"
-                  title="编辑"
-                  variant="ghost"
-                  size="xs"
-                  >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                  </svg>
-                </BaseButton>
-                <BaseButton
-                @click="$emit('delete', item._id || item.id)"
-                title="删除"
-                variant="ghost"
-                size="xs"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="3 6 5 6 21 6"/>
-                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                    <path d="M10 11v6M14 11v6"/>
-                    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-                  </svg>
-                </BaseButton>
+                <button type="button" class="icon-btn" title="编辑" @click="$emit('edit', item)"><AppIcon name="edit" /></button>
+                <button type="button" class="icon-btn danger" title="删除" @click="$emit('delete', item._id || item.id)"><AppIcon name="trash" /></button>
               </div>
             </td>
           </tr>
@@ -254,69 +194,58 @@ const handleSort = (header: { key: string; sortable?: boolean }) => {
       </table>
     </div>
 
-    <!-- Pagination footer -->
-    <div v-if="!isLoading && filteredItems.length > 0" class="px-6 py-3 border-t border-zinc-700 flex flex-wrap items-center justify-between gap-3 bg-surface/30">
-      <!-- Left: rows per page + count -->
-      <div class="flex items-center gap-3 text-sm text-zinc-400">
-        <span>每页显示：</span>
-        <select
-          v-model="pageSize"
-          class="bg-zinc-800 border border-zinc-700 text-zinc-300 rounded px-2 py-1 text-sm focus:outline-none focus:border-primary"
-        >
+    <div v-if="!isLoading && filteredItems.length > 0" class="table-foot">
+      <div class="page-size">
+        <span>每页</span>
+        <select v-model="pageSize" class="select select-sm" aria-label="每页显示多少条">
           <option v-for="opt in PAGE_SIZE_OPTIONS" :key="opt" :value="opt">{{ opt }}</option>
         </select>
+        <span class="num total">共 {{ filteredItems.length }} 条</span>
       </div>
-
-      <!-- Right: page controls -->
-      <div class="flex items-center gap-1">
-        <button
-          @click="currentPage = 1"
-          :disabled="currentPage === 1"
-          class="px-2 py-1 rounded text-zinc-400 hover:text-text-main hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          title="第一页"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 19l-7-7 7-7M18 19l-7-7 7-7"/></svg>
-        </button>
-        <button
-          @click="currentPage--"
-          :disabled="currentPage === 1"
-          class="px-2 py-1 rounded text-zinc-400 hover:text-text-main hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          title="上一页"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
-        </button>
-
+      <div class="pager">
+        <button type="button" class="icon-btn" :disabled="currentPage === 1" title="上一页" @click="currentPage--"><AppIcon name="chevronLeft" /></button>
         <template v-for="p in visiblePages" :key="p">
-          <span v-if="p === '…'" class="px-1 text-zinc-600 select-none">…</span>
-          <button
-            v-else
-            @click="currentPage = p as number"
-            :class="[
-              'w-8 h-8 rounded text-sm font-medium transition-colors',
-              currentPage === p
-                ? 'bg-primary text-text-main'
-                : 'text-zinc-400 hover:text-text-main hover:bg-zinc-700'
-            ]"
-          >{{ p }}</button>
+          <span v-if="p === '…'" class="pager-gap">…</span>
+          <button v-else type="button" class="pager-num num" :class="{ active: currentPage === p }" @click="currentPage = p as number">{{ p }}</button>
         </template>
-
-        <button
-          @click="currentPage++"
-          :disabled="currentPage === totalPages"
-          class="px-2 py-1 rounded text-zinc-400 hover:text-text-main hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          title="下一页"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-        </button>
-        <button
-          @click="currentPage = totalPages"
-          :disabled="currentPage === totalPages"
-          class="px-2 py-1 rounded text-zinc-400 hover:text-text-main hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          title="最后一页"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M6 5l7 7-7 7"/></svg>
-        </button>
+        <button type="button" class="icon-btn" :disabled="currentPage === totalPages" title="下一页" @click="currentPage++"><AppIcon name="chevronRight" /></button>
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.table-panel { overflow: hidden; }
+.table-search { position: relative; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+.search-icon { position: absolute; left: 25px; top: 50%; transform: translateY(-50%); color: var(--text-3); pointer-events: none; }
+.search-input { padding-left: 34px; padding-right: 34px; }
+.search-clear { position: absolute; right: 22px; top: 50%; transform: translateY(-50%); width: 22px; height: 22px; display: grid; place-items: center; border: none; border-radius: var(--radius-sm); background: transparent; color: var(--text-3); }
+.search-clear:hover { background: var(--bg-hover); color: var(--text); }
+.search-clear .icon { width: 13px; height: 13px; }
+.table-state { padding: 40px 20px; text-align: center; color: var(--text-3); }
+.table-state b { color: var(--text); }
+.table-scroll { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; text-align: left; }
+.table th { height: 38px; padding: 0 12px; font-size: 12px; font-weight: 600; color: var(--text-3); border-bottom: 1px solid var(--border); white-space: nowrap; }
+.table th.sortable { cursor: pointer; user-select: none; }
+.table th.sortable:hover, .table th.sorted { color: var(--text); }
+.th-inner { display: inline-flex; align-items: center; gap: 4px; }
+.sort-icon { width: 12px; height: 12px; color: var(--accent); }
+.sort-icon.asc { transform: rotate(180deg); }
+.table td { height: 52px; padding: 0 12px; font-size: 13px; color: var(--text-2); border-bottom: 1px solid var(--border); }
+.table tbody tr:last-child td { border-bottom: none; }
+.table tbody tr:hover { background: var(--bg-hover); }
+.table tbody tr.selected { background: var(--accent-soft); }
+.col-check { width: 40px; padding-left: 16px !important; padding-right: 0 !important; }
+.check { width: 14px; height: 14px; accent-color: var(--accent); cursor: pointer; }
+.col-actions { text-align: right; width: 1%; white-space: nowrap; }
+.row-actions { display: inline-flex; align-items: center; gap: 6px; }
+.table-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-top: 1px solid var(--border); background: var(--bg-raised); }
+.page-size { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-3); }
+.select-sm { width: 70px; height: 28px; font-size: 12px; }
+.pager { display: flex; align-items: center; gap: 4px; }
+.pager-gap { padding: 0 4px; color: var(--text-3); }
+.pager-num { min-width: 30px; height: 30px; padding: 0 6px; border-radius: var(--radius-md); border: 1px solid transparent; background: transparent; color: var(--text-2); font-size: 12px; font-weight: 600; }
+.pager-num:hover { background: var(--bg-hover); color: var(--text); }
+.pager-num.active { background: var(--accent-soft); border-color: rgba(107, 159, 209, 0.45); color: var(--accent); }
+</style>

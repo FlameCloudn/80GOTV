@@ -4,6 +4,7 @@ import type { MapPlayerData, Match, Veto } from "../../API/types";
 import { onGSI } from "../../API/contexts/actions";
 import { fadeInAudio, fadeOutAudio } from "../audioFade";
 import TeamLogoImage from "../TeamLogoImage";
+import { mapRating, weightedSeriesRating } from "./series-rating";
 import steamAvatarDefault from "../../assets/images/steam_avatar_default.jpg";
 import "./victory-showcase.scss";
 
@@ -71,16 +72,6 @@ const displayTeam = (team: Team, series: number): DisplayTeam => ({
   series,
 });
 
-const ratingFromLine = (kills: number, deaths: number, assists: number, adr: number, rounds: number) => {
-  if (!rounds) return 0;
-  const rating = 0.25
-    + 0.6 * (kills / rounds)
-    - 0.3 * (deaths / rounds)
-    + 0.2 * (assists / rounds)
-    + 0.006 * adr;
-  return Number(Math.max(0, Math.min(3, rating)).toFixed(2));
-};
-
 const playerRows = (players: Player[], team: Team, rounds: number): DisplayPlayer[] =>
   players
     .filter((player) => player.team.id === team.id || player.team.side === team.side)
@@ -97,79 +88,19 @@ const playerRows = (players: Player[], team: Team, rounds: number): DisplayPlaye
         kills,
         deaths,
         assists,
-        rating: ratingFromLine(kills, deaths, assists, adr, rounds),
+        rating: mapRating({ kills, deaths, assists, adr, roundsPlayed: rounds }),
         adr,
       };
     });
 
-const ratingFromTotals = ({
-  kills,
-  deaths,
-  damage,
-  rounds,
-  kastRounds,
-  firstKills,
-  firstDeaths,
-  multiKills,
-  clutches,
-}: {
-  kills: number;
-  deaths: number;
-  damage: number;
-  rounds: number;
-  kastRounds: number;
-  firstKills: number;
-  firstDeaths: number;
-  multiKills: number;
-  clutches: number;
-}) => {
-  if (!rounds) return { rating: 0, adr: 0 };
-  const adr = damage / rounds;
-  const kpr = kills / rounds;
-  const dpr = deaths / rounds;
-  const kast = kastRounds * 100 / rounds;
-  const impact = (firstKills * 1.5 - firstDeaths * 0.7 + multiKills * 0.5 + clutches * 2) / rounds;
-  const effectiveImpact = impact;
-  const rating = 0.0073 * kast + 0.3591 * kpr - 0.5329 * dpr
-    + 0.2372 * effectiveImpact + 0.0032 * adr + 0.2698;
-  return {
-    rating: Number(Math.max(0, Math.min(3, rating)).toFixed(2)),
-    adr: Number(adr.toFixed(1)),
-  };
-};
-
-const fallbackRatingFromBoxScore = (player: MapPlayerData) => {
-  const kills = Number(player.kills) || 0;
-  const deaths = Number(player.deaths) || 0;
-  const assists = Number(player.assists) || 0;
-  const adr = Number(player.adr) || 0;
-  const rounds = Math.max(1, Number(player.roundsPlayed) || 1);
-  const kastRounds = Math.min(rounds, Math.max(kills, assists, rounds - deaths));
-  const kast = kastRounds * 100 / rounds;
-  const kpr = kills / rounds;
-  const dpr = deaths / rounds;
-  const effectiveImpact = kpr * 0.5 + adr / 200;
-  return Number(Math.max(0, Math.min(3, 0.0073 * kast + 0.3591 * kpr - 0.5329 * dpr
-    + 0.2372 * effectiveImpact + 0.0032 * adr + 0.2698)).toFixed(2));
-};
-
 const displayStoredPlayer = (player: MapPlayerData): DisplayPlayer => {
-  const storedRating = Number(player.rating);
-  const hasRoundBreakdown = Number(player.kastRounds) > 0 ||
-    Number(player.firstKills) > 0 || Number(player.firstDeaths) > 0 ||
-    Number(player.multi2k) > 0 || Number(player.clutchesWon) > 0;
   return {
     name: player.name || "PLAYER",
     avatar: player.avatar || "",
     kills: Number(player.kills) || 0,
     deaths: Number(player.deaths) || 0,
     assists: Number(player.assists) || 0,
-    // Old records created while the round buffer was empty have rating/kast
-    // set to zero-based placeholders. Rebuild that rating from the official
-    // K/D/A + ADR line instead of preserving the misleading low value.
-    rating: hasRoundBreakdown && Number.isFinite(storedRating)
-      ? storedRating
-      : fallbackRatingFromBoxScore(player),
+    rating: mapRating(player),
     adr: Number(player.adr) || 0,
   };
 };
@@ -182,6 +113,16 @@ const vetoPlayerRows = (veto: Veto | undefined, team: Team, fallback: DisplayPla
     .sort((a, b) => b.rating - a.rating || b.kills - a.kills)
     .slice(0, 5);
   return stored.length ? stored : fallback;
+};
+
+const mapRoundsForSeries = (veto: Veto, player: MapPlayerData) => {
+  const playerRounds = Number(player.roundsPlayed);
+  if (Number.isFinite(playerRounds) && playerRounds > 0) return playerRounds;
+  const scoreRounds = Object.values(veto.score || {}).reduce(
+    (total, score) => total + Math.max(0, Number(score) || 0),
+    0,
+  );
+  return Math.max(1, scoreRounds);
 };
 
 const seriesPlayerRows = (
@@ -199,17 +140,17 @@ const seriesPlayerRows = (
   const totals = new Map<string, DisplayPlayer & {
     damage: number;
     rounds: number;
-    kastRounds: number;
-    firstKills: number;
-    firstDeaths: number;
-    multiKills: number;
-    clutches: number;
+    mapRatings: Array<{ rating: number; rounds: number }>;
   }>();
 
   storedMaps.forEach((veto) => {
     Object.entries(veto.playerStats || {}).forEach(([steamid, player]) => {
       if (player.teamId !== team.id) return;
       const existing = totals.get(steamid);
+      const rounds = mapRoundsForSeries(veto, player);
+      const rawDamage = player.damage !== undefined && player.damage !== null && Number.isFinite(Number(player.damage))
+        ? Math.max(0, Number(player.damage))
+        : Math.max(0, Number(player.adr) || 0) * rounds;
       totals.set(steamid, {
         name: player.name || existing?.name || "PLAYER",
         avatar: player.avatar || existing?.avatar || "",
@@ -218,22 +159,20 @@ const seriesPlayerRows = (
         assists: (existing?.assists || 0) + (Number(player.assists) || 0),
         rating: 0,
         adr: 0,
-        damage: (existing?.damage || 0) + (Number(player.damage) || 0),
-        rounds: (existing?.rounds || 0) + (Number(player.roundsPlayed) || 0),
-        kastRounds: (existing?.kastRounds || 0) + (Number(player.kastRounds) || 0),
-        firstKills: (existing?.firstKills || 0) + (Number(player.firstKills) || 0),
-        firstDeaths: (existing?.firstDeaths || 0) + (Number(player.firstDeaths) || 0),
-        multiKills: (existing?.multiKills || 0)
-          + (Number(player.multi2k) || 0) + (Number(player.multi3k) || 0)
-          + (Number(player.multi4k) || 0) + (Number(player.multi5k) || 0),
-        clutches: (existing?.clutches || 0) + (Number(player.clutchesWon) || 0),
+        damage: (existing?.damage || 0) + rawDamage,
+        rounds: (existing?.rounds || 0) + rounds,
+        mapRatings: [
+          ...(existing?.mapRatings || []),
+          { rating: mapRating(player, rounds), rounds },
+        ],
       });
     });
   });
 
-  const players = [...totals.values()].map((player) => ({
+  const players = [...totals.values()].map(({ damage, rounds, mapRatings, ...player }) => ({
     ...player,
-    ...ratingFromTotals(player),
+    rating: weightedSeriesRating(mapRatings),
+    adr: Number((rounds ? damage / rounds : 0).toFixed(1)),
   }))
     .sort((a, b) => b.kills - a.kills || a.deaths - b.deaths)
     .slice(0, 5);
@@ -390,7 +329,7 @@ const TeamLogo = ({ team }: { team: DisplayTeam }) => {
 
 const PlayerRow = ({ player, side }: { player: DisplayPlayer; side: "left" | "right" }) => {
   const [failed, setFailed] = useState(false);
-  const ratingTier = !player.rating ? "missing" : player.rating >= 1.05 ? "good" : player.rating < 0.95 ? "bad" : "neutral";
+  const ratingTier = player.rating >= 1.05 ? "good" : player.rating < 0.95 ? "bad" : "neutral";
   return <div className={`victory-player-row ${side}`}>
     <span className="victory-player-avatar">
       <img src={player.avatar && !failed ? player.avatar : steamAvatarDefault} alt="" onError={() => setFailed(true)} />
@@ -401,7 +340,7 @@ const PlayerRow = ({ player, side }: { player: DisplayPlayer; side: "left" | "ri
       <span className="victory-stat"><small>D</small><b>{player.deaths}</b></span>
       <span className="victory-stat"><small>A</small><b>{player.assists}</b></span>
       <span className="victory-stat"><small>ADR</small><b>{player.adr ? player.adr.toFixed(1) : "-"}</b></span>
-      <span className={`victory-stat rating ${ratingTier}`}><small>RATING</small><b>{player.rating ? player.rating.toFixed(2) : "-"}</b></span>
+      <span className={`victory-stat rating ${ratingTier}`}><small>RATING</small><b>{player.rating.toFixed(2)}</b></span>
     </span>
   </div>;
 };

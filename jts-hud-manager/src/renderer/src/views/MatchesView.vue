@@ -1,69 +1,76 @@
 <script setup lang="ts">
-import BaseTable from '../components/base/BaseTable.vue';
-import BaseBadge from '../components/base/BaseBadge.vue';
-import MatchesPageHeader from '../features/matches/components/MatchesPageHeader.vue';
-import { useMatchesView } from '../features/matches/composables/useMatchesView';
-import { API_URL } from '../index';
-import BaseButton from '@renderer/components/base/BaseButton.vue';
+// 比赛：一场一张卡片。当前比赛排最前、蓝框 + “当前比赛”。
+import AppIcon from '../components/ui/AppIcon.vue'
+import TeamBadge from '../components/ui/TeamBadge.vue'
+import MatchesPageHeader from '../features/matches/components/MatchesPageHeader.vue'
+import { useMatchesView } from '../features/matches/composables/useMatchesView'
 
-const {
-  matches, isLoading, tableHeaders,
-  getTeamLogo, deleteMatch, toggleCurrent,
-  openEdit, openCreate,
-} = useMatchesView();
-
-const baseUrl = API_URL.replace('/api', '');
+const { isLoading, filter, search, counts, visibleCards, deleteMatch, toggleCurrent, openEdit, openCreate } = useMatchesView()
 </script>
 
 <template>
-  <div class="p-6 bg-surface text-zinc-200 min-h-screen relative">
-    <MatchesPageHeader @create="openCreate" />
+  <div class="page">
+    <MatchesPageHeader v-model:filter="filter" v-model:search="search" :counts="counts" @create="openCreate" />
 
-    <BaseTable
-      :headers="tableHeaders"
-      :items="matches"
-      :is-loading="isLoading"
-      @edit="openEdit"
-      @delete="deleteMatch"
-    >
-      <template #row-actions="{ item }">
-        <span v-if="item.current" class="text-xs font-bold text-blue-400 flex items-center gap-1.5 mr-1">
-          <span class="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span> 直播中
-        </span>
-        <BaseButton
-          @click.stop="toggleCurrent(item)"
-          size="sm"
-          :variant="item.current
-            ? 'danger'
-            : 'secondary'"
-        >
-          <svg v-if="item.current" xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
-          <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4.75a.75.75 0 0 0-1.125.65v13.2a.75.75 0 0 0 1.125.65l10.5-6.6a.75.75 0 0 0 0-1.3L6 4.75Z"/></svg>
-          {{ item.current ? '停止' : '设为当前比赛' }}
-        </BaseButton>
-      </template>
+    <div v-if="isLoading && !visibleCards.length" class="empty-state">正在读取比赛…</div>
+    <div v-else-if="!visibleCards.length" class="empty-state">
+      <AppIcon name="calendar" />
+      <b>{{ counts.all ? '没有符合条件的比赛' : '还没有比赛' }}</b>
+      <span>{{ counts.all ? '换个筛选或搜索词试试。' : '在「导播台」同步网站比赛，或点右上角“创建比赛”。' }}</span>
+    </div>
 
-      <template #cell-matchType="{ item }">
-        <BaseBadge>{{ item.matchType }}</BaseBadge>
-      </template>
+    <div v-else class="cards">
+      <article v-for="card in visibleCards" :key="card.id" class="panel match-card" :class="{ current: card.current }">
+        <header class="card-head">
+          <span class="source">
+            <AppIcon :name="card.websiteId ? 'link' : 'edit'" />{{ card.websiteId ? `网站 #${card.websiteId}` : '手动创建' }}
+          </span>
+          <span class="tag">{{ card.bo }}</span>
+          <span v-if="card.current" class="current-tag"><AppIcon name="star" />当前比赛</span>
+        </header>
 
-      <template #cell-matchup="{ item }">
-        <div class="flex items-center gap-3">
-          <div class="size-10 flex items-center justify-center shrink-0">
-            <img v-if="getTeamLogo(item.left.id)" :src="`${baseUrl}${getTeamLogo(item.left.id)}`" class="w-full h-full object-contain" />
-          </div>
-          <span class="text-zinc-400 text-lg">对阵</span>
-          <div class="size-10 flex items-center justify-center shrink-0">
-            <img v-if="getTeamLogo(item.right.id)" :src="`${baseUrl}${getTeamLogo(item.right.id)}`" class="w-full h-full object-contain" />
+        <div class="teams">
+          <div v-for="side in [card.left, card.right]" :key="side === card.left ? 'left' : 'right'" class="team-row" :class="{ tbd: side.tbd }">
+            <TeamBadge :logo="side.logo" :abbr="side.abbr" size="sm" />
+            <span class="team-name">{{ side.name }}</span>
+            <span class="score num" :class="{ lead: side.wins > (side === card.left ? card.right.wins : card.left.wins) }">{{ side.wins }}</span>
           </div>
         </div>
-      </template>
 
-      <template #cell-score="{ item }">
-        <div class="bg-surface px-3 py-1 rounded border border-zinc-700 text-text-main inline-block">
-          {{ item.left.wins }} - {{ item.right.wins }}
+        <div class="maps">
+          <span v-for="map in card.maps" :key="map.key" class="chip" :class="map.state">{{ map.name }}<b v-if="map.score">{{ map.score }}</b></span>
+          <span v-if="!card.maps.length" class="hint">还没设置地图</span>
         </div>
-      </template>
-    </BaseTable>
+
+        <footer class="card-foot">
+          <button type="button" class="btn btn-sm" :class="{ 'btn-danger': card.current }" @click="toggleCurrent(card.raw)">
+            <AppIcon :name="card.current ? 'x' : 'star'" />{{ card.current ? '停止当前' : '设为当前' }}
+          </button>
+          <span class="spacer" />
+          <button type="button" class="icon-btn" title="编辑比赛" @click="openEdit(card)"><AppIcon name="edit" /></button>
+          <button type="button" class="icon-btn danger" title="删除比赛" @click="deleteMatch(card.id)"><AppIcon name="trash" /></button>
+        </footer>
+      </article>
+    </div>
   </div>
 </template>
+
+<style scoped>
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+.match-card { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+.match-card.current { border: 2px solid var(--accent); padding: 13px 15px; box-shadow: 0 0 0 4px var(--accent-soft); }
+.card-head { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-2); }
+.source { display: inline-flex; align-items: center; gap: 6px; margin-right: auto; }
+.source .icon { width: 14px; height: 14px; color: var(--text-3); }
+.current-tag { height: 20px; display: inline-flex; align-items: center; gap: 5px; padding: 0 7px; border-radius: var(--radius-sm); background: var(--gold-soft); color: var(--gold); font-size: 11px; font-weight: 700; }
+.current-tag .icon { width: 12px; height: 12px; fill: currentColor; }
+.teams { display: flex; flex-direction: column; gap: 8px; }
+.team-row { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 600; }
+.team-row.tbd { color: var(--text-3); font-weight: 500; }
+.team-name { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.score { margin-left: auto; width: 24px; text-align: center; font-size: 18px; font-weight: 800; }
+.score.lead { color: var(--green); }
+.maps { display: flex; flex-wrap: wrap; gap: 6px; min-height: 24px; align-items: center; }
+.card-foot { display: flex; align-items: center; gap: 6px; padding-top: 12px; border-top: 1px solid var(--border); }
+.spacer { flex: 1; }
+</style>

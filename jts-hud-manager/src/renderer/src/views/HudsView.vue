@@ -1,31 +1,28 @@
 <script setup lang="ts">
-import { useHudsView } from '../features/huds/composables/useHudsView';
-import HudsPageHeader from '../features/huds/components/HudsPageHeader.vue';
-import HudCard from '../features/huds/components/HudCard.vue';
+// 导播 HUD：本机可用的 HUD 列表
+import AppIcon from '../components/ui/AppIcon.vue'
+import HudsPageHeader from '../features/huds/components/HudsPageHeader.vue'
+import HudCard from '../features/huds/components/HudCard.vue'
+import { useHudsView } from '../features/huds/composables/useHudsView'
 
-const { huds, isLoading, fetchHuds, deleteHud, importing, importError, handleZipImport } = useHudsView();
+const { huds, isLoading, fetchHuds, deleteHud, importing, importError, handleZipImport } = useHudsView()
 </script>
 
 <template>
-  <div class="p-6 bg-surface text-zinc-200 min-h-screen">
-    <HudsPageHeader
-      :importing="importing"
-      :import-error="importError"
-      @import-file="handleZipImport"
-      @refresh="fetchHuds"
-    />
-
-    <div class="bg-zinc-800 p-6 rounded-xl border border-zinc-700">
-      <div v-if="isLoading" class="text-center py-12 text-zinc-400">正在扫描 HUD...</div>
-
-      <div v-else-if="huds.length === 0" class="text-center py-12 flex flex-col items-center">
-        <div class="text-zinc-400 mb-2">还没有找到可用的 HUD。</div>
-        <div class="text-sm text-zinc-500">点击右上角“导入 HUD”并选择 zip 文件。</div>
-      </div>
-
-      <div v-else class="grid gap-4">
-        <HudCard v-for="hud in huds" :key="hud.id" :hud="hud" @delete="deleteHud" />
-      </div>
+  <div class="page">
+    <HudsPageHeader :importing="importing" :import-error="importError" @import-file="handleZipImport" @refresh="fetchHuds" />
+    <div v-if="isLoading" class="empty-state">正在扫描 HUD…</div>
+    <div v-else-if="huds.length === 0" class="empty-state">
+      <AppIcon name="layers" />
+      <b>还没有找到可用的 HUD</b>
+      <span>点右上角“导入 HUD”，选择 HUD 的 zip 文件。</span>
+    </div>
+    <div v-else class="hud-list">
+      <HudCard v-for="hud in huds" :key="hud.id" :hud="hud" @delete="deleteHud" />
     </div>
   </div>
 </template>
+
+<style scoped>
+.hud-list { display: flex; flex-direction: column; gap: 12px; }
+</style>

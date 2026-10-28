@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express'
 import fs from 'fs/promises'
 import path from 'path'
 import { Server } from 'socket.io'
-import { dbAll, dbGet, dbRun } from '../database/sqlite'
+import { dbAll, dbGet, dbReady, dbRun } from '../database/sqlite'
 import { getSettings } from '../domains/settings/settings.routes'
 import { Veto } from '../domains/matches/match.types'
 import { downloadSteamAvatar, fetchSteamPublicProfile } from '../domains/players/steam-profile.service'
@@ -12,10 +12,8 @@ type WebsitePlayer = {
   id: number
   slot?: number
   nickname: string
-  group_username: string
   steam_id: string
   avatar: string
-  is_bashizhong_student: number | null
   role?: 'substitute'
 }
 
@@ -37,6 +35,7 @@ type WebsiteMap = {
   picked_by: string
   opening_ct_team?: 't1' | 't2' | ''
   opening_side_source?: string
+  map_finished?: boolean
 }
 
 type WebsiteMatch = {
@@ -80,6 +79,7 @@ type WebsitePlayerPresentation = {
 
 // The website nickname is the broadcast name. Keep group usernames out of HUD payloads.
 const websitePlayerPresentation = new Map<string, WebsitePlayerPresentation>()
+let refreshGsiMatchContext: () => Promise<void> = async () => undefined
 
 const broadcastPlayerName = (value: string): string => {
   const name = String(value || '').trim()
@@ -142,6 +142,10 @@ type SyncStatus = {
   pendingResults: number
   sessionId: string | null
   frameSeq: number
+  // 网站已把这场比赛标记为结束或取消：停止上传实时数据（重新同步后恢复）
+  forwardClosedMatchId: number | null
+  // 软件重启后自动接上上次比赛的时间（没有自动接上则为 null）
+  restoredAt: string | null
 }
 
 const status: SyncStatus = {
@@ -162,7 +166,9 @@ const status: SyncStatus = {
   forwardAttempts: 0,
   pendingResults: 0,
   sessionId: null,
-  frameSeq: 0
+  frameSeq: 0,
+  forwardClosedMatchId: null,
+  restoredAt: null
 }
 
 const normalizeWebsiteUrl = (value: string): string => {
@@ -180,6 +186,16 @@ const websiteAssetUrl = (baseUrl: string, value: string): string => {
   return new URL(value, `${baseUrl}/`).toString()
 }
 
+// 网站返回的错误：带上 HTTP 状态码，方便区分“比赛已结束”这类不必再重试的情况
+class WebsiteHttpError extends Error {
+  constructor(
+    message: string,
+    readonly status: number
+  ) {
+    super(message)
+  }
+}
+
 const fetchJson = async <T>(url: string, options: RequestInit = {}): Promise<T> => {
   const response = await fetch(url, {
     ...options,
@@ -190,12 +206,35 @@ const fetchJson = async <T>(url: string, options: RequestInit = {}): Promise<T> 
   if (!response.ok || !payload) {
     const endpoint = new URL(url).pathname
     if (response.status === 404) {
-      throw new Error(`网站接口尚未部署或地址错误（HTTP 404）：${endpoint}`)
+      throw new WebsiteHttpError(`网站接口尚未部署或地址错误（HTTP 404）：${endpoint}`, 404)
     }
     const message = (payload as any)?.error || (payload as any)?.msg || `HTTP ${response.status}`
-    throw new Error(`${message}（${endpoint}）`)
+    throw new WebsiteHttpError(`${message}（${endpoint}）`, response.status)
   }
   return payload
+}
+
+// 网站拒收实时数据的原因是“这场比赛已结束或取消”：再传也不会成功，不必重试
+const isClosedMatchError = (error: unknown): boolean =>
+  error instanceof WebsiteHttpError && error.status === 409 && /已结束|取消/.test(error.message)
+
+const readSettingValue = async (key: string): Promise<string> => {
+  const row = await dbGet('SELECT value FROM settings WHERE key=?', [key])
+  return row?.value ? String(row.value) : ''
+}
+
+const writeSettingValue = (key: string, value: string) =>
+  dbRun(
+    'INSERT INTO settings(key, value) VALUES(?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',
+    [key, value]
+  )
+
+// 每场比赛在这台导播电脑上固定用同一个会话编号（存在本地设置里）。软件重启、重新同步后网站仍认得它，
+// 排队中的单图结果也不会因为编号变了被网站拒收。
+const sessionForMatch = async (id: number): Promise<string> => {
+  const key = `websiteSession:${id}`
+  await dbRun('INSERT OR IGNORE INTO settings(key, value) VALUES(?, ?)', [key, `80gotv:${id}:${Date.now()}`])
+  return readSettingValue(key)
 }
 
 type WebsiteConnectionCheck = {
@@ -349,7 +388,7 @@ const buildVetos = (match: WebsiteMatch): Veto[] => {
     const pickedBy = map.picked_by || pick?.picked_by || ''
     const picker = pickedBy === 't2' ? rightId : pickedBy === 't1' ? leftId : ''
     const isDecider = !picker
-    const mapFinished = Number(map.team1_score) > 0 || Number(map.team2_score) > 0
+    const mapFinished = map.map_finished === true
     // The website's side field is only a cross-check for a decider. TGPro's
     // stable post-knife 5v5 frame is the authority for its opening side.
     const openingCtTeam = isDecider ? '' : map.opening_ct_team || ''
@@ -361,6 +400,7 @@ const buildVetos = (match: WebsiteMatch): Veto[] => {
     vetoes.push({
       teamId: picker,
       mapName: mapName(map.name),
+      mapSlot: map.slot,
       side: pick?.side === 'CT' || pick?.side === 'T' ? pick.side : 'NO',
       type: picker ? 'pick' : 'decider',
       reverseSide: false,
@@ -387,6 +427,7 @@ const buildVetos = (match: WebsiteMatch): Veto[] => {
     vetoes.push({
       teamId: picker || sideTeam,
       mapName: normalizedMap,
+      mapSlot: Math.max(0, ...vetoes.map((veto) => veto.mapSlot || 0)) + 1,
       side: pick?.side === 'CT' || pick?.side === 'T' ? pick.side : 'NO',
       type: picker ? 'pick' : 'decider',
       reverseSide: false,
@@ -403,13 +444,18 @@ const buildVetos = (match: WebsiteMatch): Veto[] => {
 }
 
 const mergeWebsiteVetos = (existing: Veto[], incoming: Veto[]): Veto[] => {
-  const previous = new Map(existing.map((veto) => [veto.mapName, veto]))
+  const sameMap = (left: Veto, right: Veto) =>
+    left.mapName === right.mapName &&
+    (left.type === 'ban') === (right.type === 'ban') &&
+    (left.mapSlot == null || right.mapSlot == null || left.mapSlot === right.mapSlot)
   const merged = incoming.map((next) => {
-    const old = previous.get(next.mapName)
+    const old = existing.find((veto) => sameMap(veto, next))
     if (!old) return next
     return {
       ...old,
       ...next,
+      mapSlot: next.mapSlot ?? old.mapSlot,
+      mapGeneration: old.mapGeneration ?? next.mapGeneration ?? 0,
       // The website is authoritative for BP decisions, while local GSI is
       // authoritative for live rounds and player stats.
       teamId: next.teamId || old.teamId,
@@ -430,10 +476,12 @@ const mergeWebsiteVetos = (existing: Veto[], incoming: Veto[]): Veto[] => {
       mapEnd: Boolean(next.mapEnd || old.mapEnd)
     }
   })
-  const incomingMaps = new Set(incoming.map((veto) => veto.mapName))
   // Do not discard a map result that GSI has already collected while the
   // website is still catching up with the latest BP snapshot.
-  return merged.concat(existing.filter((veto) => !incomingMaps.has(veto.mapName)))
+  return merged.concat(existing.filter((veto) =>
+    veto.type !== 'ban' &&
+    !incoming.some((next) => sameMap(veto, next) || (veto.mapSlot != null && next.mapSlot === veto.mapSlot))
+  ))
 }
 
 let websiteBpPollTimer: NodeJS.Timeout | null = null
@@ -471,6 +519,7 @@ export const syncWebsiteBp = async (): Promise<boolean> => {
   const changed = JSON.stringify(existing) !== JSON.stringify(merged)
   if (changed) {
     await dbRun('UPDATE matches SET vetos=? WHERE id=?', [JSON.stringify(merged), matchId(selected)])
+    await refreshGsiMatchContext()
     console.log(`[80GOTV] BP synchronized for match ${selected}`)
   }
   status.lastBpSyncAt = new Date().toISOString()
@@ -529,6 +578,9 @@ const upsertTeam = async (baseUrl: string, team: WebsiteTeam, side: number): Pro
   return id
 }
 
+const STEAM_RETRY_AFTER_MS = 5 * 60 * 1000
+let steamUnavailableUntil = 0
+
 const upsertPlayer = async (
   baseUrl: string,
   player: WebsitePlayer,
@@ -549,12 +601,14 @@ const upsertPlayer = async (
       console.warn(`[80GOTV] ${player.nickname} avatar skipped:`, error)
     }
   }
-  if (!avatar && player.steam_id) {
+  if (!avatar && player.steam_id && Date.now() >= steamUnavailableUntil) {
     try {
       const profile = await fetchSteamPublicProfile(player.steam_id)
       if (profile.avatarUrl) avatar = await downloadSteamAvatar(player.steam_id, profile.avatarUrl)
     } catch (error) {
-      console.warn(`[80GOTV] ${player.nickname} Steam avatar skipped:`, error)
+      // 国内不开梯子时 Steam 经常连不上：失败一次就 5 分钟内不再试，同步不用挨个等超时
+      steamUnavailableUntil = Date.now() + STEAM_RETRY_AFTER_MS
+      console.warn(`[80GOTV] ${player.nickname} Steam avatar skipped; Steam paused for 5 min:`, error)
     }
   }
   if (!avatar) avatar = existing?.avatar || ''
@@ -575,8 +629,6 @@ const upsertPlayer = async (
       JSON.stringify({
         source: '80gotv',
         websitePlayerId: player.id,
-        groupUsername: player.group_username || '',
-        isBashizhongStudent: player.is_bashizhong_student,
         isSubstitute,
         matchSlot: player.slot || null
       })
@@ -626,10 +678,20 @@ export const listWebsiteSources = async (): Promise<WebsiteSource[]> => {
     console.warn('[80GOTV] event roster list unavailable:', error)
   }
   const matches = (matchPayload.matches || []).sort((a, b) => {
-    const aLive = a.status === 'live' ? 0 : 1
-    const bLive = b.status === 'live' ? 0 : 1
+    const priority = (value: WebsiteMatch) => value.status === 'live' ? 0 : value.status === 'upcoming' ? 1 : 2
+    const aLive = priority(a)
+    const bLive = priority(b)
     if (aLive !== bLive) return aLive - bLive
-    return String(a.match_time || '').localeCompare(String(b.match_time || ''))
+    if (aLive === 1) {
+      const timeA = Date.parse(a.match_time || '') || 0
+      const timeB = Date.parse(b.match_time || '') || 0
+      const futureA = timeA >= Date.now()
+      const futureB = timeB >= Date.now()
+      if (futureA !== futureB) return futureA ? -1 : 1
+      return futureA ? timeA - timeB : timeB - timeA
+    }
+    const order = String(a.match_time || '').localeCompare(String(b.match_time || ''))
+    return aLive === 2 ? -order : order
   })
   return [
     ...matches.map((match) => ({
@@ -673,6 +735,7 @@ const syncWebsiteEvent = async (baseUrl: string, eventId: string): Promise<Websi
 }
 
 export const syncWebsiteMatch = async (requestedMatchId?: string): Promise<WebsiteMatch> => {
+  await dbReady
   const settings = await getSettings()
   const baseUrl = normalizeWebsiteUrl(settings.websiteUrl)
   const selected = String(requestedMatchId || settings.websiteMatchId || '').trim()
@@ -709,6 +772,16 @@ export const syncWebsiteMatch = async (requestedMatchId?: string): Promise<Websi
   const localMatchId = matchId(match.id)
   const bo = String(match.bo || 'BO3').toLowerCase()
   const matchType = ['bo1', 'bo2', 'bo3', 'bo5'].includes(bo) ? bo : 'bo3'
+  const previous = await dbGet('SELECT vetos FROM matches WHERE id=?', [localMatchId])
+  let existingVetos: Veto[] = []
+  try {
+    const parsed = JSON.parse(previous?.vetos || '[]')
+    if (Array.isArray(parsed)) existingVetos = parsed
+  } catch {
+    // A damaged old JSON value must not prevent importing fresh website data.
+  }
+  const vetos = mergeWebsiteVetos(existingVetos, buildVetos(match))
+  const wins = (id: string) => vetos.filter((veto) => veto.mapEnd && veto.winner === id).length
   await dbRun('UPDATE matches SET current=0')
   await dbRun(
     `INSERT INTO matches
@@ -721,11 +794,11 @@ export const syncWebsiteMatch = async (requestedMatchId?: string): Promise<Websi
     [
       localMatchId,
       leftId,
-      Number(match.team1.series_score) || 0,
+      Math.max(Number(match.team1.series_score) || 0, wins(leftId)),
       rightId,
-      Number(match.team2.series_score) || 0,
+      Math.max(Number(match.team2.series_score) || 0, wins(rightId)),
       matchType,
-      JSON.stringify(buildVetos(match))
+      JSON.stringify(vetos)
     ]
   )
   await dbRun(
@@ -734,11 +807,15 @@ export const syncWebsiteMatch = async (requestedMatchId?: string): Promise<Websi
     [String(match.id)]
   )
   await syncHudWebsiteConfig(baseUrl, match.id)
+  // 记下同步时间：软件重启后 12 小时内可自动接上这场比赛
+  await writeSettingValue('websiteSyncedAt', String(Date.now()))
   console.log(`[80GOTV] Match ${match.id} sync completed`)
-  resetForwardTarget(match.id)
+  resetForwardTarget(match.id, await sessionForMatch(match.id))
+  status.restoredAt = null
   status.lastSyncAt = new Date().toISOString()
   status.lastError = null
   status.importedMatchId = match.id
+  await refreshGsiMatchContext()
   return match
 }
 
@@ -775,13 +852,15 @@ let forwardTimer: NodeJS.Timeout | null = null
 let forwardInFlight = false
 let forwardAttempts = 0
 
-const resetForwardTarget = (matchId: number | null) => {
+const resetForwardTarget = (matchId: number | null, sessionId: string | null = null) => {
   const sameTarget = matchId !== null && matchId === status.forwardTargetMatchId && status.sessionId !== null
   status.forwardGeneration += 1
   status.forwardTargetMatchId = matchId
+  status.forwardClosedMatchId = null
   if (!sameTarget) {
-    status.sessionId = matchId ? `80gotv:${matchId}:${Date.now()}` : null
-    status.frameSeq = 0
+    status.sessionId = matchId ? sessionId || `80gotv:${matchId}:${Date.now()}` : null
+    // 帧编号从当前时间（毫秒）起算：重启后沿用同一会话时，新帧编号仍比重启前的大，网站不会当成旧帧拒收
+    status.frameSeq = matchId ? Date.now() : 0
   }
   status.confirmedMatchId = null
   status.lastConfirmedAt = null
@@ -790,7 +869,11 @@ const resetForwardTarget = (matchId: number | null) => {
   // same match can continue with the new generation; other matches remain in
   // the durable outbox until their original match is selected again.
   for (const entry of resultQueue) {
-    if (entry.matchId === matchId) entry.generation = status.forwardGeneration
+    if (entry.matchId === matchId) {
+      entry.generation = status.forwardGeneration
+      entry.retryAt = 0
+      entry.lastError = undefined
+    }
   }
   status.pendingResults = resultQueue.length
   forwardAttempts = 0
@@ -852,6 +935,13 @@ const flushForward = async () => {
     forwardAttempts += 1
     status.forwardAttempts = forwardAttempts
     status.lastError = error instanceof Error ? error.message : String(error)
+    if (isClosedMatchError(error)) {
+      // 网站上这场比赛已结束或取消：停止上传实时数据，不再每隔几秒报错重试（重新同步后恢复）
+      status.forwardClosedMatchId = queued.matchId
+      status.lastError = '网站上这场比赛已结束或取消，已停止上传实时数据'
+      pendingPayload = null
+      return
+    }
     // Keep only one current snapshot. A newer local frame wins over a failed old request.
     if (shouldRetry && !pendingPayload && queued.generation === status.forwardGeneration) pendingPayload = queued
   } finally {
@@ -870,6 +960,7 @@ export const queueWebsiteLiveData = (payload: Record<string, any>) => {
   status.lastLocalDataAt = new Date().toISOString()
   const matchId = status.forwardTargetMatchId
   if (!matchId || status.importedMatchId !== matchId) return
+  if (status.forwardClosedMatchId === matchId) return
   status.frameSeq += 1
   const stampedPayload = {
     ...payload,
@@ -890,12 +981,25 @@ type QueuedMapResult = {
   attempts: number
   matchId: number
   generation: number
+  retryAt?: number
+  lastError?: string
+  sending?: boolean
 }
 
 const resultQueue: QueuedMapResult[] = []
 let resultForwarding = false
 let resultTimer: NodeJS.Timeout | null = null
 let resultQueueLoaded = false
+
+const scheduleMapResultFlush = () => {
+  if (resultTimer || resultForwarding) return
+  const eligible = resultQueue.filter((entry) =>
+    entry.matchId === status.importedMatchId && entry.generation === status.forwardGeneration && entry.retryAt !== Infinity
+  )
+  if (!eligible.length) return
+  const next = Math.min(...eligible.map((entry) => entry.retryAt || 0))
+  resultTimer = setTimeout(flushMapResults, Math.max(50, next - Date.now()))
+}
 
 const loadResultOutbox = async () => {
   if (resultQueueLoaded) return
@@ -905,6 +1009,7 @@ const loadResultOutbox = async () => {
     for (const row of rows) {
       try {
         const payload = JSON.parse(row.payload || '{}')
+        if (resultQueue.some((entry) => entry.resultId === String(row.result_id))) continue
         resultQueue.push({
           resultId: String(row.result_id),
           payload,
@@ -936,11 +1041,16 @@ const flushMapResults = async () => {
     return
   }
   const selectedMatchId = readSelectedMatchId(String(settings.websiteMatchId || ''))
+  if (selectedMatchId !== status.importedMatchId) return
   const queued = resultQueue.find(
-    (entry) => entry.matchId === selectedMatchId && entry.generation === status.forwardGeneration
+    (entry) => entry.matchId === selectedMatchId && entry.generation === status.forwardGeneration && (entry.retryAt || 0) <= Date.now()
   )
-  if (!queued) return
+  if (!queued) {
+    scheduleMapResultFlush()
+    return
+  }
   resultForwarding = true
+  queued.sending = true
   status.forwarding = true
   try {
     const selected = String(settings.websiteMatchId || '').trim()
@@ -955,7 +1065,8 @@ const flushMapResults = async () => {
     }
     if (!settings.websiteGsiToken) throw new Error('请填写网站 GSI 密钥')
     const baseUrl = normalizeWebsiteUrl(settings.websiteUrl)
-    await fetchJson<{ ok: boolean }>(
+    const sentPayload = queued.payload
+    const receipt = await fetchJson<{ ok: boolean; match_id: number; map_name: string; map_slot?: number; result_id?: string }>(
       `${baseUrl}/api/broadcast/matches/${selected}/map-result`,
       {
         method: 'POST',
@@ -963,54 +1074,73 @@ const flushMapResults = async () => {
           'Content-Type': 'application/json',
           'X-80GOTV-Token': settings.websiteGsiToken
         },
-        body: JSON.stringify(queued.payload)
+        body: JSON.stringify(sentPayload)
       }
     )
+    if (
+      receipt.ok !== true || Number(receipt.match_id) !== queued.matchId ||
+      mapName(receipt.map_name) !== mapName(String(sentPayload.map_name || '')) ||
+      (receipt.map_slot != null && sentPayload.map_slot != null && receipt.map_slot !== sentPayload.map_slot) ||
+      (receipt.result_id != null && receipt.result_id !== queued.resultId)
+    ) throw new Error('网站赛果确认与发送内容不一致，原结果仍保留')
+    if (queued.payload !== sentPayload) return
     const queueIndex = resultQueue.indexOf(queued)
     if (queueIndex >= 0) resultQueue.splice(queueIndex, 1)
     await dbRun('DELETE FROM broadcast_outbox WHERE result_id=?', [queued.resultId])
     status.lastResultAt = new Date().toISOString()
-    status.lastError = null
+    status.lastError = resultQueue.find((entry) => entry.lastError)?.lastError || null
   } catch (error) {
     queued.attempts += 1
+    queued.lastError = error instanceof Error ? error.message : String(error)
+    queued.retryAt = error instanceof WebsiteHttpError && error.status >= 400 && error.status < 500 && ![408, 429].includes(error.status)
+      ? Infinity
+      : Date.now() + Math.min(60000, 1000 * 2 ** Math.min(6, queued.attempts - 1))
     await dbRun('UPDATE broadcast_outbox SET attempts=? WHERE result_id=?', [queued.attempts, queued.resultId]).catch(() => undefined)
-    status.lastError = error instanceof Error ? error.message : String(error)
+    status.lastError = queued.lastError
   } finally {
     resultForwarding = false
+    queued.sending = false
     status.forwarding = false
     status.pendingResults = resultQueue.length
-    if (resultQueue.length && !resultTimer) {
-      const delay = resultQueue[0].attempts
-        ? Math.min(60000, 1000 * 2 ** Math.min(6, resultQueue[0].attempts - 1))
-        : 50
-      resultTimer = setTimeout(flushMapResults, delay)
-    }
+    scheduleMapResultFlush()
   }
 }
 
-export const queueWebsiteMapResult = (payload: Record<string, any>) => {
-  const selectedMatchId = status.forwardTargetMatchId
-  if (!selectedMatchId || status.importedMatchId !== selectedMatchId) {
-    return
-  }
+// 本地比赛编号 80gotv-match-123 → 网站比赛 123；不是从网站同步来的比赛返回 null
+const websiteMatchIdFromLocal = (localMatchId: unknown): number | null => {
+  const found = /^80gotv-match-(\d+)$/.exec(String(localMatchId || ''))
+  return found ? readSelectedMatchId(found[1]) : null
+}
+
+export const queueWebsiteMapResult = async (payload: Record<string, any>, localMatchId?: string) => {
+  const selectedMatchId = websiteMatchIdFromLocal(localMatchId)
+  if (!selectedMatchId) return
+  const sessionId =
+    (selectedMatchId === status.forwardTargetMatchId && status.sessionId) || (await sessionForMatch(selectedMatchId))
   const mapName = String(payload.map_name || '')
   const existing = resultQueue.find(
-    (entry) => entry.matchId === selectedMatchId && String(entry.payload.map_name || '') === mapName
+    (entry) => !entry.sending && entry.matchId === selectedMatchId && String(entry.payload.map_name || '') === mapName &&
+      entry.payload.map_slot === payload.map_slot && entry.payload.map_generation === payload.map_generation
   )
   // Replacing a still-pending result keeps its durable ID. Otherwise the old
   // SQLite row would remain orphaned and be uploaded again after a restart.
-  const resultId = String(existing?.resultId || payload.result_id || `${selectedMatchId}:${mapName}:${Date.now()}`)
+  const frameSeq = payload.frame_seq ?? Math.max(status.frameSeq + 1, Date.now())
+  status.frameSeq = Math.max(status.frameSeq, Number(frameSeq) || 0)
+  const resultId = String(existing?.resultId || payload.result_id || `${selectedMatchId}:${mapName}:${payload.map_slot || 0}:${payload.map_generation || 0}:${frameSeq}`)
   const durablePayload = {
     ...payload,
     result_id: resultId,
-    session_id: payload.session_id || status.sessionId,
-    frame_seq: payload.frame_seq ?? status.frameSeq,
+    session_id: payload.session_id || sessionId,
+    // 结算编号按时间递增：同一会话里后结算的图编号一定更大，网站不会当成旧结算拒收
+    frame_seq: frameSeq,
     sent_at: payload.sent_at || new Date().toISOString()
   }
   if (existing) {
     existing.payload = durablePayload
     existing.attempts = 0
-    void dbRun(
+    existing.retryAt = 0
+    existing.lastError = undefined
+    await dbRun(
       'INSERT OR REPLACE INTO broadcast_outbox(result_id, match_id, payload, attempts) VALUES(?,?,?,0)',
       [resultId, selectedMatchId, JSON.stringify(durablePayload)]
     )
@@ -1022,7 +1152,7 @@ export const queueWebsiteMapResult = (payload: Record<string, any>) => {
       matchId: selectedMatchId,
       generation: status.forwardGeneration
     })
-    void dbRun(
+    await dbRun(
       'INSERT OR REPLACE INTO broadcast_outbox(result_id, match_id, payload, attempts) VALUES(?,?,?,0)',
       [resultId, selectedMatchId, JSON.stringify(durablePayload)]
     )
@@ -1031,16 +1161,65 @@ export const queueWebsiteMapResult = (payload: Record<string, any>) => {
   if (!resultTimer) resultTimer = setTimeout(flushMapResults, 50)
 }
 
-export const setup80Gotv = (io: Server) => {
+// 重启后从本地资料恢复“网站昵称 / 头像”，直播画面不会退回成 Steam 名字
+const restorePlayerPresentation = async () => {
+  const rows = await dbAll(
+    "SELECT steamid, username, avatar, extra FROM players WHERE steamid IS NOT NULL AND steamid != ''"
+  )
+  for (const row of rows) {
+    let extra: Record<string, any> = {}
+    try {
+      extra = JSON.parse(row.extra || '{}')
+    } catch {
+      extra = {}
+    }
+    if (extra?.source !== '80gotv' || !row.username) continue
+    websitePlayerPresentation.set(String(row.steamid), {
+      name: broadcastPlayerName(row.username),
+      avatar: row.avatar || ''
+    })
+  }
+}
+
+const RESTORE_WINDOW_MS = 12 * 60 * 60 * 1000
+
+// 软件重启后：12 小时内同步过、本地仍是这场比赛，就自动接着上传，不用导播再点“同步比赛资料”。
+// 会话编号沿用这场比赛原来的，网站马上认得，排队中的单图结果也能补传。
+const restoreWebsiteTarget = async () => {
+  const settings = await getSettings()
+  const selected = readSelectedMatchId(settings.websiteMatchId)
+  if (!selected || status.forwardTargetMatchId) return
+  const syncedAt = Number(await readSettingValue('websiteSyncedAt')) || 0
+  if (!syncedAt || Date.now() - syncedAt > RESTORE_WINDOW_MS) return
+  const local = await dbGet('SELECT id FROM matches WHERE id=? AND current=1', [matchId(selected)])
+  if (!local) return
+  await restorePlayerPresentation()
+  resetForwardTarget(selected, await sessionForMatch(selected))
+  status.importedMatchId = selected
+  status.restoredAt = new Date().toISOString()
+  console.log(`[80GOTV] Restored website match ${selected} after restart`)
+}
+
+const startOutbox = async () => {
+  await dbReady
+  try {
+    await restoreWebsiteTarget()
+  } catch (error) {
+    console.warn('[80GOTV] could not restore the last website match:', error)
+  }
+  await loadResultOutbox()
+  if (resultQueue.length && !resultTimer) resultTimer = setTimeout(flushMapResults, 50)
+}
+
+export const setup80Gotv = (io: Server, refreshContext: () => Promise<void> = async () => undefined) => {
+  refreshGsiMatchContext = refreshContext
   const router = Router()
-  void loadResultOutbox()
+  void startOutbox()
   startWebsiteBpPolling(io)
 
   router.get('/status', async (_req: Request, res: Response) => {
     const settings = await getSettings()
-    if (settings.forwardLiveData && resultQueue.length && !resultTimer) {
-      resultTimer = setTimeout(flushMapResults, 50)
-    }
+    scheduleMapResultFlush()
     res.json({
       ok: true,
       websiteUrl: settings.websiteUrl,

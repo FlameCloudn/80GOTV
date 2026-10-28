@@ -8,7 +8,7 @@ import cors from 'cors'
 import { createServer } from 'http'
 import { Server } from 'socket.io'
 import { setupSockets } from './socket'
-import { setupGSI } from './integrations/gsi'
+import { setupGSI, syncGSITeams } from './integrations/gsi'
 import { setup80Gotv } from './integrations/80gotv'
 
 import createMatchRouter from './domains/matches/match.routes'
@@ -82,7 +82,7 @@ app.use('/api/match', createMatchRouter(io))
 app.use('/api/settings', settingsRoutes)
 app.use('/api/spectator', spectatorRoutes)
 app.use('/api/game-maps', createGameMapRouter())
-app.use('/api/80gotv', setup80Gotv(io))
+app.use('/api/80gotv', setup80Gotv(io, syncGSITeams))
 
 setupSockets(io)
 

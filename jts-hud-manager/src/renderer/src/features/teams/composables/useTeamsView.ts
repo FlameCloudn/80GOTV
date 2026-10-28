@@ -2,12 +2,14 @@ import { ref, computed, onMounted } from 'vue'
 import { useTeams } from './useTeams'
 import { usePlayers } from '../../players/composables/usePlayers'
 import { useTeamExcel } from '../../../composables/useExcel'
+import { errorText, showToast } from '../../../composables/useToasts'
 
 const TABLE_HEADERS = [
   { key: 'logo', label: '队标' },
   { key: 'name', label: '战队名称', sortable: true },
   { key: 'shortName', label: '简称', sortable: true },
-  { key: 'country', label: '国家或地区', sortable: true }
+  { key: 'country', label: '国家或地区', sortable: true },
+  { key: 'players', label: '选手' }
 ]
 
 const getEmptyForm = () => ({
@@ -66,10 +68,15 @@ export function useTeamsView() {
   const editingId = ref<string | null>(null)
   const formData = ref(getEmptyForm())
 
+  // 保存失败：右上角提示，弹窗不关，填好的内容还在
   const handleSave = async (payload: any, file: File | null) => {
-    await saveTeam(payload, isEditing.value ? editingId.value : null, file)
-    await fetchPlayers()
-    isModalOpen.value = false
+    try {
+      await saveTeam(payload, isEditing.value ? editingId.value : null, file)
+      await fetchPlayers()
+      isModalOpen.value = false
+    } catch (error) {
+      showToast(errorText(error), 'error', { key: 'team-save' })
+    }
   }
 
   const openCreateModal = () => {

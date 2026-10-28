@@ -1,500 +1,230 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
-import type { SelectOption } from '@renderer/components/base/BaseSelect.vue';
-import BaseInput from '@renderer/components/base/BaseInput.vue';
-import BaseSelect from '@renderer/components/base/BaseSelect.vue';
-import { useMatches } from '../features/matches/composables/useMatches';
-import { useTeams } from '../features/teams/composables/useTeams';
-import { API_URL } from '../index';
-import BaseButton from '@renderer/components/base/BaseButton.vue';
-import BaseCheckbox from '@renderer/components/base/BaseCheckbox.vue';
+// 创建 / 编辑比赛：赛制、是否当前比赛、左右两队和初始大比分、地图选择顺序（最多 9 项）
+import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import type { SelectOption } from '../components/base/BaseSelect.vue'
+import BaseSelect from '../components/base/BaseSelect.vue'
+import BaseInput from '../components/base/BaseInput.vue'
+import AppIcon from '../components/ui/AppIcon.vue'
+import TeamBadge from '../components/ui/TeamBadge.vue'
+import VetoDialog, { type VetoForm } from '../features/matches/components/VetoDialog.vue'
+import { useMatches } from '../features/matches/composables/useMatches'
+import { useTeams } from '../features/teams/composables/useTeams'
+import { errorText, showToast } from '../composables/useToasts'
+import { API_URL } from '../index'
+import { assetUrl, mapLabel, teamAbbr } from '../utils/display'
 
-const router = useRouter();
-const route = useRoute();
+const router = useRouter()
+const route = useRoute()
+const { saveMatch } = useMatches()
+const { teams, fetchTeams } = useTeams()
 
-const { saveMatch } = useMatches();
-const { teams, fetchTeams } = useTeams();
+const SLOT_COUNT = 9
+const MATCH_TYPES = ['bo1', 'bo2', 'bo3', 'bo5']
+const TYPE_LABEL: Record<string, { text: string; tone: string }> = {
+  ban: { text: '禁用', tone: 'tag-bad' },
+  pick: { text: '选择', tone: 'tag-ok' },
+  decider: { text: '决胜', tone: 'tag-warn' }
+}
 
-const isEditing = computed(() => !!route.params.id);
-const isSaving = ref(false);
+const isEditing = computed(() => Boolean(route.params.id))
+const isSaving = ref(false)
 
-const CS2_MAPS = [
-  'de_ancient', 'de_anubis', 'de_dust2', 'de_inferno',
-  'de_mirage', 'de_nuke', 'de_overpass', 'de_train', 'de_vertigo', 'de_cache'
-];
-const VETO_TYPES = ['ban', 'pick', 'decider'] as const;
-const SIDES = ['CT', 'T', 'NO'] as const;
-const SLOT_COUNT = 9;
-
-const makeEmptySlot = () => null as null | any;
-
-const getEmptyForm = () => ({
+const emptyForm = () => ({
   current: false,
   matchType: 'bo3',
-  left:  { id: '' as string, wins: 0 },
+  left: { id: '' as string, wins: 0 },
   right: { id: '' as string, wins: 0 },
-  vetos: Array.from({ length: SLOT_COUNT }, makeEmptySlot) as (any | null)[]
-});
+  vetos: Array.from({ length: SLOT_COUNT }, () => null) as (any | null)[]
+})
+const form = ref(emptyForm())
 
-const form = ref(getEmptyForm());
+const teamOptions = (excludeId: string): SelectOption[] =>
+  teams.value.filter((team) => team._id !== excludeId).map((team) => ({ value: team._id, label: team.name }))
+const leftOptions = computed(() => teamOptions(form.value.right.id))
+const rightOptions = computed(() => teamOptions(form.value.left.id))
 
-// Convert data to SelectOption[] format
-const mapOptions = computed((): SelectOption[] =>
-  CS2_MAPS.map(m => ({ value: m, label: m }))
-);
+const teamOf = (id: string | null) => (id ? teams.value.find((team) => team._id === id) : undefined)
+const teamName = (id: string | null) => (id ? teamOf(id)?.name ?? '未知' : '待定')
+const badgeOf = (id: string) => {
+  const team = teamOf(id)
+  return { logo: assetUrl(team?.logo), abbr: team ? teamAbbr(team.name, team.shortName) : '?' }
+}
 
-const vetoTypeOptions = computed((): SelectOption[] =>
-  VETO_TYPES.map(t => ({
-    value: t,
-    label: t === 'ban' ? '禁用地图' : t === 'pick' ? '选择地图' : '决胜地图'
-  }))
-);
+const bothTeamsSelected = computed(
+  () => Boolean(form.value.left.id && form.value.right.id) && form.value.left.id !== form.value.right.id
+)
+const filledCount = computed(() => form.value.vetos.filter(Boolean).length)
 
-const availableTeamsForLeft = computed((): SelectOption[] =>
-  teams.value.filter(t => t._id !== form.value.right.id).map(t => ({ value: t._id, label: t.name }))
-);
+const loadMatch = async () => {
+  try {
+    const response = await fetch(`${API_URL}/match/${route.params.id}`)
+    if (!response.ok) throw new Error('读取比赛失败')
+    const data = await response.json()
+    const padded = Array.from({ length: SLOT_COUNT }, (_, index) => data.vetos?.[index] ?? null)
+    form.value = { ...data, vetos: padded }
+  } catch (error) {
+    showToast(errorText(error), 'error', { key: 'match-form' })
+  }
+}
 
-const availableTeamsForRight = computed((): SelectOption[] =>
-  teams.value.filter(t => t._id !== form.value.left.id).map(t => ({ value: t._id, label: t.name }))
-);
-
-const vetoTeamsOptions = computed((): SelectOption[] => [
-  form.value.left?.id ? { value: form.value.left.id, label: getTeamName(form.value.left.id) } : { value: '', label: '—' },
-  form.value.right?.id ? { value: form.value.right.id, label: getTeamName(form.value.right.id) } : { value: '', label: '—' },
-  { value: '', label: '—' }
-].filter((o, i, arr) => arr.findIndex(a => a.value === o.value) === i));
-
-const vetoWinnerOptions = computed((): SelectOption[] => [
-  { value: '', label: '无' },
-  ...(form.value.left?.id ? [{ value: form.value.left.id, label: getTeamName(form.value.left.id) }] : []),
-  ...(form.value.right?.id ? [{ value: form.value.right.id, label: getTeamName(form.value.right.id) }] : [])
-]);
-
-// Load match data if editing
 onMounted(async () => {
-  await fetchTeams();
-  if (isEditing.value) {
-    try {
-      const res = await fetch(`${API_URL}/match/${route.params.id}`);
-      if (res.ok) {
-        const data = await res.json();
-        // Pad the vetos array to 9 slots
-        const padded = Array.from({ length: SLOT_COUNT }, (_, i) => data.vetos[i] ?? null);
-        form.value = { ...data, vetos: padded };
-      }
-    } catch (e) {
-      console.error('Failed to load match', e);
-    }
-  }
-});
+  await fetchTeams()
+  if (isEditing.value) await loadMatch()
+})
 
-const bothTeamsSelected = computed(() =>
-  !!form.value.left.id && !!form.value.right.id && form.value.left.id !== form.value.right.id
-);
+// --- 地图选择顺序的一项 ---
+const editingSlot = ref<number | null>(null)
+const vetoForm = ref<VetoForm>(defaultVeto())
 
-const getTeamName = (id: string | null) => {
-  if (!id) return '待定';
-  return teams.value.find(t => t._id === id)?.name ?? '未知';
-};
+function defaultVeto(): VetoForm {
+  return { teamId: '', mapName: 'de_mirage', side: 'NO', type: 'pick', reverseSide: false, openingCtTeamId: undefined, sideSource: 'unknown', mapEnd: false, winner: '', score: {} }
+}
 
-const getVetoTypeLabel = (type: string) =>
-  type === 'ban' ? '禁用' : type === 'pick' ? '选择' : '决胜';
-
-const filledCount = computed(() => form.value.vetos.filter(Boolean).length);
-
-// --- VETO MODAL ---
-const isVetoModalOpen = ref(false);
-const editingSlot = ref<number | null>(null);
-const showResultOverride = ref(false);
-
-const getDefaultVetoForm = () => ({
-  teamId: '' as string,
-  mapName: 'de_mirage',
-  side: 'NO' as string,
-  type: 'pick' as string,
-  reverseSide: false,
-  openingCtTeamId: undefined as string | undefined,
-  sideSource: 'unknown' as 'website_bp' | 'tgpro_stable_gsi' | 'legacy_manual' | 'unknown',
-  mapEnd: false,
-  winner: '' as string,
-  score: {} as Record<string, number>
-});
-
-const vetoForm = ref(getDefaultVetoForm());
-const vetoSideLocked = computed(() =>
-  Boolean(vetoForm.value.openingCtTeamId) ||
-  vetoForm.value.sideSource === 'website_bp' ||
-  vetoForm.value.sideSource === 'tgpro_stable_gsi'
-);
-
-// When type is set to 'decider', clear the team selection
-watch(() => vetoForm.value.type, (newType) => {
-  if (newType === 'decider') {
-    vetoForm.value.teamId = '';
-  }
-});
-
-const openVetoModal = (index: number) => {
-  if (!bothTeamsSelected.value) return;
-  editingSlot.value = index;
-  const existing = form.value.vetos[index];
+const openSlot = (index: number) => {
+  if (!bothTeamsSelected.value) return
+  const existing = form.value.vetos[index]
   vetoForm.value = existing
-    ? { ...getDefaultVetoForm(), ...existing, score: { ...(existing.score ?? {}) } }
-    : { ...getDefaultVetoForm(), teamId: form.value.left.id ?? '' };
-  showResultOverride.value = false;
-  isVetoModalOpen.value = true;
-};
-
-const clearSlot = (index: number) => {
-  form.value.vetos[index] = null;
-};
-
-const saveVetoModal = () => {
-  if (editingSlot.value === null) return;
-  form.value.vetos[editingSlot.value] = { ...vetoForm.value };
-  isVetoModalOpen.value = false;
-  editingSlot.value = null;
-};
-
-const getScore = (score: Record<string, number>, teamId: string) => score?.[teamId] ?? 0;
-const setScore = (teamId: string, val: string) => {
-  if (!vetoForm.value.score) vetoForm.value.score = {};
-  vetoForm.value.score[teamId] = Number(val);
-};
+    ? { ...defaultVeto(), ...existing, score: { ...(existing.score ?? {}) } }
+    : { ...defaultVeto(), teamId: form.value.left.id ?? '' }
+  editingSlot.value = index
+}
+const saveSlot = () => {
+  if (editingSlot.value === null) return
+  form.value.vetos[editingSlot.value] = { ...vetoForm.value }
+  editingSlot.value = null
+}
+const clearSlot = (index: number) => (form.value.vetos[index] = null)
+const slotScore = (veto: any) => {
+  const left = veto?.score?.[form.value.left.id]
+  const right = veto?.score?.[form.value.right.id]
+  return left != null && right != null && (Number(left) > 0 || Number(right) > 0) ? `${left}:${right}` : ''
+}
 
 const handleSave = async () => {
-  isSaving.value = true;
+  isSaving.value = true
   try {
-    // Strip null slots before saving
-    const payload = { ...form.value, vetos: form.value.vetos.filter(Boolean) };
-    await saveMatch(payload, isEditing.value ? String(route.params.id) : null);
-    router.push('/matches');
-  } catch (e) {
-    console.error(e);
+    const payload = { ...form.value, vetos: form.value.vetos.filter(Boolean) }
+    await saveMatch(payload, isEditing.value ? String(route.params.id) : null)
+    void router.push('/matches')
+  } catch (error) {
+    showToast(errorText(error), 'error', { key: 'match-form' })
   } finally {
-    isSaving.value = false;
+    isSaving.value = false
   }
-};
-
-const vetoTypeColor: Record<string, string> = {
-  ban:     'text-red-400 bg-red-900/30 border-red-800/50',
-  pick:    'text-emerald-400 bg-emerald-900/30 border-emerald-800/50',
-  decider: 'text-yellow-400 bg-yellow-900/30 border-yellow-800/50',
-};
+}
 </script>
 
 <template>
-  <div class="flex flex-col h-full bg-surface text-zinc-200">
-
-    <!-- Header bar -->
-    <div class="flex items-center justify-between p-6 shrink-0">
-      <div class="flex items-center gap-3">
-        <button @click="router.push('/matches')" class="text-zinc-500 hover:text-zinc-200 transition-colors">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-          </svg>
+  <div class="page">
+    <div class="page-head">
+      <button type="button" class="icon-btn" title="返回比赛列表" @click="router.push('/matches')"><AppIcon name="chevronLeft" /></button>
+      <div class="page-title"><div class="kicker">Match</div><h1>{{ isEditing ? '编辑比赛' : '创建比赛' }}</h1></div>
+      <div class="page-actions">
+        <button type="button" class="btn" @click="router.push('/matches')">取消</button>
+        <button type="button" class="btn btn-primary" :disabled="isSaving" @click="handleSave">
+          {{ isSaving ? '正在保存…' : isEditing ? '保存更改' : '创建比赛' }}
         </button>
-        <div>
-          <h1 class="text-2xl font-bold text-text-main tracking-tight">{{ isEditing ? '编辑比赛' : '创建比赛' }}</h1>
-        </div>
-      </div>
-      <div class="flex items-center gap-3">
-        <BaseButton variant="danger" @click="router.push('/matches')">
-          取消
-        </BaseButton>
-        <BaseButton
-          @click="handleSave"
-          :disabled="isSaving"
-          :variant="isSaving ? 'secondary' : 'primary'"
-        >
-          {{ isSaving ? '正在保存...' : isEditing ? '保存更改' : '创建比赛' }}
-        </BaseButton>
       </div>
     </div>
 
-    <!-- Body -->
-    <div class="flex-1 overflow-y-auto p-6">
-      <div class="max-w-4xl mx-auto space-y-6">
-
-        <!-- Match type + current toggle -->
-        <div class="bg-zinc-800 border border-border rounded-xl p-5 flex items-center gap-6">
-          <div class="flex-1">
-            <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">比赛赛制</label>
-            <div class="flex gap-2">
-              <BaseButton
-                v-for="type in ['bo1','bo2','bo3','bo5']"
-                :key="type"
-                @click="form.matchType = type"
-                :variant="form.matchType === type ? 'primary' : 'secondary'"
-                :class="form.matchType === type ? '' : 'bg-zinc-900!'"
-              >
-                {{ type }}
-              </BaseButton>
-            </div>
-          </div>
-          <div class="flex items-center gap-3">
-            <label class="text-sm text-zinc-400">设为当前比赛</label>
-            <button
-              type="button"
-              @click="form.current = !form.current"
-              class="relative w-11 h-6 rounded-full transition-colors"
-              :class="form.current ? 'bg-primary' : 'bg-zinc-700'"
-            >
-              <span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform" :class="form.current ? 'translate-x-5' : 'translate-x-0'" />
+    <div class="form-wrap">
+      <section class="panel panel-pad format-row">
+        <div class="field">
+          <span class="field-label">比赛赛制</span>
+          <div class="seg">
+            <button v-for="type in MATCH_TYPES" :key="type" type="button" :class="{ active: form.matchType === type }" @click="form.matchType = type">
+              {{ type.toUpperCase() }}
             </button>
           </div>
         </div>
-
-        <!-- Teams -->
-        <div class="grid grid-cols-2 gap-4">
-          <!-- Left -->
-          <div class="bg-zinc-800 border border-border rounded-xl p-5">
-            <label class="block text-xs font-bold uppercase tracking-wider text-blue-400 mb-3 pb-2 border-b border-border">左侧战队</label>
-            <div class="space-y-3">
-              <BaseSelect
-                v-model="form.left.id"
-                placeholder="搜索战队..."
-                :options="availableTeamsForLeft"
-                clearable
-                searchable
-                size="md"
-              />
-              <div>
-                <BaseInput
-                  v-model.number="form.left.wins"
-                  type="number"
-                  label="初始大比分"
-                  size="md"
-                />
-              </div>
-            </div>
-          </div>
-          <!-- Right -->
-          <div class="bg-zinc-800 border border-border rounded-xl p-5">
-            <label class="block text-xs font-bold uppercase tracking-wider text-amber-400 mb-3 pb-2 border-b border-border">右侧战队</label>
-            <div class="space-y-3">
-              <BaseSelect
-                v-model="form.right.id"
-                placeholder="搜索战队..."
-                :options="availableTeamsForRight"
-                clearable
-                searchable
-                size="md"
-              />
-              <div>
-                <BaseInput
-                  v-model.number="form.right.wins"
-                  type="number"
-                  label="初始大比分"
-                  size="md"
-                />
-              </div>
-            </div>
-          </div>
+        <div class="current-toggle">
+          <span>设为当前比赛</span>
+          <button type="button" class="switch" :class="{ on: form.current }" role="switch" :aria-checked="form.current" @click="form.current = !form.current" />
         </div>
+      </section>
 
-        <!-- Veto section -->
-        <div class="bg-zinc-800 border border-border rounded-xl p-5">
-          <div class="flex items-center justify-between mb-4">
+      <section class="teams-row">
+        <div v-for="side in (['left', 'right'] as const)" :key="side" class="panel panel-pad team-panel">
+          <div class="team-head">
+            <TeamBadge v-bind="badgeOf(form[side].id)" />
             <div>
-              <h2 class="text-sm font-bold text-text-main">地图选择顺序</h2>
-              <p class="text-xs text-zinc-500 mt-0.5">
-                <template v-if="!bothTeamsSelected">选择两支战队后才能设置地图。</template>
-                <template v-else>已设置 {{ filledCount }} / {{ SLOT_COUNT }} 项，点击任意一项进行编辑。</template>
-              </p>
+              <div class="kicker">{{ side === 'left' ? '左侧战队' : '右侧战队' }}</div>
+              <b>{{ teamName(form[side].id) }}</b>
             </div>
           </div>
+          <BaseSelect v-model="form[side].id" placeholder="搜索战队…" :options="side === 'left' ? leftOptions : rightOptions" clearable searchable />
+          <BaseInput v-model.number="form[side].wins" type="number" label="初始大比分" />
+        </div>
+        <span class="vs">VS</span>
+      </section>
 
-          <!-- Locked state -->
-          <div v-if="!bothTeamsSelected" class="flex flex-col items-center justify-center py-10 border border-dashed border-border rounded-lg text-zinc-600 gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
-            <span class="text-sm">请先在上方选择两支战队</span>
-          </div>
-
-          <!-- 9 Slots grid -->
-          <div v-else class="space-y-2">
-            <div
-              v-for="(veto, i) in form.vetos"
-              :key="i"
-              class="flex items-center gap-3 rounded-lg border px-4 py-3 transition-colors"
-              :class="veto
-                ? 'bg-surface border-border cursor-pointer hover:border-zinc-500'
-                : 'bg-surface/40 border-border border-dashed'"
-            >
-              <!-- Slot number -->
-              <span class="text-xs font-bold text-zinc-600 w-5 shrink-0 text-center">{{ i + 1 }}</span>
-
-              <!-- Empty slot -->
-              <template v-if="!veto">
-                <span class="text-xs text-zinc-600 flex-1">空项目</span>
-                <BaseButton
-                  type="button"
-                  @click="openVetoModal(i)"
-                  size="sm"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
-                  设置
-                </BaseButton>
-              </template>
-
-              <!-- Filled slot -->
-              <template v-else>
-                <!-- Type badge -->
-                <span :class="vetoTypeColor[veto.type]" class="text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded border shrink-0">
-                  {{ getVetoTypeLabel(veto.type) }}
-                </span>
-
-                <!-- Map name -->
-                <span class="text-sm font-semibold text-text-main flex-1 truncate">{{ veto.mapName }}</span>
-
-                <!-- Team + side -->
-                <div class="flex items-center gap-2 shrink-0">
-                  <span v-if="veto.type === 'decider'" class="text-xs text-zinc-400">决胜地图</span>
-                  <span v-else class="text-xs text-zinc-400">{{ getTeamName(veto.teamId) }}</span>
-                  <span v-if="veto.side !== 'NO'" class="text-xs font-bold uppercase px-1.5 py-0.5 rounded border"
-                    :class="veto.side === 'CT' ? 'text-blue-400 border-blue-800/50 bg-blue-900/20' : 'text-amber-400 border-amber-800/50 bg-amber-900/20'">
-                    {{ veto.side }}
-                  </span>
-                  <span v-if="veto.mapEnd" class="text-xs font-bold uppercase text-emerald-400 bg-emerald-900/20 border border-emerald-800/50 px-1.5 py-0.5 rounded">已结束</span>
-                </div>
-
-                <!-- Actions -->
-                <div class="flex items-center gap-1 shrink-0">
-                  <button type="button" @click="openVetoModal(i)" title="编辑" class="p-1.5 rounded text-zinc-500 hover:text-blue-400 hover:bg-primary/10 transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                    </svg>
-                  </button>
-                  <button type="button" @click="clearSlot(i)" title="清空这一项" class="p-1.5 rounded text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                    </svg>
-                  </button>
-                </div>
-              </template>
-            </div>
+      <section class="panel panel-pad">
+        <div class="panel-head">
+          <div>
+            <h2>地图选择顺序</h2>
+            <p class="hint">{{ bothTeamsSelected ? `已设置 ${filledCount} / ${SLOT_COUNT} 项，点任意一项编辑。` : '选好两支战队后才能设置地图。' }}</p>
           </div>
         </div>
-
-      </div>
+        <div v-if="!bothTeamsSelected" class="empty-state slots-locked">
+          <AppIcon name="lock" />
+          <span>请先在上面选择两支战队</span>
+        </div>
+        <div v-else class="slots">
+          <div v-for="(veto, index) in form.vetos" :key="index" class="slot" :class="{ empty: !veto }">
+            <span class="slot-no num">{{ String(index + 1).padStart(2, '0') }}</span>
+            <template v-if="!veto">
+              <span class="slot-empty">空</span>
+              <button type="button" class="btn btn-sm" @click="openSlot(index)"><AppIcon name="plus" />设置</button>
+            </template>
+            <template v-else>
+              <span class="tag" :class="TYPE_LABEL[veto.type]?.tone">{{ TYPE_LABEL[veto.type]?.text || veto.type }}</span>
+              <b class="slot-map" @click="openSlot(index)">{{ mapLabel(veto.mapName) }}</b>
+              <span class="slot-team">{{ veto.type === 'decider' ? '决胜地图' : teamName(veto.teamId) }}</span>
+              <span v-if="veto.side !== 'NO'" class="tag" :class="veto.side === 'CT' ? 'tag-ct' : 'tag-t'">{{ veto.side }}</span>
+              <span v-if="slotScore(veto)" class="slot-score num">{{ slotScore(veto) }}</span>
+              <span v-if="veto.mapEnd" class="tag tag-ok">已结束</span>
+              <span class="slot-actions">
+                <button type="button" class="icon-btn" title="编辑这一项" @click="openSlot(index)"><AppIcon name="edit" /></button>
+                <button type="button" class="icon-btn danger" title="清空这一项" @click="clearSlot(index)"><AppIcon name="x" /></button>
+              </span>
+            </template>
+          </div>
+        </div>
+      </section>
     </div>
-  </div>
 
-  <!-- Veto Edit Modal -->
-  <div v-if="isVetoModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-    <div class="bg-surface rounded-xl border border-border w-full max-w-md shadow-2xl flex flex-col overflow-hidden">
-
-      <!-- Header -->
-      <div class="p-5 border-b border-border flex justify-between items-center">
-        <h2 class="text-base font-bold text-text-main">设置第 {{ editingSlot !== null ? editingSlot + 1 : '' }} 项</h2>
-        <button @click="isVetoModalOpen = false" class="text-zinc-400 hover:text-text-main transition-colors">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
-
-      <!-- Body -->
-      <div class="p-5 space-y-4 overflow-y-auto">
-
-        <!-- Map -->
-        <BaseSelect
-          v-model="vetoForm.mapName"
-          label="地图"
-          :options="mapOptions"
-          size="md"
-        />
-
-        <!-- Team + Type -->
-        <div class="grid grid-cols-2 gap-3">
-          <BaseSelect
-            v-model="vetoForm.teamId"
-            label="战队"
-            :options="vetoTeamsOptions"
-            :disabled="vetoForm.type === 'decider'"
-            size="md"
-          />
-          <BaseSelect
-            v-model="vetoForm.type"
-            label="选择类型"
-            :options="vetoTypeOptions"
-            size="md"
-          />
-        </div>
-
-        <!-- Side -->
-        <div>
-          <label class="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1.5">起始阵营</label>
-          <div class="flex gap-2">
-            <button
-              v-for="s in SIDES" :key="s" type="button"
-              @click="vetoForm.side = s"
-              :class="vetoForm.side === s
-                ? s === 'CT' ? 'bg-blue-600 text-text-main' : s === 'T' ? 'bg-amber-500 text-text-main' : 'bg-zinc-600 text-text-main'
-                : 'bg-surface text-zinc-400 hover:bg-surface-hover'"
-              class="flex-1 py-2 rounded-lg border border-border text-xs font-bold uppercase transition-colors hover:cursor-pointer"
-            >{{ s }}</button>
-          </div>
-        </div>
-
-        <!-- Result override toggle -->
-        <button type="button" @click="showResultOverride = !showResultOverride" class="flex items-center gap-2 w-full group">
-          <div class="flex-1 border-t border-border/50"></div>
-          <span class="text-xs font-bold uppercase tracking-wider text-amber-400 group-hover:text-amber-300 transition-colors shrink-0">手动填写结果（可选）</span>
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 text-amber-400 transition-transform shrink-0" :class="{ 'rotate-180': showResultOverride }" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-          </svg>
-          <div class="flex-1 border-t border-border/50"></div>
-        </button>
-
-        <template v-if="showResultOverride">
-
-        <!-- Winner -->
-        <BaseSelect
-          v-model="vetoForm.winner"
-          label="获胜战队"
-          :options="vetoWinnerOptions"
-          size="md"
-        />
-
-        <!-- Scores -->
-        <div class="grid grid-cols-2 gap-3">
-          <BaseInput
-            type="number"
-            :model-value="getScore(vetoForm.score, form.left.id!)"
-            @update:model-value="e => setScore(form.left.id!, String(e))"
-            :label="`${getTeamName(form.left.id)} 得分`"
-            placeholder="0"
-            size="md"
-          />
-          <BaseInput
-            type="number"
-            :model-value="getScore(vetoForm.score, form.right.id!)"
-            @update:model-value="e => setScore(form.right.id!, String(e))"
-            :label="`${getTeamName(form.right.id)} 得分`"
-            placeholder="0"
-            size="md"
-          />
-        </div>
-
-        <!-- Flags -->
-        <div class="flex items-center gap-6">
-          <BaseCheckbox v-model="vetoForm.reverseSide" label="交换阵营" size="md" class="text-primary" :disabled="vetoSideLocked" />
-          <BaseCheckbox v-model="vetoForm.mapEnd" label="地图已结束" size="md" class="text-emerald-500" />
-        </div>
-
-        </template>
-      </div>
-
-      <!-- Footer -->
-      <div class="p-5 border-t border-border flex gap-3">
-        <BaseButton class="flex-1 justify-center" @click="isVetoModalOpen = false" variant="secondary">取消</BaseButton>
-        <BaseButton class="flex-1 justify-center" @click="saveVetoModal" variant="primary">保存这一项</BaseButton>
-      </div>
-    </div>
+    <VetoDialog
+      v-if="editingSlot !== null"
+      v-model="vetoForm"
+      :slot-number="editingSlot + 1"
+      :left-id="form.left.id"
+      :right-id="form.right.id"
+      :left-name="teamName(form.left.id)"
+      :right-name="teamName(form.right.id)"
+      @close="editingSlot = null"
+      @save="saveSlot"
+    />
   </div>
 </template>
+
+<style scoped>
+.form-wrap { width: 100%; max-width: 920px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+.format-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
+.current-toggle { display: flex; align-items: center; gap: 10px; height: 34px; font-size: 13px; color: var(--text-2); }
+.teams-row { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.team-panel { display: flex; flex-direction: column; gap: 12px; }
+.team-head { display: flex; align-items: center; gap: 12px; }
+.team-head b { font-size: 15px; }
+.vs { position: absolute; left: 50%; top: 32px; transform: translateX(-50%); width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; background: var(--bg); border: 1px solid var(--border-strong); font: 800 11px/1 'Montserrat', sans-serif; color: var(--text-3); }
+.slots-locked { margin-top: 12px; }
+.slots { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.slot { height: 44px; display: flex; align-items: center; gap: 10px; padding: 0 8px 0 12px; border-radius: var(--radius-md); background: var(--bg-raised); border: 1px solid var(--border); }
+.slot.empty { background: transparent; border-style: dashed; }
+.slot-no { width: 22px; font-size: 12px; font-weight: 700; color: var(--text-3); }
+.slot-empty { flex: 1; font-size: 12px; color: var(--text-3); }
+.slot-map { min-width: 90px; font: 700 14px/1 'Montserrat', sans-serif; cursor: pointer; }
+.slot-team { flex: 1; min-width: 0; font-size: 13px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.slot-score { font-size: 13px; font-weight: 700; }
+.slot-actions { display: inline-flex; gap: 6px; margin-left: 4px; }
+</style>

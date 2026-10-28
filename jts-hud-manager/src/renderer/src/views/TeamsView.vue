@@ -1,25 +1,29 @@
 <script setup lang="ts">
-import BaseModal from '../components/base/BaseModal.vue';
-import BaseTable from '../components/base/BaseTable.vue';
-import TeamForm from '../features/teams/components/TeamForm.vue';
-import TeamsPageHeader from '../features/teams/components/TeamsPageHeader.vue';
-import TeamsBulkBar from '../features/teams/components/TeamsBulkBar.vue';
-import { useTeamsView } from '../features/teams/composables/useTeamsView';
-import { API_URL } from '../index';
+// 战队：表格（可搜索、排序、多选删除）+ 添加 / 编辑弹窗
+import BaseModal from '../components/base/BaseModal.vue'
+import BaseTable from '../components/base/BaseTable.vue'
+import TeamBadge from '../components/ui/TeamBadge.vue'
+import TeamForm from '../features/teams/components/TeamForm.vue'
+import TeamsPageHeader from '../features/teams/components/TeamsPageHeader.vue'
+import TeamsBulkBar from '../features/teams/components/TeamsBulkBar.vue'
+import { useTeamsView } from '../features/teams/composables/useTeamsView'
+import { countryOptions } from '../utils/countries'
+import { assetUrl, teamAbbr } from '../utils/display'
 
 const {
   teams, players, isLoading, sortedTeams, tableHeaders,
   sortKey, sortDir, handleSort,
   selectedTeamIds, handleSelectionChange, handleDeleteSelected, handleDeleteAll,
   isModalOpen, isEditing, formData, handleSave, openCreateModal, openEditModal,
-  exportTeams, importTeams, deleteTeam,
-} = useTeamsView();
+  exportTeams, importTeams, deleteTeam
+} = useTeamsView()
 
-const baseUrl = API_URL.replace('/api', '');
+const playerCount = (teamId: string) => players.value.filter((player) => player.team === teamId).length
+const countryName = (code: string) => countryOptions.find((country) => country.code === code)?.name || code || '—'
 </script>
 
 <template>
-  <div class="p-6 bg-surface text-zinc-200 min-h-screen relative">
+  <div class="page">
     <TeamsPageHeader
       :teams-count="teams.length"
       @import="importTeams"
@@ -27,12 +31,7 @@ const baseUrl = API_URL.replace('/api', '');
       @delete-all="handleDeleteAll"
       @add="openCreateModal"
     />
-
-    <TeamsBulkBar
-      v-if="selectedTeamIds.length > 0"
-      :selected-count="selectedTeamIds.length"
-      @delete-selected="handleDeleteSelected"
-    />
+    <TeamsBulkBar v-if="selectedTeamIds.length > 0" :selected-count="selectedTeamIds.length" @delete-selected="handleDeleteSelected" />
 
     <BaseTable
       :headers="tableHeaders"
@@ -41,17 +40,24 @@ const baseUrl = API_URL.replace('/api', '');
       :selectable="true"
       :sort-key="sortKey"
       :sort-dir="sortDir"
-      search-placeholder="搜索战队..."
+      search-placeholder="搜索战队名称或简称"
       @edit="openEditModal"
       @delete="deleteTeam"
       @sort="handleSort"
       @selection-change="handleSelectionChange"
     >
       <template #cell-logo="{ item }">
-        <div class="size-12 flex items-center justify-center">
-          <img v-if="item.logo" :src="`${baseUrl}${item.logo}`" class="w-full h-full object-contain" />
-          <span v-else class="text-xs font-bold text-zinc-500">{{ item.shortName }}</span>
-        </div>
+        <TeamBadge :logo="assetUrl(item.logo)" :abbr="teamAbbr(item.name, item.shortName)" />
+      </template>
+      <template #cell-name="{ item }">
+        <b class="team-name">{{ item.name || '未命名战队' }}</b>
+      </template>
+      <template #cell-shortName="{ item }">
+        <span class="num">{{ item.shortName || '—' }}</span>
+      </template>
+      <template #cell-country="{ item }">{{ countryName(item.country) }}</template>
+      <template #cell-players="{ item }">
+        <span class="num" :class="{ muted: !playerCount(item._id) }">{{ playerCount(item._id) }} 人</span>
       </template>
     </BaseTable>
 
@@ -63,12 +69,12 @@ const baseUrl = API_URL.replace('/api', '');
       @close="isModalOpen = false"
       @cancel="isModalOpen = false"
     >
-      <TeamForm
-        :initial-data="formData"
-        :is-editing="isEditing"
-        :players="players"
-        @submit="handleSave"
-      />
+      <TeamForm :initial-data="formData" :is-editing="isEditing" :players="players" @submit="handleSave" />
     </BaseModal>
   </div>
 </template>
+
+<style scoped>
+.team-name { color: var(--text); font-size: 14px; }
+.muted { color: var(--text-3); }
+</style>

@@ -1,56 +1,43 @@
 <script setup lang="ts">
-const props = withDefaults(defineProps<{
-  modelValue?: string | number;
-  label?: string;
-  placeholder?: string;
-  type?: 'text' | 'number' | 'email' | 'password' | 'search' | 'url';
-  disabled?: boolean;
-  error?: string;
-  hint?: string;
-  size?: 'lg' | 'md' | 'sm';
-}>(), {
-  type: 'text',
-  disabled: false,
-  size: 'md',
-});
-
-defineEmits<{
-  'update:modelValue': [value: string | number];
-}>();
+// 输入框：标签 + 输入 + 出错时红框（错误文字同时在右上角提示）/ 提示文字
+withDefaults(
+  defineProps<{
+    modelValue?: string | number
+    label?: string
+    placeholder?: string
+    type?: 'text' | 'number' | 'email' | 'password' | 'search' | 'url'
+    disabled?: boolean
+    error?: string
+    // 只把输入框标红（错误内容在右上角提示里说），不在下面写字
+    invalid?: boolean
+    hint?: string
+    size?: 'lg' | 'md' | 'sm'
+  }>(),
+  { type: 'text', disabled: false, size: 'md' }
+)
+defineEmits<{ 'update:modelValue': [value: string | number] }>()
 </script>
 
 <template>
-  <div class="w-full">
-    <!-- Label -->
-    <label v-if="label" class="block text-xs font-semibold text-zinc-400 mb-1.5">
-      {{ label }}
-    </label>
-
-    <!-- Input -->
+  <div class="field">
+    <label v-if="label">{{ label }}</label>
     <input
+      class="input"
+      :class="[{ 'has-error': error || invalid }, size === 'sm' && 'input-sm', size === 'lg' && 'input-lg']"
       :value="modelValue"
       :type="type"
       :disabled="disabled"
       :placeholder="placeholder"
       @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
-      :class="[
-        'w-full bg-surface border rounded-lg text-text-main focus:outline-none transition-colors',
-        'placeholder:text-zinc-600',
-        // Size
-        size === 'lg' && 'px-4 py-3 text-base',
-        size === 'md' && 'px-3 py-2 text-sm',
-        size === 'sm' && 'px-2.5 py-1.5 text-xs',
-        // Border color
-        error ? 'border-red-900/50 focus:border-red-600' : 'border-zinc-700 focus:border-primary',
-        // Disabled
-        disabled && 'opacity-50 cursor-not-allowed',
-      ]"
     />
-
-    <!-- Error message -->
-    <p v-if="error" class="mt-1.5 text-xs text-red-400">{{ error }}</p>
-
-    <!-- Hint text -->
-    <p v-else-if="hint" class="mt-1.5 text-xs text-zinc-500">{{ hint }}</p>
+    <p v-if="error" class="field-error">{{ error }}</p>
+    <p v-else-if="hint" class="hint">{{ hint }}</p>
   </div>
 </template>
+
+<style scoped>
+.input-sm { height: 28px; font-size: 12px; }
+.input-lg { height: 40px; font-size: 14px; }
+.input:disabled { opacity: 0.5; cursor: not-allowed; }
+.field-error { font-size: 12px; color: #ff9d95; }
+</style>
