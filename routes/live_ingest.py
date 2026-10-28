@@ -645,9 +645,30 @@ def _save_broadcast_map_result(conn, payload, match_id):
                 "duplicate": True,
                 "match_id": match_id,
                 "map_name": confirmed_result.get("map_name") or map_name,
+                "map_slot": map_slot + 1,
+                "result_id": result_id,
+                "applied": False,
                 "saved": len(confirmed_result.get("players") or []),
                 "players": confirmed_result.get("players") or [],
                 "series_complete": confirmed_result.get("series_complete", False),
+            }
+        )
+    calibrated_demo = conn.execute(
+        """SELECT 1 FROM match_stats WHERE match_id=? AND map_name=?
+           AND data_source IN ('demo','demo_review')
+           AND COALESCE(data_status,'final')='final' LIMIT 1""",
+        (match_id, db_map_name),
+    ).fetchone()
+    if calibrated_demo:
+        return jsonify(
+            {
+                "ok": True,
+                "match_id": match_id,
+                "map_name": db_map_name,
+                "map_slot": map_slot + 1,
+                "result_id": result_id,
+                "applied": False,
+                "reason": "demo_authoritative",
             }
         )
     if active_session and incoming_session and active_session != incoming_session:
@@ -846,6 +867,9 @@ def _save_broadcast_map_result(conn, payload, match_id):
             "ok": True,
             "match_id": match_id,
             "map_name": db_map_name,
+            "map_slot": map_slot + 1,
+            "result_id": result_id,
+            "applied": True,
             "saved": len(saved_players),
             "players": saved_players,
             "series_complete": series_complete,

@@ -144,6 +144,25 @@ class BroadcastApiTests(unittest.TestCase):
         self.assertTrue(payload["ok"])
         self.assertEqual(payload["matches"][0]["id"], self.match_id)
 
+    def test_map_finished_preserves_explicit_unconfirmed_score(self):
+        conn = get_db()
+        conn.execute(
+            "UPDATE matches SET map1_t1=6,map1_t2=5,map2_t1=13,map2_t2=9 WHERE id=?",
+            (self.match_id,),
+        )
+        conn.execute(
+            "INSERT INTO live_match_data(match_id,live_state) VALUES(?,?)",
+            (self.match_id, json.dumps({"unconfirmed_map_slots": [0]})),
+        )
+        conn.commit()
+        conn.close()
+        maps = self.client.get(f"/api/broadcast/matches/{self.match_id}").get_json()["match"][
+            "maps"
+        ]
+        self.assertFalse(maps[0]["map_finished"])
+        self.assertTrue(maps[1]["map_finished"])
+        self.assertFalse(maps[2]["map_finished"])
+
     def test_manager_can_load_event_rosters_and_substitutes(self):
         response = self.client.get("/api/broadcast/events")
         self.assertEqual(response.status_code, 200)

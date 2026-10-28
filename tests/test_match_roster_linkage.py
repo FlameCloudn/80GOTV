@@ -194,7 +194,6 @@ class MatchRosterLinkageTests(RegisteredMatchCase):
         self.assertEqual(self._snapshot(), before)
 
     def test_full_registered_result_is_final_and_ignores_permanent_team_membership(self):
-        self._seed_final_stats()
         response = self._post_result(self._result())
         self.assertEqual(response.status_code, 200, response.get_data(as_text=True))
         rows = self.conn.execute(
@@ -207,6 +206,34 @@ class MatchRosterLinkageTests(RegisteredMatchCase):
             player["id"]: f"t{side}" for side, players in self.rosters.items() for player in players
         }
         self.assertEqual({row["player_id"]: row["match_team_side"] for row in rows}, expected)
+
+    def test_director_result_cannot_replace_already_calibrated_demo(self):
+        self._seed_final_stats()
+        before = self._snapshot()
+        payload = {**self._result(), "result_id": "late-new-result"}
+        response = self._post_result(payload)
+        self.assertEqual(response.status_code, 200, response.get_data(as_text=True))
+        receipt = response.get_json()
+        self.assertFalse(receipt["applied"])
+        self.assertEqual(receipt["reason"], "demo_authoritative")
+        self.assertEqual(receipt["result_id"], payload["result_id"])
+        self.assertEqual(receipt["match_id"], self.match_id)
+        self.assertEqual(self._snapshot(), before)
+
+    def test_old_director_retry_after_demo_calibration_preserves_demo(self):
+        payload = {**self._result(), "result_id": "before-demo"}
+        first = self._post_result(payload)
+        self.assertEqual(first.status_code, 200)
+        self.conn.execute(
+            "UPDATE match_stats SET data_source='demo_review',rating=1.75 WHERE match_id=?",
+            (self.match_id,),
+        )
+        self.conn.commit()
+        before = self._snapshot()
+        response = self._post_result(payload)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.get_json()["duplicate"])
+        self.assertEqual(self._snapshot(), before)
 
     def test_wrong_side_outsider_and_duplicate_results_preserve_formal_statistics(self):
         self._seed_final_stats()

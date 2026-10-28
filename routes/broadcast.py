@@ -273,6 +273,25 @@ def _match_payload(row, conn):
         json.dumps(roster_steam_ids, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     ).hexdigest()[:16]
     map_count = get_bo_max_maps(match.get("bo_format"))
+    live_row = conn.execute(
+        "SELECT live_state FROM live_match_data WHERE match_id=?", (match["id"],)
+    ).fetchone()
+    try:
+        live_state = json.loads(live_row["live_state"] or "{}") if live_row else {}
+    except (TypeError, ValueError):
+        live_state = {}
+    raw_unconfirmed = (
+        live_state.get("unconfirmed_map_slots", []) if isinstance(live_state, dict) else []
+    )
+    unconfirmed = (
+        {
+            value
+            for value in raw_unconfirmed
+            if isinstance(value, int) and not isinstance(value, bool)
+        }
+        if isinstance(raw_unconfirmed, list)
+        else set()
+    )
     maps = []
     for slot in range(1, map_count + 1):
         if slot >= 3 and not match.get(f"has_map{slot}", 1):
@@ -301,6 +320,8 @@ def _match_payload(row, conn):
                 "name": map_name,
                 "team1_score": match.get(f"map{slot}_t1") or 0,
                 "team2_score": match.get(f"map{slot}_t2") or 0,
+                "map_finished": slot - 1 not in unconfirmed
+                and (match.get(f"map{slot}_t1") or 0) != (match.get(f"map{slot}_t2") or 0),
                 "picked_by": picked_by,
                 "opening_ct_team": opening_ct_team,
                 "opening_side_source": "website_bp" if opening_ct_team else "pending",

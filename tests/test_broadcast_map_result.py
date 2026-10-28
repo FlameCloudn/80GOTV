@@ -158,6 +158,17 @@ class BroadcastMapResultTests(unittest.TestCase):
         conn.close()
         self.assertEqual(after, before)
 
+    def test_receipt_identifies_the_exact_result_and_map(self):
+        payload = {**self._payload(), "result_id": "receipt-identity", "map_slot": 1}
+        for duplicate in (False, True):
+            response = self._post(payload)
+            self.assertEqual(response.status_code, 200)
+            receipt = response.get_json()
+            self.assertEqual(receipt["match_id"], self.match_id)
+            self.assertEqual(receipt["result_id"], payload["result_id"])
+            self.assertEqual(receipt["map_slot"], 1)
+            self.assertEqual(bool(receipt.get("duplicate")), duplicate)
+
     def test_rejects_bad_token_before_database_work(self):
         response = self._post(token="wrong")
         self.assertEqual(response.status_code, 403)
