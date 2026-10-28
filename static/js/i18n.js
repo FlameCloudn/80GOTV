@@ -1680,6 +1680,12 @@
     '左侧参赛队伍': 'Left-side team', '右侧参赛队伍': 'Right-side team',
     '左侧参赛方': 'Left-side participant', '右侧参赛方': 'Right-side participant',
     '自选阵容 A': 'Custom roster A', '自选阵容 B': 'Custom roster B',
+
+    '提交的选手数据不完整，请刷新页面后重试': 'Player data is incomplete. Refresh the page and try again.',
+    '本场名单为空或存在重复身份，未保存任何数据': 'The match roster is empty or contains duplicate identities. No data was saved.',
+    '现有统计与本场名单不一致，请先核对阵容，原数据未修改': 'Existing statistics do not match the match roster. Check the roster first; the original data is unchanged.',
+    '提交的选手名单不完整或与本场名单不一致，原数据未修改': 'The submitted player list is incomplete or differs from the match roster. The original data is unchanged.',
+
     '开局 CT / T 以 BP 结果为准': 'Starting CT / T sides follow the map veto result',
     '暂无选手数据': 'No player stats', '出场名单 (5 人)': 'Match roster (5 players)',
     '比赛结束失败，所有变更均未保存，请稍后重试': 'The match could not be completed. No changes were saved. Please try again later.',
@@ -1900,6 +1906,8 @@
     [/^账号：/g, 'Account: '],
     [/^队伍\s*(\d)\s*选手\s*(\d)$/g, 'Team $1 player $2'],
     [/^队伍(\d)\s*第(\d)位选手$/g, 'Team $1 player $2'],
+    [/^选手 (\d+) 的 (\w+) 不是有效数字$/g, 'Player $1: $2 is not a valid number'],
+    [/^选手 (\d+) 的 (\w+) 超出有效范围$/g, 'Player $1: $2 is out of range'],
     [/^左侧参赛方\s*第(\d+)位选手$/g, 'Left-side player $1'],
     [/^右侧参赛方\s*第(\d+)位选手$/g, 'Right-side player $1'],
     [/请先把\s*(\d+)\s*支队伍全部放入首轮/g, 'place all $1 teams in the first round first'],

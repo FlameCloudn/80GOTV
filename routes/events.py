@@ -23,6 +23,8 @@ from services.award_service import (
     list_event_award_players,
 )
 from services.match_roster_service import (
+    match_player_slots,
+    match_side_identity,
     match_snapshot_uses_logo,
     preserve_event_rosters,
     resolve_match_roster,
@@ -386,15 +388,8 @@ def event_detail(event_id):
             tid = m.get(f"team{side}_id")
             slots = match_players_map[m["id"]][side]
             players = [p for p in slots if p.get("id") or p.get("steam_id") or p.get("nickname")]
-            if tid and tid > 0:
-                key = ("team", tid)
-            elif players:
-                key = (
-                    "temp",
-                    m.get(f"team{side}_name"),
-                    tuple((p.get("id"), p.get("steam_id"), p["slot"]) for p in players),
-                )
-            else:
+            key = match_side_identity(m, side, players)
+            if key is None:
                 continue
             if key not in team_map:
                 team_map[key] = {
@@ -1735,7 +1730,16 @@ def _event_matches_with_teams(conn, event_id):
         """,
         (event_id,),
     ).fetchall()
-    return {row["id"]: supplement_temp_teams(row, conn) for row in rows}
+    matches = {}
+    for row in rows:
+        match = supplement_temp_teams(row, conn)
+        for side in (1, 2):
+            identity = match_side_identity(match, side)
+            if identity is None:
+                identity = match_side_identity(match, side, match_player_slots(conn, match, side))
+            match[f"_team{side}_identity"] = identity
+        matches[row["id"]] = match
+    return matches
 
 
 def _side_team_label(match, side):
@@ -1766,10 +1770,16 @@ def _event_player_teams(conn, event_id, matches):
         match = matches.get(record["match_id"])
         side = resolve_match_team_side(dict(record), match) if match else None
         label = _side_team_label(match, side) if side else None
-        if label:
-            found.setdefault(record["player_id"], set()).add(label)
+        identity = (
+            (match.get(f"_team{side[1]}_identity") or match_side_identity(match, int(side[1])))
+            if side
+            else None
+        )
+        if label and identity is not None:
+            found.setdefault(record["player_id"], {})[identity] = label
     return {
-        player_id: labels.pop() if len(labels) == 1 else None for player_id, labels in found.items()
+        player_id: next(iter(teams.values())) if len(teams) == 1 else None
+        for player_id, teams in found.items()
     }
 
 
@@ -1784,8 +1794,9 @@ def _event_team_rankings(matches):
             label = _side_team_label(match, side)
             if not label or label == "TBD":
                 continue
-            team_id = match.get(f"team{side[1]}_id")
-            key = ("team", team_id) if team_id and team_id > 0 else ("name", label.casefold())
+            key = match.get(f"_team{side[1]}_identity") or match_side_identity(match, int(side[1]))
+            if key is None:
+                continue
             entry = table.setdefault(
                 key,
                 {
@@ -1890,23 +1901,13 @@ def event_stats(event_id):
 
 
 def _event_team_count(conn, event_id):
-    """和赛事主页同一口径：统计该赛事未取消比赛里出现过的参赛方（正式队伍 + 自选选手组成的临时队伍）。"""
-    rows = conn.execute(
-        """SELECT team1_id, team2_id, team1_players, team2_players
-           FROM matches
-           WHERE event_id=? AND COALESCE(status, '') != 'cancelled'""",
-        (event_id,),
-    ).fetchall()
+    """Count the same participant identities used by event cards and rankings."""
     sides = set()
-    for row in rows:
-        for team_key, players_key in (("team1_id", "team1_players"), ("team2_id", "team2_players")):
-            if row[team_key]:
-                sides.add(("team", int(row[team_key])))
-                continue
-            try:
-                player_ids = json.loads(row[players_key] or "[]")
-            except (TypeError, ValueError):
-                player_ids = []
-            if isinstance(player_ids, list) and player_ids:
-                sides.add(("temp", frozenset(str(pid) for pid in player_ids)))
+    for match in _event_matches_with_teams(conn, event_id).values():
+        if match.get("status") == "cancelled":
+            continue
+        for side in (1, 2):
+            identity = match.get(f"_team{side}_identity")
+            if identity is not None:
+                sides.add(identity)
     return len(sides)

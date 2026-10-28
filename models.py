@@ -271,6 +271,8 @@ def _ensure_match_stats_data_version_columns(cursor):
         "data_source": "TEXT NOT NULL DEFAULT 'legacy'",
         "data_status": "TEXT NOT NULL DEFAULT 'final'",
         "data_version": "INTEGER NOT NULL DEFAULT 1",
+        "impact_method": "TEXT",
+        "rating_impact": "REAL",
     }
     for name, definition in additions.items():
         if name not in columns:
@@ -649,6 +651,8 @@ def _init_tables(conn):
         dpr REAL DEFAULT 0,
         rating REAL DEFAULT 0,
         impact REAL DEFAULT 0,
+        impact_method TEXT,
+        rating_impact REAL,
         kast REAL DEFAULT 0,
         headshot_percentage REAL DEFAULT 0,
         clutches_won INTEGER DEFAULT 0,

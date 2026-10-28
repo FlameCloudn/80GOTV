@@ -12,6 +12,7 @@ from werkzeug.security import generate_password_hash
 from config import BASE_DIR
 from services.bracket_service import refresh_bracket_for_match
 from services.live_service import update_unconfirmed_map_slots
+from services.match_roster_service import match_player_ids
 from services.match_service import score_predictions
 from services.performance_service import (
     build_demo_performance_payload,
@@ -37,6 +38,7 @@ from utils.match_utils import (
     get_demo_map_names,
     get_demo_upload_slot_count,
 )
+from utils.stats_calc import impact_calculation_metadata
 
 logger = logging.getLogger("80gotv")
 
@@ -267,14 +269,8 @@ def analyze_demo(conn, match, demo_path):
     ).fetchall()
     alias_player_ids = load_unique_player_alias_ids(conn)
 
-    t1_pids = [
-        int(value) for value in json.loads(match["team1_players"] or "[]") if str(value).isdigit()
-    ]
-    t2_pids = [
-        int(value) for value in json.loads(match["team2_players"] or "[]") if str(value).isdigit()
-    ]
-    t1_pids_ints = [int(p) for p in t1_pids]
-    t2_pids_ints = [int(p) for p in t2_pids]
+    t1_pids_ints = match_player_ids(conn, match, 1)
+    t2_pids_ints = match_player_ids(conn, match, 2)
 
     for stat in players:
         matched = None
@@ -449,16 +445,8 @@ def import_demo_data(conn, match_id, match, demo_data_str, map_slot):
     t1_key = _stored_team_id(match["team1_id"])
     t2_key = _stored_team_id(match["team2_id"])
 
-    t1_pids_set = set(
-        int(p)
-        for p in (json.loads(match["team1_players"]) if match["team1_players"] else [])
-        if str(p).isdigit()
-    )
-    t2_pids_set = set(
-        int(p)
-        for p in (json.loads(match["team2_players"]) if match["team2_players"] else [])
-        if str(p).isdigit()
-    )
+    t1_pids_set = match_player_ids(conn, match, 1)
+    t2_pids_set = match_player_ids(conn, match, 2)
 
     demo_a_db_ids = set()
     demo_b_db_ids = set()
@@ -673,6 +661,18 @@ def _infer_demo_team_order(
     if direct or reverse:
         return orientation(direct, reverse)
 
+    # 已有明确比赛阵容时，不能再用今天的长期队籍猜测方向。
+    if (
+        t1_pids_set
+        or t2_pids_set
+        or row_get(match, "roster_snapshot")
+        or row_get(match, "team1_registration_id")
+        or row_get(match, "team2_registration_id")
+        or row_get(match, "team1_players") not in (None, "")
+        or row_get(match, "team2_players") not in (None, "")
+    ):
+        return None
+
     db_by_id = {row["id"]: row for row in db_players}
     current_t1 = {
         pid for pid, row in db_by_id.items() if t1_key is not None and row["team_id"] == t1_key
@@ -702,6 +702,8 @@ def insert_match_stat(conn, match_id, player_id, team_id, match_team_side, stat,
         "dpr",
         "rating",
         "impact",
+        "impact_method",
+        "rating_impact",
         "kast",
         "headshot_percentage",
         "clutches_won",
@@ -749,8 +751,11 @@ def insert_match_stat(conn, match_id, player_id, team_id, match_team_side, stat,
         "data_status",
         "data_version",
     )
+    impact_method, rating_impact = impact_calculation_metadata(stat)
     stat_values = {
         **stat,
+        "impact_method": impact_method,
+        "rating_impact": rating_impact,
         "first_kills": stat.get("first_kill_count"),
         "first_deaths": stat.get("first_death_count"),
         "flash_count_recorded": int(stat.get("flash_count") is not None),
