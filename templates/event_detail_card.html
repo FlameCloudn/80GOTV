@@ -141,7 +141,7 @@
     <div class="bmp-players">
       <div class="bmp-col">
         {% if t1_pids %}
-          {% for p in t1_pids[:5] %}{{ player_row(p, 'left') }}{% endfor %}
+          {% for p in t1_pids[:5]|rating_desc %}{{ player_row(p, 'left') }}{% endfor %}
           {% for i in range(5 - (t1_pids[:5]|length)) %}<div class="bp-player-row"><span class="bp-player-avatar bp-avatar-tbd" aria-hidden="true"></span><span class="bp-player-name tbd">TBD</span><span class="bp-player-rating">-</span></div>{% endfor %}
         {% else %}
           {% for i in range(5) %}<div class="bp-player-row"><span class="bp-player-avatar bp-avatar-tbd" aria-hidden="true"></span><span class="bp-player-name tbd">TBD</span><span class="bp-player-rating">-</span></div>{% endfor %}
@@ -149,7 +149,7 @@
       </div>
       <div class="bmp-col">
         {% if t2_pids %}
-          {% for p in t2_pids[:5] %}{{ player_row(p, 'right') }}{% endfor %}
+          {% for p in t2_pids[:5]|rating_desc %}{{ player_row(p, 'right') }}{% endfor %}
           {% for i in range(5 - (t2_pids[:5]|length)) %}<div class="bp-player-row bp-player-row-right"><span class="bp-player-rating">-</span><span class="bp-player-name tbd">TBD</span><span class="bp-player-avatar bp-avatar-tbd" aria-hidden="true"></span></div>{% endfor %}
         {% else %}
           {% for i in range(5) %}<div class="bp-player-row bp-player-row-right"><span class="bp-player-rating">-</span><span class="bp-player-name tbd">TBD</span><span class="bp-player-avatar bp-avatar-tbd" aria-hidden="true"></span></div>{% endfor %}

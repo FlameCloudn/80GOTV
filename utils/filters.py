@@ -10,6 +10,7 @@ from utils.helpers import (
     map_display_name,
     map_display_name_cn,
     map_image_url,
+    row_get,
     team_abbr,
 )
 from utils.stats_display import optional_number
@@ -161,6 +162,16 @@ def rating_class_filter(value):
     if rating >= 0.95:
         return "rt-3"
     return "rt-1"
+
+
+def rating_desc_filter(players):
+    """Sort a display copy without changing the saved player slots."""
+
+    def sort_key(player):
+        rating = optional_number(row_get(player, "rating"))
+        return rating if rating is not None else float("-inf")
+
+    return sorted(players or [], key=sort_key, reverse=True)
 
 
 def registration_team_abbr_filter(value):

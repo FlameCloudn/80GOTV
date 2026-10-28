@@ -70,6 +70,7 @@ from utils.filters import (  # noqa: E402
     map_image_filter,
     map_pool_label_filter,
     rating_class_filter,
+    rating_desc_filter,
     registration_team_abbr_filter,
     relative_date_display_filter,
     time_display_filter,
@@ -89,6 +90,7 @@ app.template_filter("map_display")(map_display_filter)
 app.template_filter("map_display_cn")(map_display_cn_filter)
 app.template_filter("map_pool_label")(map_pool_label_filter)
 app.template_filter("rating_class")(rating_class_filter)
+app.template_filter("rating_desc")(rating_desc_filter)
 app.template_filter("registration_team_abbr")(registration_team_abbr_filter)
 app.template_filter("team_abbr")(team_abbr)
 app.template_filter("event_abbr")(event_abbr)
