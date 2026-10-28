@@ -122,9 +122,9 @@ def _prepare_player_row(match, map_name, rounds, side, player_id, previous, form
     ]
     changed = previous is None or any(row[key] != previous.get(key) for key in comparison)
     needs_final = previous is None or (previous.get("data_status") or "final") != "final"
-    if changed:
-        _apply_rating_edit(row, previous)
     if changed or needs_final:
+        # Preserve the original calculation method before changing provenance.
+        _apply_rating_edit(row, previous)
         row["data_source"] = "manual_review"
     row["data_status"] = "final"
     return row, changed or needs_final

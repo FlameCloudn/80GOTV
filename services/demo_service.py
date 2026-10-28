@@ -520,6 +520,14 @@ def import_demo_data(conn, match_id, match, demo_data_str, map_slot):
     if len(set(matched_ids)) != len(matched_ids):
         return None, "Demo 中有重复的网站选手对应关系，未导入数据"
 
+    # A confirmed 5v5 roster must survive whole-map replacement intact.
+    # Small legacy matches without a full roster retain their existing import path.
+    if len(t1_pids_set) == len(t2_pids_set) == 5 and len(t1_pids_set | t2_pids_set) == 10:
+        expected_a = t1_pids_set if a_to_t1 else t2_pids_set
+        expected_b = t2_pids_set if a_to_t1 else t1_pids_set
+        if demo_a_db_ids != expected_a or demo_b_db_ids != expected_b:
+            return None, "Demo 参赛名单与本场完整阵容不一致，已拒绝导入，原数据未修改"
+
     previous_version = conn.execute(
         """SELECT COALESCE(MAX(data_version), 0) AS version
            FROM match_stats WHERE match_id=? AND map_name=?""",
