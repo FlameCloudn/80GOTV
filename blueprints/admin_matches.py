@@ -414,7 +414,6 @@ def _match_form_response(conn, match=None, status=200):
             1: _match_roster_selected(conn, match, 1),
             2: _match_roster_selected(conn, match, 2),
         }
-    conn.close()
     # sqlite3.Row does not expose dict.get(); accept both a database row and
     # the submitted-form dict used when re-rendering validation errors.
     is_new_match = not match or ("_is_new_form" in match.keys() and bool(match["_is_new_form"]))
@@ -424,6 +423,29 @@ def _match_form_response(conn, match=None, status=200):
         match_setup_editable = _match_setup_editable(match)
     else:
         match_setup_editable = False
+    custom_side_labels = {}
+    if match:
+        match = dict(match)
+        team_names = {team["id"]: team["name"] for team in teams}
+        for side in (1, 2):
+            team_id = match.get(f"team{side}_id")
+            match[f"team{side}_id"] = int(team_id) if team_id is not None else None
+            match[f"team{side}_name"] = team_names.get(match[f"team{side}_id"])
+        match = supplement_temp_teams(match, conn)
+        for side in (1, 2):
+            selected = match_roster_selected.get(side, [])
+            if not match_setup_editable and not is_new_match:
+                if side == 1:
+                    team1_player_ids = selected
+                else:
+                    team2_player_ids = selected
+            if (
+                match[f"team{side}_name"] == "TBD"
+                and not team_names.get(match[f"team{side}_id"])
+                and any(selected)
+            ):
+                custom_side_labels[side] = "自选阵容 A" if side == 1 else "自选阵容 B"
+    conn.close()
     return render_template(
         "admin/matches_form.html",
         match=match,
@@ -436,6 +458,7 @@ def _match_form_response(conn, match=None, status=200):
         match_roster_options=match_roster_options,
         match_roster_selected=match_roster_selected,
         match_setup_editable=match_setup_editable,
+        custom_side_labels=custom_side_labels,
     ), status
 
 

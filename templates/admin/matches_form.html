@@ -5,6 +5,9 @@
 <a href="{{ url_for('admin.admin_matches') }}" class="back-link">← 返回比赛管理</a>
 {% set current_status = match.status if not is_new_match and match else 'upcoming' %}
 {% set setup_editable = is_new_match or match_setup_editable %}
+{% macro side_name(side) -%}
+  {% if side in custom_side_labels %}<span data-i18n-translate>{{ custom_side_labels[side] }}</span>{% else %}<span data-i18n-ignore>{{ match['team' ~ side ~ '_name'] or 'TBD' }}</span>{% endif %}
+{%- endmacro %}
 {% set map_choices = [
   ('de_mirage', 'Mirage (荒漠迷城)'), ('de_dust2', 'Dust2 (炙热沙城 II)'), ('de_inferno', 'Inferno (炼狱小镇)'),
   ('de_nuke', 'Nuke (核子危机)'), ('de_ancient', 'Ancient (远古遗迹)'), ('de_anubis', 'Anubis (阿努比斯)'),
@@ -53,7 +56,7 @@
       {% if current_status in ('live', 'ongoing', 'completed') %}
       {% set score_left, score_right = match_opponents(match) %}
       <div class="score-callout">
-        <span>直播记录比分： <b><span data-i18n-ignore>{{ score_left.name }}</span> {{ score_left.score if score_left.score is not none else '-' }} : {{ score_right.score if score_right.score is not none else '-' }} <span data-i18n-ignore>{{ score_right.name }}</span></b></span>
+        <span>直播记录比分： <b>{{ side_name(score_left.number) }} {{ score_left.score if score_left.score is not none else '-' }} : {{ score_right.score if score_right.score is not none else '-' }} {{ side_name(score_right.number) }}</b></span>
       </div>
       {% endif %}
     </div>
@@ -178,12 +181,12 @@
             {% set side_ids = team1_player_ids if side == '1' else team2_player_ids %}
             {% if side == '2' %}<div class="vs-divider" data-i18n-ignore>VS</div>{% endif %}
             <div class="field-section">
-              <h3 data-i18n-ignore>{{ (match.team1_name if side == '1' else match.team2_name) or 'TBD' }}</h3>
+              <h3>{{ side_name(side|int) }}</h3>
               <div class="readonly-teams" data-i18n-ignore>
                 {% if side_ids %}
                   {% for pid in side_ids %}{% for p in all_players %}{% if p.id|string == pid|string %}<span class="player-tag">{{ p.nickname }}</span>{% endif %}{% endfor %}{% endfor %}
                 {% else %}
-                  <span class="player-tag">{{ (match.team1_name if side == '1' else match.team2_name) or '未设置' }}</span>
+                  <span class="player-tag">{{ side_name(side|int) }}</span>
                 {% endif %}
               </div>
             </div>
@@ -261,7 +264,7 @@
           {% set side_options = match_roster_options.get(side, []) %}
           {% set side_selected = match_roster_selected.get(side, []) %}
           <div class="field-section">
-            <h3><span data-i18n-ignore>{{ match['team' ~ side ~ '_name'] if match and match['team' ~ side ~ '_name'] else 'TBD' }}</span> 出场名单 (5 人)</h3>
+            <h3>{{ side_name(side) if match else 'TBD' }} 出场名单 (5 人)</h3>
             {% if side_options %}
             <div class="roster-slots">
               {% for slot in range(5) %}

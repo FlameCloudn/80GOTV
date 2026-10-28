@@ -53,7 +53,7 @@
             {% if m.is_test_mode %}<span class="test-badge">测试</span>{% endif %}
             <span class="cell-sub" data-i18n-ignore>{{ m.event_name or '-' }}{% if m.bo_format %} · {{ m.bo_format }}{% endif %}</span>
           </td>
-          <td class="num nowrap"><b>{{ m.team1_score if m.team1_score is not none else '-' }} : {{ m.team2_score if m.team2_score is not none else '-' }}</b></td>
+          <td class="num nowrap"><b>{{ left_team.score if left_team.score is not none else '-' }} : {{ right_team.score if right_team.score is not none else '-' }}</b></td>
           <td class="nowrap cell-datetime">{{ m.match_time|datetime_display }}</td>
           <td>
             {% if m.effective_status == 'upcoming' %}<span class="badge badge-upcoming">未开始</span>
