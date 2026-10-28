@@ -20,6 +20,11 @@ from services.bracket_service import (
 )
 from services.demo_service import analyze_demo, import_demo_data
 from services.live_log_service import persist_live_match_events
+from services.manual_stats_service import (
+    prepare_manual_map_rows,
+    stats_editor_players,
+    write_manual_map_revision,
+)
 from services.match_roster_service import (
     freeze_match_roster,
     match_player_slots,
@@ -40,7 +45,6 @@ from utils.helpers import (
     row_get,
 )
 from utils.match_utils import get_demo_upload_slot_count, get_sql_effective_status
-from utils.stats_calc import calculate_rating
 from utils.web_helpers import admin_required as login_required
 from utils.web_helpers import csrf_required, hash_bp_password
 
@@ -1202,6 +1206,9 @@ def admin_match_reopen(match_id):
 @login_required
 def admin_match_stats(match_id):
     conn = get_db()
+    if request.method == "POST":
+        # 取得写锁后再读取状态、阵容和统计，避免保存期间读到旧状态。
+        conn.execute("BEGIN IMMEDIATE")
     match = conn.execute(
         """SELECT m.*, t1.name AS team1_name, t2.name AS team2_name,
         e.name AS event_name, e.short_name AS event_short_name
@@ -1214,16 +1221,8 @@ def admin_match_stats(match_id):
         return "比赛不存在", 404
     match = supplement_temp_teams(match, conn)
 
-    # 队伍选手
-    def _get_players(players_json, team_id):
-        if players_json:
-            pids = json.loads(players_json)
-            ph = ",".join("?" * len(pids))
-            return conn.execute(f"SELECT * FROM players WHERE id IN ({ph})", pids).fetchall()
-        return conn.execute("SELECT * FROM players WHERE team_id=?", (team_id,)).fetchall()
-
-    team1_players = _get_players(match["team1_players"], match["team1_id"])
-    team2_players = _get_players(match["team2_players"], match["team2_id"])
+    team1_players = stats_editor_players(conn, match, 1)
+    team2_players = stats_editor_players(conn, match, 2)
 
     existing_stats = conn.execute(
         """SELECT * FROM match_stats
@@ -1279,7 +1278,6 @@ def admin_match_stats(match_id):
             conn.close()
             return redirect(url_for("admin.admin_match_stats", match_id=match_id))
         map_name = request.form.get("map_name", "")
-        conn.execute("BEGIN TRANSACTION")
         try:
             affected_player_ids = {
                 row["player_id"]
@@ -1293,17 +1291,6 @@ def admin_match_stats(match_id):
             }
             if not map_name or map_name not in [name for name in map_names if name]:
                 raise ValueError("请选择本场已有地图")
-            previous_version = conn.execute(
-                """SELECT COALESCE(MAX(data_version), 0) AS version
-                   FROM match_stats WHERE match_id=? AND map_name=?""",
-                (match_id, map_name),
-            ).fetchone()["version"]
-            conn.execute(
-                """UPDATE match_stats SET data_status='superseded'
-                   WHERE match_id=? AND map_name=?
-                     AND COALESCE(data_status, 'final') <> 'superseded'""",
-                (match_id, map_name),
-            )
             rounds = 0
             for mn, t1, t2 in [
                 (match["map1"], match["map1_t1"], match["map1_t2"]),
@@ -1317,58 +1304,17 @@ def admin_match_stats(match_id):
                     break
             if rounds <= 0:
                 raise ValueError("该地图比分尚未确认，不能按旧的 30 回合默认值保存")
-            team1_player_ids = {p["id"] for p in team1_players}
-            for p in list(team1_players) + list(team2_players):
-                pid = p["id"]
-                kills = int(request.form.get(f"kills_{pid}", 0) or 0)
-                deaths = int(request.form.get(f"deaths_{pid}", 0) or 0)
-                assists = int(request.form.get(f"assists_{pid}", 0) or 0)
-                adr = float(request.form.get(f"adr_{pid}", 0) or 0)
-                kast = float(request.form.get(f"kast_{pid}", 0) or 0)
-                hs = float(request.form.get(f"hs_{pid}", 0) or 0)
-                impact = float(request.form.get(f"impact_{pid}", 0) or 0)
-                team_id = int(request.form.get(f"team_id_{pid}", 0) or 0)
-                stored_team_id = team_id if team_id > 0 else None
-                match_team_side = "t1" if pid in team1_player_ids else "t2"
-                rating, kpr, dpr = calculate_rating(
-                    kills=kills,
-                    deaths=deaths,
-                    rounds_played=rounds,
-                    adr=adr,
-                    kast=kast,
-                    impact=impact if impact else 0,
-                )
-                conn.execute(
-                    """INSERT INTO match_stats(
-                           match_id, player_id, team_id, match_team_side,
-                           kills, deaths, assists,
-                           adr, kpr, dpr, rating, impact, kast,
-                           headshot_percentage, rounds_played, map_name,
-                           data_source, data_status, data_version
-                       ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                    (
-                        match_id,
-                        pid,
-                        stored_team_id,
-                        match_team_side,
-                        kills,
-                        deaths,
-                        assists,
-                        adr,
-                        kpr,
-                        dpr,
-                        rating,
-                        impact,
-                        kast,
-                        hs,
-                        rounds,
-                        map_name,
-                        "manual_review",
-                        "final",
-                        int(previous_version or 0) + 1,
-                    ),
-                )
-                affected_player_ids.add(pid)
+            rows, changed = prepare_manual_map_rows(
+                match,
+                map_name,
+                rounds,
+                {1: team1_players, 2: team2_players},
+                [row for row in existing_stats if row["map_name"] == map_name],
+                request.form,
+            )
+            if changed:
+                write_manual_map_revision(conn, match_id, map_name, rows)
+            affected_player_ids.update(row["player_id"] for row in rows)
             refresh_player_performance(conn, affected_player_ids)
             conn.commit()
             flash(f"{map_name} 数据已保存", "success")

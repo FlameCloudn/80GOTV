@@ -17,14 +17,14 @@
           <input type="hidden" name="player_id_{{ p.id }}" value="{{ p.id }}">
           <input type="hidden" name="team_id_{{ p.id }}" value="{{ team_id if team_id else fallback_team_id }}">
         </td>
-        <td class="num"><input type="number" name="kills_{{ p.id }}" value="{{ s.kills if s else 0 }}" min="0" aria-label="K" {% if readonly %}readonly{% endif %}></td>
-        <td class="num"><input type="number" name="deaths_{{ p.id }}" value="{{ s.deaths if s else 0 }}" min="0" aria-label="D" {% if readonly %}readonly{% endif %}></td>
-        <td class="num"><input type="number" name="assists_{{ p.id }}" value="{{ s.assists if s else 0 }}" min="0" aria-label="A" {% if readonly %}readonly{% endif %}></td>
-        <td class="num"><input type="number" step="0.1" name="adr_{{ p.id }}" value="{{ s.adr if s else 0 }}" min="0" aria-label="ADR" {% if readonly %}readonly{% endif %}></td>
-        <td class="num"><input type="number" step="0.01" name="impact_{{ p.id }}" value="{{ s.impact if s else 0 }}" min="0" aria-label="Impact" {% if readonly %}readonly{% endif %}></td>
-        <td class="num"><input type="number" step="0.01" name="rating_{{ p.id }}" value="{{ s.rating if s else 1.0 }}" min="0" aria-label="RATING" readonly></td>
-        <td class="num"><input type="number" step="0.1" name="kast_{{ p.id }}" value="{{ s.kast if s else 70 }}" min="0" max="100" aria-label="KAST%" {% if readonly %}readonly{% endif %}></td>
-        <td class="num"><input type="number" step="0.1" name="hs_{{ p.id }}" value="{{ s.headshot_percentage if s else 50 }}" min="0" max="100" aria-label="HS%" {% if readonly %}readonly{% endif %}></td>
+        <td class="num"><input type="number" name="kills_{{ p.id }}" value="{{ (s.kills if s.kills is not none else '') if s else 0 }}" min="0" aria-label="K" {% if readonly %}readonly{% endif %}></td>
+        <td class="num"><input type="number" name="deaths_{{ p.id }}" value="{{ (s.deaths if s.deaths is not none else '') if s else 0 }}" min="0" aria-label="D" {% if readonly %}readonly{% endif %}></td>
+        <td class="num"><input type="number" name="assists_{{ p.id }}" value="{{ (s.assists if s.assists is not none else '') if s else 0 }}" min="0" aria-label="A" {% if readonly %}readonly{% endif %}></td>
+        <td class="num"><input type="number" step="0.1" name="adr_{{ p.id }}" value="{{ (s.adr if s.adr is not none else '') if s else 0 }}" min="0" aria-label="ADR" {% if readonly %}readonly{% endif %}></td>
+        <td class="num"><input type="number" step="0.01" name="impact_{{ p.id }}" value="{{ (s.impact if s.impact is not none else '') if s else 0 }}" min="0" aria-label="Impact" {% if readonly %}readonly{% endif %}></td>
+        <td class="num"><input type="number" step="0.01" name="rating_{{ p.id }}" value="{{ (s.rating if s.rating is not none else '') if s else 1.0 }}" min="0" aria-label="RATING" readonly></td>
+        <td class="num"><input type="number" step="0.1" name="kast_{{ p.id }}" value="{{ (s.kast if s.kast is not none else '') if s else 70 }}" min="0" max="100" aria-label="KAST%" {% if readonly %}readonly{% endif %}></td>
+        <td class="num"><input type="number" step="0.1" name="hs_{{ p.id }}" value="{{ (s.headshot_percentage if s.headshot_percentage is not none else '') if s else 50 }}" min="0" max="100" aria-label="HS%" {% if readonly %}readonly{% endif %}></td>
       </tr>
       {% endfor %}
     </tbody>

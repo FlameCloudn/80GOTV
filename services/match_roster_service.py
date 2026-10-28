@@ -123,6 +123,40 @@ def frozen_match_teams(match):
     return teams
 
 
+def match_side_identity(match, side, players=None):
+    """优先报名身份和正式队伍 ID；旧临时队按成员身份区分，不使用队名或槽位号。"""
+    frozen = frozen_match_teams(match)
+    recorded = frozen[str(side)] if frozen else {}
+    registration_id = _player_id(recorded.get("registration_id")) or _player_id(
+        row_get(match, f"team{side}_registration_id")
+    )
+    if registration_id:
+        return ("registration", registration_id)
+    team_id = _player_id(recorded.get("team_id")) or _player_id(row_get(match, f"team{side}_id"))
+    if team_id:
+        return ("team", team_id)
+    members = recorded.get("players") if frozen else None
+    if not members:
+        members = players if players is not None else _selected_ids(match, side)
+    identities = set()
+    for member in members or []:
+        player_id = _player_id(member.get("id")) if isinstance(member, dict) else _player_id(member)
+        if player_id:
+            identities.add(("player", str(player_id)))
+        elif isinstance(member, dict) and str(member.get("steam_id") or "").strip():
+            identities.add(("steam", str(member["steam_id"]).strip()))
+    return ("roster", tuple(sorted(identities))) if identities else None
+
+
+def match_player_ids(conn, match, side):
+    """读取有效参赛者，不把直播五人名单限制强加到旧比赛上。"""
+    return {
+        player_id
+        for player in match_player_slots(conn, match, side)
+        if (player_id := _player_id(player.get("id"))) is not None
+    }
+
+
 def _historical_player_slots(conn, match, side):
     rows = conn.execute(
         """SELECT player_id,team_id,LOWER(TRIM(match_team_side)) AS match_side

@@ -37,6 +37,33 @@ def non_negative_impact(value):
     return max(0.0, float(value))
 
 
+def impact_calculation_metadata(stat):
+    """保存 Rating 实际使用的 Impact，和最低为零的显示值分开。
+
+    旧导入记录仅在来源与显示值都符合回归公式时补认计算口径，手工 Impact 不重解释。
+    """
+    stat = dict(stat)
+    method = stat.get("impact_method")
+    raw = stat.get("rating_impact")
+    estimate = estimate_hltv2_impact(
+        stat.get("kills"), stat.get("assists"), stat.get("rounds_played")
+    )
+    if method == HLTV2_ESTIMATE_METHOD:
+        return method, raw if raw is not None else estimate
+    if method == "manual":
+        return method, raw if raw is not None else stat.get("impact")
+    source = stat.get("_data_source") or stat.get("data_source")
+    displayed = stat.get("impact")
+    if source in {"demo", "demo_review", "director_final", "director_live", "gotv_relay"}:
+        if (
+            estimate is not None
+            and displayed is not None
+            and math.isclose(float(displayed), max(0.0, estimate), rel_tol=0, abs_tol=0.005001)
+        ):
+            return HLTV2_ESTIMATE_METHOD, estimate
+    return "manual", displayed
+
+
 def calculate_rating(kills, deaths, rounds_played, adr=None, kast=None, impact=None):
     """
     计算与 CSDA 同口径的 Rating 2.0 回归近似，非 HLTV 官方精确公式。

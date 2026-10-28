@@ -264,7 +264,7 @@
           {% set side_options = match_roster_options.get(side, []) %}
           {% set side_selected = match_roster_selected.get(side, []) %}
           <div class="field-section">
-            <h3>{{ side_name(side) if match else 'TBD' }} 出场名单 (5 人)</h3>
+            <h3>{% if match %}{{ side_name(side) }}{% else %}<span data-i18n-ignore>TBD</span>{% endif %} <span data-i18n-translate>出场名单 (5 人)</span></h3>
             {% if side_options %}
             <div class="roster-slots">
               {% for slot in range(5) %}
