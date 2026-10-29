@@ -3,8 +3,10 @@
 
 - Rating 的平均就是 1.00；其余几项用全站所有地图数据的平均值（按回合数加权）。
 - DPR 越低越好，所以倒过来比：平均 DPR ÷ 选手 DPR，条越长还是越好。
-- 全场选手共用一把尺子：尺子长度 = 全场最高的比值（限制在 1.4 ~ 2.0 之间），平均线的位置随之确定。
+- 全场选手共用一把尺子：根据本场最高比值伸展，平均线的位置随之确定。
 """
+
+import math
 
 from services.performance_service import weighted_average_sql, weighted_rate_sql
 from utils.stats_display import optional_number
@@ -24,7 +26,6 @@ PERF_METRICS = (
 )
 
 SCALE_MIN = 1.4
-SCALE_MAX = 2.0
 
 
 def load_metric_averages(conn):
@@ -56,7 +57,7 @@ def _ratio(value, average, higher_better):
         return None
     if higher_better:
         return value / average
-    return average / value if value > 0 else SCALE_MAX
+    return average / value if value > 0 else math.inf
 
 
 def _tier(ratio):
@@ -94,10 +95,17 @@ def build_perf_overview(rows, averages):
     """给每名选手挂上 perf_bars（7 根条），返回平均线在尺子上的位置（0~1）。"""
     per_row = [(row, _metric_items(row, averages)) for row in rows]
     highest = max(
-        (item[2] for _, items in per_row for item in items if item[2] is not None),
+        (
+            item[2]
+            for _, items in per_row
+            for item in items
+            if item[2] is not None and math.isfinite(item[2])
+        ),
         default=SCALE_MIN,
     )
-    scale = min(SCALE_MAX, max(SCALE_MIN, highest))
+    scale = max(SCALE_MIN, highest)
+    if any(item[2] == math.inf for _, items in per_row for item in items):
+        scale *= 1.05
     for row, items in per_row:
         row["perf_bars"] = [
             {

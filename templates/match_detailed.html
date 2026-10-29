@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% from '_match_stat_value.html' import stat_value %}
 {% set opponents = match_opponents(match) %}
 {% set left_team, right_team = opponents %}
 {% set left_summary, right_summary = summary[left_team.side], summary[right_team.side] %}
@@ -58,24 +59,24 @@
       </thead>
       <tbody>
         {% for p in rows %}
-        <tr>
+        <tr data-side-values="{{ p.side_views|tojson|forceescape }}">
           <td>
             <a class="cell-entity dense-player" href="/players/{{ p.player_id }}">
               {{ player_avatar(p) }}
               <b data-i18n-ignore>{{ private_name_for_player(p.player_id, p.nickname) }}</b>
             </a>
           </td>
-          <td class="num" data-val="{{ p.opening_diff if p.opening_diff is not none else '' }}">{{ metric(p.first_kills) }} : {{ metric(p.first_deaths) }}</td>
-          <td class="num" data-val="{{ p.maps }}">{{ p.maps }}</td>
-          <td class="num" data-val="{{ p.kast if p.kast is not none else '' }}">{{ metric(p.kast, 1, '%') }}</td>
-          <td class="num" data-val="{{ p.clutches_won if p.clutches_won is not none else '' }}">{{ metric(p.clutches_won) }}</td>
-          <td class="num" data-val="{{ p.kills if p.kills is not none else '' }}">{{ metric(p.kills) }} <small>({{ metric(p.headshot_kills) }})</small></td>
-          <td class="num" data-val="{{ p.assists if p.assists is not none else '' }}">{{ metric(p.assists) }} <small>({{ metric(p.enemies_flashed) }})</small></td>
-          <td class="num" data-val="{{ p.deaths if p.deaths is not none else '' }}">{{ metric(p.deaths) }} <small>({{ metric(p.trade_deaths) }})</small></td>
+          <td class="num" data-stat-sort="opening_diff" data-val="{{ p.opening_diff if p.opening_diff is not none else '' }}">{{ stat_value('first_kills', p.first_kills) }} : {{ stat_value('first_deaths', p.first_deaths) }}</td>
+          <td class="num" data-stat-sort="maps" data-val="{{ p.maps }}">{{ stat_value('maps', p.maps) }}</td>
+          <td class="num" data-stat-sort="kast" data-val="{{ p.kast if p.kast is not none else '' }}">{{ stat_value('kast', p.kast, 1, '%') }}</td>
+          <td class="num" data-stat-sort="clutches_won" data-val="{{ p.clutches_won if p.clutches_won is not none else '' }}">{{ stat_value('clutches_won', p.clutches_won) }}</td>
+          <td class="num" data-stat-sort="kills" data-val="{{ p.kills if p.kills is not none else '' }}">{{ stat_value('kills', p.kills) }} <small>({{ stat_value('headshot_kills', p.headshot_kills) }})</small></td>
+          <td class="num" data-stat-sort="assists" data-val="{{ p.assists if p.assists is not none else '' }}">{{ stat_value('assists', p.assists) }} <small>({{ stat_value('enemies_flashed', p.enemies_flashed) }})</small></td>
+          <td class="num" data-stat-sort="deaths" data-val="{{ p.deaths if p.deaths is not none else '' }}">{{ stat_value('deaths', p.deaths) }} <small>({{ stat_value('trade_deaths', p.trade_deaths) }})</small></td>
           <td class="num md-col-overall" data-val="{{ p.adr if p.adr is not none else '' }}">{{ metric(p.adr, 1) }}</td>
           <td class="num md-col-t" data-val="{{ p.t_adr if p.t_adr is not none else '' }}">{{ metric(p.t_adr, 1) }}</td>
           <td class="num md-col-ct" data-val="{{ p.ct_adr if p.ct_adr is not none else '' }}">{{ metric(p.ct_adr, 1) }}</td>
-          <td class="num" data-val="{{ p.rws if p.rws is not none else '' }}">{{ metric(p.rws, 2) }}</td>
+          <td class="num" data-stat-sort="rws" data-val="{{ p.rws if p.rws is not none else '' }}">{{ stat_value('rws', p.rws, 2) }}</td>
           <td class="num rt-cell md-col-overall" data-val="{{ p.rating if p.rating is not none else '' }}"><b>{{ metric(p.rating, 2) }}</b></td>
           <td class="num rt-cell md-col-t" data-val="{{ p.t_rating if p.t_rating is not none else '' }}"><b>{{ metric(p.t_rating, 2) }}</b></td>
           <td class="num rt-cell md-col-ct" data-val="{{ p.ct_rating if p.ct_rating is not none else '' }}"><b>{{ metric(p.ct_rating, 2) }}</b></td>
@@ -145,7 +146,7 @@
 </article>
 {% endmacro %}
 
-{#- 评分条：条宽 = 评分 ÷ 1.6，竖线是 1.00；颜色区分两队 -#}
+{#- 评分条共用当前地图的刻度，竖线始终代表 1.00。 -#}
 {% macro rating_chart(rows) %}
 <div class="match-detailed-rating-area">
   {% for p in rows %}
@@ -159,7 +160,7 @@
   {% endfor %}
 </div>
 {% if rows %}
-<div class="match-detailed-rating-scale" aria-hidden="true"><span>0.00</span><span>0.50</span><span>1.00</span><span>1.60</span></div>
+<div class="match-detailed-rating-scale" aria-hidden="true"><span>0.00</span><span>0.50</span><span>1.00</span><span>{{ metric(rating_scale.maximum, 2) }}</span></div>
 <div class="match-detailed-rating-labels"><span>偏低</span><span>平均</span><span>优秀</span></div>
 {% endif %}
 {% endmacro %}
@@ -171,7 +172,7 @@
 {% endmacro %}
 
 {% block main %}
-<section class="panel match-detailed-page match-stats-page" data-current-tab="{{ selected_tab }}">
+<section class="panel match-detailed-page match-stats-page" data-current-tab="{{ selected_tab }}" style="--rating-average:{{ rating_scale.average_pct }}%;--rating-half:{{ rating_scale.half_pct }}%;--rating-excellent:{{ rating_scale.excellent_pct }}%">
   <div class="tabs match-stats-tabs" role="tablist" aria-label="比赛数据">
     <button class="tab match-stats-tab{% if selected_tab == 'overview' %} active{% endif %}" type="button" role="tab" aria-selected="{{ 'true' if selected_tab == 'overview' else 'false' }}" data-detailed-tab="overview" onclick="switchDetailedStatsTab('overview')">总览</button>
     <button class="tab match-stats-tab{% if selected_tab == 'performance' %} active{% endif %}" type="button" role="tab" aria-selected="{{ 'true' if selected_tab == 'performance' else 'false' }}" data-detailed-tab="performance" onclick="switchDetailedStatsTab('performance')">表现</button>
@@ -354,6 +355,7 @@
   </div>
 </section>
 
+<script src="{{ versioned_url('static/js/match_stats_views.js') }}"></script>
 <script>
 function switchDetailedStatsTab(name) {
   var root = document.querySelector('.match-detailed-page');
@@ -380,6 +382,7 @@ function syncDetailedMapLinks(name) {
 function switchDetailedSide(side) {
   var root = document.querySelector('.match-detailed-page');
   if (!root) return;
+  window.updateMatchStatsSide(root, side);
   root.classList.toggle('match-detailed-side-t', side === 't');
   root.classList.toggle('match-detailed-side-ct', side === 'ct');
   document.querySelectorAll('.match-detailed-side-tabs button').forEach(function(btn) {

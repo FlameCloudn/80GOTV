@@ -162,6 +162,19 @@ hr { height: 1px; margin: var(--space-lg) 0; border: 0; background: var(--border
 }
 
 .logo:hover { color: var(--text-primary); }
+
+/* 左上角“80GOTV”全站统一用这个字体（以前只有首页用，导致切换页面时标志变样） */
+@font-face {
+  font-family: 'CS2';
+  src: url('/resources/fonts/TestTiemposText-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+.navbar .logo > span {
+  font-family: 'CS2', var(--site-font-family);
+  font-weight: 400;
+}
 .site-logo-mark { width: 28px; height: 28px; border-radius: var(--radius-sm); }
 
 /* 电脑上抽屉容器不占位置，里面的导航和工具直接排在顶栏里 */

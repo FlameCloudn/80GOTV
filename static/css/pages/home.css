@@ -1,17 +1,4 @@
-/* 首页：左侧排行 / 中间新闻 / 右侧比赛与动态 */
-@font-face {
-  font-family: 'CS2';
-  src: url('/resources/fonts/TestTiemposText-Regular.otf') format('opentype');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-.navbar .logo > span {
-  font-family: 'CS2', var(--site-font-family);
-  font-weight: 400;
-}
-
+/* 首页：左侧排行 / 中间新闻 / 右侧比赛与动态（顶栏标志跟其他页面一致，不在这里单独换字体） */
 .home-grid {
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr) 240px;

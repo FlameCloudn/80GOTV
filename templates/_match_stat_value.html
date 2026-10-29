@@ -1,0 +1,3 @@
+{% macro stat_value(key, value, digits=0, suffix='') -%}
+<span data-stat="{{ key }}" data-digits="{{ digits }}" data-suffix="{{ suffix }}">{{ (('%.' ~ digits ~ 'f')|format(value)) ~ suffix if value is not none else '-' }}</span>
+{%- endmacro %}

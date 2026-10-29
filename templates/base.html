@@ -1,8 +1,8 @@
 {% from "_user_badges.html" import cheater_badge %}
-{#- 当前页面属于顶栏哪个入口：按网址第一段判断，用来给入口加“当前页”标记 -#}
+{#- 当前页面属于顶栏哪个入口：按网址第一段判断，用来给入口加“当前页”标记；首页不属于任何入口，不画蓝线 -#}
 {%- set _nav_seg = request.path.strip('/').split('/')[0] -%}
 {%- set nav_section = {
-  '': 'news', 'news': 'news', 'matches': 'matches', 'bp': 'matches', 'results': 'results',
+  'news': 'news', 'matches': 'matches', 'bp': 'matches', 'results': 'results',
   'events': 'events', 'players': 'players', 'teams': 'players', 'stats': 'stats', 'awards': 'stats',
   'predictions': 'predictions', 'games': 'games', 'guess-player': 'games', 'map-quiz': 'games',
   'player-bingo': 'games', 'dashboard': 'dashboard', 'forum': 'forum'

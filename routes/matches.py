@@ -2,6 +2,7 @@
 
 import calendar
 import json
+import math
 from collections import defaultdict
 from datetime import datetime, timedelta
 
@@ -424,7 +425,11 @@ def _render_match_detail(match_id):
         if idx >= max_maps:
             break
         # 未开始的系列赛也要按 BO 数量完整显示地图槽位。
-        all_for_map = [s for s in stats if s["map_name"] == mn] if mn else []
+        all_for_map = (
+            [s for s in stats if normalize_map_key(s["map_name"]) == normalize_map_key(mn)]
+            if mn
+            else []
+        )
         t1s = _display_rows_from_raw(
             [s for s in all_for_map if _stat_belongs_to_match_side(s, "t1", t1_key)],
             "t1",
@@ -456,199 +461,19 @@ def _render_match_detail(match_id):
             }
         )
 
-    # 总览：按选手聚合（只统计归属明确的记录，防止串队）
-    from collections import defaultdict
-
-    team1_agg = defaultdict(
-        lambda: {
-            "kills": 0,
-            "deaths": 0,
-            "assists": 0,
-            "adr": 0,
-            "rating": 0,
-            "kast": 0,
-            "hs": 0,
-            "impact": 0,
-            "kpr": 0,
-            "dpr": 0,
-            "rounds_played": 0,
-            "first_kills": 0,
-            "first_deaths": 0,
-            "clutches_won": 0,
-            "multi2k": 0,
-            "multi3k": 0,
-            "multi4k": 0,
-            "multi5k": 0,
-            "trade_kills": 0,
-            "trade_deaths": 0,
-            "utility_damage": 0,
-            "enemies_flashed": 0,
-            "mvp_count": 0,
-            "t_rating": 0,
-            "ct_rating": 0,
-            "t_kills": 0,
-            "ct_kills": 0,
-            "t_deaths": 0,
-            "ct_deaths": 0,
-            "t_adr": 0,
-            "ct_adr": 0,
-            "maps": 0,
-            "t_maps": 0,
-            "ct_maps": 0,
-        }
+    # Match and detailed views must use the same missing-value and side rules.
+    overall_t1 = _aggregate_match_rows(
+        [row for row in stats if _stat_belongs_to_match_side(row, "t1", t1_key)],
+        "t1",
+        match["t1s"],
+        match["team1_name"],
     )
-    team2_agg = defaultdict(
-        lambda: {
-            "kills": 0,
-            "deaths": 0,
-            "assists": 0,
-            "adr": 0,
-            "rating": 0,
-            "kast": 0,
-            "hs": 0,
-            "impact": 0,
-            "kpr": 0,
-            "dpr": 0,
-            "rounds_played": 0,
-            "first_kills": 0,
-            "first_deaths": 0,
-            "clutches_won": 0,
-            "multi2k": 0,
-            "multi3k": 0,
-            "multi4k": 0,
-            "multi5k": 0,
-            "trade_kills": 0,
-            "trade_deaths": 0,
-            "utility_damage": 0,
-            "enemies_flashed": 0,
-            "mvp_count": 0,
-            "t_rating": 0,
-            "ct_rating": 0,
-            "t_kills": 0,
-            "ct_kills": 0,
-            "t_deaths": 0,
-            "ct_deaths": 0,
-            "t_adr": 0,
-            "ct_adr": 0,
-            "maps": 0,
-            "t_maps": 0,
-            "ct_maps": 0,
-        }
+    overall_t2 = _aggregate_match_rows(
+        [row for row in stats if _stat_belongs_to_match_side(row, "t2", t2_key)],
+        "t2",
+        match["t2s"],
+        match["team2_name"],
     )
-
-    for s in stats:
-        if _stat_belongs_to_match_side(s, "t1", t1_key):
-            agg = team1_agg
-        elif _stat_belongs_to_match_side(s, "t2", t2_key):
-            agg = team2_agg
-        else:
-            continue
-        pid = s["player_id"]
-        agg[pid]["kills"] += s["kills"] or 0
-        agg[pid]["deaths"] += s["deaths"] or 0
-        agg[pid]["assists"] += s["assists"] or 0
-        map_rounds = max(1, int(row_get(s, "rounds_played", 0) or 0))
-        agg[pid]["adr"] += (s["adr"] or 0) * map_rounds
-        agg[pid]["rating"] += (s["rating"] or 0) * map_rounds
-        agg[pid]["kast"] += (s["kast"] or 0) * map_rounds
-        agg[pid]["hs"] += (s["headshot_percentage"] or 0) * max(1, int(s["kills"] or 0))
-        agg[pid]["impact"] += (s["impact"] or 0) * map_rounds
-        agg[pid]["kpr"] += (row_get(s, "kpr", 0) or 0) * map_rounds
-        agg[pid]["dpr"] += (row_get(s, "dpr", 0) or 0) * map_rounds
-        agg[pid]["rounds_played"] += row_get(s, "rounds_played", 0) or 0
-        agg[pid]["first_kills"] += row_get(s, "first_kills", 0) or 0
-        agg[pid]["first_deaths"] += row_get(s, "first_deaths", 0) or 0
-        agg[pid]["clutches_won"] += row_get(s, "clutches_won", 0) or 0
-        agg[pid]["multi2k"] += row_get(s, "multi2k", 0) or 0
-        agg[pid]["multi3k"] += row_get(s, "multi3k", 0) or 0
-        agg[pid]["multi4k"] += row_get(s, "multi4k", 0) or 0
-        agg[pid]["multi5k"] += row_get(s, "multi5k", 0) or 0
-        agg[pid]["trade_kills"] += row_get(s, "trade_kills", 0) or 0
-        agg[pid]["trade_deaths"] += row_get(s, "trade_deaths", 0) or 0
-        agg[pid]["utility_damage"] += row_get(s, "utility_damage", 0) or 0
-        agg[pid]["enemies_flashed"] += row_get(s, "enemies_flashed", 0) or 0
-        agg[pid]["mvp_count"] += row_get(s, "mvp_count", 0) or 0
-        has_t_data = (s["t_kills"] or 0) > 0 or (s["t_rating"] or 0) > 0
-        has_ct_data = (s["ct_kills"] or 0) > 0 or (s["ct_rating"] or 0) > 0
-        agg[pid]["t_rating"] += s["t_rating"] or 0
-        agg[pid]["ct_rating"] += s["ct_rating"] or 0
-        agg[pid]["t_kills"] += s["t_kills"] or 0
-        agg[pid]["ct_kills"] += s["ct_kills"] or 0
-        agg[pid]["t_deaths"] += s["t_deaths"] or 0
-        agg[pid]["ct_deaths"] += s["ct_deaths"] or 0
-        agg[pid]["t_adr"] += s["t_adr"] or 0
-        agg[pid]["ct_adr"] += s["ct_adr"] or 0
-        agg[pid]["maps"] += 1
-        if has_t_data:
-            agg[pid]["t_maps"] += 1
-        if has_ct_data:
-            agg[pid]["ct_maps"] += 1
-        agg[pid]["nickname"] = s["nickname"]
-        agg[pid]["player_id"] = pid
-
-    def build_overall(agg_dict):
-        result = []
-        for pid, d in agg_dict.items():
-            m = d["maps"]
-            tm = max(d["t_maps"], 1)
-            cm = max(d["ct_maps"], 1)
-            result.append(
-                {
-                    "player_id": pid,
-                    "nickname": d["nickname"],
-                    "kills": d["kills"],
-                    "deaths": d["deaths"],
-                    "assists": d["assists"],
-                    "adr": round(d["adr"] / max(d["rounds_played"], 1), 1)
-                    if d["rounds_played"]
-                    else 0,
-                    "rating": round(d["rating"] / max(d["rounds_played"], 1), 2)
-                    if d["rounds_played"]
-                    else 0,
-                    "kast": round(d["kast"] / max(d["rounds_played"], 1), 1)
-                    if d["rounds_played"]
-                    else 0,
-                    "headshot_percentage": round(d["hs"] / max(d["kills"], 1), 1)
-                    if d["kills"]
-                    else 0,
-                    "impact": round(d["impact"] / max(d["rounds_played"], 1), 2)
-                    if d["rounds_played"]
-                    else 0,
-                    "kpr": round(d["kills"] / max(d["rounds_played"], 1), 2)
-                    if d["rounds_played"]
-                    else 0,
-                    "dpr": round(d["deaths"] / max(d["rounds_played"], 1), 2)
-                    if d["rounds_played"]
-                    else 0,
-                    "rounds_played": d["rounds_played"],
-                    "first_kills": d["first_kills"],
-                    "first_deaths": d["first_deaths"],
-                    "clutches_won": d["clutches_won"],
-                    "multi2k": d["multi2k"],
-                    "multi3k": d["multi3k"],
-                    "multi4k": d["multi4k"],
-                    "multi5k": d["multi5k"],
-                    "trade_kills": d["trade_kills"],
-                    "trade_deaths": d["trade_deaths"],
-                    "utility_damage": round(d["utility_damage"] / m, 1) if m else 0,
-                    "enemies_flashed": d["enemies_flashed"],
-                    "mvp_count": d["mvp_count"],
-                    "t_rating": round(d["t_rating"] / tm, 2) if d["t_maps"] else 0,
-                    "ct_rating": round(d["ct_rating"] / cm, 2) if d["ct_maps"] else 0,
-                    "t_kills": d["t_kills"],
-                    "ct_kills": d["ct_kills"],
-                    "t_deaths": d["t_deaths"],
-                    "ct_deaths": d["ct_deaths"],
-                    "t_adr": round(d["t_adr"] / tm, 1) if d["t_maps"] else 0,
-                    "ct_adr": round(d["ct_adr"] / cm, 1) if d["ct_maps"] else 0,
-                    "maps": m,
-                }
-            )
-        result.sort(key=lambda x: x["rating"], reverse=True)
-        return result
-
-    overall_t1 = build_overall(team1_agg)
-    overall_t2 = build_overall(team2_agg)
 
     all_overall = []
     for item in overall_t1:
@@ -704,9 +529,7 @@ def _render_match_detail(match_id):
     match_performance_rows = sorted(
         all_overall, key=lambda row: float(row.get("rating") or 0), reverse=True
     )
-    for row in match_performance_rows:
-        rating = float(row.get("rating") or 0)
-        row["rating_bar"] = max(4, min(100, round((rating / 1.8) * 100, 1))) if rating else 0
+    match_rating_scale = _apply_rating_scale(match_performance_rows, minimum=1.8)
 
     # 胜者排前面：按地图胜场数判定（BO1/BO3/BO5 通用）
     t1_map_wins = 0
@@ -826,6 +649,7 @@ def _render_match_detail(match_id):
         match_breakdown=match_breakdown,
         match_highlights=match_highlights,
         match_performance_rows=match_performance_rows,
+        match_rating_scale=match_rating_scale,
         show_match_stats=request.path.endswith("/stats"),
         comments=comments,
         sidebar_events=sidebar_events,
@@ -890,11 +714,38 @@ def _match_rating_sort_key(row):
     return rating is not None, rating if rating is not None else 0
 
 
-def _rating_bar_width(value):
+def _rating_bar_width(value, maximum=1.6):
     rating = _safe_float(value)
     if rating <= 0:
         return 0
-    return max(4, min(100, round((rating / 1.6) * 100, 1)))
+    return min(100, round((rating / maximum) * 100, 1))
+
+
+def _apply_rating_scale(rows, minimum=1.6):
+    highest = max((optional_number(row.get("rating")) or 0 for row in rows), default=0)
+    maximum = max(minimum, math.ceil(highest * 5) / 5)
+    for row in rows:
+        row["rating_bar"] = _rating_bar_width(row.get("rating"), maximum)
+    return {
+        "maximum": maximum,
+        "average_pct": round(100 / maximum, 4),
+        "half_pct": round(50 / maximum, 4),
+        "excellent_pct": round(160 / maximum, 4),
+    }
+
+
+def _recorded_side_metrics(row):
+    values = {
+        f"{side}_{key}": optional_number(row_get(row, f"{side}_{key}"))
+        for side in ("t", "ct")
+        for key in ("kills", "deaths", "adr", "rating")
+    }
+    # Old imports defaulted every side column to zero even when only totals were recorded.
+    if not any(values.values()) and any(
+        optional_number(row_get(row, key)) for key in ("kills", "deaths", "adr", "rating")
+    ):
+        return dict.fromkeys(values)
+    return values
 
 
 def _build_match_player_row(data, team_side, team_short, team_name):
@@ -913,7 +764,8 @@ def _build_match_player_row(data, team_side, team_short, team_name):
     )
     mk_rating = optional_number(data.get("impact"))
     rws = optional_number(data.get("rws", data.get("rws_basic")))
-    return {
+    side_metrics = _recorded_side_metrics(data)
+    result = {
         "player_id": data.get("player_id"),
         "nickname": data.get("nickname") or "Unknown",
         "avatar": data.get("avatar"),
@@ -955,16 +807,44 @@ def _build_match_player_row(data, team_side, team_short, team_name):
         "rounds_played": _optional_int(data.get("rounds_played")),
         "damage_delta_per_round": _optional_round(data.get("damage_delta_per_round"), 2),
         "rws": _optional_round(rws, 2),
-        "t_kills": _optional_int(data.get("t_kills")),
-        "t_deaths": _optional_int(data.get("t_deaths")),
-        "t_adr": _optional_round(data.get("t_adr"), 1),
-        "t_rating": _optional_round(data.get("t_rating"), 2),
-        "ct_kills": _optional_int(data.get("ct_kills")),
-        "ct_deaths": _optional_int(data.get("ct_deaths")),
-        "ct_adr": _optional_round(data.get("ct_adr"), 1),
-        "ct_rating": _optional_round(data.get("ct_rating"), 2),
+        "t_kills": _optional_int(side_metrics["t_kills"]),
+        "t_deaths": _optional_int(side_metrics["t_deaths"]),
+        "t_adr": _optional_round(side_metrics["t_adr"], 1),
+        "t_rating": _optional_round(side_metrics["t_rating"], 2),
+        "ct_kills": _optional_int(side_metrics["ct_kills"]),
+        "ct_deaths": _optional_int(side_metrics["ct_deaths"]),
+        "ct_adr": _optional_round(side_metrics["ct_adr"], 1),
+        "ct_rating": _optional_round(side_metrics["ct_rating"], 2),
         "rating_bar": _rating_bar_width(rating),
     }
+    view_keys = (
+        "kills",
+        "deaths",
+        "assists",
+        "first_kills",
+        "first_deaths",
+        "opening_diff",
+        "maps",
+        "kast",
+        "clutches_won",
+        "headshot_kills",
+        "enemies_flashed",
+        "trade_deaths",
+        "rws",
+        "impact",
+        "headshot_percentage",
+    )
+    result["side_views"] = {"overall": {key: result.get(key) for key in view_keys}}
+    for side in ("t", "ct"):
+        known = any(
+            result[f"{side}_{key}"] is not None for key in ("kills", "deaths", "adr", "rating")
+        )
+        result["side_views"][side] = {
+            "kills": result[f"{side}_kills"],
+            "deaths": result[f"{side}_deaths"],
+            "maps": data.get(f"{side}_maps", result["maps"] if known else None),
+        }
+    return result
 
 
 def _display_rows_from_raw(rows, team_side, team_short, team_name):
@@ -1018,9 +898,12 @@ def _aggregate_match_rows(rows, team_side, team_short, team_name):
             "t_rating_values": [],
             "ct_adr_values": [],
             "ct_rating_values": [],
+            "t_maps": 0,
+            "ct_maps": 0,
         }
     )
     for row in rows:
+        side_metrics = _recorded_side_metrics(row)
         pid = row["player_id"]
         item = grouped[pid]
         item["player_id"] = pid
@@ -1053,7 +936,7 @@ def _aggregate_match_rows(rows, team_side, team_short, team_name):
             "multi4k",
             "multi5k",
         ):
-            value = _optional_int(row_get(row, key))
+            value = _optional_int(side_metrics[key] if key in side_metrics else row_get(row, key))
             if value is not None:
                 item[key] = (item[key] or 0) + value
         utility_damage = optional_number(row_get(row, "utility_damage"))
@@ -1072,12 +955,14 @@ def _aggregate_match_rows(rows, team_side, team_short, team_name):
             item["hs_values"].append(optional_number(row_get(row, "headshot_percentage")))
         for _ in range(weight):
             item["swing_values"].append(optional_number(row_get(row, "damage_delta_per_round")))
-        if _safe_float(row_get(row, "t_rating", 0)) or _safe_int(row_get(row, "t_kills", 0)):
-            item["t_adr_values"].append(optional_number(row_get(row, "t_adr")))
-            item["t_rating_values"].append(optional_number(row_get(row, "t_rating")))
-        if _safe_float(row_get(row, "ct_rating", 0)) or _safe_int(row_get(row, "ct_kills", 0)):
-            item["ct_adr_values"].append(optional_number(row_get(row, "ct_adr")))
-            item["ct_rating_values"].append(optional_number(row_get(row, "ct_rating")))
+        for side in ("t", "ct"):
+            if any(
+                side_metrics[f"{side}_{key}"] is not None
+                for key in ("kills", "deaths", "adr", "rating")
+            ):
+                item[f"{side}_maps"] += 1
+            item[f"{side}_adr_values"].append(side_metrics[f"{side}_adr"])
+            item[f"{side}_rating_values"].append(side_metrics[f"{side}_rating"])
 
     result = []
     for item in grouped.values():
@@ -1124,6 +1009,8 @@ def _aggregate_match_rows(rows, team_side, team_short, team_name):
             "t_rating": _avg_values(item["t_rating_values"], 2),
             "ct_adr": _avg_values(item["ct_adr_values"], 1),
             "ct_rating": _avg_values(item["ct_rating_values"], 2),
+            "t_maps": item["t_maps"] or None,
+            "ct_maps": item["ct_maps"] or None,
         }
         result.append(_build_match_player_row(data, team_side, team_short, team_name))
     result.sort(key=_match_rating_sort_key, reverse=True)
@@ -1517,7 +1404,11 @@ def _build_match_detailed_context(match_id):
     for idx, (map_name, t1_score, t2_score, active, picked_by) in enumerate(raw_maps):
         if idx >= max_maps:
             break
-        map_rows = [row for row in stats if map_name and row["map_name"] == map_name]
+        map_rows = [
+            row
+            for row in stats
+            if map_name and normalize_map_key(row["map_name"]) == normalize_map_key(map_name)
+        ]
         team1_raw = [row for row in map_rows if _stat_belongs_to_match_side(row, "t1", t1_key)]
         team2_raw = [row for row in map_rows if _stat_belongs_to_match_side(row, "t2", t2_key)]
         team1_rows = _display_rows_from_raw(team1_raw, "t1", match["t1s"], match["team1_name"])
@@ -1559,6 +1450,15 @@ def _build_match_detailed_context(match_id):
         except ValueError:
             requested_index = 0
         selected_map = next((item for item in map_cards if item["index"] == requested_index), None)
+        if selected_map is None and requested_index == 0:
+            selected_map = next(
+                (
+                    item
+                    for item in map_cards
+                    if normalize_map_key(item["name"]) == normalize_map_key(requested_map)
+                ),
+                None,
+            )
 
     if selected_map:
         team1_rows = selected_map["team1_stats"]
@@ -1577,6 +1477,7 @@ def _build_match_detailed_context(match_id):
         score_t1 = match["team1_score"] if match["team1_score"] is not None else "-"
         score_t2 = match["team2_score"] if match["team2_score"] is not None else "-"
 
+    rating_scale = _apply_rating_scale(performance_rows)
     map_slots = {
         normalize_map_key(card["name"]): card["index"] - 1 for card in map_cards if card.get("name")
     }
@@ -1606,6 +1507,7 @@ def _build_match_detailed_context(match_id):
         "team2_rows": team2_rows,
         "performance_rows": performance_rows,
         "perf_avg": perf_avg,
+        "rating_scale": rating_scale,
         "highlights": _highlight_rows(performance_rows),
         "kill_matrix": kill_matrix,
         "selected_tab": selected_tab,

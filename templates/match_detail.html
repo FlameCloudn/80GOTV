@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% from '_match_stat_value.html' import stat_value %}
 {% set opponents = match_opponents(match) %}
 {% set left_team, right_team = opponents %}
 {% block title %}{{ left_team.name }} vs {{ right_team.name }} - 80GOTV{% endblock %}
@@ -31,7 +32,7 @@
       {% set kd = s.kills / s.deaths if s.kills is not none and s.deaths is not none and s.deaths > 0 else none %}
       {% set t_kd = s.t_kills / s.t_deaths if s.t_kills is not none and s.t_deaths is not none and s.t_deaths > 0 else none %}
       {% set ct_kd = s.ct_kills / s.ct_deaths if s.ct_kills is not none and s.ct_deaths is not none and s.ct_deaths > 0 else none %}
-      <tr>
+      <tr data-side-values="{{ s.side_views|tojson|forceescape }}">
         <td><a href="/players/{{ s.player_id }}" data-i18n-ignore>{{ private_name_for_player(s.player_id, s.nickname) }}</a></td>
         <td class="kd-cell col-overall">{{ metric(s.kills) }}-{{ metric(s.deaths) }}</td>
         <td class="kd-cell col-t">{{ metric(s.t_kills) }}-{{ metric(s.t_deaths) }}</td>
@@ -42,12 +43,12 @@
         <td class="col-overall">{{ metric(s.adr, 1) }}</td>
         <td class="col-t">{{ metric(s.t_adr, 1) }}</td>
         <td class="col-ct">{{ metric(s.ct_adr, 1) }}</td>
-        <td>{{ metric(s.kast, 1, '%') }}</td>
-        <td>{{ metric(s.impact, 2) }}</td>
+        <td>{{ stat_value('kast', s.kast, 1, '%') }}</td>
+        <td>{{ stat_value('impact', s.impact, 2) }}</td>
         <td class="rt-cell col-overall" title="T: {{ metric(s.t_rating, 2) }} / CT: {{ metric(s.ct_rating, 2) }}"><b>{{ metric(s.rating, 2) }}</b></td>
         <td class="rt-cell col-t">{{ metric(s.t_rating, 2) }}</td>
         <td class="rt-cell col-ct">{{ metric(s.ct_rating, 2) }}</td>
-        <td>{{ metric(s.headshot_percentage, 1, '%') }}</td>
+        <td>{{ stat_value('headshot_percentage', s.headshot_percentage, 1, '%') }}</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -241,7 +242,7 @@
 
     <div class="match-stat-performance">
       <h3>表现 - RATING 2.0</h3>
-      <div class="match-rating-bars">
+      <div class="match-rating-bars" style="--rating-average:{{ match_rating_scale.average_pct }}%">
         {% for p in match_performance_rows %}
         <a class="match-rating-row" href="/players/{{ p.player_id }}">
           <span data-i18n-ignore>{{ private_name_for_player(p.player_id, p.nickname) }}</span>
@@ -584,6 +585,7 @@ function loadStream() {
   {% endif %}
 </section>
 
+<script src="{{ versioned_url('static/js/match_stats_views.js') }}"></script>
 <script>
 function submitVote(btn) {
   var votedFor = btn.getAttribute('data-vote');
@@ -647,6 +649,7 @@ function switchMatchStatsTab(name) {
 
 // 双方 / T / CT：切换显示的列，并按当前视图的 RATING 重新排序
 function switchSideView(mode) {
+  window.updateMatchStatsSide(document, mode);
   document.querySelectorAll('.side-toggle-btn').forEach(function(btn) {
     var match = btn.getAttribute('data-side') === mode;
     btn.classList.toggle('active', match);

@@ -738,7 +738,7 @@
   position: absolute;
   top: -3px;
   bottom: -3px;
-  left: 55.56%;
+  left: var(--rating-average, 55.56%);
   width: 1px;
   background: var(--border-strong);
 }
@@ -933,7 +933,7 @@
 .match-detailed-highlight-main small { color: var(--text-muted); }
 .match-detailed-highlight strong { font-size: var(--font-xl); font-variant-numeric: tabular-nums; }
 
-/* 评分条：条宽 = 评分 ÷ 1.6，竖线是 1.00 的位置；蓝色队伍 1、橙色队伍 2 */
+/* 评分条按当前地图伸展刻度；平均线仍代表 1.00，队伍颜色不变。 */
 .match-detailed-rating-area { display: grid; gap: 2px; }
 
 .match-detailed-rating-row {
@@ -951,7 +951,7 @@
 .match-detailed-rating-row:hover { color: var(--text-primary); background: var(--bg-hover); }
 .match-detailed-rating-row > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .match-detailed-rating-row i { position: relative; display: block; height: 10px; background: var(--surface-soft); border-radius: var(--radius-pill); }
-.match-detailed-rating-row i::after { content: ''; position: absolute; top: -3px; bottom: -3px; left: 62.5%; width: 1px; background: var(--border-strong); }
+.match-detailed-rating-row i::after { content: ''; position: absolute; top: -3px; bottom: -3px; left: var(--rating-average, 62.5%); width: 1px; background: var(--border-strong); }
 .match-detailed-rating-row em { display: block; height: 100%; border-radius: inherit; }
 .match-detailed-rating-row em.t1 { background: var(--accent); }
 .match-detailed-rating-row em.t2 { background: var(--color-t); }
@@ -969,9 +969,10 @@
 
 .match-detailed-rating-scale span, .match-detailed-rating-labels span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
 .match-detailed-rating-scale span:nth-child(1), .match-detailed-rating-labels span:nth-child(1) { left: 0; transform: none; }
-.match-detailed-rating-scale span:nth-child(2) { left: 31.25%; }
-.match-detailed-rating-scale span:nth-child(3), .match-detailed-rating-labels span:nth-child(2) { left: 62.5%; }
+.match-detailed-rating-scale span:nth-child(2) { left: var(--rating-half, 31.25%); }
+.match-detailed-rating-scale span:nth-child(3), .match-detailed-rating-labels span:nth-child(2) { left: var(--rating-average, 62.5%); }
 .match-detailed-rating-scale span:nth-child(4), .match-detailed-rating-labels span:nth-child(3) { left: 100%; transform: translateX(-100%); }
+.match-detailed-rating-labels span:nth-child(3) { left: var(--rating-excellent, 100%); }
 .match-detailed-rating-labels span:nth-child(1) { color: var(--color-red); }
 .match-detailed-rating-labels span:nth-child(3) { color: var(--color-green); }
 
