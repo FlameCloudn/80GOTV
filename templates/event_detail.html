@@ -31,7 +31,7 @@
   <span class="event-header-mark" aria-hidden="true"></span>
 </section>
 
-{% if event.registration_open or (event.effective_event_status == 'upcoming' and (registrations or individual_registration.count)) %}
+{% if not entrant_registration_closed|default(false) and (event.registration_open or entrant_reserve_signup_open|default(false) or (event.effective_event_status == 'upcoming' and (registrations or individual_registration.count))) %}
 <section class="panel event-registration">
   {% if event.registration_open %}
   {% set event_login_next = event_path(event) %}
@@ -50,11 +50,11 @@
     <a href="{{ url_for('user_login', next=event_login_next) }}" class="btn btn-primary">登录后报名</a>
     {% endif %}
   </div>
-  {% elif registrations or individual_registration.count %}
+  {% elif registrations or individual_registration.count or entrant_reserve_signup_open|default(false) %}
   <div class="event-reg-banner event-reg-closed">正式报名已截止，仅保留替补报名</div>
   {% endif %}
 
-  {% if event.registration_open or registrations or individual_registration.count %}
+  {% if event.registration_open or registrations or individual_registration.count or entrant_reserve_signup_open|default(false) %}
   <section id="eventRegistrationSection" aria-live="polite">
     {% include '_event_registration_list.html' %}
   </section>

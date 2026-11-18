@@ -1,10 +1,13 @@
 {% set event_login_next = event_path(event) %}
+{% set entrant_event = entrant_slice_event|default(false) %}
+{% set regular_actions = not entrant_event or event.registration_open %}
+{% if not entrant_reserve_only|default(false) %}
 <h3 class="section-title mt-20">已报名队伍</h3>
 {% if registrations %}
 <div class="event-reg-list">
   {% for reg in registrations %}
   {% set is_captain = session.user_id and reg.info.creator_user_id == session.user_id %}
-  {% set can_manage = session.admin_id or is_captain %}
+  {% set can_manage = regular_actions and (session.admin_id or is_captain) %}
   {% set creator_private_remark = private_remark_for_user(reg.info.creator_user_id) if private_remark_for_user is defined else None %}
   {% set creator_display_name = creator_private_remark or reg.info.creator_name or '未知账号' %}
   <article class="event-reg-team" data-registration-id="{{ reg.info.id }}">
@@ -21,7 +24,7 @@
       <div class="event-reg-team-identity">
         <span class="event-reg-team-name" data-i18n-ignore>{{ reg.info.team_name }}</span>
         <span class="event-reg-team-creator">队长：{{ creator_display_name }}{% if not creator_private_remark and reg.info.creator_group_username %} <b>@{{ reg.info.creator_group_username }}</b>{% endif %}</span>
-        {% if is_captain and not reg.info.team_logo %}<span class="event-reg-logo-hint">可在“队长操作”中上传队标</span>{% endif %}
+        {% if regular_actions and is_captain and not reg.info.team_logo %}<span class="event-reg-logo-hint">可在“队长操作”中上传队标</span>{% endif %}
       </div>
       {% if can_manage %}
       <details class="event-reg-team-manage">
@@ -91,8 +94,8 @@
           <div class="event-reg-slot-role">等待加入</div>
         {% endif %}
 
-        <div class="event-reg-slot-actions">
-          {% if (session.admin_id or (is_captain and not slot.user_id)) and slot_has_name %}
+        {% if regular_actions %}<div class="event-reg-slot-actions">
+          {% if slot_has_name and ((session.admin_id and not entrant_event) or ((session.admin_id or is_captain) and not slot.user_id)) %}
           <details class="event-reg-slot-edit">
             <summary>修改</summary>
             <form class="event-reg-ajax-form"
@@ -148,7 +151,7 @@
               <a href="{{ url_for('user_login', next=event_login_next) }}" class="event-reg-action-link">登录加入</a>
             {% endif %}
           {% endif %}
-        </div>
+        </div>{% endif %}
       </div>
       {% endfor %}
     </div>
@@ -159,7 +162,8 @@
 <div class="event-reg-empty">暂时还没有队伍报名</div>
 {% endif %}
 
-{% if individual_registration_open and (event.registration_open or individual_registration.individual_count) %}
+{% set show_individual_signup = individual_registration_open and (event.registration_open or individual_registration.individual_count) %}
+{% if show_individual_signup %}
 <section class="event-individual-registration" data-registration-kind="individual">
   <div class="event-individual-head">
     <div>
@@ -203,7 +207,7 @@
       <a href="{{ url_for('user_login', next=event_login_next) }}" class="event-reg-action-link">登录后个人报名</a>
     {% endif %}
 
-    {% if session.admin_id and individual_registration.count > 0 and individual_registration.can_randomize %}
+    {% if not entrant_event and session.admin_id and individual_registration.count > 0 and individual_registration.can_randomize %}
     <form class="event-reg-ajax-form"
           action="/events/{{ event.id }}/individual-registration/finalize"
           method="POST"
@@ -231,7 +235,7 @@
           {% endif %}
           <span>{{ entry_display_name }}{% if not entry_private_remark and entry.group_username %} <b>@{{ entry.group_username }}</b>{% endif %}</span>
           <small>位置 {{ loop.index }}</small>
-          {% if session.admin_id %}
+          {% if not entrant_event and session.admin_id %}
           <form class="event-reg-ajax-form"
                 action="/events/{{ event.id }}/individual-registration/{{ entry.id }}/remove"
                 method="POST"
@@ -262,7 +266,7 @@
       {% endif %}
       <span>{{ entry_display_name }}{% if not entry_private_remark and entry.group_username %} <b>@{{ entry.group_username }}</b>{% endif %}</span>
       <small>已报名</small>
-      {% if session.admin_id %}
+      {% if not entrant_event and session.admin_id %}
       <form class="event-reg-ajax-form"
             action="/events/{{ event.id }}/individual-registration/{{ entry.id }}/remove"
             method="POST"
@@ -278,13 +282,15 @@
   <div class="event-reg-empty">暂时还没有选手个人报名</div>
   {% endif %}
 </section>
+{% endif %}
+{% endif %}
 
-{% if individual_registration.has_formal_members or individual_registration.reserves %}
+{% if entrant_reserve_signup_open|default(false) or (not entrant_event and show_individual_signup and (individual_registration.has_formal_members or individual_registration.reserves)) %}
 <section class="event-individual-registration event-substitute-registration" data-registration-kind="substitute">
   <div class="event-individual-head">
     <div>
       <h3 class="section-title">替补报名</h3>
-      <p>正式分队完成后可报名替补。可以选择任意队伍，也可以指定一支队伍；替补不占五人名额。</p>
+      <p>{% if not entrant_event %}正式分队完成后可报名替补。{% endif %}可以选择任意队伍，也可以指定一支队伍；替补不占五人名额。</p>
     </div>
     <span class="event-individual-count">{{ individual_registration.substitute_count }} 人</span>
   </div>
@@ -332,7 +338,7 @@
       {% if entry.avatar %}<img src="{{ avatar_thumbnail_url(entry.avatar) or '/static/avatars/default.png' }}" alt="" loading="lazy" onerror="this.onerror=null;this.src='/static/avatars/default.png'">{% else %}<span class="event-individual-avatar-fallback" aria-hidden="true">{{ entry_display_name[:1]|upper }}</span>{% endif %}
       <span>{{ entry_display_name }}{% if not entry_private_remark and entry.group_username %} <b>@{{ entry.group_username }}</b>{% endif %}</span>
       <small>{% if entry.preferred_team_name %}指定替补：{{ entry.preferred_team_name }}{% else %}可替补任意队伍{% endif %}</small>
-      {% if session.admin_id %}
+      {% if not entrant_event and session.admin_id %}
       <form class="event-reg-ajax-form" action="/events/{{ event.id }}/individual-registration/{{ entry.id }}/remove" method="POST" data-confirm="确定移除 {{ entry.player_name }} 的替补报名吗？">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="event-individual-remove">移除</button>
       </form>
@@ -342,5 +348,4 @@
   </div>
   {% else %}<div class="event-reg-empty">暂时还没有选手报名替补</div>{% endif %}
 </section>
-{% endif %}
 {% endif %}
