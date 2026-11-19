@@ -1,13 +1,18 @@
 """Read models shared by public JSON lists; no state changes on reads."""
 
+from functools import partial
+
 from services.match_service import supplement_temp_teams
-from services.performance_service import summary_metric_sql, weighted_average_sql
+from services.performance_service import stat_average_sql, summary_metric_sql
+from site_core.player_directory import ACCOUNT_JOIN, IDENTITY_FIELDS
 from utils.match_utils import (
     get_sql_effective_status,
     get_sql_match_completed,
     get_sql_match_live,
     get_sql_match_upcoming,
 )
+from utils.side_stats import side_metric_sql
+from utils.stats_storage import stat_map_count_sql, stat_map_key_sql, stats_relation
 
 
 def load_match_page(conn, *, status, event, date, month, limit, offset):
@@ -53,6 +58,7 @@ def load_match_page(conn, *, status, event, date, month, limit, offset):
 
 
 def load_player_page(conn, *, team, filter_key, initial, limit, offset):
+    metric = partial(summary_metric_sql, stats_source=stats_relation(conn))
     clauses, params = [], []
     if team:
         clauses.append("p.team_id=?")
@@ -70,24 +76,15 @@ def load_player_page(conn, *, team, filter_key, initial, limit, offset):
     # The HTML list chooses its top ten before applying the alphabetical filter.
     query = f"""WITH ranked AS (
             SELECT p.*, t.name AS team_name, t.short_name AS team,
-                   COALESCE((
-                       SELECT NULLIF(TRIM(u.group_username), '') FROM users u
-                       WHERE u.steam_id64=p.steam_id
-                       ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC LIMIT 1
-                   ), NULLIF(TRIM(p.group_username_override), ''), '') AS group_username,
-                   COALESCE((
-                       SELECT u.is_bashizhong_student FROM users u
-                       WHERE u.steam_id64=p.steam_id
-                       ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC LIMIT 1
-                   ), p.is_bashizhong_student) AS managed_is_bashizhong_student,
+                   {IDENTITY_FIELDS},
                    COALESCE(s.maps, 0) AS maps,
-                   {summary_metric_sql("avg_rating", "rating")} AS rating,
-                   {summary_metric_sql("total_kills", "kills")} AS kills,
-                   {summary_metric_sql("total_deaths", "deaths")} AS deaths,
-                   {summary_metric_sql("total_assists", "assists")} AS assists,
-                   {summary_metric_sql("avg_adr", "adr")} AS adr,
-                   {summary_metric_sql("avg_hs", "headshot_percentage")} AS hs
-            FROM players p
+                   {metric("avg_rating", "rating")} AS rating,
+                   {metric("total_kills", "kills")} AS kills,
+                   {metric("total_deaths", "deaths")} AS deaths,
+                   {metric("total_assists", "assists")} AS assists,
+                   {metric("avg_adr", "adr")} AS adr,
+                   {metric("avg_hs", "headshot_percentage")} AS hs
+            FROM players p {ACCOUNT_JOIN}
             LEFT JOIN teams t ON p.team_id=t.id
             LEFT JOIN player_performance_summary s ON s.player_id=p.id
             {where} ORDER BY {order} {rank_limit}
@@ -111,81 +108,98 @@ def load_player_page(conn, *, team, filter_key, initial, limit, offset):
     return rows, total
 
 
+def player_coverage_sql(side="both"):
+    kills = side_metric_sql("kills", side)
+    adr = side_metric_sql("adr", side)
+    rounds = side_metric_sql("rounds_played", side)
+    weighted = f"{adr} IS NOT NULL AND {rounds} > 0"
+    return f"""COUNT({kills}) AS kills_maps,
+               COALESCE(NULLIF(COUNT(CASE WHEN {weighted} THEN 1 END), 0),
+                        COUNT(CASE WHEN ms.scheduled_map_id IS NULL THEN {adr} END)) AS adr_maps,
+               SUM(CASE WHEN {weighted} THEN {rounds} END) AS adr_rounds"""
+
+
 def load_player_summary(conn, player_id):
+    source = stats_relation(conn)
+    metric = partial(summary_metric_sql, stats_source=source)
     row = conn.execute(
-        f"""SELECT maps, rounds_played AS rounds,
-                   {summary_metric_sql("total_kills", "kills")} AS kills,
-                   {summary_metric_sql("total_deaths", "deaths")} AS deaths,
-                   {summary_metric_sql("total_assists", "assists")} AS assists,
-                   {summary_metric_sql("avg_rating", "rating")} AS rating,
-                   {summary_metric_sql("avg_adr", "adr")} AS adr,
-                   {summary_metric_sql("avg_kast", "kast")} AS kast,
-                   {summary_metric_sql("avg_hs", "headshot_percentage")} AS hs,
-                   CASE WHEN rounds_played>0 THEN
-                       {summary_metric_sql("avg_kpr", "kills")} END AS kpr,
-                   CASE WHEN rounds_played>0 THEN
-                       {summary_metric_sql("avg_dpr", "deaths")} END AS dpr,
-                   {summary_metric_sql("avg_impact", "impact")} AS impact
+        f"""SELECT maps, {metric("rounds_played", "rounds_played")} AS rounds,
+                   {metric("total_kills", "kills")} AS kills,
+                   {metric("total_deaths", "deaths")} AS deaths,
+                   {metric("total_assists", "assists")} AS assists,
+                   {metric("avg_rating", "rating")} AS rating,
+                   {metric("avg_adr", "adr")} AS adr,
+                   {metric("avg_kast", "kast")} AS kast,
+                   {metric("avg_hs", "headshot_percentage")} AS hs,
+                   {metric("avg_kpr", "kills")} AS kpr,
+                   {metric("avg_dpr", "deaths")} AS dpr,
+                   {metric("avg_impact", "impact")} AS impact
             FROM player_performance_summary s WHERE player_id=?""",
         (player_id,),
     ).fetchone()
-    if row is not None:
-        return row
-    return {
-        **dict.fromkeys(("maps", "rounds", "kills", "deaths", "assists"), 0),
-        **dict.fromkeys(("rating", "adr", "kast", "hs", "kpr", "dpr", "impact")),
+    summary = dict(row) if row is not None else {
+        "maps": 0,
+        **dict.fromkeys(("rounds", "kills", "deaths", "assists", "rating", "adr", "kast", "hs", "kpr", "dpr", "impact")),
     }
+    evidence = conn.execute(
+        f"""SELECT {player_coverage_sql()} FROM {source} ms
+            WHERE player_id=? AND COALESCE(data_status, 'final') <> 'superseded'""",
+        (player_id,),
+    ).fetchone()
+    summary["coverage"] = {
+        "kills": {"maps": evidence["kills_maps"]},
+        "adr": {
+            "maps": evidence["adr_maps"] if summary["adr"] is not None else 0,
+            "rounds": evidence["adr_rounds"],
+        },
+    }
+    return summary
 
 
 def load_team_statistics(conn, *, ranked=False):
-    rating = weighted_average_sql("rating", "rounds_played")
+    rating = stat_average_sql("rating")
     where = "WHERE totals.player_maps > 0" if ranked else ""
     order = "rating DESC, maps DESC, t.id LIMIT 10" if ranked else "t.name, t.id"
     # Aggregate rosters and player results separately, otherwise their join multiplies maps.
     return conn.execute(
-        f"""WITH active AS (
-                SELECT * FROM match_stats
+        f"""WITH totals AS (
+                SELECT team_id, COUNT(*) AS player_maps,
+                       {stat_map_count_sql(per_player=False)} AS maps, {rating} AS rating
+                FROM {stats_relation(conn)} ms
                 WHERE COALESCE(data_status, 'final') <> 'superseded'
-            ), totals AS (
-                SELECT team_id, COUNT(*) AS player_maps, {rating} AS rating
-                FROM active GROUP BY team_id
-            ), map_totals AS (
-                SELECT team_id, COUNT(*) AS maps FROM (
-                    SELECT DISTINCT team_id, match_id, map_name FROM active
-                ) GROUP BY team_id
+                GROUP BY team_id
             ), roster AS (
                 SELECT team_id, COUNT(*) AS players FROM players GROUP BY team_id
             )
             SELECT t.*, COALESCE(roster.players, 0) AS players,
-                   COALESCE(map_totals.maps, 0) AS maps,
+                   COALESCE(totals.maps, 0) AS maps,
                    COALESCE(totals.player_maps, 0) AS player_maps, totals.rating
             FROM teams t
             LEFT JOIN roster ON roster.team_id=t.id
             LEFT JOIN totals ON totals.team_id=t.id
-            LEFT JOIN map_totals ON map_totals.team_id=t.id
             {where} ORDER BY {order}"""
     ).fetchall()
 
 
 def load_map_statistics(conn):
-    rating = weighted_average_sql("rating", "rounds_played")
-    adr = weighted_average_sql("adr", "rounds_played")
-    hs = weighted_average_sql("headshot_percentage", "kills")
+    rating = stat_average_sql("rating")
+    adr = stat_average_sql("adr")
+    hs = stat_average_sql("headshot_percentage", weight="kills")
     return conn.execute(
-        f"""SELECT map_name, COUNT(DISTINCT match_id) AS maps,
+        f"""SELECT MIN(map_name) AS map_name, {stat_map_count_sql(per_player=False)} AS maps,
                    COUNT(*) AS player_maps, {rating} AS rating, {adr} AS adr, {hs} AS hs
-            FROM match_stats
+            FROM {stats_relation(conn)} ms
             WHERE map_name IS NOT NULL AND map_name != ''
               AND COALESCE(data_status, 'final') <> 'superseded'
-            GROUP BY map_name ORDER BY maps DESC, rating DESC, map_name LIMIT 10"""
+            GROUP BY {stat_map_key_sql()} ORDER BY maps DESC, rating DESC, map_name LIMIT 10"""
     ).fetchall()
 
 
 def load_statistics_totals(conn):
-    rating = weighted_average_sql("rating", "rounds_played")
+    rating = stat_average_sql("rating")
     return conn.execute(
         f"""SELECT COUNT(DISTINCT match_id) AS matches,
                    COUNT(DISTINCT player_id) AS players, COUNT(*) AS player_maps,
                    {rating} AS rating, SUM(kills) AS kills
-            FROM match_stats WHERE COALESCE(data_status, 'final') <> 'superseded'"""
+            FROM {stats_relation(conn)} ms WHERE COALESCE(data_status, 'final') <> 'superseded'"""
     ).fetchone()

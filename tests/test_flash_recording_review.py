@@ -4,6 +4,7 @@ import os
 import tempfile
 import unittest
 from contextlib import closing
+from unittest.mock import patch
 
 from app import app
 from config import Config
@@ -20,6 +21,9 @@ class FlashRecordingReviewTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.original_database = Config.DATABASE
         Config.DATABASE = os.path.join(self.temp.name, "flash.db")
+        self.seed_database()
+
+    def seed_database(self):
         init_tables()
         with closing(get_db()) as conn:
             self.match_id = conn.execute(
@@ -89,12 +93,18 @@ class FlashRecordingReviewTests(unittest.TestCase):
             self.assertEqual(self.rankings(conn)[self.ids["22"]]["thrown"], 2.0)
 
     def test_existing_database_gets_availability_column_without_changing_old_data(self):
+        # 缺少该列的旧库还没有版本 5 的统计视图；从真正的旧结构验升级。
+        Config.DATABASE = os.path.join(self.temp.name, "before-statistics-view.db")
+        with patch("models.CURRENT_SCHEMA_VERSION", 4):
+            self.seed_database()
         with closing(get_db()) as conn:
             conn.execute("ALTER TABLE match_stats DROP COLUMN flash_count_recorded")
             old_columns = [row[1] for row in conn.execute("PRAGMA table_info(match_stats)")]
             old_rows = [tuple(row) for row in conn.execute("SELECT * FROM match_stats ORDER BY id")]
             conn.commit()
         init_tables()
+        with closing(get_db()) as conn:
+            self.assertEqual(conn.execute("SELECT count(*) FROM site_player_map_stats").fetchone()[0], 2)
         init_tables()
         with closing(get_db()) as conn:
             self.assertIn(

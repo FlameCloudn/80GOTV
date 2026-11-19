@@ -25,7 +25,11 @@ from werkzeug.exceptions import HTTPException, SecurityError
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from config import Config
-from models import close_request_connections, get_db
+from services.arg_event_service import (
+    ARG_EVENT_DATE,
+    ARG_EVENT_FORMAT,
+    is_arg_event,
+)
 from services.player_remark_service import (
     private_name_for_player,
     private_name_for_user,
@@ -33,6 +37,9 @@ from services.player_remark_service import (
     private_remark_for_user,
 )
 from services.team_logo_service import team_logo_url
+from site_core.accounts import approval_status, profile_completion_required
+from site_core.community import unread_notification_count
+from site_core.database import close_request_connections, get_db
 from utils.db_helpers import MAX_TEAM_LOGO_UPLOAD_BYTES, avatar_static_filename
 from utils.helpers import event_abbr, event_path, news_path, normalize_map_key, team_abbr
 from utils.match_display import match_opponents
@@ -96,6 +103,9 @@ app.template_filter("team_abbr")(team_abbr)
 app.template_filter("event_abbr")(event_abbr)
 app.template_filter("bilibili_embed")(bilibili_embed_filter)
 app.jinja_env.globals["event_path"] = event_path
+app.jinja_env.globals["is_arg_event"] = is_arg_event
+app.jinja_env.globals["arg_event_date"] = ARG_EVENT_DATE
+app.jinja_env.globals["arg_event_format"] = ARG_EVENT_FORMAT
 app.jinja_env.globals["news_path"] = news_path
 app.jinja_env.globals["match_opponents"] = match_opponents
 app.jinja_env.globals["public_site_url"] = public_site_url
@@ -174,6 +184,11 @@ _PUBLIC_PATHS = {
     "/admin/login",
 }
 _PUBLIC_PREFIXES = ("/static/", "/resources/", "/auth/steam/")
+# 抓取指引不代替权限检查。未列出的新公开页面默认可以收录。
+_NON_CONTENT_PREFIXES = (
+    "/admin", "/account/", "/auth/", "/captcha/", "/login", "/logout", "/register",
+    "/change-password", "/profile", "/notifications", "/api/front/notifications", "/static/demos/",
+)
 # 账号检查暂时失败时，只有明确公开的只读页面可以继续；私有读取同样要拦截。
 _PUBLIC_READ_ENDPOINTS = {
     "index",
@@ -360,13 +375,9 @@ def _require_site_login():
         finally:
             if conn is not None:
                 conn.close()
-        if user and (user["approval_status"] or "approved") == "approved":
+        if user and approval_status(user) == "approved":
             g.current_user_row = user
-            needs_completion = user["is_bashizhong_student"] is None or (
-                bool(user["is_bashizhong_student"])
-                and not str(user["group_username"] or "").strip()
-            )
-            if needs_completion:
+            if profile_completion_required(user):
                 session["profile_completion_required"] = True
             else:
                 session.pop("profile_completion_required", None)
@@ -424,7 +435,12 @@ def _add_no_cache_headers(response):
     response.headers["X-Frame-Options"] = "SAMEORIGIN"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
-    response.headers["X-Robots-Tag"] = "noindex, nofollow, noarchive"
+    if (
+        response.status_code >= 400
+        or request.path.startswith(_NON_CONTENT_PREFIXES)
+        or request.endpoint == "download_demo"
+    ):
+        response.headers["X-Robots-Tag"] = "noindex, nofollow, noarchive"
     response.headers["X-Permitted-Cross-Domain-Policies"] = "none"
     response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
     response.headers["Cross-Origin-Resource-Policy"] = "same-site"
@@ -552,10 +568,7 @@ def _csrf_context():
         conn = None
         try:
             conn = get_db()
-            unread = conn.execute(
-                "SELECT COUNT(*) FROM notifications WHERE user_id=? AND is_read=0",
-                (session["user_id"],),
-            ).fetchone()[0]
+            unread = unread_notification_count(conn, session["user_id"])
             user_row = getattr(g, "current_user_row", None)
             if user_row is None:
                 user_row = conn.execute(
@@ -613,7 +626,14 @@ def healthz():
 
 @app.route("/robots.txt")
 def robots_txt():
-    return "User-agent: *\nDisallow: /\n", 200, {"Content-Type": "text/plain; charset=utf-8"}
+    rules = ["User-agent: *"]
+    rules.extend(f"Disallow: {prefix}" for prefix in _NON_CONTENT_PREFIXES)
+    rules += [
+        "Disallow: /matches/*/download-demo",
+        "Allow: /",
+        f"Sitemap: {public_site_url(url_for('sitemap'))}",
+    ]
+    return "\n".join(rules) + "\n", 200, {"Content-Type": "text/plain; charset=utf-8"}
 
 
 @app.errorhandler(Exception)

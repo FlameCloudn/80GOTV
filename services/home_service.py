@@ -10,6 +10,7 @@ from utils.match_utils import (
     get_sql_match_live,
     get_sql_match_upcoming,
 )
+from utils.stats_storage import stats_relation
 
 _SQL_MATCH_COMPLETED = get_sql_match_completed()
 _SQL_MATCH_UPCOMING = get_sql_match_upcoming()
@@ -76,7 +77,7 @@ def load_home_feed(conn, today=None):
 
     top_players = conn.execute(f"""
         SELECT p.nickname, p.id, p.avatar, t.short_name AS team,
-               {summary_metric_sql("avg_rating", "rating")} AS avg_rating
+               {summary_metric_sql("avg_rating", "rating", stats_source=stats_relation(conn))} AS avg_rating
         FROM player_performance_summary s
         JOIN players p ON s.player_id=p.id
         LEFT JOIN teams t ON p.team_id=t.id

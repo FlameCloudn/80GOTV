@@ -96,6 +96,9 @@ class DotStatsRecoveryTests(unittest.TestCase):
 
     def payload(self):
         values = {"csrf_token": "stats-recovery-test", "map_name": "de_nuke"}
+        page = self.client.get(f"/admin/matches/{self.match_id}/stats")
+        self.assertEqual(page.status_code, 200)
+        values["stats_revision"] = StatsForms(page.get_data(as_text=True)).for_map("de_nuke")["fields"]["stats_revision"]
         for player_id, team_id in zip(self.players, self.teams):
             for key, value in {
                 "kills": "21",

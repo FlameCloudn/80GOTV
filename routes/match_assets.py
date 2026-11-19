@@ -14,11 +14,13 @@ from flask import (
 )
 
 from models import get_db
-from services.live_log_service import load_match_timeline
+from services.live_log_service import load_match_timeline, uses_run_timeline
 from services.match_service import match_stat_belongs_to_side, supplement_temp_teams
-from services.performance_service import weighted_average_sql
+from services.performance_service import stat_average_sql
+from site_core.host import is_managed_event
 from utils.demo_naming import build_demo_download_name
-from utils.helpers import normalize_map_key, resolve_match_ref, row_get
+from utils.helpers import map_display_name, normalize_map_key, resolve_match_ref, row_get
+from utils.stats_storage import stats_for_slot, stats_relation
 from web_app import DEMOS_DIR, app
 
 
@@ -34,6 +36,14 @@ def _redirect_to_current_match_url(endpoint, requested_slug, match):
 
 @app.route("/matches/<slug>/download-demo")
 def download_demo(slug):
+    from contextlib import closing
+
+    from flask import current_app
+
+    from site_core.host import HostError, is_managed_match
+    from site_core.matches.demo_storage import default_download, private_root
+    from web_app import logger
+
     if not session.get("user_id") and not session.get("admin_id"):
         return redirect(url_for("user_login", next=request.full_path.rstrip("?")))
     match_ref = resolve_match_ref(slug)
@@ -43,12 +53,37 @@ def download_demo(slug):
     if canonical_redirect:
         return canonical_redirect
     match_id = match_ref["id"]
-    conn = get_db()
-    match = conn.execute(
-        "SELECT demo_file, map1, map2, map3, map4, map5 FROM matches WHERE id=?",
-        (match_id,),
-    ).fetchone()
-    conn.close()
+    slot = request.args.get("slot", 0, type=int)
+    with closing(get_db()) as conn:
+        if is_managed_match(conn, match_id):
+            if not 0 <= slot < 5:
+                return "找不到这张地图的 Demo", 404
+            try:
+                root = private_root(
+                    current_app.instance_path,
+                    current_app.static_folder,
+                    current_app.config.get("HOST_DEMO_ROOT"),
+                )
+                path, demo_id, map_name = default_download(conn, root, match_id, slot)
+                download_name = build_demo_download_name(f"demo-{demo_id}.dem", slot, map_name)
+                return send_file(path, as_attachment=True, download_name=download_name)
+            except HostError as exc:
+                if exc.status >= 500:
+                    logger.warning(
+                        "托管 Demo 下载失败：比赛 %s，槽 %s（%s）", match_id, slot, exc.message
+                    )
+                return exc.message, exc.status
+            except (FileNotFoundError, NotADirectoryError):
+                return "服务器找不到完整的 Demo 原件", 404
+            except OSError as exc:
+                logger.warning(
+                    "托管 Demo 下载失败：比赛 %s，槽 %s（%s）", match_id, slot, type(exc).__name__
+                )
+                return "服务器暂时无法读取 Demo 原件", 503
+        match = conn.execute(
+            "SELECT demo_file, map1, map2, map3, map4, map5 FROM matches WHERE id=?",
+            (match_id,),
+        ).fetchone()
 
     demo_file = row_get(match, "demo_file", "") if match else ""
     if not demo_file:
@@ -59,7 +94,6 @@ def download_demo(slug):
     except (json.JSONDecodeError, TypeError):
         return "Demo 文件记录损坏", 500
 
-    slot = request.args.get("slot", 0, type=int)
     if slot < 0 or slot >= len(demo_list):
         return "找不到这张地图的 Demo", 404
 
@@ -118,8 +152,8 @@ def match_poster(slug):
         f"""
         SELECT ms.team_id, p.nickname,
                CASE WHEN COUNT(DISTINCT {valid_side})=1 THEN MIN({valid_side}) END AS match_team_side,
-               {weighted_average_sql("ms.rating", "ms.rounds_played")} AS rating
-        FROM match_stats ms
+               {stat_average_sql("rating")} AS rating
+        FROM {stats_relation(conn)} ms
         JOIN players p ON p.id=ms.player_id
         WHERE ms.match_id=?
           AND COALESCE(ms.data_status, 'final') <> 'superseded'
@@ -187,6 +221,15 @@ def match_report(match_id):
         return "比赛不存在", 404
     match = supplement_temp_teams(match, conn)
 
+    source = stats_relation(conn)
+    managed = is_managed_event(conn, match["event_id"])
+
+    def report_metric(field, aggregate):
+        # 往届战报要求每张图都有该项；托管场按已采纳该项的样本计算。
+        if managed:
+            return aggregate
+        return f"CASE WHEN COUNT(ms.{field})=COUNT(*) THEN {aggregate} END"
+
     overall_rows = [
         dict(row)
         for row in conn.execute(
@@ -197,19 +240,16 @@ def match_report(match_id):
                         THEN LOWER(TRIM(ms.match_team_side))
                         WHEN ms.team_id=? THEN 't1'
                         WHEN ms.team_id=? THEN 't2' END AS report_side
-            FROM match_stats ms
+            FROM {source} ms
             WHERE ms.match_id=?
               AND COALESCE(ms.data_status, 'final') <> 'superseded'
         )
         SELECT ms.player_id, ms.report_side AS match_team_side, p.nickname, p.avatar,
-               CASE WHEN COUNT(ms.kills)=COUNT(*) THEN SUM(ms.kills) END AS kills,
-               CASE WHEN COUNT(ms.deaths)=COUNT(*) THEN SUM(ms.deaths) END AS deaths,
-               CASE WHEN COUNT(ms.adr)=COUNT(*)
-                    THEN {weighted_average_sql("ms.adr", "ms.rounds_played")} END AS adr,
-               CASE WHEN COUNT(ms.kast)=COUNT(*)
-                    THEN {weighted_average_sql("ms.kast", "ms.rounds_played")} END AS kast,
-               CASE WHEN COUNT(ms.rating)=COUNT(*)
-                    THEN {weighted_average_sql("ms.rating", "ms.rounds_played")} END AS rating
+               {report_metric("kills", "SUM(ms.kills)")} AS kills,
+               {report_metric("deaths", "SUM(ms.deaths)")} AS deaths,
+               {report_metric("adr", stat_average_sql("adr"))} AS adr,
+               {report_metric("kast", stat_average_sql("kast"))} AS kast,
+               {report_metric("rating", stat_average_sql("rating"))} AS rating
         FROM sided_stats ms
         JOIN players p ON p.id=ms.player_id
         WHERE ms.report_side IS NOT NULL
@@ -222,10 +262,11 @@ def match_report(match_id):
     map_rows = [
         dict(row)
         for row in conn.execute(
-            """
-        SELECT ms.player_id, ms.team_id, ms.match_team_side, ms.map_name, p.nickname,
+            f"""
+        SELECT ms.player_id, ms.team_id, ms.match_team_side, ms.map_name,
+               ms.scheduled_map_id, ms.legacy_slot, p.nickname,
                ms.kills, ms.deaths, ms.adr, ms.kast, ms.rating
-        FROM match_stats ms
+        FROM {source} ms
         JOIN players p ON p.id=ms.player_id
         WHERE ms.match_id=?
           AND COALESCE(ms.data_status, 'final') <> 'superseded'
@@ -235,9 +276,28 @@ def match_report(match_id):
         ).fetchall()
     ]
     timeline = load_match_timeline(conn, match_id)
+    if timeline and managed and uses_run_timeline(conn, match_id):
+        run_plans = {
+            row["map_run_id"]: row
+            for row in conn.execute(
+                """SELECT r.map_run_id,s.scheduled_map_id,s.legacy_slot,s.map_name
+                   FROM scheduled_maps s JOIN map_runs r USING(scheduled_map_id)
+                   WHERE s.match_id=?""",
+                (match_id,),
+            )
+        }
+        names = [normalize_map_key(match[f"map{i}"]) for i in range(1, 6)]
+        for event in timeline:
+            plan = run_plans[event["map_run_id"]]
+            slot = plan["legacy_slot"]
+            event.update(scheduled_map_id=plan["scheduled_map_id"], map_slot=slot)
+            if names.count(normalize_map_key(plan["map_name"])) > 1:
+                event["map_name"] = f"图{slot} · {map_display_name(plan['map_name'])}"
     conn.close()
 
-    mvp = dict(overall_rows[0]) if overall_rows else None
+    mvp = None
+    if overall_rows and (not managed or overall_rows[0]["rating"] is not None):
+        mvp = dict(overall_rows[0])
     if mvp:
         for key in ("adr", "kast", "rating"):
             value = mvp.get(key)
@@ -253,11 +313,11 @@ def match_report(match_id):
 
         def sum_known(key):
             values = [row[key] for row in rows if row.get(key) is not None]
-            return sum(values) if values and len(values) == len(rows) else None
+            return sum(values) if values and (managed or len(values) == len(rows)) else None
 
         def average_known(key, digits):
             values = [row[key] for row in rows if row.get(key) is not None]
-            if not values or len(values) != len(rows):
+            if not values or (not managed and len(values) != len(rows)):
                 return None
             return round(sum(values) / len(values), digits)
 
@@ -290,11 +350,7 @@ def match_report(match_id):
             continue
         score1 = match.get(f"map{index}_t1")
         score2 = match.get(f"map{index}_t2")
-        current_rows = [
-            row
-            for row in map_rows
-            if normalize_map_key(row.get("map_name")) == normalize_map_key(map_name)
-        ]
+        current_rows = stats_for_slot(map_rows, index, map_name)
         t1_rows = [row for row in current_rows if match_stat_belongs_to_side(row, "t1", team1_id)]
         t2_rows = [row for row in current_rows if match_stat_belongs_to_side(row, "t2", team2_id)]
         map_reports.append(

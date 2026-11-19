@@ -1,8 +1,12 @@
 """手动修改地图统计：先完整校验，保留旧记录中未编辑的字段。"""
 
+import hashlib
+import json
 import math
+from collections.abc import Mapping
 
 from services.match_roster_service import match_player_slots, match_registration
+from utils.helpers import MAP_NAME_MAPPING, normalize_map_key
 from utils.stats_calc import (
     HLTV2_ESTIMATE_METHOD,
     calculate_rating,
@@ -10,6 +14,7 @@ from utils.stats_calc import (
     impact_calculation_metadata,
     non_negative_impact,
 )
+from utils.stats_storage import replace_map_stats_version
 
 FORM_FIELDS = {
     "kills": ("kills", True, None),
@@ -20,6 +25,31 @@ FORM_FIELDS = {
     "hs": ("headshot_percentage", False, 100),
     "impact": ("impact", False, None),
 }
+
+
+class StatsRevisionConflict(ValueError):
+    """表单基于旧统计，不能覆盖当前数据。"""
+
+
+def manual_map_revision(match, map_name, sides, existing):
+    """逐地图比较整份统计和比分、阵容，捕获导入或其他管理员的修改。"""
+    key = normalize_map_key(map_name)
+    snapshot = {
+        "match_id": match["id"],
+        "map": key,
+        "status": match.get("status"),
+        "bo_format": match.get("bo_format"),
+        "teams": [match.get(f"team{side}_id") for side in (1, 2)],
+        "roster": [[player["id"] for player in sides[side]] for side in (1, 2)],
+        "scores": [
+            [slot, match.get(f"map{slot}_t1"), match.get(f"map{slot}_t2")]
+            for slot in range(1, 6)
+            if normalize_map_key(match.get(f"map{slot}")) == key
+        ],
+        "stats": sorted((dict(row) for row in existing), key=lambda row: row["id"]),
+    }
+    payload = json.dumps(snapshot, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 def stats_editor_players(conn, match, side):
@@ -57,17 +87,17 @@ def stats_editor_players(conn, match, side):
     ]
 
 
-def _number(form, field, player_id, *, integer, maximum):
+def _number(form: Mapping[str, str], field, player_id, *, integer, maximum) -> int | float | None:
     name = f"{field}_{player_id}"
     if name not in form:
         raise ValueError("提交的选手数据不完整，请刷新页面后重试")
-    text = str(form[name]).strip()
+    text = form[name].strip()
     if not text:
         return None
     try:
         value = int(text) if integer else float(text)
         finite = math.isfinite(value)
-    except (TypeError, ValueError, OverflowError):
+    except (ValueError, OverflowError):
         raise ValueError(f"选手 {player_id} 的 {field} 不是有效数字") from None
     if not finite or value < 0 or (maximum is not None and value > maximum):
         raise ValueError(f"选手 {player_id} 的 {field} 超出有效范围")
@@ -132,8 +162,14 @@ def _prepare_player_row(match, map_name, rounds, side, player_id, previous, form
     return row, changed or needs_final
 
 
-def prepare_manual_map_rows(match, map_name, rounds, sides, existing, form):
-    """先校验完整提交并组装新记录，此步骤不写库；保留小人数旧阵容兼容。"""
+def save_manual_map_stats(
+    conn, match, map_name: str, rounds: int, sides, existing, form: Mapping[str, str]
+) -> list[int]:
+    """在调用方事务中校验整张表，再替换旧版本；返回需要更新汇总的选手。"""
+    from site_core.host import is_managed_match
+
+    if is_managed_match(conn, match["id"]):
+        raise ValueError("托管赛事请在比赛运营中按实际开局和出场选手修订统计")
     if rounds <= 0:
         raise ValueError("该地图比分尚未确认，不能按旧的 30 回合默认值保存")
     ids = [player["id"] for players in sides.values() for player in players]
@@ -145,39 +181,24 @@ def prepare_manual_map_rows(match, map_name, rounds, sides, existing, form):
     submitted = {name[6:] for name in form if name.startswith("kills_")}
     if submitted != {str(player_id) for player_id in ids}:
         raise ValueError("提交的选手名单不完整或与本场名单不一致，原数据未修改")
+    key = normalize_map_key(map_name)
+    stored_name = f"de_{key}" if key in MAP_NAME_MAPPING else map_name.strip()
     rows = []
     changed = False
     for side, players in sides.items():
         for player in players:
             row, row_changed = _prepare_player_row(
-                match, map_name, rounds, side, player["id"], old.get(player["id"]), form
+                match, stored_name, rounds, side, player["id"], old.get(player["id"]), form
             )
             rows.append(row)
             changed = changed or row_changed
-    return rows, changed
-
-
-def write_manual_map_revision(conn, match_id, map_name, rows):
-    """在调用者的写事务内，保存已经完整校验的新版本。"""
-    if not conn.in_transaction:
-        raise RuntimeError("手动统计保存必须在写事务中执行")
-    if not rows:
-        raise ValueError("不能保存空统计")
-    version = conn.execute(
-        "SELECT COALESCE(MAX(data_version),0)+1 FROM match_stats WHERE match_id=? AND map_name=?",
-        (match_id, map_name),
-    ).fetchone()[0]
-    conn.execute(
-        """UPDATE match_stats SET data_status='superseded'
-           WHERE match_id=? AND map_name=? AND COALESCE(data_status,'final')<>'superseded'""",
-        (match_id, map_name),
-    )
-    allowed = {row[1] for row in conn.execute("PRAGMA table_info(match_stats)")} - {"id"}
-    for prepared in rows:
-        row = {key: value for key, value in prepared.items() if key in allowed}
-        row["data_version"] = version
-        columns = list(row)
-        conn.execute(
-            f"INSERT INTO match_stats({','.join(columns)}) VALUES({','.join('?' for _ in columns)})",
-            [row[column] for column in columns],
-        )
+    if changed:
+        version = replace_map_stats_version(conn, match["id"], stored_name)
+        for row in rows:
+            row["data_version"] = version
+            # 列名来自原统计行和后台字段表，表单只提供绑定的值。
+            conn.execute(
+                f"INSERT INTO match_stats({','.join(row)}) VALUES({','.join('?' for _ in row)})",
+                tuple(row.values()),
+            )
+    return ids

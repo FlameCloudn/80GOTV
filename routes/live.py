@@ -6,19 +6,20 @@ import math
 from flask import jsonify
 
 from models import get_db
-from services.live_log_service import load_match_timeline
+from services.live_log_service import load_legacy_timeline, load_run_timeline, uses_run_timeline
+from services.live_roster_service import gsi_team_mapping as _gsi_team_mapping
+from services.live_roster_service import roster_profiles_by_steamid as _roster_profiles_by_steamid
+from services.live_roster_service import (
+    roster_side_by_steamid as _roster_side_by_steamid,  # noqa: F401
+)
 from services.live_service import (
     _is_recent_iso_timestamp,
     _load_live_player_profiles,
     _position_to_radar,
 )
-from services.match_roster_service import resolve_match_roster
+from site_core.matches.participants import sides as participant_sides
 from utils.demo_parser import normalize_map_name
 from web_app import app
-
-
-def _normalize_team_label(value):
-    return "".join(character for character in str(value or "").casefold() if character.isalnum())
 
 
 def _player_ids(value):
@@ -39,109 +40,6 @@ def _player_ids(value):
     return result
 
 
-def _roster_side_by_steamid(conn, row):
-    """Map known Steam IDs to the fixed team slot used by the match."""
-    return {
-        steam_id: profile["team"]
-        for steam_id, profile in _roster_profiles_by_steamid(conn, row).items()
-    }
-
-
-def _roster_profiles_by_steamid(conn, row):
-    """Return the exact website identity for every fixed match slot.
-
-    Looking profiles up only by the live display name can pair a stale GSI
-    name with the wrong avatar. The match's player-id list is authoritative,
-    so keep the player id, slot and substitute flag beside the presentation
-    name and avatar.
-    """
-    result = {}
-    ambiguous = set()
-    roster = resolve_match_roster(conn, row)
-    for side in (1, 2):
-        for player in roster["players"][side]:
-            steam_id = str(player.get("steam_id") or "").strip()
-            if not steam_id:
-                continue
-            if steam_id in result or steam_id in ambiguous:
-                result.pop(steam_id, None)
-                ambiguous.add(steam_id)
-                continue
-            avatar = str(player.get("avatar") or "")
-            if avatar and not avatar.startswith(("/", "http://", "https://")):
-                avatar = f"/static/avatars/{avatar}"
-            result[steam_id] = {
-                "player_id": player.get("id"),
-                "name": player.get("nickname") or "",
-                "avatar": avatar,
-                "team": f"team{side}",
-                "slot": player["slot"],
-                "is_substitute": player["is_substitute"],
-            }
-    return result
-
-
-def _roster_gsi_mapping(gsi, roster_side_by_steamid):
-    """Infer the current CT/T side from the registered player roster."""
-    votes = {"team1": {"CT": 0, "T": 0}, "team2": {"CT": 0, "T": 0}}
-    for steam_id, player in (gsi.get("allplayers", {}) or {}).items():
-        team_slot = roster_side_by_steamid.get(str(steam_id))
-        side = str((player or {}).get("team") or "").upper()
-        if team_slot in votes and side in votes[team_slot]:
-            votes[team_slot][side] += 1
-    if not all(sum(votes[slot].values()) for slot in ("team1", "team2")):
-        return None
-    inferred = {}
-    for slot, slot_votes in votes.items():
-        strongest_side, strongest_count = max(slot_votes.items(), key=lambda item: item[1])
-        other_count = min(slot_votes.values())
-        # During knife/half-time transitions the roster can briefly contain
-        # both sides.  Do not turn that transient mix into a scoreboard swap.
-        if strongest_count < 3 or strongest_count <= other_count:
-            return None
-        inferred[slot] = strongest_side
-    team1_side = inferred["team1"]
-    team2_side = inferred["team2"]
-    if team1_side == team2_side:
-        return None
-    return {
-        "CT": "team1" if team1_side == "CT" else "team2",
-        "T": "team1" if team1_side == "T" else "team2",
-    }
-
-
-def _gsi_team_mapping(gsi, row, roster_side_by_steamid=None):
-    roster_mapping = _roster_gsi_mapping(gsi, roster_side_by_steamid or {})
-    if roster_mapping:
-        return roster_mapping
-    identity = (gsi.get("_80gotv") or {}) if isinstance(gsi, dict) else {}
-    ct_identity = identity.get("team_ct")
-    t_identity = identity.get("team_t")
-    if {ct_identity, t_identity} == {"team1", "team2"}:
-        return {"CT": ct_identity, "T": t_identity}
-
-    gmap = gsi.get("map", {}) or {}
-    ct_name = _normalize_team_label((gmap.get("team_ct", {}) or {}).get("name"))
-    t_name = _normalize_team_label((gmap.get("team_t", {}) or {}).get("name"))
-    team1_labels = {
-        _normalize_team_label(row["scheduled_team1_name"]),
-        _normalize_team_label(row["scheduled_team1_short"]),
-    }
-    team2_labels = {
-        _normalize_team_label(row["scheduled_team2_name"]),
-        _normalize_team_label(row["scheduled_team2_short"]),
-    }
-    team1_labels.discard("")
-    team2_labels.discard("")
-    if ct_name in team1_labels and t_name in team2_labels:
-        return {"CT": "team1", "T": "team2"}
-    if ct_name in team2_labels and t_name in team1_labels:
-        return {"CT": "team2", "T": "team1"}
-    # Guessing CT=team1 is worse than showing an unknown side: after a knife
-    # round or halftime it silently swaps every score and player.
-    return None
-
-
 def _format_live_timer(value):
     try:
         seconds = max(0, int(math.ceil(float(value))))
@@ -154,19 +52,21 @@ def _format_live_timer(value):
 def api_live_match(match_id):
     """实时比赛数据 API — 合并 GSI（本地旁观者）和 GOTV relay 数据"""
     conn = get_db()
+    if not conn.in_transaction:
+        conn.execute("BEGIN")
     row = conn.execute(
         """
         SELECT l.live_state, l.updated_at,
                t1.name AS scheduled_team1_name, t2.name AS scheduled_team2_name,
                t1.short_name AS scheduled_team1_short,
                t2.short_name AS scheduled_team2_short,
-               m.event_id, m.team1_id, m.team2_id, m.team1_players, m.team2_players,
+               m.id, m.event_id, m.team1_id, m.team2_id, m.team1_players, m.team2_players,
                m.roster_snapshot, m.team1_registration_id, m.team2_registration_id
-        FROM live_match_data l
-        LEFT JOIN matches m ON l.match_id=m.id
+        FROM matches m
+        LEFT JOIN live_match_data l ON l.match_id=m.id
         LEFT JOIN teams t1 ON m.team1_id=t1.id
         LEFT JOIN teams t2 ON m.team2_id=t2.id
-        WHERE l.match_id=?
+        WHERE m.id=?
     """,
         (match_id,),
     ).fetchone()
@@ -197,19 +97,52 @@ def api_live_match(match_id):
         "side_uncertain": True,
         "side_mapping": None,
     }
-    if not row or not row["live_state"]:
-        conn.close()
-        return jsonify(result)
-
     try:
-        state = json.loads(row["live_state"])
+        state = json.loads(row["live_state"]) if row and row["live_state"] else None
     except (json.JSONDecodeError, TypeError):
-        conn.close()
-        return jsonify(result)
+        state = None
+    managed = bool(row and uses_run_timeline(conn, match_id))
+    run = None
+    if managed:
+        # Look at the last attempted slot even when void. In the gap before a
+        # replay starts, the previous completed map is not the live map.
+        run = conn.execute(
+            """SELECT r.map_run_id,r.status,s.map_name,o.score1,o.score2
+               FROM scheduled_maps s JOIN map_runs r USING(scheduled_map_id)
+               LEFT JOIN official_map_results o ON o.scheduled_map_id=s.scheduled_map_id
+                    AND o.map_run_id=r.map_run_id AND o.is_current=1
+               WHERE s.match_id=? AND s.is_enabled=1
+               ORDER BY s.map_order DESC,r.attempt_no DESC LIMIT 1""",
+            (match_id,),
+        ).fetchone()
+        if run and (
+            run["status"] == "void" or (run["status"] == "closed" and run["score1"] is None)
+        ):
+            if run["status"] == "void":
+                result["reason"] = "map_run_void"
+            conn.close()
+            return jsonify(result)
+        if run:
+            if not isinstance(state, dict) or state.get("map_run_id") != run["map_run_id"]:
+                state = {}
+            result.update(map_run_id=run["map_run_id"], map_name=run["map_name"])
+        elif isinstance(state, dict):
+            state = {"a2s": state["a2s"]} if state.get("a2s") else None
     if not isinstance(state, dict):
         conn.close()
         return jsonify(result)
 
+    fixed_teams = participant_sides(conn, match_id) if managed else {}
+    if fixed_teams:
+        row = dict(row)
+        for side, team in fixed_teams.items():
+            row[f"scheduled_team{side}_name"] = team["name"]
+            row[f"scheduled_team{side}_short"] = team["short_name"]
+    roster_profiles = (
+        _roster_profiles_by_steamid(conn, row, run_id=run["map_run_id"]) if run else {}
+    )
+    # This endpoint shows live observations, not the approved post-match statistics.
+    stat_default = None if managed else 0
     result["ok"] = True
     gsi = state.get("gsi")
     if not isinstance(gsi, dict):
@@ -220,33 +153,39 @@ def api_live_match(match_id):
     a2s = state.get("a2s")
     if not isinstance(a2s, dict):
         a2s = {}
-    result["round_history"] = (
-        state.get("round_history", []) if isinstance(state.get("round_history", []), list) else []
-    )
-    result["overtime_history"] = (
-        state.get("overtime_history", [])
-        if isinstance(state.get("overtime_history", []), list)
-        else []
-    )
     result["server"] = a2s.get("server", {}) or {}
-    markers = state.get("death_markers", state.get("kill_markers", []))
-    result["death_markers"] = markers[-10:] if isinstance(markers, list) else []
-    # Keep the legacy field for older clients, but prefer the durable event
-    # timeline when the in-memory frame no longer contains old kills.
-    result["kill_markers"] = result["death_markers"]
-    timeline = load_match_timeline(conn, match_id)
-    current_map = normalize_map_name(
-        (gsi.get("map", {}) or {}).get("name", "") or gotv.get("map_name", "")
-    )
-    timeline = [
-        event for event in timeline if normalize_map_name(event.get("map_name", "")) == current_map
-    ]
-    result["kill_events"] = [event for event in timeline if event.get("type") == "kill"][-40:]
-    if not result["bomb_events"]:
+    if managed:
+        timeline = load_run_timeline(conn, match_id, run["map_run_id"]) if run else []
+        rounds = [event for event in timeline if event["type"] == "round"]
+        result["round_history"] = [event for event in rounds if event["round"] <= 24]
+        result["overtime_history"] = [event for event in rounds if event["round"] > 24][-24:]
+        result["latest_round_result"] = rounds[-1] if rounds else None
+        markers = [event for event in timeline if event["type"] == "death"][-10:]
+        result["kill_markers"] = result["death_markers"] = markers
+        result["bomb_events"] = [event for event in timeline if event["type"] == "plant"][-24:]
+        if timeline:
+            result["round"] = timeline[-1]["round"]
+    else:
+        for field in ("round_history", "overtime_history"):
+            if isinstance(state.get(field), list):
+                result[field] = state[field]
+        markers = state.get("death_markers", state.get("kill_markers", []))
+        result["kill_markers"] = result["death_markers"] = (
+            markers[-10:] if isinstance(markers, list) else []
+        )
+        current_map = normalize_map_name(
+            (gsi.get("map", {}) or {}).get("name", "") or gotv.get("map_name", "")
+        )
+        timeline = [
+            event
+            for event in load_legacy_timeline(conn, match_id)
+            if normalize_map_name(event.get("map_name", "")) == current_map
+        ]
+        result["kill_events"] = [event for event in timeline if event.get("type") == "kill"][-40:]
         result["bomb_events"] = [event for event in timeline if event.get("type") == "plant"][-24:]
-    bomb_events = state.get("bomb_events", [])
-    if isinstance(bomb_events, list) and bomb_events:
-        result["bomb_events"] = bomb_events[-24:]
+        bomb_events = state.get("bomb_events", [])
+        if isinstance(bomb_events, list) and bomb_events:
+            result["bomb_events"] = bomb_events[-24:]
     profile_ids = set()
     for steamid in gsi.get("allplayers", {}) or {}:
         profile_ids.add(str(steamid))
@@ -254,14 +193,14 @@ def api_live_match(match_id):
         profile_ids.add(str(marker.get("steamid", "")))
     for event in result["bomb_events"]:
         profile_ids.add(str(event.get("player_steamid", "")))
-    profiles = _load_live_player_profiles(conn, profile_ids)
+    profiles = roster_profiles if managed else _load_live_player_profiles(conn, profile_ids)
     for marker in result["death_markers"]:
         marker["name"] = profiles.get(str(marker.get("steamid", "")), {}).get("name") or marker.get(
             "name", ""
         )
         try:
             point = _position_to_radar(
-                gsi.get("map", {}).get("name", ""),
+                gsi.get("map", {}).get("name") or result.get("map_name", ""),
                 (float(marker.get("x")), float(marker.get("y")), float(marker.get("z") or 0)),
             )
             if point:
@@ -294,7 +233,8 @@ def api_live_match(match_id):
         result["updated_at"] = state.get("gsi_received_at") or row["updated_at"]
         gmap = gsi.get("map", {}) or {}
         gphase = gsi.get("phase_countdowns", {}) or {}
-        roster_profiles = _roster_profiles_by_steamid(conn, row)
+        if not managed:
+            roster_profiles = _roster_profiles_by_steamid(conn, row)
         roster_side_by_steamid = {
             steam_id: profile["team"] for steam_id, profile in roster_profiles.items()
         }
@@ -306,8 +246,8 @@ def api_live_match(match_id):
         result["mode"] = gmap.get("mode", "")
         raw_round = int(gmap.get("round", 0) or 0)
         round_phase = str((gsi.get("round", {}) or {}).get("phase", "") or "")
-        stored_history = state.get("round_history", [])
-        overtime_history = state.get("overtime_history", [])
+        stored_history = result["round_history"]
+        overtime_history = result["overtime_history"]
         if isinstance(stored_history, list) and isinstance(overtime_history, list):
             stored_history = stored_history + overtime_history
         last_completed_round = 0
@@ -345,7 +285,7 @@ def api_live_match(match_id):
         # allplayers 数据（HP/武器/护甲/金钱）。坐标仅用于服务端记录阵亡点。
         allplayers = gsi.get("allplayers", {}) or {}
         steamids = [str(steamid) for steamid in allplayers]
-        live_profiles = _load_live_player_profiles(conn, steamids)
+        live_profiles = roster_profiles if managed else _load_live_player_profiles(conn, steamids)
 
         t1_players = []
         t2_players = []
@@ -354,12 +294,16 @@ def api_live_match(match_id):
             # A GSI frame can briefly retain a player from a previous server
             # session. When this match has an explicit roster, never expose
             # observers or stale players outside that roster.
-            if roster_side_by_steamid and steamid not in roster_side_by_steamid:
+            if (managed or roster_side_by_steamid) and steamid not in roster_side_by_steamid:
+                continue
+            player_side = str(pdata.get("team") or "")
+            if managed and player_side.upper() not in ("CT", "T"):
                 continue
             seen_roster_ids.add(str(steamid))
             pstate = pdata.get("state", {}) or {}
             pweapons = pdata.get("weapons", {}) or {}
             pmatch = pdata.get("match_stats", {}) or {}
+            damage = pmatch.get("damage", stat_default)
             primary = ""
             secondary = ""
             for wname, wdata in sorted(pweapons.items(), key=lambda x: x[0]):
@@ -384,19 +328,18 @@ def api_live_match(match_id):
                 "armor": pstate.get("armor", 0),
                 "helmet": pstate.get("helmet", False),
                 "money": pstate.get("money", 0),
-                "kills": pmatch.get("kills", 0),
-                "assists": pmatch.get("assists", 0),
-                "deaths": pmatch.get("deaths", 0),
-                "adr": round(
-                    pmatch.get("damage", 0) / max(int(gmap.get("round", 0) or 0) + 1, 1), 1
-                ),
+                "kills": pmatch.get("kills", stat_default),
+                "assists": pmatch.get("assists", stat_default),
+                "deaths": pmatch.get("deaths", stat_default),
+                "adr": None
+                if managed and damage is None
+                else round(damage / max(raw_round + 1, 1), 1),
                 "observer_slot": pdata.get("observer_slot"),
                 "primary": primary,
                 "secondary": secondary,
                 "alive": pstate.get("health", 0) > 0,
             }
-            player_side = str(pdata.get("team") or "")
-            # The registration roster is authoritative for the fixed team slot.
+            # The lineup is authoritative for the fixed team slot.
             # GSI's CT/T value only describes the current side and changes at half.
             player_identity = roster_side_by_steamid.get(steamid)
             if not player_identity and side_mapping:
@@ -406,14 +349,12 @@ def api_live_match(match_id):
             elif player_identity == "team2":
                 t2_players.append(entry)
 
-        # GSI occasionally omits a registered substitute or a player who has
-        # disconnected. Keep the fixed five-player layout filled with that
-        # roster member's website name/avatar instead of leaving a blank row.
+        # A lineup slot alone does not prove that somebody ever connected to this run.
         for steamid, player_identity in roster_side_by_steamid.items():
             if steamid in seen_roster_ids:
                 continue
             profile = roster_profiles.get(steamid, {})
-            if not profile.get("name"):
+            if not profile.get("name") or (managed and not profile["has_appeared"]):
                 continue
             missing_entry = {
                 "steamid": steamid,
@@ -426,10 +367,10 @@ def api_live_match(match_id):
                 "armor": "-",
                 "helmet": False,
                 "money": "-",
-                "kills": 0,
-                "assists": 0,
-                "deaths": 0,
-                "adr": 0,
+                "kills": stat_default,
+                "assists": stat_default,
+                "deaths": stat_default,
+                "adr": stat_default,
                 "observer_slot": None,
                 "primary": "",
                 "secondary": "",
@@ -482,9 +423,7 @@ def api_live_match(match_id):
             else None,
         }
         result["phase"] = gr.get("phase", "") or countdown_phase
-        result["round_history"] = state.get("round_history", [])
-        result["overtime_history"] = state.get("overtime_history", [])
-        if result["round_history"]:
+        if not managed and result["round_history"]:
             result["latest_round_result"] = result["round_history"][-1]
 
     # --- GOTV 数据（回退/补充） ---
@@ -500,57 +439,67 @@ def api_live_match(match_id):
             "name": gotv.get("team2_name", "TBD"),
             "score": gotv.get("team2_score", 0),
         }
-        gotv_profiles = _load_live_player_profiles(
-            conn,
-            [
-                p.get("steamid") or p.get("steam_id")
-                for p in gotv.get("t1_players", []) + gotv.get("t2_players", [])
-            ],
+        gotv_profiles = (
+            roster_profiles
+            if managed
+            else _load_live_player_profiles(
+                conn,
+                [
+                    p.get("steamid") or p.get("steam_id")
+                    for p in gotv.get("t1_players", []) + gotv.get("t2_players", [])
+                ],
+            )
         )
-        result["players_t1"] = [
-            {
-                "steamid": p.get("steamid") or p.get("steam_id", ""),
-                "name": gotv_profiles.get(str(p.get("steamid") or p.get("steam_id", "")), {}).get(
-                    "name"
-                )
-                or p.get("name", ""),
-                "hp": "-",
-                "armor": "-",
-                "money": "-",
-                "kills": p.get("kills", 0),
-                "deaths": p.get("deaths", 0),
-                "assists": p.get("assists", 0),
-                "adr": p.get("adr", 0),
-                "primary": "-",
-                "secondary": "-",
-                "alive": True,
-            }
-            for p in gotv.get("t1_players", [])[:5]
-        ]
-        result["players_t2"] = [
-            {
-                "steamid": p.get("steamid") or p.get("steam_id", ""),
-                "name": gotv_profiles.get(str(p.get("steamid") or p.get("steam_id", "")), {}).get(
-                    "name"
-                )
-                or p.get("name", ""),
-                "hp": "-",
-                "armor": "-",
-                "money": "-",
-                "kills": p.get("kills", 0),
-                "deaths": p.get("deaths", 0),
-                "assists": p.get("assists", 0),
-                "adr": p.get("adr", 0),
-                "primary": "-",
-                "secondary": "-",
-                "alive": True,
-            }
-            for p in gotv.get("t2_players", [])[:5]
-        ]
+        for side in (1, 2):
+            players = result[f"players_t{side}"]
+            for p in gotv.get(f"t{side}_players", []):
+                steamid = p.get("steamid") or p.get("steam_id", "")
+                profile = gotv_profiles.get(str(steamid), {})
+                if managed and profile.get("team") != f"team{side}":
+                    continue
+                entry = {
+                    "steamid": steamid,
+                    "name": profile.get("name") or p.get("name", ""),
+                    "hp": "-",
+                    "armor": "-",
+                    "money": "-",
+                    "kills": p.get("kills", stat_default),
+                    "deaths": p.get("deaths", stat_default),
+                    "assists": p.get("assists", stat_default),
+                    "adr": p.get("adr", stat_default),
+                    "primary": "-",
+                    "secondary": "-",
+                    "alive": True,
+                }
+                if managed:
+                    entry.update(
+                        player_id=profile["player_id"],
+                        roster_slot=profile["slot"],
+                        avatar=profile["avatar"],
+                        is_substitute=profile["is_substitute"],
+                    )
+                players.append(entry)
+                if len(players) == 5:
+                    break
     elif not use_gsi and result["server"].get("online"):
         result["source"] = "a2s"
         result["updated_at"] = row["updated_at"]
         result["map_name"] = result["server"].get("map_name", "")
+
+    for side, team in fixed_teams.items():
+        key = f"team{side}"
+        result[key] = {
+            **(result[key] or {}),
+            "name": team["name"],
+            "short_name": team["short_name"],
+        }
+
+    if run and run["status"] == "closed":
+        for side in (1, 2):
+            key = f"team{side}"
+            if result[key] is None:
+                result[key] = {"name": row[f"scheduled_team{side}_name"]}
+            result[key]["score"] = run[f"score{side}"]
 
     conn.close()
     return jsonify(result)

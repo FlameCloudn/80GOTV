@@ -8,7 +8,10 @@ from datetime import datetime, timedelta
 
 from flask import jsonify, redirect, render_template, request, session, url_for
 
-from models import get_db
+from models import db, get_db
+from services.arg_event_service import ordinary_event_condition
+from services.broadcast_roster_service import display_rosters, event_substitutes
+from services.match_roster_service import resolve_match_roster
 from services.match_service import (
     add_effective_event_status,
     match_stat_belongs_to_side,
@@ -16,8 +19,10 @@ from services.match_service import (
     supplement_temp_teams,
 )
 from services.perf_overview_service import build_perf_overview, load_metric_averages
+from site_core.community import build_comment_tree, list_comments
+from site_core.host import HostError
+from site_core.predictions import cast_vote, managed_vote_open, vote_summary
 from utils.helpers import (
-    build_comment_tree,
     normalize_http_url,
     normalize_map_key,
     resolve_match_ref,
@@ -33,7 +38,9 @@ from utils.match_utils import (
     parse_map_halves,
 )
 from utils.rate_limiter import rate_limit
+from utils.side_stats import aggregate_side_stats, load_side_stats
 from utils.stats_display import optional_number
+from utils.stats_storage import stats_for_slot, stats_relation
 from utils.web_helpers import csrf_required
 from web_app import app
 
@@ -104,7 +111,9 @@ def matches_list():
     matches = conn.execute(query, params).fetchall()
     matches = [supplement_temp_teams(m, conn) for m in matches]
 
-    events = conn.execute("SELECT * FROM events ORDER BY start_date DESC").fetchall()
+    events = conn.execute(
+        f"SELECT * FROM events WHERE {ordinary_event_condition()} ORDER BY start_date DESC"
+    ).fetchall()
     completed_on_selected_date = 0
     if date_filter:
         # 与列表同一组条件：选了赛事时只看该赛事当天有没有已结束的比赛
@@ -183,7 +192,9 @@ def results_list():
 
     matches = conn.execute(query, params).fetchall()
     matches = [supplement_temp_teams(m, conn) for m in matches]
-    events = conn.execute("SELECT * FROM events ORDER BY start_date DESC").fetchall()
+    events = conn.execute(
+        f"SELECT * FROM events WHERE {ordinary_event_condition()} ORDER BY start_date DESC"
+    ).fetchall()
 
     total_query = f"SELECT COUNT(*) as cnt FROM matches m WHERE {_SQL_MATCH_COMPLETED}"
     if event_filter:
@@ -231,49 +242,12 @@ def match_vote(slug):
     if any(score is not None and not 0 <= score <= 99 for score in (score1_guess, score2_guess)):
         return jsonify({"ok": False, "msg": "比分范围应为 0-99"})
 
-    conn = get_db()
-    match = conn.execute(
-        f"SELECT id FROM matches m WHERE m.id=? AND ({_SQL_MATCH_UPCOMING})", (match_id,)
-    ).fetchone()
-    if not match:
-        conn.close()
-        return jsonify({"ok": False, "msg": "比赛已经开始或不存在，无法继续投票"})
-    existing = conn.execute(
-        "SELECT id FROM match_votes WHERE match_id=? AND user_id=?", (match_id, user_id)
-    ).fetchone()
-    if existing:
-        conn.close()
-        return jsonify({"ok": False, "msg": "您已投过票"})
-
-    conn.execute(
-        "INSERT INTO match_votes (match_id, user_id, voted_for, score1_guess, score2_guess) VALUES (?,?,?,?,?)",
-        (match_id, user_id, voted_for, score1_guess, score2_guess),
-    )
-    conn.commit()
-
-    vc = conn.execute(
-        "SELECT voted_for, COUNT(*) as cnt FROM match_votes WHERE match_id=? GROUP BY voted_for",
-        (match_id,),
-    ).fetchall()
-    conn.close()
-
-    t1_count = 0
-    t2_count = 0
-    for r in vc:
-        if r["voted_for"] == "t1":
-            t1_count = r["cnt"]
-        elif r["voted_for"] == "t2":
-            t2_count = r["cnt"]
-
-    return jsonify(
-        {
-            "ok": True,
-            "t1_count": t1_count,
-            "t2_count": t2_count,
-            "total": t1_count + t2_count,
-            "user_voted": voted_for,
-        }
-    )
+    try:
+        with db() as conn:
+            counts = cast_vote(conn, match_id, user_id, voted_for, score1_guess, score2_guess)
+    except HostError as exc:
+        return jsonify({"ok": False, "msg": exc.message}), exc.status
+    return jsonify({"ok": True, **counts})
 
 
 @app.route("/matches/<slug>/stats")
@@ -322,9 +296,9 @@ def _render_match_detail(match_id):
 
     # 获取比赛数据
     stats = conn.execute(
-        """
+        f"""
         SELECT ms.*, p.nickname, p.id AS player_id, t.short_name AS team_short
-        FROM match_stats ms
+        FROM {stats_relation(conn)} ms
         JOIN players p ON ms.player_id=p.id
         LEFT JOIN teams t ON ms.team_id=t.id
         WHERE ms.match_id=?
@@ -361,10 +335,28 @@ def _render_match_detail(match_id):
         ).fetchall()
 
     # 队伍名单（队标悬停浮窗用；只展示已生效的五人名单，替补用角色标记）
-    from routes.broadcast import _team_players
+    from site_core.host import is_managed_match
 
-    team1_roster = _team_players(conn, match, 1)
-    team2_roster = _team_players(conn, match, 2)
+    rosters = display_rosters(
+        resolve_match_roster(conn, match)["players"], event_substitutes(conn, match["event_id"])
+    )
+    team1_roster, team2_roster = rosters[1], rosters[2]
+    managed_match = is_managed_match(conn, match_id)
+    prediction_disabled = bool(managed_match and not managed_vote_open(conn, match_id))
+    if managed_match:
+        from site_core.matches.demo_storage import available_download_slots
+
+        # The old template needs slot booleans, not names or storage keys.
+        available = available_download_slots(
+            conn,
+            match_id,
+            instance_path=app.instance_path,
+            static_folder=app.static_folder,
+            configured=app.config.get("HOST_DEMO_ROOT"),
+        )
+        match["demo_file"] = (
+            json.dumps([slot in available for slot in range(5)]) if available else None
+        )
 
     conn.close()
 
@@ -425,11 +417,7 @@ def _render_match_detail(match_id):
         if idx >= max_maps:
             break
         # 未开始的系列赛也要按 BO 数量完整显示地图槽位。
-        all_for_map = (
-            [s for s in stats if normalize_map_key(s["map_name"]) == normalize_map_key(mn)]
-            if mn
-            else []
-        )
+        all_for_map = stats_for_slot(stats, idx + 1, mn)
         t1s = _display_rows_from_raw(
             [s for s in all_for_map if _stat_belongs_to_match_side(s, "t1", t1_key)],
             "t1",
@@ -490,16 +478,13 @@ def _render_match_detail(match_id):
         all_overall.append(row)
 
     def _avg(rows, key):
-        usable = [float(row.get(key) or 0) for row in rows]
-        return round(sum(usable) / len(usable), 2) if usable else 0
+        return _avg_values([row.get(key) for row in rows])
 
     def _sum(rows, key):
-        return sum(int(row.get(key) or 0) for row in rows)
+        return _sum_known([row.get(key) for row in rows])
 
     def _top(rows, key):
-        if not rows:
-            return None
-        return max(rows, key=lambda row: float(row.get(key) or 0))
+        return max((row for row in rows if row.get(key) is not None), key=lambda row: row[key], default=None)
 
     match_breakdown = {
         "t1_rating": _avg(overall_t1, "rating"),
@@ -548,21 +533,7 @@ def _render_match_detail(match_id):
         t1_win = int(match["team1_score"] or 0) > int(match["team2_score"] or 0)
 
     conn = get_db()
-    raw_comments = conn.execute(
-        """
-        SELECT c.*, u.username,
-               CASE WHEN COALESCE(u.is_bashizhong_student, 1)<>0
-                    THEN u.group_username END AS group_username,
-               u.avatar, u.is_cheater,
-               (SELECT COUNT(*) FROM comment_likes WHERE comment_id=c.id) as like_count,
-               (SELECT 1 FROM comment_likes WHERE comment_id=c.id AND user_id=?) as user_liked
-        FROM comments c
-        JOIN users u ON c.user_id = u.id
-        WHERE c.target_type='match' AND c.target_id=?
-        ORDER BY c.created_at ASC, c.id ASC
-    """,
-        (session.get("user_id"), match_id),
-    ).fetchall()
+    raw_comments = list_comments(conn, "match", match_id, session.get("user_id"))
     conn.close()
 
     comments = build_comment_tree(raw_comments)
@@ -570,7 +541,7 @@ def _render_match_detail(match_id):
     # 侧边栏：赛事 / 比赛 / 新闻
     conn = get_db()
     sidebar_events = conn.execute(
-        "SELECT * FROM events ORDER BY start_date DESC LIMIT 9"
+        f"SELECT * FROM events WHERE {ordinary_event_condition()} ORDER BY start_date DESC LIMIT 9"
     ).fetchall()
     sidebar_events = [add_effective_event_status(e) for e in sidebar_events]
     sidebar_events.sort(
@@ -593,6 +564,7 @@ def _render_match_detail(match_id):
     sidebar_news = conn.execute(
         "SELECT id, title, created_at FROM news ORDER BY created_at DESC LIMIT 3"
     ).fetchall()
+    vote_data = vote_summary(conn, match_id, session.get("user_id"))
     conn.close()
 
     # 观赛平台链接
@@ -608,28 +580,6 @@ def _render_match_detail(match_id):
         if isinstance(item, dict)
         if (safe_url := normalize_http_url(item.get("url")))
     ]
-
-    # 投票数据
-    vote_data = {"t1_count": 0, "t2_count": 0, "total": 0, "user_voted": None}
-    user_id = session.get("user_id")
-    if user_id:
-        conn = get_db()
-        vc = conn.execute(
-            "SELECT voted_for, COUNT(*) as cnt FROM match_votes WHERE match_id=? GROUP BY voted_for",
-            (match_id,),
-        ).fetchall()
-        for r in vc:
-            if r["voted_for"] == "t1":
-                vote_data["t1_count"] = r["cnt"]
-            elif r["voted_for"] == "t2":
-                vote_data["t2_count"] = r["cnt"]
-        vote_data["total"] = vote_data["t1_count"] + vote_data["t2_count"]
-        uv = conn.execute(
-            "SELECT voted_for FROM match_votes WHERE match_id=? AND user_id=?", (match_id, user_id)
-        ).fetchone()
-        if uv:
-            vote_data["user_voted"] = uv["voted_for"]
-        conn.close()
 
     # BP 记录拆成步骤（“T1 / T2”就是本场的队伍 1 / 队伍 2）
     bp_view = parse_bp_log(
@@ -660,6 +610,8 @@ def _render_match_detail(match_id):
         h2h_matches=h2h_matches,
         team1_roster=team1_roster,
         team2_roster=team2_roster,
+        is_managed_match=managed_match,
+        prediction_disabled=prediction_disabled,
     )
 
 
@@ -740,8 +692,12 @@ def _recorded_side_metrics(row):
         for side in ("t", "ct")
         for key in ("kills", "deaths", "adr", "rating")
     }
+    sides = load_side_stats(row_get(row, "side_stats_json"))
+    for side, recorded in sides.items():
+        for key in ("kills", "deaths", "adr", "rating"):
+            values[f"{side}_{key}"] = recorded.get(key)
     # Old imports defaulted every side column to zero even when only totals were recorded.
-    if not any(values.values()) and any(
+    if not sides and not any(values.values()) and any(
         optional_number(row_get(row, key)) for key in ("kills", "deaths", "adr", "rating")
     ):
         return dict.fromkeys(values)
@@ -803,6 +759,7 @@ def _build_match_player_row(data, team_side, team_short, team_name):
         "trade_kills": _optional_int(data.get("trade_kills")),
         "trade_deaths": _optional_int(data.get("trade_deaths")),
         "enemies_flashed": _optional_int(data.get("enemies_flashed")),
+        "flash_assists": _optional_int(data.get("flash_assists")),
         "utility_damage": _optional_round(data.get("utility_damage"), 1),
         "rounds_played": _optional_int(data.get("rounds_played")),
         "damage_delta_per_round": _optional_round(data.get("damage_delta_per_round"), 2),
@@ -829,12 +786,14 @@ def _build_match_player_row(data, team_side, team_short, team_name):
         "clutches_won",
         "headshot_kills",
         "enemies_flashed",
+        "flash_assists",
         "trade_deaths",
         "rws",
         "impact",
         "headshot_percentage",
     )
     result["side_views"] = {"overall": {key: result.get(key) for key in view_keys}}
+    recorded_sides = load_side_stats(data.get("side_stats_json"))
     for side in ("t", "ct"):
         known = any(
             result[f"{side}_{key}"] is not None for key in ("kills", "deaths", "adr", "rating")
@@ -844,6 +803,20 @@ def _build_match_player_row(data, team_side, team_short, team_name):
             "deaths": result[f"{side}_deaths"],
             "maps": data.get(f"{side}_maps", result["maps"] if known else None),
         }
+        if side in recorded_sides:
+            result["side_views"][side].update(recorded_sides[side])
+            values = result["side_views"][side]
+            if values.get("maps") is None:
+                values["maps"] = int(values.get("rounds") != 0)
+            side_first_kills, side_first_deaths = (
+                values.get("first_kills"),
+                values.get("first_deaths"),
+            )
+            values["opening_diff"] = (
+                side_first_kills - side_first_deaths
+                if side_first_kills is not None and side_first_deaths is not None
+                else None
+            )
     return result
 
 
@@ -855,6 +828,19 @@ def _display_rows_from_raw(rows, team_side, team_short, team_name):
         result.append(_build_match_player_row(data, team_side, team_short, team_name))
     result.sort(key=_match_rating_sort_key, reverse=True)
     return result
+
+
+_MATCH_AVERAGES = {
+    "adr": 1, "kast": 1, "rating": 2, "impact": 2, "kpr": 2, "dpr": 2, "rws_basic": 2,
+    "headshot_percentage": 1, "damage_delta_per_round": 2,
+}
+
+
+def _weighted_map_average(entries, digits):
+    total_weight = sum(weight for _, weight in entries)
+    if total_weight:
+        return round(sum(value * weight for value, weight in entries) / total_weight, digits)
+    return _avg_values([value for value, _ in entries], digits)
 
 
 def _aggregate_match_rows(rows, team_side, team_short, team_name):
@@ -874,6 +860,8 @@ def _aggregate_match_rows(rows, team_side, team_short, team_name):
             "trade_kills": None,
             "trade_deaths": None,
             "enemies_flashed": None,
+            "flash_assists": None,
+            "side_entries": [],
             "utility_damage": None,
             "rounds_played": None,
             "t_kills": None,
@@ -884,20 +872,10 @@ def _aggregate_match_rows(rows, team_side, team_short, team_name):
             "multi3k": None,
             "multi4k": None,
             "multi5k": None,
-            "maps": 0,
-            "adr_values": [],
-            "kast_values": [],
-            "rating_values": [],
-            "impact_values": [],
-            "hs_values": [],
-            "swing_values": [],
-            "kpr_values": [],
-            "dpr_values": [],
-            "rws_values": [],
-            "t_adr_values": [],
-            "t_rating_values": [],
-            "ct_adr_values": [],
-            "ct_rating_values": [],
+            "scheduled_maps": set(),
+            "legacy_maps": 0,
+            "legacy_side_values": defaultdict(list),
+            "averages": defaultdict(list),
             "t_maps": 0,
             "ct_maps": 0,
         }
@@ -910,7 +888,16 @@ def _aggregate_match_rows(rows, team_side, team_short, team_name):
         item["nickname"] = row["nickname"]
         item["avatar"] = row_get(row, "avatar")
         item["steam_id"] = row_get(row, "steam_id")
-        item["maps"] += 1
+        scheduled_map_id = row_get(row, "scheduled_map_id")
+        if scheduled_map_id is None:
+            item["legacy_maps"] += 1
+            for side in ("t", "ct"):
+                for key in ("adr", "rating"):
+                    column = f"{side}_{key}"
+                    item["legacy_side_values"][column].append(side_metrics[column])
+        else:
+            item["scheduled_maps"].add(scheduled_map_id)
+        item["side_entries"].append(load_side_stats(row_get(row, "side_stats_json")))
         for key in (
             "kills",
             "deaths",
@@ -926,6 +913,7 @@ def _aggregate_match_rows(rows, team_side, team_short, team_name):
             "trade_kills",
             "trade_deaths",
             "enemies_flashed",
+            "flash_assists",
             "rounds_played",
             "t_kills",
             "t_deaths",
@@ -942,36 +930,28 @@ def _aggregate_match_rows(rows, team_side, team_short, team_name):
         utility_damage = optional_number(row_get(row, "utility_damage"))
         if utility_damage is not None:
             item["utility_damage"] = (item["utility_damage"] or 0) + utility_damage
-        weight = max(1, _safe_int(row_get(row, "rounds_played", 0)))
-        for _ in range(weight):
-            item["adr_values"].append(optional_number(row_get(row, "adr")))
-            item["kast_values"].append(optional_number(row_get(row, "kast")))
-            item["rating_values"].append(optional_number(row_get(row, "rating")))
-            item["impact_values"].append(optional_number(row_get(row, "impact")))
-            item["kpr_values"].append(optional_number(row_get(row, "kpr")))
-            item["dpr_values"].append(optional_number(row_get(row, "dpr")))
-            item["rws_values"].append(optional_number(row_get(row, "rws_basic")))
-        for _ in range(max(1, _safe_int(row_get(row, "kills", 0)))):
-            item["hs_values"].append(optional_number(row_get(row, "headshot_percentage")))
-        for _ in range(weight):
-            item["swing_values"].append(optional_number(row_get(row, "damage_delta_per_round")))
+        for key in _MATCH_AVERAGES:
+            value = optional_number(row_get(row, key))
+            weight_key = "kills" if key == "headshot_percentage" else "rounds_played"
+            weight = max(0, _safe_int(row_get(row, weight_key)))
+            if value is not None and (weight or scheduled_map_id is None):
+                item["averages"][key].append((value, weight))
         for side in ("t", "ct"):
             if any(
                 side_metrics[f"{side}_{key}"] is not None
                 for key in ("kills", "deaths", "adr", "rating")
             ):
                 item[f"{side}_maps"] += 1
-            item[f"{side}_adr_values"].append(side_metrics[f"{side}_adr"])
-            item[f"{side}_rating_values"].append(side_metrics[f"{side}_rating"])
 
     result = []
     for item in grouped.values():
+        sides = aggregate_side_stats(item["side_entries"])
         data = {
             "player_id": item.get("player_id"),
             "nickname": item.get("nickname"),
             "avatar": item.get("avatar"),
             "steam_id": item.get("steam_id"),
-            "maps": item["maps"],
+            "maps": len(item["scheduled_maps"]) + item["legacy_maps"],
             "kills": item["kills"],
             "deaths": item["deaths"],
             "assists": item["assists"],
@@ -986,6 +966,8 @@ def _aggregate_match_rows(rows, team_side, team_short, team_name):
             "trade_kills": item["trade_kills"],
             "trade_deaths": item["trade_deaths"],
             "enemies_flashed": item["enemies_flashed"],
+            "flash_assists": item["flash_assists"],
+            "side_stats_json": sides,
             "utility_damage": item["utility_damage"],
             "rounds_played": item["rounds_played"],
             "multi2k": item["multi2k"],
@@ -996,22 +978,23 @@ def _aggregate_match_rows(rows, team_side, team_short, team_name):
             "t_deaths": item["t_deaths"],
             "ct_kills": item["ct_kills"],
             "ct_deaths": item["ct_deaths"],
-            "adr": _avg_values(item["adr_values"], 1),
-            "kast": _avg_values(item["kast_values"], 1),
-            "rating": _avg_values(item["rating_values"], 2),
-            "impact": _avg_values(item["impact_values"], 2),
-            "kpr": _avg_values(item["kpr_values"], 2),
-            "dpr": _avg_values(item["dpr_values"], 2),
-            "rws_basic": _avg_values(item["rws_values"], 2),
-            "headshot_percentage": _avg_values(item["hs_values"], 1),
-            "damage_delta_per_round": _avg_values(item["swing_values"], 2),
-            "t_adr": _avg_values(item["t_adr_values"], 1),
-            "t_rating": _avg_values(item["t_rating_values"], 2),
-            "ct_adr": _avg_values(item["ct_adr_values"], 1),
-            "ct_rating": _avg_values(item["ct_rating_values"], 2),
+            **{
+                key: _weighted_map_average(item["averages"][key], digits)
+                for key, digits in _MATCH_AVERAGES.items()
+            },
             "t_maps": item["t_maps"] or None,
             "ct_maps": item["ct_maps"] or None,
         }
+        # When historical rows have no side round counts, keep their recorded display values.
+        for side in ("t", "ct"):
+            for key, digits in (("adr", 1), ("rating", 2)):
+                if sides.get(side, {}).get(key) is None:
+                    column = f"{side}_{key}"
+                    value = _avg_values(item["legacy_side_values"][column], digits)
+                    if side in sides:
+                        sides[side][key] = value
+                    else:
+                        data[column] = value
         result.append(_build_match_player_row(data, team_side, team_short, team_name))
     result.sort(key=_match_rating_sort_key, reverse=True)
     return result
@@ -1341,9 +1324,9 @@ def _build_match_detailed_context(match_id):
     match = supplement_temp_teams(match, conn)
 
     stats = conn.execute(
-        """
+        f"""
         SELECT ms.*, p.nickname, p.avatar, p.steam_id, p.id AS player_id
-        FROM match_stats ms
+        FROM {stats_relation(conn)} ms
         JOIN players p ON ms.player_id=p.id
         WHERE ms.match_id=?
           AND COALESCE(ms.data_status, 'final') <> 'superseded'
@@ -1353,7 +1336,9 @@ def _build_match_detailed_context(match_id):
     ).fetchall()
     player_ids = sorted({row["player_id"] for row in stats})
     player_aliases = _build_player_alias_map(conn, player_ids)
-    persisted_kill_events = _load_persisted_kill_events(conn, match_id)
+    from site_core.host import is_managed_match
+
+    persisted_kill_events = [] if is_managed_match(conn, match_id) else _load_persisted_kill_events(conn, match_id)
     metric_averages = load_metric_averages(conn)
     conn.close()
 
@@ -1404,11 +1389,7 @@ def _build_match_detailed_context(match_id):
     for idx, (map_name, t1_score, t2_score, active, picked_by) in enumerate(raw_maps):
         if idx >= max_maps:
             break
-        map_rows = [
-            row
-            for row in stats
-            if map_name and normalize_map_key(row["map_name"]) == normalize_map_key(map_name)
-        ]
+        map_rows = stats_for_slot(stats, idx + 1, map_name)
         team1_raw = [row for row in map_rows if _stat_belongs_to_match_side(row, "t1", t1_key)]
         team2_raw = [row for row in map_rows if _stat_belongs_to_match_side(row, "t2", t2_key)]
         team1_rows = _display_rows_from_raw(team1_raw, "t1", match["t1s"], match["team1_name"])

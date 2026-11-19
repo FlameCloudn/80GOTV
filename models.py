@@ -1,86 +1,19 @@
 import logging
-import os
 import sqlite3
-from contextlib import contextmanager
+from pathlib import Path
 
 from config import Config
+from site_core.database import TURSO_TOKEN as TURSO_TOKEN
+from site_core.database import TURSO_URL as TURSO_URL
+from site_core.database import close_request_connections as close_request_connections
+from site_core.database import db, get_db, using_turso
 
 logger = logging.getLogger("80gotv")
-CURRENT_SCHEMA_VERSION = 3
-
-TURSO_URL = os.environ.get("TURSO_URL", "")
-TURSO_TOKEN = os.environ.get("TURSO_TOKEN", "")
-_CONFIGURED_DATABASE = Config.DATABASE
+CURRENT_SCHEMA_VERSION = 6
 
 
-def _using_turso():
-    """Use Turso only while the configured production database is unchanged."""
-    return bool(
-        TURSO_URL
-        and TURSO_TOKEN
-        and Config.DATABASE == _CONFIGURED_DATABASE
-        and os.environ.get("FLASK_ENV", "").strip().lower() != "testing"
-    )
-
-
-def get_db():
-    if _using_turso():
-        import libsql_experimental as libsql
-
-        conn = libsql.connect(database=TURSO_URL, auth_token=TURSO_TOKEN)
-        conn.sync()
-        return _track_request_connection(conn)
-    conn = sqlite3.connect(Config.DATABASE, timeout=10)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys=ON")
-    conn.execute("PRAGMA busy_timeout=10000")
-    # Keep hot indexes and temporary sort data in memory. These values are
-    # deliberately modest so the 1 GB production host stays comfortable.
-    conn.execute("PRAGMA cache_size=-16384")
-    conn.execute("PRAGMA temp_store=MEMORY")
-    conn.execute("PRAGMA mmap_size=67108864")
-    return _track_request_connection(conn)
-
-
-def _track_request_connection(conn):
-    from flask import g, has_request_context
-
-    if has_request_context():
-        if not hasattr(g, "_database_connections"):
-            g._database_connections = []
-        g._database_connections.append(conn)
-    return conn
-
-
-def close_request_connections(error=None):
-    """Roll back and close connections even if a route exits before its close call."""
-    from flask import g
-
-    for conn in g.pop("_database_connections", []):
-        try:
-            conn.close()
-        except Exception:
-            logger.exception("请求结束时关闭数据库连接失败")
-
-
-@contextmanager
-def db():
-    """数据库连接上下文管理器"""
-    conn = get_db()
-    try:
-        yield conn
-        conn.commit()
-    except Exception:
-        try:
-            conn.rollback()
-        except Exception as exc:
-            logger.warning("回退数据库操作失败：%s", type(exc).__name__)
-        raise
-    finally:
-        try:
-            conn.close()
-        except Exception as exc:
-            logger.warning("关闭数据库连接失败：%s", type(exc).__name__)
+def supported_schema_version(*, remote: bool) -> int:
+    return 3 if remote else CURRENT_SCHEMA_VERSION
 
 
 def _execute_sql_script(conn, script):
@@ -94,6 +27,29 @@ def _execute_sql_script(conn, script):
             pending.clear()
     if "\n".join(pending).strip():
         raise RuntimeError("数据库升级脚本包含不完整的 SQL")
+
+
+def _add_prematch_schema(conn):
+    root = Path(__file__).resolve().parent / "site_core"
+    for relative in (
+        "events/structure.sql",
+        "matches/participant_schema.sql",
+        "matches/map_schema.sql",
+        "events/compatibility_views.sql",
+        "legacy_writer_guards.sql",
+    ):
+        _execute_sql_script(conn, (root / relative).read_text(encoding="utf-8"))
+
+
+def _add_operations_schema(conn):
+    root = Path(__file__).resolve().parent / "site_core" / "matches"
+    for filename in ("operation_schema.sql", "result_schema.sql", "stats_schema.sql", "demo_schema.sql", "live_schema.sql"):
+        _execute_sql_script(conn, (root / filename).read_text(encoding="utf-8"))
+
+
+def _add_championship_schema(conn):
+    schema = Path(__file__).resolve().parent / "site_core" / "awards" / "championship_schema.sql"
+    _execute_sql_script(conn, schema.read_text(encoding="utf-8"))
 
 
 def _ensure_default_admin(cursor):
@@ -273,6 +229,7 @@ def _ensure_match_stats_data_version_columns(cursor):
         "data_version": "INTEGER NOT NULL DEFAULT 1",
         "impact_method": "TEXT",
         "rating_impact": "REAL",
+        "side_stats_json": "TEXT",
     }
     for name, definition in additions.items():
         if name not in columns:
@@ -285,6 +242,13 @@ def _ensure_match_stats_flash_recorded_column(cursor):
         cursor.execute(
             "ALTER TABLE match_stats ADD COLUMN flash_count_recorded INTEGER NOT NULL DEFAULT 0"
         )
+
+
+def _ensure_news_article_link_columns(cursor):
+    columns = {row[1] for row in cursor.execute("PRAGMA table_info(news)").fetchall()}
+    for name in ("internal_link_url", "internal_link_text"):
+        if columns and name not in columns:
+            cursor.execute(f"ALTER TABLE news ADD COLUMN {name} TEXT")
 
 
 def _ensure_match_stats_unique_result_index(cursor):
@@ -438,7 +402,8 @@ def _ensure_security_state_tables(cursor):
 def init_tables():
     conn = get_db()
     try:
-        _init_tables(conn)
+        if _init_tables(conn) == "prematch_upgrade":
+            return
         champions_table = conn.execute(
             "SELECT 1 FROM sqlite_master WHERE type='table' AND name='event_champions'"
         ).fetchone()
@@ -462,6 +427,9 @@ def init_tables():
 
 def _init_tables(conn):
     c = conn.cursor()
+    # 本次迁移只验证了本机 SQLite；可选远端驱动仍走网站原有版本。
+    remote = using_turso()
+    supported_version = supported_schema_version(remote=remote)
 
     # WAL lets readers continue while another request saves a small update.
     # The PRAGMA is SQLite-specific, so hosted libSQL connections may skip it.
@@ -471,7 +439,7 @@ def _init_tables(conn):
     except Exception:
         pass
 
-    c.execute("BEGIN" if _using_turso() else "BEGIN IMMEDIATE")
+    c.execute("BEGIN" if remote else "BEGIN IMMEDIATE")
     c.execute("""
         CREATE TABLE IF NOT EXISTS schema_migrations (
             version INTEGER PRIMARY KEY,
@@ -482,12 +450,14 @@ def _init_tables(conn):
     applied_versions = {
         int(row[0]) for row in c.execute("SELECT version FROM schema_migrations").fetchall()
     }
-    future_versions = [version for version in applied_versions if version > CURRENT_SCHEMA_VERSION]
+    future_versions = [version for version in applied_versions if version > supported_version]
     if future_versions:
         raise RuntimeError(
-            f"数据库版本高于当前代码：数据库 {max(future_versions)}，代码 {CURRENT_SCHEMA_VERSION}"
+            f"数据库版本高于当前代码：数据库 {max(future_versions)}，当前驱动支持 {supported_version}"
         )
-    if CURRENT_SCHEMA_VERSION in applied_versions:
+    previous = max(applied_versions, default=0)
+    # 同为 v3 的历史站点也可能缺少晚加的列；在安装引用它们的新结构之前补齐。
+    if previous >= 3:
         _ensure_individual_registration_playtime_columns(c)
         _ensure_player_playtime_columns(c)
         _ensure_match_test_mode_column(c)
@@ -497,6 +467,27 @@ def _init_tables(conn):
         _ensure_match_stats_team_side_column(c)
         _ensure_match_stats_data_version_columns(c)
         _ensure_match_stats_flash_recorded_column(c)
+        _ensure_news_article_link_columns(c)
+        _ensure_school_profile_columns(c)
+        _ensure_yearly_top10_table(c)
+        _ensure_player_private_remarks_table(c)
+        _ensure_security_state_tables(c)
+    if not remote and 3 <= previous < supported_version:
+        # 新建库只记录其安装时的版本；从实际最高版本起补，绝不重建旧表。
+        if previous < 4 <= supported_version:
+            _add_prematch_schema(conn)
+            c.execute("INSERT INTO schema_migrations(version,name) VALUES(4,'host_prematch')")
+        if previous < 5 <= supported_version:
+            # 部分早期库尚未记录闪光弹覆盖；新版统计视图从第一次升级就要能读它。
+            _ensure_match_stats_flash_recorded_column(c)
+            _add_operations_schema(conn)
+            c.execute("INSERT INTO schema_migrations(version,name) VALUES(5,'host_match_operations')")
+        if previous < 6 <= supported_version:
+            _add_championship_schema(conn)
+            c.execute("INSERT INTO schema_migrations(version,name) VALUES(6,'event_entrant_champions')")
+        conn.commit()
+        return "prematch_upgrade"
+    if supported_version in applied_versions:
         affected_players = set(_ensure_match_stats_unique_result_index(c))
         affected_players.update(_ensure_non_negative_impact(c))
         summary_exists = c.execute(
@@ -506,10 +497,6 @@ def _init_tables(conn):
             from services.performance_service import refresh_player_performance
 
             refresh_player_performance(conn, affected_players)
-        _ensure_school_profile_columns(c)
-        _ensure_yearly_top10_table(c)
-        _ensure_player_private_remarks_table(c)
-        _ensure_security_state_tables(c)
         _ensure_placeholder_accounts_pending(c)
         _ensure_default_admin(c)
         conn.commit()
@@ -661,6 +648,7 @@ def _init_tables(conn):
         data_status TEXT NOT NULL DEFAULT 'final',
         data_version INTEGER NOT NULL DEFAULT 1,
         side TEXT,
+        side_stats_json TEXT,
         t_rating REAL DEFAULT 0,
         ct_rating REAL DEFAULT 0,
         t_kills INTEGER DEFAULT 0,
@@ -807,6 +795,8 @@ def _init_tables(conn):
         tags TEXT DEFAULT '',
         related_match_id INTEGER,
         redirect_url TEXT,
+        internal_link_url TEXT,
+        internal_link_text TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -1320,6 +1310,8 @@ def _init_tables(conn):
         "ALTER TABLE events ADD COLUMN slug TEXT",
         "ALTER TABLE events ADD COLUMN registration_open INTEGER DEFAULT 0",
         "ALTER TABLE news ADD COLUMN redirect_url TEXT",
+        "ALTER TABLE news ADD COLUMN internal_link_url TEXT",
+        "ALTER TABLE news ADD COLUMN internal_link_text TEXT",
         "ALTER TABLE users ADD COLUMN is_placeholder INTEGER DEFAULT 0",
         "ALTER TABLE users ADD COLUMN is_cheater INTEGER DEFAULT 0",
         "ALTER TABLE users ADD COLUMN approval_status TEXT DEFAULT 'approved'",
@@ -1516,9 +1508,18 @@ def _init_tables(conn):
         WHERE nickname IS NOT NULL AND TRIM(nickname) != ''
     """)
 
+    if not remote and supported_version >= 4:
+        _add_prematch_schema(conn)
+        if supported_version >= 5:
+            _add_operations_schema(conn)
+        if supported_version >= 6:
+            _add_championship_schema(conn)
     c.execute(
         "INSERT INTO schema_migrations(version, name) VALUES(?, ?)",
-        (CURRENT_SCHEMA_VERSION, "admin_yearly_top10_v3"),
+        (supported_version, {
+            3: "admin_yearly_top10_v3", 4: "host_prematch", 5: "host_match_operations",
+            6: "event_entrant_champions",
+        }[supported_version]),
     )
 
     conn.commit()

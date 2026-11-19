@@ -13,7 +13,6 @@ from config import BASE_DIR
 from services.bracket_service import refresh_bracket_for_match
 from services.live_service import update_unconfirmed_map_slots
 from services.match_roster_service import match_player_ids
-from services.match_service import score_predictions
 from services.performance_service import (
     build_demo_performance_payload,
     persist_demo_performance_payload,
@@ -24,6 +23,8 @@ from services.player_service import (
     record_player_nickname,
 )
 from services.steam_profile_service import enrich_player_from_steam
+from site_core.host import PREMATCH_ONLY, is_managed_match
+from site_core.predictions import score_predictions
 from utils.demo_parser import (
     get_match_info,
     match_map_slot,
@@ -39,6 +40,7 @@ from utils.match_utils import (
     get_demo_upload_slot_count,
 )
 from utils.stats_calc import impact_calculation_metadata
+from utils.stats_storage import map_stats_rows, replace_map_stats_version
 
 logger = logging.getLogger("80gotv")
 
@@ -116,6 +118,8 @@ def auto_create_user_from_demo(conn, stat):
 
 def sync_match_scores(conn, match_id, map_slot, info, a_to_t1):
     """从 demo 信息更新比赛的每图比分和总比分（按地图胜场数计）"""
+    if is_managed_match(conn, match_id):
+        raise ValueError(PREMATCH_ONLY)
     try:
         map_slot = int(map_slot)
     except (TypeError, ValueError):
@@ -184,6 +188,8 @@ def sync_match_scores(conn, match_id, map_slot, info, a_to_t1):
 
 def save_halftime_data(conn, match_id, map_slot, demo_data, a_to_t1):
     """从 demo 数据提取半场比分并保存到 match 的 map_halves JSON"""
+    if is_managed_match(conn, match_id):
+        raise ValueError(PREMATCH_ONLY)
     info = demo_data.get("info", {}) or {}
     halftime = info.get("halftime", {})
     analysis = info.get("analysis")
@@ -244,6 +250,7 @@ def save_halftime_data(conn, match_id, map_slot, demo_data, a_to_t1):
                         "data_version",
                     }
                 }
+                halves[map_key]["analysis"]["demo_a_to_t1"] = a_to_t1
     opening_ct_team = str(info.get("opening_ct_team") or "").lower()
     if opening_ct_team in {"t1", "t2"}:
         halves[map_key]["opening_ct_team"] = opening_ct_team
@@ -259,6 +266,8 @@ def save_halftime_data(conn, match_id, map_slot, demo_data, a_to_t1):
 
 def analyze_demo(conn, match, demo_path):
     """分析单个 Demo，返回预览数据"""
+    if is_managed_match(conn, row_get(match, "id")):
+        raise ValueError(PREMATCH_ONLY)
     match_data = run_analysis(demo_path)
     players = parse_player_stats(match_data)
     info = get_match_info(match_data)
@@ -385,6 +394,8 @@ def analyze_demo(conn, match, demo_path):
 
 def import_demo_data(conn, match_id, match, demo_data_str, map_slot):
     """导入单个 Demo 数据到数据库"""
+    if is_managed_match(conn, match_id):
+        return None, PREMATCH_ONLY
     try:
         map_slot = int(map_slot)
     except (TypeError, ValueError):
@@ -404,29 +415,25 @@ def import_demo_data(conn, match_id, match, demo_data_str, map_slot):
     info = demo_data.get("info", {})
     if not isinstance(players, list) or not isinstance(info, dict):
         return None, "Demo 数据格式无效"
-    if any(not isinstance(stat, dict) for stat in players):
-        return None, "Demo 选手数据格式无效"
-
     seen_steam_ids = set()
     for stat in players:
+        if not isinstance(stat, dict):
+            return None, "Demo 选手数据格式无效"
         steam_id = str(stat.get("steam_id") or "").strip()
-        if not steam_id or steam_id == "0" or not str(stat.get("name") or "").strip():
+        name = str(stat.get("name") or "").strip()
+        if not steam_id or steam_id == "0" or not name:
             return None, "Demo 中有选手缺少身份或昵称，未导入数据"
         if steam_id in seen_steam_ids:
             return None, "Demo 中有重复选手身份，未导入数据"
         if stat.get("team_letter") not in ("A", "B"):
             return None, "Demo 中有选手缺少队伍归属，未导入数据"
         seen_steam_ids.add(steam_id)
+        stat["steam_id"], stat["name"] = steam_id, name
 
+    map_name = map_names[map_slot]
     source_map = normalize_map_name(info.get("map_name", ""))
-    scheduled_map = normalize_map_name(map_names[map_slot] or "")
-    if not source_map or source_map != scheduled_map:
+    if not source_map or source_map != normalize_map_name(map_name or ""):
         return None, "Demo 地图与选择的比赛地图不一致，已拒绝导入"
-
-    map_name = map_names[map_slot] or info.get("map_name", "")
-
-    if not map_name:
-        return None, "无法确定地图名称"
 
     db_players = conn.execute(
         "SELECT p.*, t.name AS team_name FROM players p LEFT JOIN teams t ON p.team_id=t.id"
@@ -450,13 +457,13 @@ def import_demo_data(conn, match_id, match, demo_data_str, map_slot):
 
     demo_a_db_ids = set()
     demo_b_db_ids = set()
+    matched_players = {}
     for stat in players:
         db_p = _match_player_from_db(stat, db_players, alias_player_ids)
+        matched_players[stat["steam_id"]] = db_p
         if db_p:
-            if stat.get("team_letter") == "A":
-                demo_a_db_ids.add(db_p["id"])
-            elif stat.get("team_letter") == "B":
-                demo_b_db_ids.add(db_p["id"])
+            team_ids = demo_a_db_ids if stat["team_letter"] == "A" else demo_b_db_ids
+            team_ids.add(db_p["id"])
 
     a_to_t1 = _infer_demo_team_order(
         info,
@@ -471,34 +478,30 @@ def import_demo_data(conn, match_id, match, demo_data_str, map_slot):
     )
     if a_to_t1 is None:
         return None, "无法确认 Demo 队伍与网站队伍对应关系（队名和选手都不匹配），已拒绝导入"
-    demo_to_match_team = {
-        "A": t1_key if a_to_t1 else t2_key,
-        "B": t2_key if a_to_t1 else t1_key,
-    }
-    demo_to_match_side = {
-        "A": "t1" if a_to_t1 else "t2",
-        "B": "t2" if a_to_t1 else "t1",
-    }
+    match_sides = {"A": (t1_key, "t1"), "B": (t2_key, "t2")}
+    if not a_to_t1:
+        match_sides["A"], match_sides["B"] = match_sides["B"], match_sides["A"]
 
     imported, created = 0, 0
     affected_player_ids = {
         row["player_id"]
-        for row in conn.execute(
-            """SELECT DISTINCT player_id
-               FROM match_stats
-               WHERE match_id=? AND map_name=?
-                 AND COALESCE(data_status, 'final') <> 'superseded'""",
-            (match_id, map_name),
-        ).fetchall()
+        for row in map_stats_rows(
+            conn.execute(
+                """SELECT player_id,map_name FROM match_stats
+                   WHERE match_id=? AND COALESCE(data_status,'final')<>'superseded'""",
+                (match_id,),
+            ).fetchall(),
+            map_name,
+        )
         if row["player_id"]
     }
     team_a_players = sorted(
-        [s for s in players if s.get("team_letter") == "A"],
+        [s for s in players if s["team_letter"] == "A"],
         key=lambda x: x.get("rating") if x.get("rating") is not None else float("-inf"),
         reverse=True,
     )
     team_b_players = sorted(
-        [s for s in players if s.get("team_letter") == "B"],
+        [s for s in players if s["team_letter"] == "B"],
         key=lambda x: x.get("rating") if x.get("rating") is not None else float("-inf"),
         reverse=True,
     )
@@ -512,11 +515,7 @@ def import_demo_data(conn, match_id, match, demo_data_str, map_slot):
             f"未找到可导入的选手数据（A 队 {len(team_a_players)} 人，B 队 {len(team_b_players)} 人）",
         )
 
-    matched_ids = [
-        player["id"]
-        for stat in selected
-        if (player := _match_player_from_db(stat, db_players, alias_player_ids)) is not None
-    ]
+    matched_ids = [player["id"] for player in matched_players.values() if player is not None]
     if len(set(matched_ids)) != len(matched_ids):
         return None, "Demo 中有重复的网站选手对应关系，未导入数据"
 
@@ -528,34 +527,21 @@ def import_demo_data(conn, match_id, match, demo_data_str, map_slot):
         if demo_a_db_ids != expected_a or demo_b_db_ids != expected_b:
             return None, "Demo 参赛名单与本场完整阵容不一致，已拒绝导入，原数据未修改"
 
-    previous_version = conn.execute(
-        """SELECT COALESCE(MAX(data_version), 0) AS version
-           FROM match_stats WHERE match_id=? AND map_name=?""",
-        (match_id, map_name),
-    ).fetchone()["version"]
-    conn.execute(
-        """UPDATE match_stats
-           SET data_status='superseded'
-           WHERE match_id=? AND map_name=?
-             AND COALESCE(data_status, 'final') <> 'superseded'""",
-        (match_id, map_name),
-    )
+    version = replace_map_stats_version(conn, match_id, map_name)
 
     for stat in selected:
-        letter = stat.get("team_letter", "")
-        db_player = _match_player_from_db(stat, db_players, alias_player_ids)
+        team_id, match_team_side = match_sides[stat["team_letter"]]
+        db_player = matched_players[stat["steam_id"]]
         if not db_player:
             db_player = auto_create_user_from_demo(conn, stat)
             if db_player:
                 created += 1
             else:
                 raise ValueError("录像中有选手无法识别或创建账号，未导入本次数据")
-        team_id = demo_to_match_team.get(letter, t1_key if letter == "A" else t2_key)
-        match_team_side = demo_to_match_side.get(letter)
-        record_player_nickname(conn, db_player["id"], stat.get("name", ""), "demo")
+        record_player_nickname(conn, db_player["id"], stat["name"], "demo")
         stat["_data_source"] = "demo_review"
         stat["_data_status"] = "final"
-        stat["_data_version"] = int(previous_version or 0) + 1
+        stat["_data_version"] = version
         insert_match_stat(
             conn,
             match_id,
@@ -570,7 +556,7 @@ def import_demo_data(conn, match_id, match, demo_data_str, map_slot):
 
     sync_match_scores(conn, match_id, map_slot, info, a_to_t1)
     if isinstance(info.get("analysis"), dict):
-        info["analysis"]["data_version"] = int(previous_version or 0) + 1
+        info["analysis"]["data_version"] = version
     save_halftime_data(conn, match_id, map_slot, demo_data, a_to_t1)
     affected_player_ids.update(
         persist_demo_performance_payload(
@@ -723,6 +709,7 @@ def insert_match_stat(conn, match_id, player_id, team_id, match_team_side, stat,
         "ct_deaths",
         "t_adr",
         "ct_adr",
+        "side_stats_json",
         "multi1k",
         "multi2k",
         "multi3k",
@@ -767,7 +754,17 @@ def insert_match_stat(conn, match_id, player_id, team_id, match_team_side, stat,
         "first_kills": stat.get("first_kill_count"),
         "first_deaths": stat.get("first_death_count"),
         "flash_count_recorded": int(stat.get("flash_count") is not None),
+        "side_stats_json": json.dumps(stat["side_stats"], separators=(",", ":"))
+        if stat.get("side_stats")
+        else None,
     }
+    if stat.get("side_stats"):
+        for side in ("t", "ct"):
+            for key in ("kills", "deaths", "adr", "rating"):
+                stat_values[f"{side}_{key}"] = stat["side_stats"].get(side, {}).get(key)
+        stat_values["flash_assists"] = sum(
+            values["flash_assists"] for values in stat["side_stats"].values()
+        )
     values = (
         match_id,
         player_id,

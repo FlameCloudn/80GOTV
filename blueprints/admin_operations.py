@@ -2,16 +2,32 @@
 
 import json
 import shutil
+import sqlite3
 import tempfile
 from datetime import date
 
-from flask import flash, redirect, render_template, request, send_file, session, url_for
+from flask import (
+    current_app,
+    flash,
+    redirect,
+    render_template,
+    request,
+    send_file,
+    session,
+    url_for,
+)
 
 from blueprints.admin import admin_bp
 from config import BASE_DIR
-from models import get_db
+from models import db, get_db
 from services.award_service import build_event_award_poster
 from services.backup_service import create_backup_file
+from services.player_awards_service import (
+    FIRST_AWARD_YEAR,
+    published_top10_years,
+    save_yearly_top10,
+    yearly_top10_selections,
+)
 from services.player_service import merge_player_records
 from utils.match_utils import get_sql_effective_status
 from utils.web_helpers import admin_required as login_required
@@ -24,26 +40,15 @@ def admin_top10():
     """Manage the manually published yearly TOP 10 list."""
     current_year = date.today().year
     year = request.args.get("year", type=int) or current_year
-    if year < 2026 or year > current_year:
+    if year < FIRST_AWARD_YEAR or year > current_year:
         year = current_year
 
     conn = get_db()
     players = conn.execute(
         "SELECT id, nickname FROM players ORDER BY nickname COLLATE NOCASE, id"
     ).fetchall()
-    existing = {
-        row["rank"]: row["player_id"]
-        for row in conn.execute(
-            "SELECT rank, player_id FROM yearly_top_players WHERE year=? ORDER BY rank",
-            (year,),
-        ).fetchall()
-    }
-    published_years = [
-        row["year"]
-        for row in conn.execute(
-            "SELECT DISTINCT year FROM yearly_top_players ORDER BY year DESC"
-        ).fetchall()
-    ]
+    existing = yearly_top10_selections(conn, year)
+    published_years = published_top10_years(conn)
     conn.close()
     return render_template(
         "admin/top10.html",
@@ -62,58 +67,38 @@ def admin_top10_save():
     """Replace or explicitly clear one year's published TOP 10 list."""
     current_year = date.today().year
     year_text = request.form.get("year", "").strip()
-    if not year_text.isdigit():
+    if not year_text.isdecimal() or len(year_text) > 19:
         flash("年份无效", "error")
         return redirect(url_for("admin.admin_top10"))
     year = int(year_text)
-    if year < 2026 or year > current_year:
-        flash("只能管理 2026 年至今年的榜单", "error")
+    if year < FIRST_AWARD_YEAR or year > current_year:
+        flash(f"只能管理 {FIRST_AWARD_YEAR} 年至今年的榜单", "error")
         return redirect(url_for("admin.admin_top10", year=current_year))
 
-    conn = get_db()
+    clear = request.form.get("action") == "clear"
     try:
-        if request.form.get("action") == "clear":
-            conn.execute("DELETE FROM yearly_top_players WHERE year=?", (year,))
-            conn.commit()
-            flash(f"已清空 {year} 年 TOP 10", "success")
-            return redirect(url_for("admin.admin_top10", year=year))
-
         player_ids = []
-        for rank in range(1, 11):
-            value = request.form.get(f"rank_{rank}", "").strip()
-            if not value.isdigit():
-                raise ValueError("必须完整选择第 1 至第 10 名")
-            player_ids.append(int(value))
-        if len(set(player_ids)) != 10:
-            raise ValueError("同一名选手不能重复出现")
-
-        placeholders = ",".join("?" for _ in player_ids)
-        valid_count = conn.execute(
-            f"SELECT COUNT(*) FROM players WHERE id IN ({placeholders})",
-            player_ids,
-        ).fetchone()[0]
-        if valid_count != 10:
-            raise ValueError("所选选手中存在无效档案")
-
-        conn.execute("DELETE FROM yearly_top_players WHERE year=?", (year,))
-        conn.executemany(
-            """INSERT INTO yearly_top_players(year, rank, player_id, decided_by)
-               VALUES(?,?,?,?)""",
-            [
-                (year, rank, player_id, session.get("admin_id"))
-                for rank, player_id in enumerate(player_ids, start=1)
-            ],
-        )
-        conn.commit()
-        flash(f"已公布 {year} 年 TOP 10", "success")
+        if not clear:
+            for rank in range(1, 11):
+                value = request.form.get(f"rank_{rank}", "").strip()
+                if not value.isdecimal() or len(value) > 19:
+                    raise ValueError("必须完整选择第 1 至第 10 名")
+                player_id = int(value)
+                if not 1 <= player_id <= 2**63 - 1:
+                    raise ValueError("所选选手中存在无效档案")
+                player_ids.append(player_id)
+        with db() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            save_yearly_top10(
+                conn, year, None if clear else tuple(player_ids), admin_id=session["admin_id"]
+            )
     except ValueError as exc:
-        conn.rollback()
         flash(str(exc), "error")
-    except Exception:
-        conn.rollback()
+    except sqlite3.Error:
+        current_app.logger.exception("保存年度 TOP 10 失败")
         flash("保存失败，请稍后重试", "error")
-    finally:
-        conn.close()
+    else:
+        flash(f"已{'清空' if clear else '公布'} {year} 年 TOP 10", "success")
     return redirect(url_for("admin.admin_top10", year=year))
 
 

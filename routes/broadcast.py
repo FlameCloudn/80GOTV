@@ -3,14 +3,25 @@
 import hashlib
 import json
 import re
+from contextlib import contextmanager
 from datetime import datetime
 
 from flask import jsonify
 
 from models import get_db
-from services.match_roster_service import match_player_slots, resolve_match_roster
+from services.arg_event_service import is_arg_event, ordinary_event_condition
+from services.broadcast_roster_service import asset_path as _asset_path
+from services.broadcast_roster_service import display_rosters
+from services.broadcast_roster_service import event_substitutes as _event_substitutes
+from services.broadcast_roster_service import team_players as _team_players  # noqa: F401
+from services.match_roster_service import resolve_match_roster
 from services.match_service import supplement_temp_teams
 from services.team_logo_service import team_logo_static_path
+from site_core.events.reads import registration_groups
+from site_core.host import has_event_schema, is_managed_event
+from site_core.matches.live import live_schema_ready, project_director_match, start_projection
+from site_core.matches.maps import bp_lock_reason, broadcast_maps
+from site_core.matches.participants import rosters_frozen
 from utils.bp_manager import ensure_bp_started
 from utils.match_utils import (
     get_bo_max_maps,
@@ -23,6 +34,7 @@ from web_app import app
 _SQL_MATCH_LIVE = get_sql_match_live()
 _SQL_MATCH_UPCOMING = get_sql_match_upcoming()
 _SQL_EFFECTIVE_STATUS = get_sql_effective_status()
+_SQL_HOSTED = "EXISTS(SELECT 1 FROM event_registration_control c WHERE c.event_id=m.event_id)"
 
 
 def _broadcast_response(payload, status=200):
@@ -50,13 +62,14 @@ def _match_query(where_sql):
     """
 
 
-def _asset_path(folder, value):
-    value = str(value or "").strip()
-    if not value:
-        return ""
-    if value.startswith(("http://", "https://", "/")):
-        return value
-    return f"/static/{folder}/{value}"
+@contextmanager
+def _broadcast_snapshot(conn):
+    # 导播一次读取的 BP 版本、地图和阵容必须来自同一次提交。
+    conn.execute("SAVEPOINT broadcast_snapshot")
+    try:
+        yield
+    finally:
+        conn.execute("RELEASE broadcast_snapshot")
 
 
 def _player_ids(raw_value):
@@ -65,86 +78,6 @@ def _player_ids(raw_value):
     except (TypeError, ValueError, json.JSONDecodeError):
         return []
     return [int(value) for value in values if str(value).isdigit()]
-
-
-def _team_players(conn, match, side, slots=None):
-    ordered_rows = match_player_slots(conn, match, side) if slots is None else slots
-    reserve_ids = {
-        int(player["id"])
-        for player in _event_substitutes(conn, match.get("event_id"))
-        if str(player.get("id", "")).lstrip("-").isdigit() and int(player["id"]) > 0
-    }
-    result = [
-        {
-            # Keep the registration order stable. The desktop app and HUD use
-            # this slot number to keep a player's name and avatar together.
-            "id": row["id"],
-            "slot": row["slot"],
-            "nickname": row.get("nickname") or "",
-            "group_username": row.get("group_username_override") or "",
-            "steam_id": row.get("steam_id") or "",
-            "avatar": _asset_path("avatars", row.get("avatar")),
-            "is_bashizhong_student": row.get("is_bashizhong_student"),
-            **(
-                {"role": "substitute"}
-                if (
-                    bool(row.get("is_substitute"))
-                    if row.get("roster_frozen")
-                    else row["id"] in reserve_ids
-                )
-                else {}
-            ),
-        }
-        for row in ordered_rows
-    ]
-    return result
-
-
-def _event_substitutes(conn, event_id):
-    if not event_id:
-        return []
-    rows = conn.execute(
-        """
-        SELECT COALESCE(p.id, -ir.id) AS id,
-               COALESCE(NULLIF(ir.player_name, ''), NULLIF(p.nickname, ''),
-                        NULLIF(u.username, '')) AS nickname,
-               COALESCE(NULLIF(p.group_username_override, ''),
-                        NULLIF(u.group_username, ''), '') AS group_username,
-               COALESCE(NULLIF(p.steam_id, ''), NULLIF(u.steam_id64, ''), ir.steam_id) AS steam_id,
-               COALESCE(NULLIF(p.avatar, ''), NULLIF(u.avatar, ''), '') AS avatar,
-               COALESCE(p.is_bashizhong_student, u.is_bashizhong_student) AS is_bashizhong_student,
-               ir.preferred_registration_id,
-               preferred.team_name AS preferred_team_name
-        FROM event_individual_registrations ir
-        LEFT JOIN users u ON u.id=ir.user_id
-        LEFT JOIN event_registrations preferred
-          ON preferred.id=ir.preferred_registration_id
-         AND preferred.event_id=ir.event_id
-         AND preferred.status='pending'
-        LEFT JOIN players p ON p.id=(
-            SELECT p2.id FROM players p2
-            WHERE p2.steam_id=ir.steam_id
-            ORDER BY p2.id LIMIT 1
-        )
-        WHERE ir.event_id=? AND ir.assignment_status='reserve'
-        ORDER BY ir.created_at, ir.id
-        """,
-        (event_id,),
-    ).fetchall()
-    return [
-        {
-            "id": row["id"],
-            "nickname": row["nickname"] or "",
-            "group_username": row["group_username"] or "",
-            "steam_id": row["steam_id"] or "",
-            "avatar": _asset_path("avatars", row["avatar"]),
-            "is_bashizhong_student": row["is_bashizhong_student"],
-            "role": "substitute",
-            "preferred_registration_id": row["preferred_registration_id"],
-            "preferred_team_name": row["preferred_team_name"] or "",
-        }
-        for row in rows
-    ]
 
 
 def _registration_short_name(name):
@@ -208,17 +141,31 @@ def _registration_players(conn, registration_id, creator_user_id):
 
 
 def _event_roster_payload(conn, event):
-    registrations = conn.execute(
-        """
+    if is_managed_event(conn, event["id"]):
+        with _broadcast_snapshot(conn):
+            event = conn.execute("SELECT * FROM events WHERE id=?", (event["id"],)).fetchone()
+            return _read_event_roster(conn, event, hosted=True)
+    return _read_event_roster(conn, event, hosted=False)
+
+
+def _read_event_roster(conn, event, *, hosted):
+    groups = registration_groups(conn, event["id"]) if hosted else []
+    registrations = (
+        [group["info"] for group in reversed(groups)]
+        if hosted
+        else conn.execute(
+            """
         SELECT id, team_name, team_logo, creator_user_id
         FROM event_registrations
         WHERE event_id=? AND status='pending'
         ORDER BY created_at, id
         """,
-        (event["id"],),
-    ).fetchall()
+            (event["id"],),
+        ).fetchall()
+    )
     substitutes = _event_substitutes(conn, event["id"])
     teams = []
+    slots = {group["info"]["id"]: group["slots"] for group in groups}
     for registration in registrations:
         teams.append(
             {
@@ -229,7 +176,27 @@ def _event_roster_payload(conn, event):
                 "short_name": _registration_short_name(registration["team_name"]),
                 "logo": _registration_logo_path(registration["team_logo"]),
                 "series_score": 0,
-                "players": _registration_players(
+                "players": [
+                    {
+                        "id": s["player_id"] or s["id"],
+                        "nickname": s["player_name"],
+                        "group_username": s["group_username"] or "",
+                        "steam_id": s["steam_id"],
+                        "avatar": _asset_path("avatars", s["avatar"]),
+                        "is_bashizhong_student": s["is_bashizhong_student"],
+                        "role": (
+                            "reserved"
+                            if s["filled_by_creator"]
+                            else "captain"
+                            if s["user_id"] == registration["creator_user_id"]
+                            else "member"
+                        ),
+                        "slot": s["slot_index"] + 1,
+                    }
+                    for s in slots[registration["id"]]
+                ]
+                if hosted
+                else _registration_players(
                     conn, registration["id"], registration["creator_user_id"]
                 ),
             }
@@ -258,6 +225,14 @@ def _bp_payload(raw_state):
 
 
 def _match_payload(row, conn):
+    if is_managed_event(conn, row["event_id"]):
+        with _broadcast_snapshot(conn):
+            row = conn.execute(_match_query("m.id=?"), (row["id"],)).fetchone()
+            return _read_match_payload(row, conn, hosted=True)
+    return _read_match_payload(row, conn, hosted=False)
+
+
+def _read_match_payload(row, conn, *, hosted):
     match = supplement_temp_teams(row, conn)
     bp_state, bp_changed = ensure_bp_started(conn, match)
     if bp_changed:
@@ -265,13 +240,6 @@ def _match_payload(row, conn):
     substitutes = _event_substitutes(conn, match.get("event_id"))
     roster = resolve_match_roster(conn, match)
     roster_issues = roster["issues"]
-    roster_steam_ids = roster["steam_ids"]
-    selected_players = {
-        side: _team_players(conn, match, side, roster["players"][side]) for side in (1, 2)
-    }
-    roster_revision = hashlib.sha256(
-        json.dumps(roster_steam_ids, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-    ).hexdigest()[:16]
     map_count = get_bo_max_maps(match.get("bo_format"))
     live_row = conn.execute(
         "SELECT live_state FROM live_match_data WHERE match_id=?", (match["id"],)
@@ -292,8 +260,17 @@ def _match_payload(row, conn):
         if isinstance(raw_unconfirmed, list)
         else set()
     )
-    maps = []
-    for slot in range(1, map_count + 1):
+    maps: list[dict] = []
+    operations_enabled = hosted and live_schema_ready(conn)
+    if hosted:
+        maps = [
+            dict(item, team1_score=0, team2_score=0, map_finished=False)
+            for item in broadcast_maps(conn, match["id"])
+        ]
+        if operations_enabled:
+            project_director_match(conn, match["id"], maps, roster,
+                                   live_state if isinstance(live_state, dict) else {})
+    for slot in () if hosted else range(1, map_count + 1):
         if slot >= 3 and not match.get(f"has_map{slot}", 1):
             continue
         map_name = match.get(f"map{slot}") or ""
@@ -328,6 +305,19 @@ def _match_payload(row, conn):
             }
         )
 
+    selected_players = display_rosters(roster["players"], substitutes)
+    roster_revision = hashlib.sha256(
+        json.dumps(roster["steam_ids"], ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()[:16]
+    if hosted:
+        start = start_projection(conn, match["id"])
+    else:
+        start = {"ready_for_start": not roster_issues
+                 and bool(bp_state and bp_state.get("status") == "completed")
+                 and str(match.get("status") or "").lower() not in {"completed", "cancelled"}}
+    status = (match.get("status") if hosted else
+              match.get("effective_status") or match.get("status")) or "upcoming"
+
     decider = {
         "knife_winner": match.get("decider_knife_winner") or "",
         "start_side": match.get("decider_start_side") or "",
@@ -344,7 +334,7 @@ def _match_payload(row, conn):
 
     return {
         "id": match["id"],
-        "status": match.get("effective_status") or match.get("status") or "upcoming",
+        "status": status,
         "event": {
             "id": match.get("event_id"),
             "name": match.get("event_name") or "80GOTV",
@@ -354,6 +344,11 @@ def _match_payload(row, conn):
         "bo": match.get("bo_format") or "BO3",
         "match_time": match.get("match_time") or "",
         "team1": {
+            **(
+                {"source_id": f"registration-{match['team1_registration_id']}"}
+                if hosted and match.get("team1_registration_id")
+                else {}
+            ),
             "id": match.get("team1_id"),
             "name": match.get("team1_name") or "TBD",
             "short_name": match.get("t1s") or "TBD",
@@ -362,6 +357,11 @@ def _match_payload(row, conn):
             "players": selected_players[1],
         },
         "team2": {
+            **(
+                {"source_id": f"registration-{match['team2_registration_id']}"}
+                if hosted and match.get("team2_registration_id")
+                else {}
+            ),
             "id": match.get("team2_id"),
             "name": match.get("team2_name") or "TBD",
             "short_name": match.get("t2s") or "TBD",
@@ -375,12 +375,11 @@ def _match_payload(row, conn):
         "bp": bp_state if bp_state is not None else _bp_payload(match.get("bp_state")),
         "bp_revision": int((bp_state or {}).get("revision", 0) or 0),
         "roster_revision": roster_revision,
-        "roster_locked": not roster_issues,
+        "roster_locked": rosters_frozen(conn, match["id"]) if hosted else not roster_issues,
         "roster_issues": roster_issues,
-        "ready_for_start": not roster_issues
-        and bool(bp_state and bp_state.get("status") == "completed")
+        **start,
+        "bp_can_start": (not hosted or bp_lock_reason(conn, match) is None)
         and str(match.get("status") or "").lower() not in {"completed", "cancelled"},
-        "bp_can_start": str(match.get("status") or "").lower() not in {"completed", "cancelled"},
         "decider": decider,
         "live_api": f"/api/live/{match['id']}",
         "live_ingest_api": f"/api/broadcast/matches/{match['id']}/live",
@@ -391,11 +390,15 @@ def _match_payload(row, conn):
 def api_broadcast_matches():
     """Return matches available to the local desktop manager."""
     conn = get_db()
+    live, upcoming = _SQL_MATCH_LIVE, _SQL_MATCH_UPCOMING
+    if has_event_schema(conn):
+        live = f"({live} AND NOT {_SQL_HOSTED}) OR ({_SQL_HOSTED} AND m.status='live')"
+        upcoming = f"({upcoming} AND NOT {_SQL_HOSTED}) OR ({_SQL_HOSTED} AND m.status='upcoming')"
     rows = conn.execute(
         _match_query("1=1")
         + f"""
-        ORDER BY CASE WHEN {_SQL_MATCH_LIVE} THEN 0
-                      WHEN {_SQL_MATCH_UPCOMING} THEN 1 ELSE 2 END,
+        ORDER BY CASE WHEN {live} THEN 0
+                      WHEN {upcoming} THEN 1 ELSE 2 END,
                  datetime(m.match_time) DESC, m.id DESC
         LIMIT 100
         """
@@ -425,17 +428,23 @@ def api_broadcast_matches():
 def api_broadcast_events():
     """Return events that already have registered teams or public substitutes."""
     conn = get_db()
+    managed_reserves = (
+        """OR EXISTS (SELECT 1 FROM host_individual_entries_read h
+        WHERE h.event_id=e.id AND h.assignment_status='reserve')"""
+        if has_event_schema(conn)
+        else ""
+    )
     rows = conn.execute(
-        """
+        f"""
         SELECT e.*
         FROM events e
-        WHERE EXISTS(
+        WHERE {ordinary_event_condition("e")} AND (EXISTS(
             SELECT 1 FROM event_registrations r
             WHERE r.event_id=e.id AND r.status='pending'
         ) OR EXISTS(
             SELECT 1 FROM event_individual_registrations ir
             WHERE ir.event_id=e.id AND ir.assignment_status='reserve'
-        )
+        ) {managed_reserves})
         ORDER BY date(e.start_date) DESC, e.id DESC
         LIMIT 100
         """
@@ -456,7 +465,7 @@ def api_broadcast_event(event_id):
     """Return all registered teams, players and public substitutes for an event."""
     conn = get_db()
     event = conn.execute("SELECT * FROM events WHERE id=?", (event_id,)).fetchone()
-    if not event:
+    if not event or is_arg_event(event):
         conn.close()
         return _broadcast_response({"ok": False, "event": None, "error": "赛事不存在"}, 404)
     payload = _event_roster_payload(conn, event)
@@ -474,10 +483,27 @@ def api_broadcast_event(event_id):
 def api_broadcast_current():
     """Return the live match, or the next upcoming match when the stream is idle."""
     conn = get_db()
+    live = _SQL_MATCH_LIVE
+    eligible = f"({_SQL_MATCH_LIVE} OR {_SQL_MATCH_UPCOMING})"
+    if has_event_schema(conn):
+        live = f"({live}) AND NOT {_SQL_HOSTED}"
+        if live_schema_ready(conn):
+            # A managed match is not live just because its scheduled time passed.
+            managed_open = """EXISTS(SELECT 1 FROM event_registration_control c
+                WHERE c.event_id=m.event_id AND c.archived_at IS NULL)
+                AND COALESCE(e.status,'')<>'completed'"""
+            authorized = "EXISTS(SELECT 1 FROM match_start_authorizations a WHERE a.match_id=m.id)"
+            actual_live = f"({managed_open} AND {authorized} AND m.status='live')"
+            eligible = f"""(({eligible} AND NOT {_SQL_HOSTED}) OR {actual_live}
+                OR ({managed_open} AND m.status='upcoming' AND ({_SQL_MATCH_UPCOMING} OR {authorized})))"""
+            live = f"(({live}) OR {actual_live})"
+        else:
+            eligible += """ AND NOT EXISTS(SELECT 1 FROM event_registration_control c WHERE c.event_id=m.event_id
+                AND (c.archived_at IS NOT NULL OR datetime(m.match_time)<=datetime('now','localtime')))"""
     row = conn.execute(
-        _match_query(f"({_SQL_MATCH_LIVE} OR {_SQL_MATCH_UPCOMING})")
+        _match_query(eligible)
         + f"""
-        ORDER BY CASE WHEN {_SQL_MATCH_LIVE} THEN 0 ELSE 1 END,
+        ORDER BY CASE WHEN {live} THEN 0 ELSE 1 END,
                  datetime(m.match_time) ASC, m.id ASC
         LIMIT 1
         """

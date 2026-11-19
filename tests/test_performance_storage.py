@@ -319,13 +319,15 @@ class PerformanceStorageTests(unittest.TestCase):
 
     def test_stats_pages_do_not_scan_parser_cache_files(self):
         with patch(
-            "routes.stats._csda_flash_stats",
+            "services.public_stat_evidence._read_json",
             side_effect=AssertionError("cache scan must not run"),
         ):
             overview = self.client.get("/stats")
             players = self.client.get("/stats?tab=players")
+            flashes = self.client.get("/stats/overview/flashes")
         self.assertEqual(overview.status_code, 200)
         self.assertEqual(players.status_code, 200)
+        self.assertEqual(flashes.status_code, 200)
 
     def test_versioned_assets_are_immutable(self):
         response = self.client.get("/static/css/app.css?v=performance-test")

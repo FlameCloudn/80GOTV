@@ -6,6 +6,7 @@ from datetime import datetime
 from flask import make_response, url_for
 
 from models import db
+from services.arg_event_service import ordinary_event_condition
 from utils.seo import public_site_url
 from web_app import app
 
@@ -46,7 +47,7 @@ def sitemap():
             "0.8",
         ),
         (
-            "SELECT id,slug,created_at FROM events ORDER BY id",
+            f"SELECT id,slug,created_at FROM events WHERE {ordinary_event_condition()} ORDER BY id",
             "event_detail",
             "event_id",
             "daily",

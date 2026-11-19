@@ -9,6 +9,7 @@ from datetime import date
 from html.parser import HTMLParser
 from pathlib import Path
 from unittest.mock import patch
+from urllib.robotparser import RobotFileParser
 
 from PIL import Image
 
@@ -221,6 +222,19 @@ class ConfirmedReportFixTests(unittest.TestCase):
             )
             for item in root.findall("s:url", namespace)
         }
+
+    def test_crawlers_can_read_public_content_as_guests(self):
+        client = app.test_client(use_cookies=False)
+        policy = RobotFileParser()
+        policy.parse(client.get("/robots.txt").text.splitlines())
+        for agent, path in (("GPTBot", "/news"), ("python-requests", "/api/front/events")):
+            self.assertTrue(policy.can_fetch(agent, path))
+            response = client.get(path, headers={"User-Agent": agent})
+            self.assertEqual(response.status_code, 200)
+            self.assertNotIn("noindex", response.headers.get("X-Robots-Tag", ""))
+        self.assertEqual(policy.site_maps(), ["https://80gotv.cn/sitemap.xml"])
+        self.assertFalse(policy.can_fetch("GPTBot", "/admin/news"))
+        self.assertEqual(client.get("/admin/news", headers={"User-Agent": "GPTBot"}).status_code, 302)
 
     def test_sitemap_defaults_to_real_domain_and_contains_entity_urls(self):
         urls = self.sitemap_urls()

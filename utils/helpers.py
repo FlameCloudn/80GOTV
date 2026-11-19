@@ -6,9 +6,12 @@ import html as html_mod
 import os
 import re
 from functools import lru_cache
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 from flask import session
+
+from services.arg_event_service import ARG_EVENT_PATH, is_arg_event
+from site_core.community import build_comment_tree as build_comment_tree
 
 # ============ XSS 过滤器 ============
 
@@ -284,16 +287,30 @@ def normalize_http_url(value):
 
 def normalize_internal_path(value):
     """保存新闻跳转地址，只允许本站路径或 80gotv.cn 完整地址。"""
-    value = (value or "").strip()
+    if not isinstance(value, str):
+        return None
+    value = value.strip()
     if not value:
         return None
-    parsed = urlsplit(value)
+    if len(value) > 2048 or re.search(r"[\x00-\x1f\x7f\\]", value):
+        return None
+    try:
+        value.encode("utf-8")
+        parsed = urlsplit(value)
+        port = parsed.port
+    except (ValueError, UnicodeError):
+        return None
+    if parsed.username or parsed.password or port not in (None, 80, 443):
+        return None
+    path = parsed.path or "/"
+    decoded_path = unquote(path)
+    if not path.startswith("/") or decoded_path.startswith("//") or "\\" in decoded_path:
+        return None
     if parsed.scheme or parsed.netloc:
         if parsed.scheme.lower() not in ("http", "https"):
             return None
         if (parsed.hostname or "").lower() not in ("80gotv.cn", "www.80gotv.cn"):
             return None
-        path = parsed.path or "/"
         if parsed.query:
             path += "?" + parsed.query
         if parsed.fragment:
@@ -414,36 +431,6 @@ def row_get(row, key, default=None):
         return row[key] if key in row.keys() else default
 
 
-# ============ 评论树构建 ============
-
-
-def build_comment_tree(comments):
-    """将按发布时间排列的评论转为嵌套结构，并标记楼层和层级。"""
-    tree = []
-    lookup = {}
-    for floor_number, c in enumerate(comments, start=1):
-        c = dict(c)
-        c["replies"] = []
-        c["floor_number"] = floor_number
-        lookup[c["id"]] = c
-
-    for c in lookup.values():
-        pid = c.get("parent_id")
-        if pid and pid in lookup:
-            lookup[pid]["replies"].append(c)
-        else:
-            tree.append(c)
-
-    def _mark_depth(node, depth=0):
-        node["depth"] = depth
-        for r in node.get("replies", []):
-            _mark_depth(r, depth + 1)
-
-    for n in tree:
-        _mark_depth(n, 0)
-    return tree
-
-
 # ============ Slug 解析 ============
 
 
@@ -495,6 +482,8 @@ def resolve_event_ref(conn, event_ref):
 
 def event_path(event):
     """模板和接口共用的赛事详情地址。"""
+    if is_arg_event(event):
+        return ARG_EVENT_PATH
     if hasattr(event, "keys") or isinstance(event, dict):
         event_slug = row_get(event, "event_slug")
         if event_slug or row_get(event, "event_id") is not None:

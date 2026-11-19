@@ -228,6 +228,20 @@ class DemoImportWorkflowTests(unittest.TestCase):
             self.assertEqual((match["map1_t1"], match["map1_t2"]), (13, 7))
             self.assertEqual((match["team1_score"], match["team2_score"]), (1, 0))
 
+    def test_import_replaces_legacy_alias_and_uses_its_version_history(self):
+        conn = get_db()
+        conn.execute("UPDATE matches SET map1='de_mirage' WHERE id=?", (self.match_id,))
+        conn.execute("UPDATE match_stats SET data_version=5 WHERE match_id=?", (self.match_id,))
+        conn.commit()
+        conn.close()
+        self._post(step="import_single", map_slot=0, demo_data=self._payload())
+        stats, _ = self._snapshot()
+        final = [row for row in stats if row["data_status"] != "superseded"]
+        self.assertEqual(len(final), 2)
+        self.assertEqual(stats[0]["data_status"], "superseded")
+        self.assertEqual({row["data_version"] for row in final}, {6})
+        self.assertEqual(sum(row["kills"] for row in final if row["player_id"] == self.player1_id), 19)
+
     def test_file_save_failure_does_not_offer_a_successful_import_preview(self):
         payload = json.loads(self._payload())
         info = {**payload["info"], "source": "test-analyzer", "rounds_count": 20}

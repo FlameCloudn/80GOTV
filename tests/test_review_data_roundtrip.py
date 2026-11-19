@@ -15,6 +15,7 @@ from routes.events import (
 )
 from services.demo_service import analyze_demo, import_demo_data
 from services.match_roster_service import freeze_match_roster, match_side_identity
+from tests.test_dot_stats_recovery import StatsForms
 from tests.test_match_roster_linkage import RegisteredMatchCase
 from tests.test_pro_logic_regressions import ProDatabaseCase
 from utils.stats_calc import calculate_rating, estimate_hltv2_impact
@@ -109,23 +110,9 @@ class ReviewDataRoundtripTests(ProDatabaseCase):
         ]
 
     def _form(self):
-        form = {"csrf_token": "pro-logic-csrf", "map_name": "de_nuke"}
-        fields = [
-            ("kills", "kills"),
-            ("deaths", "deaths"),
-            ("assists", "assists"),
-            ("adr", "adr"),
-            ("impact", "impact"),
-            ("kast", "kast"),
-            ("hs", "headshot_percentage"),
-            ("team_id", "team_id"),
-        ]
-        for row in self._active():
-            for field, column in fields:
-                form[f"{field}_{row['player_id']}"] = (
-                    "" if row[column] is None else str(row[column])
-                )
-        return form
+        page = self.client.get(f"/admin/matches/{self.match_id}/stats")
+        self.assertEqual(page.status_code, 200)
+        return StatsForms(page.text).for_map("de_nuke")["fields"]
 
     def _post(self, form=None):
         return self.client.post(
@@ -215,7 +202,7 @@ class ReviewDataRoundtripTests(ProDatabaseCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(self._all(), before)
 
-    def test_demo_orientation_respects_snapshot_over_current_clubs(self):
+    def test_reversed_demo_uses_snapshot_over_current_clubs(self):
         self._prepare(snapshot_only=True)
         for index, player_id in enumerate(self.ids):
             self.conn.execute(
@@ -234,7 +221,7 @@ class ReviewDataRoundtripTests(ProDatabaseCase):
                 saved[player_id],
                 steam_id=profiles[player_id]["steam_id"],
                 name=profiles[player_id]["nickname"],
-                team_letter="A" if index < 5 else "B",
+                team_letter="B" if index < 5 else "A",
             )
             for index, player_id in enumerate(self.ids)
         ]
@@ -254,7 +241,7 @@ class ReviewDataRoundtripTests(ProDatabaseCase):
         actual = {row["player_id"]: row["match_team_side"] for row in self._active()}
         self.assertEqual(
             actual,
-            {player_id: "t1" if index < 5 else "t2" for index, player_id in enumerate(self.ids)},
+            {pid: "t1" if i < 5 else "t2" for i, pid in enumerate(self.ids)},
         )
 
     def test_legacy_side_sentinels_are_not_team_identities(self):
@@ -438,8 +425,6 @@ class ReviewDataRoundtripTests(ProDatabaseCase):
         )
 
     def test_actual_html_form_keeps_nulls_unknown(self):
-        from tests.test_dot_stats_recovery import StatsForms
-
         self._prepare()
         self.conn.execute(
             "UPDATE match_stats SET adr=NULL,kast=NULL,rating=NULL WHERE match_id=?",
@@ -549,8 +534,6 @@ class ReviewDataRoundtripTests(ProDatabaseCase):
 
 class RegisteredManualRoundtripTests(RegisteredMatchCase):
     def test_registration_only_lineup_is_used_by_editor_and_save(self):
-        from tests.test_dot_stats_recovery import StatsForms
-
         self.conn.execute(
             "UPDATE matches SET status='live',map1_t1=13,map1_t2=7 WHERE id=?", (self.match_id,)
         )

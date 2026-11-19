@@ -4,6 +4,7 @@ import os
 import re
 import tempfile
 import unittest
+from contextlib import closing
 from pathlib import Path
 from unittest.mock import patch
 
@@ -483,20 +484,28 @@ class AdminSurfaceTests(unittest.TestCase):
         self.assertEqual(response.status_code, 302)
         conn = get_db()
         rows = conn.execute(
-            "SELECT rank, player_id FROM yearly_top_players WHERE year=2026 ORDER BY rank"
+            "SELECT id, rank, player_id, decided_by FROM yearly_top_players WHERE year=2026 ORDER BY rank"
         ).fetchall()
         conn.close()
-        self.assertEqual(len(rows), 10)
+        self.assertEqual([row["player_id"] for row in rows], player_ids)
         self.assertEqual([row["rank"] for row in rows], list(range(1, 11)))
+        self.assertTrue(all(row["decided_by"] == 1 for row in rows))
+        public = app.test_client()
+        self.assertIn(
+            f'href="/players/{player_ids[0]}"',
+            public.get("/players?filter=top10").get_data(as_text=True),
+        )
+        self.assertEqual(public.get("/api/front/players?filter=top10").get_json()["players"], [])
 
+        self.assertEqual(self.post("/admin/top10/save", payload).status_code, 302)
         duplicate = dict(payload, rank_10=str(player_ids[0]))
         self.assertEqual(self.post("/admin/top10/save", duplicate).status_code, 302)
         conn = get_db()
         unchanged = conn.execute(
-            "SELECT COUNT(*) FROM yearly_top_players WHERE year=2026"
-        ).fetchone()[0]
+            "SELECT id, rank, player_id, decided_by FROM yearly_top_players WHERE year=2026 ORDER BY rank"
+        ).fetchall()
         conn.close()
-        self.assertEqual(unchanged, 10)
+        self.assertEqual([tuple(row) for row in unchanged], [tuple(row) for row in rows])
 
         self.assertEqual(
             self.post(
@@ -511,6 +520,92 @@ class AdminSurfaceTests(unittest.TestCase):
         ).fetchone()[0]
         conn.close()
         self.assertEqual(remaining, 0)
+
+    def test_legacy_event_edit_preserves_award_history_and_updates_explicit_selections(self):
+        fields = {
+            "name": "Award Cup",
+            "short_name": "AWARD",
+            "slug": "award-cup",
+            "start_date": "2026-05-01",
+            "end_date": "2026-05-03",
+            "status": "completed",
+        }
+        with closing(get_db()) as conn:
+            event_id = conn.execute(
+                """INSERT INTO events(name, short_name, slug, start_date, end_date, status)
+                   VALUES(:name, :short_name, :slug, :start_date, :end_date, :status)""",
+                fields,
+            ).lastrowid
+            match_id = conn.execute(
+                "INSERT INTO matches(event_id, match_time) VALUES(?,'2026-05-03')",
+                (event_id,),
+            ).lastrowid
+            alpha, bravo, charlie, zulu = [
+                conn.execute("INSERT INTO players(nickname) VALUES(?)", (name,)).lastrowid
+                for name in ("Alpha", "Bravo", "Charlie", "Zulu")
+            ]
+            conn.executemany(
+                """INSERT INTO player_medals(player_id, type, evp_rank, event_id, match_id, created_at)
+                   VALUES(?,?,?,?,?,'2026-05-03 19:00:00')""",
+                [
+                    (alpha, "MVP", 0, event_id, None),
+                    (zulu, "EVP", 1, event_id, None),
+                    (bravo, "EVP", 2, event_id, None),
+                    (charlie, "MVP", 0, event_id, match_id),
+                ],
+            )
+            conn.commit()
+
+        path = f"/admin/events/edit/{event_id}"
+        selections = dict(
+            fields,
+            champion_team_id="",
+            mvp_player_id=str(alpha),
+            evp_player_ids=[str(bravo), str(zulu)],
+        )
+        self.assertEqual(self.post(path, fields).status_code, 302)
+        self.assertEqual(self.post(path, selections).status_code, 302)
+        self.assertEqual(
+            self.post(
+                path, dict(selections, name="Invalid change", mvp_player_id="9999")
+            ).status_code,
+            400,
+        )
+        with closing(get_db()) as conn:
+            self.assertEqual(
+                conn.execute("SELECT name FROM events WHERE id=?", (event_id,)).fetchone()[0],
+                "Award Cup",
+            )
+            rows = conn.execute(
+                "SELECT player_id, evp_rank, created_at FROM player_medals ORDER BY id"
+            ).fetchall()
+            self.assertEqual(
+                [tuple(row) for row in rows],
+                [
+                    (alpha, 0, "2026-05-03 19:00:00"),
+                    (zulu, 1, "2026-05-03 19:00:00"),
+                    (bravo, 2, "2026-05-03 19:00:00"),
+                    (charlie, 0, "2026-05-03 19:00:00"),
+                ],
+            )
+
+        changed = dict(
+            selections,
+            mvp_player_id=str(zulu),
+            evp_player_ids=[str(charlie), f"0{charlie}", str(bravo)],
+        )
+        self.assertEqual(self.post(path, changed).status_code, 302)
+        public = app.test_client()
+        awards = public.get(f"/api/front/events/{event_id}").get_json()["awards"]
+        self.assertEqual(
+            [(award["type"], award["player_id"], award["rank"]) for award in awards],
+            [
+                ("MVP", charlie, 0),
+                ("MVP", zulu, 0),
+                ("EVP", bravo, 1),
+                ("EVP", charlie, 2),
+            ],
+        )
 
     def test_news_editor_has_local_editor_and_textarea_fallback(self):
         response = self.client.get("/admin/news/add")

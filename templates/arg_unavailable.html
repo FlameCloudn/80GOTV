@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <title>503 Service Unavailable</title>
+  <style>
+    html{background:#0b0d10;color:#e7e9ec}
+    body{margin:0;overflow:hidden}
+    .screen{position:relative;box-sizing:border-box;min-height:100vh;min-height:100svh;display:grid;place-content:center;justify-items:center;padding:24px 16px;overflow:hidden;font-family:Consolas,"SFMono-Regular",Menlo,"Courier New",monospace;text-align:center}
+    .frame{position:relative;z-index:1;display:grid;justify-items:center;animation:flicker 7s linear infinite}
+    h1{position:relative;margin:0;font-weight:700;line-height:1;overflow-wrap:anywhere}
+    .text{display:block}
+    .code{display:block;padding-left:.06em;font-size:clamp(88px,24vw,176px);letter-spacing:.06em;text-shadow:0 0 22px rgba(231,233,236,.22),-2px 0 rgba(223,106,95,.38),2px 0 rgba(107,159,209,.38)}
+    .msg{display:block;margin-top:20px;padding-left:.34em;font-size:clamp(13px,3.6vw,18px);font-weight:400;letter-spacing:.34em;text-transform:uppercase;color:#9aa3ad}
+    .msg.is-alt{text-transform:none}
+    hr{width:min(560px,80vw);height:1px;margin:30px 0 0;border:0;background:linear-gradient(90deg,transparent,rgba(231,233,236,.45),transparent)}
+    .ghost{position:absolute;inset:0;pointer-events:none;user-select:none;visibility:hidden;mix-blend-mode:screen}
+    .ghost *{color:inherit;text-shadow:none}
+    .is-glitching .ghost{visibility:visible}
+    .ghost-a{color:#df6a5f}
+    .ghost-b{color:#6b9fd1}
+    .ghost.is-plain{color:#e7e9ec;mix-blend-mode:normal}
+    .is-glitching .text{position:relative;left:var(--shift,0)}
+    .noise{position:absolute;inset:-50%;pointer-events:none;opacity:.09;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");animation:grain .5s steps(5) infinite}
+    .roll{position:absolute;left:0;right:0;top:0;height:22vh;pointer-events:none;background:linear-gradient(to bottom,transparent,rgba(231,233,236,.05),transparent);animation:roll 7.5s linear infinite}
+    .screen::after{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;background:repeating-linear-gradient(to bottom,rgba(0,0,0,.3) 0 1px,transparent 1px 3px),radial-gradient(ellipse at center,transparent 45%,rgba(0,0,0,.72) 100%)}
+    @keyframes grain{0%{transform:translate(0,0)}20%{transform:translate(-8%,4%)}40%{transform:translate(6%,-6%)}60%{transform:translate(-4%,8%)}80%{transform:translate(9%,2%)}100%{transform:translate(0,0)}}
+    @keyframes roll{from{transform:translateY(-25vh)}to{transform:translateY(125vh)}}
+    @keyframes flicker{0%,41%,43%,78%,80%,100%{opacity:1}42%{opacity:.84}79%{opacity:.92}}
+    @media (prefers-reduced-motion:reduce){.noise,.roll,.frame{animation:none}}
+  </style>
+</head>
+<body>
+  <main class="screen">
+    <div class="noise" aria-hidden="true"></div>
+    <div class="roll" aria-hidden="true"></div>
+    <div class="frame">
+      <h1><span class="text"><span class="code">503</span> <span class="msg" data-alt="{{ alt_line }}">Service Unavailable</span></span></h1>
+      <hr>
+    </div>
+  </main>
+  <script>
+    {
+      const root = document.documentElement;
+      const frame = document.querySelector('.frame');
+      const heading = document.querySelector('h1');
+      const text = heading.querySelector('.text');
+      const code = heading.querySelector('.code');
+      const rule = document.querySelector('hr');
+      const noise = document.querySelector('.noise');
+      const calm = window.matchMedia('(prefers-reduced-motion: reduce)');
+      const pageTitle = document.title;
+      const codeText = code.textContent;
+      const msgText = text.querySelector('.msg').textContent;
+      const altText = text.querySelector('.msg').dataset.alt || '';
+      const marks = '▓▒░█';
+      const rand = (min, max) => min + Math.random() * (max - min);
+      const pick = list => list[Math.floor(Math.random() * list.length)];
+      const side = () => (Math.random() < .5 ? -1 : 1);
+      const wait = ms => new Promise(done => setTimeout(done, ms));
+
+      const ghosts = ['ghost-a', 'ghost-b'].map(name => {
+        const node = document.createElement('span');
+        node.className = 'ghost ' + name;
+        node.setAttribute('aria-hidden', 'true');
+        node.innerHTML = text.innerHTML;
+        heading.append(node);
+        return node;
+      });
+      const scramble = (value, rate) => [...value].map(ch =>
+        ch !== ' ' && Math.random() < rate ? pick(marks) : ch
+      ).join('');
+      const band = () => {
+        const top = rand(0, 85);
+        return `inset(${top}% 0 ${Math.max(0, 100 - top - rand(8, 40))}% 0)`;
+      };
+
+      const effects = {
+        split() {
+          ghosts.forEach(node => {
+            node.style.clipPath = band();
+            node.style.transform = `translateX(${rand(-16, 16)}px)`;
+          });
+          heading.style.setProperty('--shift', `${rand(-4, 4)}px`);
+        },
+        chroma() {
+          ghosts.forEach((node, index) => {
+            node.style.transform = `translate(${(index ? 1 : -1) * rand(3, 10)}px, ${rand(-2, 2)}px)`;
+          });
+        },
+        tear() {
+          const cut = rand(20, 80);
+          text.style.clipPath = `inset(0 0 ${100 - cut}% 0)`;
+          ghosts[0].classList.add('is-plain');
+          ghosts[0].style.clipPath = `inset(${cut}% 0 0 0)`;
+          ghosts[0].style.transform = `translateX(${side() * rand(10, 36)}px)`;
+        },
+        shake() {
+          frame.style.transform = `translate(${rand(-9, 9)}px, ${rand(-6, 6)}px) skewX(${rand(-8, 8)}deg)`;
+        },
+        hold() {
+          frame.style.transform = `translateY(${rand(-10, 10)}vh)`;
+        },
+        stretch() {
+          frame.style.transform = `scale(${rand(.9, 1.12)}, ${rand(.88, 1.04)})`;
+        },
+        dropout() {
+          const level = pick([0, .12, .35]);
+          heading.style.opacity = level;
+          rule.style.opacity = level;
+        },
+        surge() {
+          noise.style.opacity = rand(.16, .26);
+        },
+        garble() {
+          code.textContent = scramble(codeText, .5);
+        },
+        line() {
+          rule.style.transform = `translateX(${rand(-44, 44)}px) scaleX(${rand(.35, 1.3)})`;
+        },
+      };
+      const names = Object.keys(effects);
+      const setLine = (value, isAlt) => {
+        heading.querySelectorAll('.msg').forEach(node => {
+          node.textContent = value;
+          node.classList.toggle('is-alt', isAlt);
+        });
+      };
+
+      const clear = () => {
+        root.classList.remove('is-glitching');
+        [frame, heading, text, rule, noise, ...ghosts].forEach(node => { node.style.cssText = ''; });
+        ghosts[0].classList.remove('is-plain');
+        code.textContent = codeText;
+        setLine(msgText, false);
+      };
+      const choose = big => {
+        const chosen = names.filter(() => Math.random() < (big ? .45 : .22));
+        while (chosen.length < (big ? 3 : 1)) {
+          const name = pick(names);
+          if (!chosen.includes(name)) chosen.push(name);
+        }
+        return chosen;
+      };
+      const burst = async () => {
+        const big = Math.random() < .12;
+        const chosen = choose(big);
+        const swap = altText !== '' && Math.random() < .2;
+        const end = performance.now() + (big ? rand(380, 620) : rand(80, 300));
+        if (Math.random() < .4) document.title = scramble(pageTitle, .18);
+        while (performance.now() < end) {
+          clear();
+          root.classList.add('is-glitching');
+          chosen.forEach(name => effects[name]());
+          if (swap) setLine(altText, true);
+          await wait(rand(30, 80));
+          if (Math.random() < .25) {
+            clear();
+            await wait(rand(20, 60));
+          }
+        }
+        clear();
+        document.title = pageTitle;
+      };
+      const loop = async () => {
+        await wait(rand(600, 1500));
+        if (!document.hidden && !calm.matches) {
+          await burst();
+          if (Math.random() < .25) {
+            await wait(rand(50, 150));
+            await burst();
+          }
+        }
+        loop();
+      };
+      loop();
+    }
+  </script>
+</body>
+</html>

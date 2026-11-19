@@ -2,12 +2,15 @@ import json
 import os
 import tempfile
 import unittest
+from contextlib import closing
 
 from werkzeug.security import generate_password_hash
 
 from app import app
 from config import Config
 from models import get_db, init_tables
+from services import map_quiz_service as quiz
+from services import player_bingo_service as bingo
 from services.map_quiz_service import MAPS, SOURCE_COLLECTION, question_for_key
 from services.player_bingo_service import solve_board
 
@@ -63,6 +66,54 @@ class GamesTests(unittest.TestCase):
         protected = guest.get("/map-quiz")
         self.assertEqual(protected.status_code, 302)
         self.assertIn("/login?next=/map-quiz", protected.headers["Location"])
+
+    def test_quiz_counts_only_daily_wins_and_keeps_yesterdays_streak(self):
+        with closing(get_db()) as conn:
+            for day in ("2026-05-01", "2026-05-02", "2026-05-03", "2026-05-06", "2026-05-07"):
+                game = quiz.get_daily_game_row(conn, self.user_id, day)
+                answer = question_for_key(game["question_key"])
+                self.assertIsNone(
+                    quiz.submit_guess(conn, game, answer["map_key"], answer["spot"])[1]
+                )
+            practice = quiz.create_practice_game(conn, self.user_id)
+            answer = question_for_key(practice["question_key"])
+            quiz.submit_guess(conn, practice, answer["map_key"], answer["spot"])
+            quiz.get_daily_game_row(conn, self.user_id, "2026-05-08")
+            for day, expected in (("2026-05-07", 2), ("2026-05-08", 2), ("2026-05-09", 0)):
+                with self.subTest(day=day):
+                    self.assertEqual(
+                        quiz.user_statistics(conn, self.user_id, day),
+                        {
+                            "games": 5,
+                            "win_rate": 100,
+                            "current_streak": expected,
+                            "longest_streak": 3,
+                        },
+                    )
+
+    def test_bingo_counts_a_mistake_but_does_not_commit_the_callers_transaction(self):
+        self.client.get("/player-bingo")
+        with closing(get_db()) as conn:
+            game = bingo.get_daily_game_row(conn, self.user_id)
+            board = json.loads(game["board_json"])
+            pool = conn.execute("SELECT * FROM guess_players WHERE active=1").fetchall()
+            fits = [
+                p["id"]
+                for p in pool
+                if bingo.player_matches(p, board["rows"][0], board["columns"][0])
+            ]
+            wrong = next(p["id"] for p in pool if p["id"] not in fits)
+            state, message = bingo.submit_player(conn, game, 0, 0, wrong)
+            self.assertEqual((state["mistakes"], message), (1, "这名选手不同时符合两个条件"))
+            conn.execute("BEGIN")
+            self.assertIsNone(bingo.submit_player(conn, game, 0, 0, fits[0])[1])
+            self.assertEqual(
+                bingo.submit_player(conn, game, 0, 0, fits[0])[1], "这个格子已经填过了"
+            )
+            self.assertTrue(conn.in_transaction)
+            conn.rollback()
+            fresh = bingo.get_daily_game_row(conn, self.user_id)
+            self.assertEqual((fresh["mistakes"], bingo.load_game(conn, fresh)["filled"]), (1, 0))
 
     def test_map_quiz_hides_file_name_and_finishes_after_three_attempts(self):
         page = self.client.get("/map-quiz")

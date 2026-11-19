@@ -2,9 +2,10 @@ import os
 import tempfile
 import time
 import unittest
+from contextlib import closing
 from unittest.mock import patch
 
-from werkzeug.security import generate_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from app import app
 from config import Config
@@ -302,6 +303,56 @@ class AccessAndRegistrationTests(unittest.TestCase):
         conn.close()
         self.assertEqual(user["is_placeholder"], 0)
         self.assertEqual(user["approval_status"], "pending")
+
+    def test_real_steam_account_takes_priority_over_import_placeholder(self):
+        steam_id = "76561198000000078"
+        with closing(get_db()) as conn:
+            conn.execute(
+                """INSERT INTO users(username,password_hash,steam_id64,is_placeholder,approval_status)
+                   VALUES('ImportedPlaceholder','unused',?,1,'pending'),
+                         ('RegisteredPlayer','unused',?,0,'approved')""",
+                (steam_id, steam_id),
+            )
+            conn.commit()
+
+        with self.client.session_transaction() as browser:
+            browser.update(
+                csrf_token="known-steam-test",
+                register_form_started_at=time.time() - 3,
+                steam_verified={"purpose": "register", "steam_id64": steam_id, "verified_at": time.time()},
+            )
+        self._verify_registration_email("second@example.com")
+        with patch("routes.auth._check_captcha", return_value=True):
+            rejected = self.client.post(
+                "/register",
+                data={
+                    "csrf_token": "known-steam-test",
+                    "username": "SecondRegistration",
+                    "is_bashizhong_student": "0",
+                    "email": "second@example.com",
+                    "password": "test-password-123",
+                    "password2": "test-password-123",
+                },
+            )
+        self.assertIn("该 Steam 账号已注册", rejected.get_data(as_text=True))
+
+        with self.client.session_transaction() as browser:
+            browser["steam_verified"] = {
+                "purpose": "recovery", "steam_id64": steam_id, "verified_at": time.time(),
+            }
+        recovered = self.client.post(
+            "/change-password",
+            data={"csrf_token": "known-steam-test", "password": "test-password-123", "password2": "test-password-123"},
+        )
+        self.assertEqual(recovered.location, "/login")
+        with closing(get_db()) as conn:
+            placeholder, registered = conn.execute(
+                "SELECT username,password_hash,is_placeholder,approval_status FROM users WHERE steam_id64=? ORDER BY id",
+                (steam_id,),
+            ).fetchall()
+        self.assertEqual(tuple(placeholder), ("ImportedPlaceholder", "unused", 1, "pending"))
+        self.assertEqual((registered["username"], registered["approval_status"]), ("RegisteredPlayer", "pending"))
+        self.assertTrue(check_password_hash(registered["password_hash"], "test-password-123"))
 
     def test_captcha_is_an_image_and_answer_is_not_stored(self):
         response = self.client.get("/captcha/image")

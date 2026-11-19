@@ -23,6 +23,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from config import Config
 from models import get_db
 from services.player_service import update_player_nickname
+from site_core import accounts
 from utils.db_helpers import save_uploaded_avatar
 from utils.rate_limiter import rate_limit
 from utils.web_helpers import csrf_required, user_required
@@ -87,13 +88,6 @@ def _parse_school_status(value):
     if normalized in {"0", "no", "false"}:
         return 0
     return None
-
-
-def _profile_completion_required(user):
-    school_status = user["is_bashizhong_student"]
-    if school_status is None:
-        return True
-    return bool(school_status) and not str(user["group_username"] or "").strip()
 
 
 def _email_code_digest(nonce, email, code):
@@ -483,7 +477,7 @@ def _start_login_session(user=None, admin=None):
     if user:
         session["user_id"] = user["id"]
         session["user_username"] = user["username"]
-        if _profile_completion_required(user):
+        if accounts.profile_completion_required(user):
             session["profile_completion_required"] = True
     if admin:
         session["admin_id"] = admin["id"]
@@ -634,7 +628,7 @@ def user_login():
                     user = conn.execute(
                         "SELECT * FROM users WHERE username=?", (username,)
                     ).fetchone()
-                    if user and (user["approval_status"] or "approved") != "approved":
+                    if user and accounts.approval_status(user) != "approved":
                         user = None
                     _start_login_session(user=user, admin=admin)
                     flash("登录成功", "success")
@@ -647,7 +641,7 @@ def user_login():
 
             user = conn.execute("SELECT * FROM users WHERE username=?", (username,)).fetchone()
             if user and check_password_hash(user["password_hash"], password):
-                status = user["approval_status"] or "approved"
+                status = accounts.approval_status(user)
                 if status != "approved":
                     message = {
                         "pending": "账号正在等待管理员审核，审核通过后才能登录",
@@ -777,11 +771,7 @@ def user_register():
             return _render_register()
 
         conn = get_db()
-        existing_steam = None
-        if steam_id64:
-            existing_steam = conn.execute(
-                "SELECT * FROM users WHERE steam_id64=?", (steam_id64,)
-            ).fetchone()
+        existing_steam = accounts.steam_account(conn, steam_id64)
 
         # 检查用户名唯一
         existing_user = conn.execute(
@@ -811,21 +801,20 @@ def user_register():
             _generate_captcha()
             return _render_register()
 
-        if steam_id64:
-            if existing_steam and claimable_steam is None:
-                conn.close()
-                flash("该 Steam 账号已注册，请使用忘记密码找回账号", "error")
-                _generate_captcha()
-                return _render_register()
+        if existing_steam and claimable_steam is None:
+            conn.close()
+            flash("该 Steam 账号已注册，请使用忘记密码找回账号", "error")
+            _generate_captcha()
+            return _render_register()
 
-            existing_nick = conn.execute(
-                "SELECT id, steam_id FROM players WHERE nickname=?", (username,)
-            ).fetchone()
-            if existing_nick and str(existing_nick["steam_id"] or "") != steam_id64:
-                conn.close()
-                flash("该昵称已被选手使用，请更换用户名", "error")
-                _generate_captcha()
-                return _render_register()
+        existing_nick = conn.execute(
+            "SELECT steam_id FROM players WHERE nickname=?", (username,)
+        ).fetchone()
+        if existing_nick and str(existing_nick["steam_id"] or "") != steam_id64:
+            conn.close()
+            flash("该昵称已被选手使用，请更换用户名", "error")
+            _generate_captcha()
+            return _render_register()
 
         # 处理头像上传
         avatar_filename = None
@@ -846,28 +835,18 @@ def user_register():
             session.pop("registration_email_verified", None)
             flash("邮箱验证已失效，请重新验证", "error")
             return _render_register()
-        submitted_user_id = None
-        if claimable_steam is not None:
-            conn.execute(
-                """UPDATE users SET username=?, password_hash=?, email=?,
-                                    email_verified_at=CURRENT_TIMESTAMP,
-                                    group_username=?,
-                                    is_bashizhong_student=?,
-                                    avatar=COALESCE(?, avatar),
-                                    is_placeholder=0, approval_status='pending',
-                                    approval_note=NULL, approved_at=NULL, approved_by=NULL
-                    WHERE id=?""",
-                (
-                    username,
-                    password_hash,
-                    email,
-                    group_username or None,
-                    school_status,
-                    avatar_filename,
-                    claimable_steam["id"],
-                ),
+        try:
+            submitted_user_id, claimed = accounts.submit_verified_registration(
+                conn, steam_id=steam_id64, username=username, password_hash=password_hash, email=email,
+                school_status=school_status, group_username=group_username, avatar=avatar_filename,
             )
-            submitted_user_id = claimable_steam["id"]
+        except accounts.SteamAccountInUse:
+            conn.rollback()
+            conn.close()
+            flash("该 Steam 账号已注册，请使用忘记密码找回账号", "error")
+            _generate_captcha()
+            return _render_register()
+        if claimed:
             claimed_players = conn.execute(
                 "SELECT id FROM players WHERE steam_id=?", (steam_id64,)
             ).fetchall()
@@ -877,30 +856,11 @@ def user_register():
                 "UPDATE players SET avatar=COALESCE(?, avatar) WHERE steam_id=?",
                 (avatar_filename, steam_id64),
             )
-        else:
-            cursor = conn.execute(
-                """INSERT INTO users(
-                       username, password_hash, email, email_verified_at,
-                       group_username, is_bashizhong_student, steam_id64, avatar,
-                       is_placeholder, approval_status
-                   ) VALUES(?,?,?,CURRENT_TIMESTAMP,?,?,?,?,0,'pending')""",
-                (
-                    username,
-                    password_hash,
-                    email,
-                    group_username or None,
-                    school_status,
-                    steam_id64 or None,
-                    avatar_filename,
-                ),
-            )
-            submitted_user_id = cursor.lastrowid
-
         conn.commit()
         logger.info(
             "Registration application submitted: user_id=%s placeholder_claim=%s",
             submitted_user_id,
-            claimable_steam is not None,
+            claimed,
         )
         conn.close()
         session.pop("steam_verified", None)
@@ -942,35 +902,7 @@ def complete_account_profile():
         session.clear()
         return redirect(url_for("user_login"))
 
-    if school_status == 1:
-        conn.execute(
-            """UPDATE users
-               SET is_bashizhong_student=1, group_username=?
-               WHERE id=?""",
-            (group_username, user["id"]),
-        )
-    else:
-        conn.execute(
-            "UPDATE users SET is_bashizhong_student=0 WHERE id=?",
-            (user["id"],),
-        )
-
-    if user["steam_id64"]:
-        conn.execute(
-            """UPDATE players
-               SET is_bashizhong_student=?,
-                   group_username_override=CASE
-                       WHEN ?=1 THEN ?
-                       ELSE group_username_override
-                   END
-               WHERE steam_id=?""",
-            (
-                school_status,
-                school_status,
-                group_username or None,
-                user["steam_id64"],
-            ),
-        )
+    accounts.save_school_identity(conn, user, school_status, group_username)
     conn.commit()
     conn.close()
     session.pop("profile_completion_required", None)
@@ -1012,7 +944,7 @@ def user_profile():
     if request.method == "POST":
         action = request.form.get("action", "")
 
-        if _profile_completion_required(user) and action != "group_username":
+        if accounts.profile_completion_required(user) and action != "group_username":
             conn.close()
             flash("请先完成账号资料设置", "error")
             return redirect(url_for("user_profile"))
@@ -1047,16 +979,7 @@ def user_profile():
                 flash(group_username_error, "error")
             else:
                 try:
-                    conn.execute(
-                        "UPDATE users SET group_username=? WHERE id=?",
-                        (group_username, user["id"]),
-                    )
-                    if user["steam_id64"]:
-                        conn.execute(
-                            """UPDATE players SET group_username_override=?
-                               WHERE steam_id=?""",
-                            (group_username, user["steam_id64"]),
-                        )
+                    accounts.save_school_identity(conn, user, 1, group_username)
                     conn.commit()
                 except Exception:
                     conn.rollback()
@@ -1154,22 +1077,12 @@ def change_password():
             return render_template("change_password.html", steam_verified_id=steam_id64)
 
         conn = get_db()
-        user = conn.execute(
-            "SELECT id, username FROM users WHERE steam_id64=?", (steam_id64,)
-        ).fetchone()
-
-        if not user:
+        if not accounts.recover_password(conn, steam_id64, generate_password_hash(password)):
             conn.close()
             flash("未找到该 Steam ID 对应的账号", "error")
             session.pop("steam_verified", None)
             return redirect(url_for("change_password"))
 
-        conn.execute(
-            """UPDATE users
-               SET password_hash=?, is_placeholder=0, approval_status='pending'
-               WHERE id=?""",
-            (generate_password_hash(password), user["id"]),
-        )
         conn.commit()
         conn.close()
         session.pop("steam_verified", None)

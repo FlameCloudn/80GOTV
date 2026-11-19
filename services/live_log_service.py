@@ -3,6 +3,9 @@
 import json
 from datetime import datetime, timezone
 
+from site_core.host import is_managed_match
+from site_core.matches.live import live_schema_ready
+
 
 def _json_text(value):
     return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
@@ -44,8 +47,55 @@ def persist_live_match_events(conn, match_id, state):
     return saved
 
 
+def uses_run_timeline(conn, match_id):
+    return is_managed_match(conn, match_id) and live_schema_ready(conn)
+
+
+def load_run_timeline(conn, match_id, run_id=None):
+    """Project only a playing attempt or the attempt retained by the official result."""
+    rows = conn.execute(
+        """SELECT e.map_run_id,e.event_key,e.event_type,e.round_number,e.payload,s.map_name
+           FROM scheduled_maps s JOIN map_runs r USING(scheduled_map_id)
+           JOIN live_run_events e USING(map_run_id)
+           LEFT JOIN official_map_results o ON o.scheduled_map_id=s.scheduled_map_id
+                AND o.map_run_id=r.map_run_id AND o.is_current=1
+           WHERE s.match_id=? AND s.is_enabled=1 AND (? IS NULL OR r.map_run_id=?)
+             AND (r.status='active' OR (r.status='closed' AND o.map_run_id IS NOT NULL))
+           ORDER BY s.map_order,e.round_number,(e.event_type='round'),
+                    COALESCE(json_extract(e.payload,'$.captured_at_epoch'),
+                             unixepoch(json_extract(e.payload,'$.captured_at'))),e.rowid""",
+        (match_id, run_id, run_id),
+    )
+    timeline = []
+    for row in rows:
+        event = json.loads(row["payload"])
+        event.setdefault("id", row["event_key"])
+        event.update(
+            type=row["event_type"],
+            map_run_id=row["map_run_id"],
+            round=row["round_number"],
+            round_number=row["round_number"],
+            created_at=event.get("captured_at"),
+        )
+        event.setdefault("map_name", row["map_name"])
+        if event["type"] == "death":
+            # The report can display a victim without attributing a kill.
+            event.update(
+                victim=event.get("name"),
+                victim_side=event.get("side"),
+                victim_steamid=event.get("steamid"),
+            )
+        timeline.append(event)
+    return timeline
+
+
 def load_match_timeline(conn, match_id):
-    """Return saved Game Log entries in the order they arrived."""
+    if uses_run_timeline(conn, match_id):
+        return load_run_timeline(conn, match_id)
+    return load_legacy_timeline(conn, match_id)
+
+
+def load_legacy_timeline(conn, match_id):
     rows = conn.execute(
         """
         SELECT event_type, round_num, payload, created_at

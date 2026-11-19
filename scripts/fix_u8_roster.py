@@ -10,12 +10,17 @@ import sqlite3
 db = "/srv/80gotv/data/cs_site.db"
 ts = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 backup = db + ".before-lan-" + ts
-shutil.copy2(db, backup)
 
 conn = sqlite3.connect(db)
 conn.row_factory = sqlite3.Row
 cur = conn.cursor()
 
+if cur.execute("SELECT 1 FROM sqlite_master WHERE name='event_registration_control'").fetchone():
+    if cur.execute("SELECT 1 FROM event_registration_control LIMIT 1").fetchone():
+        conn.close()
+        raise SystemExit("此旧修复按现队籍改历史名单，含托管赛事的数据库不允许执行")
+
+shutil.copy2(db, backup)
 team_id = cur.execute("SELECT team1_id FROM matches WHERE id=20").fetchone()["team1_id"]
 cur.execute("UPDATE players SET team_id=? WHERE id=8", (team_id,))
 cur.execute("UPDATE players SET team_id=NULL WHERE id=29")

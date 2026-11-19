@@ -16,6 +16,7 @@ from services.performance_service import (  # noqa: E402
     backfill_demo_performance,
     refresh_player_performance,
 )
+from site_core.host import is_managed_match  # noqa: E402
 
 
 def _map_name_for_slot(match, slot, data):
@@ -37,6 +38,9 @@ def rebuild(cache_dir):
         if not match_info:
             continue
         match_id = int(match_info.group(1))
+        if is_managed_match(conn, match_id):
+            print(f"跳过托管比赛 {match_id}：未开放实战统计")
+            continue
         slot = int(match_info.group(2))
         match = conn.execute(
             """SELECT id, map1, map2, map3, map4, map5

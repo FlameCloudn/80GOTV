@@ -4,6 +4,8 @@ import json
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 
+from site_core.host import is_managed_event, is_managed_match
+from site_core.matches.participants import sides as participant_sides
 from utils.helpers import row_get, team_abbr
 
 PLAYER_FIELDS = "id,nickname,group_username_override,steam_id,avatar,is_bashizhong_student,team_id"
@@ -42,7 +44,39 @@ def _players_by_id(conn, ids):
     }
 
 
+def _managed_match(conn, match):
+    match_id = row_get(match, "id")
+    if not match_id:
+        return False
+    event_id = row_get(match, "event_id")
+    return (
+        is_managed_event(conn, event_id)
+        if event_id is not None
+        else is_managed_match(conn, match_id)
+    )
+
+
+def managed_match_teams(conn, match):
+    """托管场只读固定双方；缺关联不能回到旧目录或按名称猜测。"""
+    if not _managed_match(conn, match):
+        return None
+    return {str(side): team for side, team in participant_sides(conn, row_get(match, "id")).items()}
+
+
 def match_registration(conn, match, side):
+    managed = managed_match_teams(conn, match)
+    if managed is not None:
+        team = managed.get(str(side))
+        return (
+            {
+                "id": team["registration_id"],
+                "team_name": team["name"],
+                "team_logo": team["logo"],
+                "creator_user_id": team["creator_user_id"],
+            }
+            if team and team["group_status"] == "pending"
+            else None
+        )
     event_id = row_get(match, "event_id")
     if not event_id:
         return None
@@ -157,7 +191,7 @@ def match_player_ids(conn, match, side):
     }
 
 
-def _historical_player_slots(conn, match, side):
+def _historical_rosters(conn, match):
     rows = conn.execute(
         """SELECT player_id,team_id,LOWER(TRIM(match_team_side)) AS match_side
            FROM match_stats WHERE match_id=? AND player_id IS NOT NULL
@@ -171,49 +205,67 @@ def _historical_player_slots(conn, match, side):
         recorded = {"t1": 1, "t2": 2}.get(row["match_side"])
         if recorded:
             sides[row["player_id"]].add(recorded)
-    player_ids = [player_id for player_id, values in sides.items() if values == {side}]
-    profiles = _players_by_id(conn, player_ids)
-    return [
-        {**profiles[player_id], "slot": index + 1, "roster_source": "history"}
-        for index, player_id in enumerate(player_ids)
-        if player_id in profiles
-    ]
+    by_side = {side: [pid for pid, values in sides.items() if values == {side}] for side in (1, 2)}
+    profiles = _players_by_id(conn, by_side[1] + by_side[2])
+    return {
+        side: [
+            {**profiles[pid], "slot": index + 1, "roster_source": "history"}
+            for index, pid in enumerate(ids)
+            if pid in profiles
+        ]
+        for side, ids in by_side.items()
+    }
 
 
 def match_player_slots(conn, match, side):
+    managed = managed_match_teams(conn, match)
+    if managed is not None:
+        return managed.get(str(side), {}).get("players", [])
+    return _legacy_rosters(conn, match, (side,))[side]
+
+
+def _legacy_rosters(conn, match, sides):
     frozen = frozen_match_teams(match)
     if frozen:
-        return [
-            {
-                **player,
-                "slot": player.get("slot") or index + 1,
-                "roster_source": player.get("roster_source") or "snapshot",
-                "roster_frozen": True,
-            }
-            for index, player in enumerate(frozen[str(side)]["players"])
-            if isinstance(player, dict)
-        ]
-    if row_get(match, "roster_snapshot"):
-        return []
-    if str(row_get(match, "status") or "").lower() == "completed":
-        # Complete final statistics outrank stale selections, never live or partial evidence.
-        historical = {
-            number: _historical_player_slots(conn, match, number) or [] for number in (1, 2)
+        return {
+            side: [
+                {
+                    **player,
+                    "slot": player.get("slot") or index + 1,
+                    "roster_source": player.get("roster_source") or "snapshot",
+                    "roster_frozen": True,
+                }
+                for index, player in enumerate(frozen[str(side)]["players"])
+                if isinstance(player, dict)
+            ]
+            for side in sides
         }
-        if (
-            all(len(slots) == 5 for slots in historical.values())
-            and len({player["id"] for slots in historical.values() for player in slots}) == 10
-        ):
-            return historical[side]
-    selected = _selected_ids(match, side)
-    if selected is not None:
-        players = _players_by_id(conn, selected)
-        counts = Counter(_player_id(value) for value in selected)
-        result = []
-        for index, value in enumerate(selected):
+    if row_get(match, "roster_snapshot"):
+        return {side: [] for side in sides}
+    selected = {side: _selected_ids(match, side) for side in sides}
+    completed = str(row_get(match, "status") or "").lower() == "completed"
+    historical = (
+        _historical_rosters(conn, match) if completed or None in selected.values() else None
+    )
+    if completed and historical and all(len(slots) == 5 for slots in historical.values()):
+        # 两侧都恰好五位、且历史出场身份无歧义时，以正式历史记录为准。
+        return {side: historical[side] for side in sides}
+    profiles = _players_by_id(conn, [pid for ids in selected.values() for pid in (ids or [])])
+    result = {}
+    for side, ids in selected.items():
+        if ids is None:
+            result[side] = (
+                historical[side]
+                if historical is not None
+                else registration_player_slots(conn, match, side)
+            )
+            continue
+        counts = Counter(_player_id(value) for value in ids)
+        result[side] = []
+        for index, value in enumerate(ids):
             player_id = _player_id(value)
-            player = players.get(player_id) if counts[player_id] == 1 else None
-            result.append(
+            player = profiles.get(player_id) if counts[player_id] == 1 else None
+            result[side].append(
                 {
                     **(player or {}),
                     "id": player["id"] if player else None,
@@ -223,15 +275,13 @@ def match_player_slots(conn, match, side):
                     "roster_source": "admin",
                 }
             )
-        return result
-
-    historical = _historical_player_slots(conn, match, side)
-    if historical is not None:
-        return historical
-    return registration_player_slots(conn, match, side)
+    return result
 
 
 def registration_player_slots(conn, match, side):
+    managed = managed_match_teams(conn, match)
+    if managed is not None:
+        return managed.get(str(side), {}).get("players", [])
     registration = match_registration(conn, match, side)
     if not registration:
         return []
@@ -287,7 +337,12 @@ def registration_player_slots(conn, match, side):
 
 def resolve_match_roster(conn, match):
     """Share the exact match slots and completeness checks across all consumers."""
-    players = {side: match_player_slots(conn, match, side) for side in (1, 2)}
+    managed = managed_match_teams(conn, match)
+    players = (
+        {side: managed.get(str(side), {}).get("players", []) for side in (1, 2)}
+        if managed is not None
+        else _legacy_rosters(conn, match, (1, 2))
+    )
     event_id = row_get(match, "event_id")
     reserve_ids = (
         {
@@ -298,17 +353,19 @@ def resolve_match_roster(conn, match):
                 (event_id,),
             )
         }
-        if event_id
+        if event_id and managed is None
         else set()
     )
     issues = []
     identities = []
     for side, slots in players.items():
+        if managed is not None and not managed.get(str(side), {}).get("frozen_at"):
+            issues.append(f"team{side}_roster_not_frozen")
         if len(slots) != 5 or sorted(player["slot"] for player in slots) != [1, 2, 3, 4, 5]:
             issues.append(f"team{side}_needs_five_players")
         for player in slots:
             steam_id = str(player.get("steam_id") or "").strip()
-            if not player.get("roster_frozen"):
+            if managed is None and not player.get("roster_frozen"):
                 player["is_substitute"] = bool(
                     steam_id and player["roster_source"] == "admin" and steam_id in reserve_ids
                 )
@@ -351,6 +408,8 @@ def _bind_match_registrations(conn, match):
 
 def freeze_match_roster(conn, match, force=False, confirmed=False):
     """Persist match identity in the caller's transaction, never from a read request."""
+    if _managed_match(conn, match):
+        return False
     match = dict(match)
     if frozen_match_teams(match) and not force:
         snapshot = json.loads(match["roster_snapshot"])
@@ -416,6 +475,8 @@ def _preserve_matching_rosters(conn, condition, arguments, registration_id=None)
     conn.execute("UPDATE matches SET status=status WHERE 0")
     matches = conn.execute("SELECT * FROM matches WHERE " + condition, arguments).fetchall()
     for row in matches:
+        if _managed_match(conn, row):
+            continue
         if registration_id is not None and not any(
             registration and registration["id"] == registration_id
             for registration in (match_registration(conn, row, side) for side in (1, 2))
@@ -450,6 +511,13 @@ def match_snapshot_uses_logo(conn, filename):
     wanted = logo_relative_path(filename)
     if not wanted:
         return False
+    if conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='match_rosters'"
+    ).fetchone() and any(
+        logo_relative_path(row["team_logo"]) == wanted
+        for row in conn.execute("SELECT DISTINCT team_logo FROM match_rosters WHERE team_logo<>''")
+    ):
+        return True
     for row in conn.execute(
         "SELECT roster_snapshot FROM matches WHERE roster_snapshot IS NOT NULL"
     ):

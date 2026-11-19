@@ -3,6 +3,7 @@
 from flask import render_template
 
 from models import get_db
+from services.arg_event_service import ordinary_event_condition
 from services.home_service import load_home_feed
 from services.match_service import supplement_temp_teams
 from utils.match_utils import (
@@ -43,9 +44,10 @@ def index():
             LIMIT 5
         """).fetchall()
 
-        active_events = conn.execute("""
+        active_events = conn.execute(f"""
             SELECT id, name, start_date, end_date
             FROM events
+            WHERE {ordinary_event_condition()}
             ORDER BY start_date DESC
             LIMIT 5
         """).fetchall()
@@ -140,10 +142,11 @@ def dashboard():
         # 3. 赛事比赛数量分布
         event_matches = [
             dict(r)
-            for r in conn.execute("""
+            for r in conn.execute(f"""
             SELECT e.name AS event, e.slug AS slug, COUNT(m.id) AS cnt
             FROM events e
             LEFT JOIN matches m ON e.id=m.event_id
+            WHERE {ordinary_event_condition("e")}
             GROUP BY e.id
             ORDER BY cnt DESC
         """).fetchall()

@@ -64,6 +64,55 @@ class BackupRestoreTests(unittest.TestCase):
             restore_to_empty_directory(backup, target)
         self.assertTrue((target / "keep.txt").exists())
 
+    def test_whole_site_rejects_unlisted_files_but_database_only_keeps_its_old_contract(self):
+        with patch("services.backup_service.BASE_DIR", str(self.root)):
+            backup = create_backup_file(self.root / "backups")
+        with zipfile.ZipFile(backup, "a") as archive:
+            archive.writestr("release-notes.txt", "旧包附注")
+        target = self.root / "restored"
+        with self.assertRaisesRegex(RuntimeError, "未知内容"):
+            verify_backup(backup)
+        with self.assertRaisesRegex(RuntimeError, "未知内容"):
+            restore_to_empty_directory(backup, target)
+        self.assertFalse(target.exists())
+        database = restore_database_in_place(backup, self.root / "only.db")
+        with closing(sqlite3.connect(database)) as conn:
+            self.assertEqual(conn.execute("SELECT value FROM sample").fetchone()[0], "latest")
+        self.assertFalse((self.root / "release-notes.txt").exists())
+
+    def test_private_match_demos_follow_snapshot_into_full_restore_only(self):
+        root = self.root / "private-volume"
+        root.mkdir()
+        (root / "approved.dem").write_bytes(b"original")
+        (root / "pending.part").write_bytes(b"unfinished")
+        with closing(sqlite3.connect(self.database)) as conn:
+            conn.execute("CREATE TABLE demo_originals(storage_key TEXT,byte_count INTEGER)")
+            conn.execute("INSERT INTO demo_originals VALUES('approved.dem',8)")
+            conn.commit()
+        with patch("services.backup_service.BASE_DIR", str(self.root)), patch.object(Config, "HOST_DEMO_ROOT", str(root)):
+            full = create_backup_file(self.root / "backups", include_demos=True)
+            daily = create_backup_file(self.root / "backups")
+        with zipfile.ZipFile(daily) as archive:
+            self.assertFalse(any(n.startswith("instance/") for n in archive.namelist()))
+        restored = restore_to_empty_directory(full, self.root / "restored")
+        files = list((restored / "instance" / "match-demos").iterdir())
+        self.assertEqual([item.name for item in files], ["approved.dem"])
+        self.assertEqual(files[0].read_bytes(), b"original")
+        self.assertFalse((restored / "static" / "demos" / "approved.dem").exists())
+        incomplete = self.root / "missing-original.zip"
+        with zipfile.ZipFile(full) as source, zipfile.ZipFile(incomplete, "w") as archive:
+            for name in source.namelist():
+                if name != "instance/match-demos/approved.dem":
+                    archive.writestr(name, source.read(name))
+        with self.assertRaisesRegex(RuntimeError, "缺少数据库登记的 Demo 原件"):
+            verify_backup(incomplete)
+        with self.assertRaisesRegex(RuntimeError, "缺少数据库登记的 Demo 原件"):
+            restore_to_empty_directory(incomplete, self.root / "incomplete-restore")
+        with self.assertRaisesRegex(RuntimeError, "缺少数据库登记的 Demo 原件"):
+            restore_database_in_place(incomplete, self.root / "incomplete.db")
+        self.assertFalse((self.root / "incomplete-restore").exists())
+        self.assertFalse((self.root / "incomplete.db").exists())
+
     def test_restore_retries_a_temporary_windows_rename_failure(self):
         with patch("services.backup_service.BASE_DIR", str(self.root)):
             backup = create_backup_file(self.root / "backups")

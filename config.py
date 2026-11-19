@@ -56,6 +56,7 @@ class Config:
     SECRET_KEY = _SECRET_KEY
     # 本地默认仍使用项目目录中的数据库；公网可把数据库放到独立资料盘。
     DATABASE = os.path.abspath(_DATABASE_PATH or os.path.join(BASE_DIR, "cs_site.db"))
+    HOST_DEMO_ROOT = os.environ.get("HOST_DEMO_ROOT") or None
     UPLOAD_FOLDER = os.path.join(BASE_DIR, "static")
     ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "dem"}
     MAX_CONTENT_LENGTH = 3 * 1024 * 1024 * 1024  # 3GB 上传限制（支持多个大型 Demo）

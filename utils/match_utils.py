@@ -210,10 +210,10 @@ def get_map_half_scores(match_row, slot_index, parsed_halves=None):
         opening_ct_team = None
         side_source = "unknown"
     return {
-        "h1_t1": item.get("h1_t1", item.get("t1_h1", 0)),
-        "h1_t2": item.get("h1_t2", item.get("t2_h1", 0)),
-        "h2_t1": item.get("h2_t1", item.get("t1_h2", 0)),
-        "h2_t2": item.get("h2_t2", item.get("t2_h2", 0)),
+        "h1_t1": item.get("h1_t1", item.get("t1_h1")),
+        "h1_t2": item.get("h1_t2", item.get("t2_h1")),
+        "h2_t1": item.get("h2_t1", item.get("t1_h2")),
+        "h2_t2": item.get("h2_t2", item.get("t2_h2")),
         "opening_ct_team": opening_ct_team if opening_ct_team in {"t1", "t2"} else None,
         "side_source": side_source,
     }

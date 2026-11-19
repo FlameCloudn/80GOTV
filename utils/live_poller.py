@@ -5,22 +5,22 @@ A2S Server Query 实时比分轮询器
   - A2S_INFO  → 地图名、玩家数
   - A2S_PLAYER → 在线玩家名 + 得分
 
-每 5 秒轮询一次，结果写入 live_match_data 表供 /api/live/state 读取。
-服务器不需要任何配置 — A2S 默认开启。
-
-用法:
-    from utils.live_poller import start_poller
-    start_poller()  # app.py 启动时调用一次
+轮询结果只占旧现场记录中的 a2s 字段；托管比赛不通过此路径写入。
 """
 
 import json
+import logging
 import socket
 import struct
-import sys
 import threading
 import time
+from contextlib import closing
+
+from site_core.database import get_db, write_transaction
+from site_core.host import is_managed_event
 
 POLL_INTERVAL = 1  # 秒
+logger = logging.getLogger("80gotv")
 
 # ---------------------------------------------------------------------------
 # 轻量 A2S 协议实现（不依赖第三方库，纯 socket）
@@ -208,92 +208,53 @@ def _match_map_name(server_map, match_maps):
     """
     将服务器地图名匹配到比赛地图列表
     server_map: A2S 返回的 map_name（如 'de_mirage'）
-    match_maps: 比赛地图列表 [(name, t1_score, t2_score), ...]
+    match_maps: 按赛图槽位排列的地图名
     返回匹配到的 slot (0-4) 或 None
     """
     sn = _normalize_map(server_map)
     if not sn:
         return None
-    for i, (mn, _, _) in enumerate(match_maps):
+    for i, mn in enumerate(match_maps):
         if mn and _normalize_map(mn) == sn:
             return i
     return None
 
 
-def _poll_loop():
-    """后台轮询主循环"""
-    from models import get_db
+def poll_once(conn):
+    matches = conn.execute("""
+        SELECT id, event_id, map1, map2, map3, map4, map5, server_address
+        FROM matches WHERE server_address IS NOT NULL AND server_address != ''
+          AND COALESCE(status, '') != 'completed'
+          AND datetime(match_time) <= datetime('now', 'localtime')
+    """).fetchall()
+    for match in matches:
+        if is_managed_event(conn, match["event_id"]):
+            continue
+        try:
+            server_state = query_server(match["server_address"])
+        except (ValueError, IndexError, OSError, OverflowError, struct.error):
+            # 一个地址或回包无效，不应挡住这一轮的其他比赛。
+            continue
+        slot = _match_map_name(server_state.get("map_name"), [match[f"map{i}"] for i in range(1, 6)])
+        sample = {"server": server_state, "map_slot": slot, "poll_time": time.time()}
+        # 各场的网络等待不占用写事务；只更新自己拥有的字段，保留导播和 GSI 帧。
+        with write_transaction(conn):
+            conn.execute("""
+                INSERT INTO live_match_data(match_id, live_state) VALUES(?, json_object('a2s', json(?)))
+                ON CONFLICT(match_id) DO UPDATE SET
+                    live_state=json_set(CASE WHEN json_valid(live_state) THEN live_state ELSE '{}' END,
+                                        '$.a2s', json_extract(excluded.live_state, '$.a2s')),
+                    updated_at=CURRENT_TIMESTAMP
+            """, (match["id"], json.dumps(sample, ensure_ascii=False)))
 
+
+def _poll_loop():
     while not _stop_event.is_set():
         try:
-            conn = get_db()
-            live_matches = conn.execute("""
-                SELECT id, map1, map2, map3, map4, map5,
-                       map1_t1, map1_t2, map2_t1, map2_t2, map3_t1, map3_t2,
-                       map4_t1, map4_t2, map5_t1, map5_t2,
-                       team1_score, team2_score, server_address
-                FROM matches
-                WHERE server_address IS NOT NULL AND server_address != ''
-                  AND COALESCE(status, '') != 'completed'
-                  AND match_time IS NOT NULL AND datetime(match_time) <= datetime('now', 'localtime')
-            """).fetchall()
-
-            for m in live_matches:
-                try:
-                    addr_parts = m["server_address"].rsplit(":", 1)
-                    if len(addr_parts) != 2:
-                        continue
-                    addr = (addr_parts[0].strip(), int(addr_parts[1]))
-
-                    server_state = query_server(addr)
-
-                    # 计算当前地图的比分（取玩家数推断 team score）
-                    map_list = [
-                        (m["map1"], m["map1_t1"] or 0, m["map1_t2"] or 0),
-                        (m["map2"], m["map2_t1"] or 0, m["map2_t2"] or 0),
-                        (m["map3"], m["map3_t1"] or 0, m["map3_t2"] or 0),
-                        (m["map4"], m["map4_t1"] or 0, m["map4_t2"] or 0),
-                        (m["map5"], m["map5_t1"] or 0, m["map5_t2"] or 0),
-                    ]
-                    slot = _match_map_name(server_state.get("map_name", ""), map_list)
-
-                    live_data = {
-                        "server": server_state,
-                        "map_slot": slot,
-                        "poll_time": time.time(),
-                    }
-                    current = conn.execute(
-                        "SELECT live_state FROM live_match_data WHERE match_id=?", (m["id"],)
-                    ).fetchone()
-                    merged = {}
-                    if current and current["live_state"]:
-                        try:
-                            merged = json.loads(current["live_state"])
-                        except (ValueError, TypeError):
-                            pass
-                    merged["a2s"] = live_data
-                    conn.execute(
-                        """
-                        INSERT INTO live_match_data(match_id, live_state)
-                        VALUES(?, ?)
-                        ON CONFLICT(match_id) DO UPDATE SET live_state=excluded.live_state, updated_at=CURRENT_TIMESTAMP
-                    """,
-                        (m["id"], json.dumps(merged, ensure_ascii=False)),
-                    )
-
-                except Exception:
-                    # 单个服务器查询失败不影响其他服务器
-                    pass
-
-            conn.commit()
-            try:
-                conn.close()
-            except Exception:
-                pass
-
+            with closing(get_db()) as conn:
+                poll_once(conn)
         except Exception:
-            pass
-
+            logger.exception("现场轮询未完成，下一轮重新查询")
         _stop_event.wait(POLL_INTERVAL)
 
 
@@ -305,7 +266,7 @@ def start_poller():
     _stop_event.clear()
     _poller_thread = threading.Thread(target=_poll_loop, daemon=True, name="a2s-poller")
     _poller_thread.start()
-    print("[LivePoller] A2S 轮询已启动（间隔 {} 秒）".format(POLL_INTERVAL), file=sys.stderr)
+    logger.info("A2S 现场轮询已启动，间隔 %d 秒", POLL_INTERVAL)
 
 
 def stop_poller():

@@ -27,6 +27,7 @@ from services.team_logo_service import (  # noqa: E402
     original_logo_path,
     save_processed_logo,
 )
+from site_core.host import has_event_schema  # noqa: E402
 
 
 def collect_references(conn):
@@ -159,6 +160,10 @@ def main():
 
     conn = get_db()
     try:
+        if args.apply and has_event_schema(conn) and conn.execute(
+            "SELECT 1 FROM event_registration_control LIMIT 1"
+        ).fetchone():
+            parser.error("库内已有托管赛事：全库原地改图会影响共用文件和冻结队标，仅可预览")
         refs = collect_references(conn)
         empty_teams = collect_teams_without_logo(conn)
         print(f"数据库里共有 {len(refs)} 处队标引用。")

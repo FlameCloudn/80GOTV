@@ -152,6 +152,12 @@ def _match_roster_contains_both(conn, match, source_id, target_id):
 
 def merge_player_records(conn, source_id, target_id):
     """Merge an explicitly selected duplicate player into the retained profile."""
+    from site_core.host import has_event_schema
+
+    if has_event_schema(conn) and conn.execute(
+        "SELECT 1 FROM event_signup_entries WHERE player_id IN (?,?) LIMIT 1", (source_id,target_id)
+    ).fetchone():
+        raise ValueError("选手已参与托管赛事，旧合并工具不能更改其报名或冻结身份")
     source_id = int(source_id)
     target_id = int(target_id)
     if source_id == target_id:

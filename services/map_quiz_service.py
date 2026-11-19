@@ -5,10 +5,13 @@ import hmac
 import re
 import secrets
 import uuid
-from datetime import date, datetime, timedelta
+from datetime import date
 from pathlib import Path
 
 from config import Config
+from site_core.database import write_transaction
+from site_core.games import daily_streaks
+from site_core.games import game_date as _as_date
 
 MAX_ATTEMPTS = 3
 ASSET_ROOT = Path(__file__).resolve().parents[1] / "static" / "images" / "map-quiz"
@@ -195,16 +198,6 @@ def challenge_number(on_date=None):
     return max(1, (day - kickoff).days + 1)
 
 
-def _as_date(value=None):
-    if value is None:
-        return datetime.now().date()
-    if isinstance(value, datetime):
-        return value.date()
-    if isinstance(value, date):
-        return value
-    return date.fromisoformat(str(value))
-
-
 def _daily_question_key(game_key):
     secret = str(getattr(Config, "SECRET_KEY", "80gotv-map-quiz"))
     digest = hmac.new(secret.encode(), f"map-quiz:{game_key}".encode(), hashlib.sha256).digest()
@@ -275,56 +268,51 @@ def load_game(conn, game_row):
 
 
 def submit_guess(conn, game_row, guessed_map, guessed_spot):
-    conn.execute("BEGIN IMMEDIATE")
-    current_game = conn.execute(
-        "SELECT * FROM map_quiz_games WHERE id=?", (game_row["id"],)
-    ).fetchone()
-    if not current_game:
-        conn.rollback()
-        return None, "本局不存在"
-    game = load_game(conn, current_game)
-    if game["finished"]:
-        conn.rollback()
-        return game, "本局已经结束"
-    guessed_map = (guessed_map or "").strip().casefold()
-    guessed_spot = (guessed_spot or "").strip()[:80]
-    if guessed_map not in dict(MAPS) or not guessed_spot:
-        conn.rollback()
-        return game, "请选择地图并填写点位"
+    with write_transaction(conn):
+        current_game = conn.execute(
+            "SELECT * FROM map_quiz_games WHERE id=?", (game_row["id"],)
+        ).fetchone()
+        if not current_game:
+            return None, "本局不存在"
+        game = load_game(conn, current_game)
+        if game["finished"]:
+            return game, "本局已经结束"
+        guessed_map = (guessed_map or "").strip().casefold()
+        guessed_spot = (guessed_spot or "").strip()[:80]
+        if guessed_map not in dict(MAPS) or not guessed_spot:
+            return game, "请选择地图并填写点位"
 
-    question = question_for_key(current_game["question_key"])
-    if not question:
-        conn.rollback()
-        return game, "题目不存在或已下架"
-    map_correct = guessed_map == question["map_key"]
-    accepted = {
-        normalize_answer(question["spot"]),
-        *(normalize_answer(alias) for alias in question["aliases"]),
-    }
-    spot_correct = normalize_answer(guessed_spot) in accepted
-    attempt_number = len(game["attempts"]) + 1
-    won = map_correct and spot_correct
-    finished = won or attempt_number >= MAX_ATTEMPTS
-    conn.execute(
-        """INSERT INTO map_quiz_attempts(
-               game_id, attempt_number, guessed_map, guessed_spot,
-               map_correct, spot_correct
-           ) VALUES(?,?,?,?,?,?)""",
-        (
-            current_game["id"],
-            attempt_number,
-            guessed_map,
-            guessed_spot,
-            int(map_correct),
-            int(spot_correct),
-        ),
-    )
-    conn.execute(
-        """UPDATE map_quiz_games
-           SET finished=?, won=?, updated_at=CURRENT_TIMESTAMP WHERE id=?""",
-        (int(finished), int(won), current_game["id"]),
-    )
-    conn.commit()
+        question = question_for_key(current_game["question_key"])
+        if not question:
+            return game, "题目不存在或已下架"
+        map_correct = guessed_map == question["map_key"]
+        accepted = {
+            normalize_answer(question["spot"]),
+            *(normalize_answer(alias) for alias in question["aliases"]),
+        }
+        spot_correct = normalize_answer(guessed_spot) in accepted
+        attempt_number = len(game["attempts"]) + 1
+        won = map_correct and spot_correct
+        finished = won or attempt_number >= MAX_ATTEMPTS
+        conn.execute(
+            """INSERT INTO map_quiz_attempts(
+                   game_id, attempt_number, guessed_map, guessed_spot,
+                   map_correct, spot_correct
+               ) VALUES(?,?,?,?,?,?)""",
+            (
+                current_game["id"],
+                attempt_number,
+                guessed_map,
+                guessed_spot,
+                int(map_correct),
+                int(spot_correct),
+            ),
+        )
+        conn.execute(
+            """UPDATE map_quiz_games
+               SET finished=?, won=?, updated_at=CURRENT_TIMESTAMP WHERE id=?""",
+            (int(finished), int(won), current_game["id"]),
+        )
     refreshed = conn.execute(
         "SELECT * FROM map_quiz_games WHERE id=?", (current_game["id"],)
     ).fetchone()
@@ -340,21 +328,7 @@ def user_statistics(conn, user_id, on_date=None):
         (user_id,),
     ).fetchall()
     wins = [date.fromisoformat(row["game_key"]) for row in rows if row["won"]]
-    longest = 0
-    run = 0
-    previous = None
-    for won_day in wins:
-        run = run + 1 if previous and won_day == previous + timedelta(days=1) else 1
-        longest = max(longest, run)
-        previous = won_day
-    current = 0
-    if wins and wins[-1] in (_as_date(on_date), _as_date(on_date) - timedelta(days=1)):
-        current = 1
-        for index in range(len(wins) - 1, 0, -1):
-            if wins[index - 1] == wins[index] - timedelta(days=1):
-                current += 1
-            else:
-                break
+    current, longest = daily_streaks(wins, on_date)
     return {
         "games": len(rows),
         "win_rate": round(len(wins) / len(rows) * 100) if rows else 0,

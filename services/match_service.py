@@ -7,8 +7,21 @@ import re
 import sqlite3
 from datetime import datetime
 
-from services.match_roster_service import frozen_match_teams, match_registration
+from services.arg_event_service import ARG_EVENT_STATUS, is_arg_event
+from services.match_roster_service import (
+    frozen_match_teams,
+    managed_match_teams,
+    match_registration,
+)
 from services.team_logo_service import logo_relative_path
+from site_core.matches.maps import project_legacy_map_fields
+from site_core.predictions import (  # noqa: F401 - 保留旧调用方的竞猜导入路径
+    get_prediction_leaderboard,
+    managed_vote_open,
+    score_predictions,
+    settle_managed_predictions,
+    upcoming_match_rows,
+)
 from utils.helpers import normalize_map_key, row_get, team_abbr
 
 
@@ -123,6 +136,22 @@ def _event_registration_logo(conn, event_id, team_name):
 def supplement_temp_teams(match_row, conn=None):
     """补齐比赛两侧的临时名称、简称和报名队标。"""
     m = dict(match_row)
+    managed = managed_match_teams(conn, m) if conn is not None else None
+    if managed is not None:
+        m = project_legacy_map_fields(conn, m)
+        for side in (1, 2):
+            info = managed.get(str(side), {})
+            m[f"team{side}_id"] = info.get("team_id")
+            m[f"team{side}_registration_id"] = info.get("registration_id")
+            m[f"team{side}_name"] = info.get("name") or "TBD"
+            m[f"t{side}s"] = info.get("short_name") or team_abbr(m[f"team{side}_name"])
+            m[f"t{side}_logo"] = m[f"team{side}_logo"] = info.get("logo") or ""
+            m[f"team{side}_players"] = json.dumps([p["id"] for p in info.get("players", [])])
+            if info:
+                m[f"_team{side}_identity"] = ("entrant", info["event_entrant_id"])
+        # 日程到了不等于已真实开打。本批次只准备比赛。
+        m["effective_status"] = m.get("status") or "upcoming"
+        return m
     frozen = frozen_match_teams(m)
     if frozen:
         for side in (1, 2):
@@ -221,6 +250,9 @@ def add_effective_event_status(event_row, now=None):
     if now is None:
         now = datetime.now()
     event = dict(event_row)
+    if is_arg_event(event):
+        event["effective_event_status"] = ARG_EVENT_STATUS
+        return event
     try:
         end_val = event.get("end_date")
         start_val = event.get("start_date")
@@ -246,106 +278,8 @@ def add_effective_event_status(event_row, now=None):
 
 
 def get_prediction_upcoming_matches(conn):
-    """Share the existing HTML upcoming-match selection with the JSON API."""
-    rows = conn.execute(
-        """SELECT m.id,m.slug,m.match_time,m.bo_format,m.event_id,
-                  m.team1_id,m.team2_id,m.team1_players,m.team2_players,
-                  m.roster_snapshot,m.team1_registration_id,m.team2_registration_id,
-                  t1.short_name AS t1s,t2.short_name AS t2s,
-                  COALESCE(t1.name,'TBD') AS team1_name,
-                  COALESCE(t2.name,'TBD') AS team2_name,e.name AS event_name,
-                  COUNT(v.id) AS vote_count,
-                  SUM(CASE WHEN v.voted_for='t1' THEN 1 ELSE 0 END) AS t1_votes,
-                  SUM(CASE WHEN v.voted_for='t2' THEN 1 ELSE 0 END) AS t2_votes
-           FROM matches m
-           LEFT JOIN match_votes v ON m.id=v.match_id
-           LEFT JOIN teams t1 ON m.team1_id=t1.id
-           LEFT JOIN teams t2 ON m.team2_id=t2.id
-           LEFT JOIN events e ON m.event_id=e.id
-           WHERE COALESCE(m.status,'')='upcoming'
-             AND (m.match_time IS NULL OR datetime(m.match_time)>datetime('now','localtime'))
-           GROUP BY m.id ORDER BY vote_count DESC,m.match_time ASC LIMIT 10"""
-    ).fetchall()
-    return [supplement_temp_teams(row, conn) for row in rows]
-
-
-def get_prediction_leaderboard(conn, limit=10):
-    """Read current prediction scores without updating votes, matches or caches."""
-    rows = conn.execute(
-        """WITH predictions AS (
-               SELECT v.user_id,v.voted_for,v.score1_guess,v.score2_guess,
-                      u.username,u.avatar,u.is_cheater,m.team1_score,m.team2_score,
-                      CASE UPPER(COALESCE(NULLIF(m.bo_format,''),'BO3'))
-                          WHEN 'BO1' THEN 1 WHEN 'BO3' THEN 2 WHEN 'BO5' THEN 3
-                      END AS wins_needed
-               FROM match_votes v
-               JOIN matches m ON m.id=v.match_id
-               JOIN users u ON u.id=v.user_id
-               WHERE m.status='completed'
-                 AND typeof(m.team1_score)='integer' AND typeof(m.team2_score)='integer'
-                 AND m.team1_score>=0 AND m.team2_score>=0
-           ), valid_votes AS (
-               SELECT *,CASE
-                   WHEN (team1_score>team2_score AND voted_for='t1')
-                     OR (team2_score>team1_score AND voted_for='t2')
-                   THEN 3+CASE WHEN score1_guess=team1_score AND score2_guess=team2_score THEN 5 ELSE 0 END
-                   ELSE 0 END AS current_points
-               FROM predictions
-               WHERE (team1_score=wins_needed AND team2_score<wins_needed)
-                  OR (team2_score=wins_needed AND team1_score<wins_needed)
-           )
-           SELECT user_id,username,avatar,is_cheater,COUNT(*) AS total_votes,
-                  SUM(CASE WHEN current_points>0 THEN 1 ELSE 0 END) AS correct_votes,
-                  SUM(current_points) AS total_points,
-                  MAX(CASE WHEN current_points>=8 THEN 1 ELSE 0 END) AS has_perfect
-           FROM valid_votes GROUP BY user_id
-           ORDER BY total_points DESC,correct_votes DESC,user_id ASC LIMIT ?""",
-        (max(1, min(int(limit), 100)),),
-    ).fetchall()
-    return [dict(row) for row in rows]
-
-
-def score_predictions(conn, match_id=None):
-    """Reconcile prediction points with the current valid completed result.
-    正确猜中胜者: +3 分
-    正确猜中精确比分: 额外 +5 分
-    """
-    query = """
-        SELECT v.id, v.match_id, v.voted_for, v.score1_guess, v.score2_guess,
-               v.scored, v.points_earned, m.status, m.bo_format, m.team1_score, m.team2_score
-        FROM match_votes v
-        JOIN matches m ON v.match_id = m.id
-        WHERE (m.status='completed' OR COALESCE(v.scored,0)<>0 OR COALESCE(v.points_earned,0)<>0)
-    """
-    params = ()
-    if match_id is not None:
-        query += " AND m.id=?"
-        params = (match_id,)
-    votes = conn.execute(query, params).fetchall()
-
-    for v in votes:
-        winner, _ = (
-            get_series_result(v["bo_format"], v["team1_score"], v["team2_score"])
-            if v["status"] == "completed"
-            else (None, None)
-        )
-        points = 0
-        scored = 1 if winner else 0
-        if winner and v["voted_for"] == winner:
-            points += 3
-            # 精确比分加分
-            if (
-                v["score1_guess"] is not None
-                and v["score2_guess"] is not None
-                and v["score1_guess"] == v["team1_score"]
-                and v["score2_guess"] == v["team2_score"]
-            ):
-                points += 5
-        if v["points_earned"] != points or v["scored"] != scored:
-            conn.execute(
-                "UPDATE match_votes SET points_earned=?, scored=? WHERE id=?",
-                (points, scored, v["id"]),
-            )
+    """兼容页面的展示格式：在竞猜候选行上补齐参赛队名与队标。"""
+    return [supplement_temp_teams(row, conn) for row in upcoming_match_rows(conn)]
 
 
 # ── BP 记录拆分（比赛页把文字记录画成步骤列表） ─────────────────

@@ -3,6 +3,9 @@
 import math
 from collections import defaultdict
 
+from utils.side_stats import side_metric_sql
+from utils.stats_storage import stat_map_count_sql, stats_relation
+
 SUMMARY_COLUMNS = (
     "player_id",
     "matches",
@@ -61,7 +64,7 @@ SUMMARY_COLUMNS = (
 )
 
 
-def weighted_average_sql(value_sql, weight_sql):
+def weighted_average_sql(value_sql, weight_sql, *, unweighted_where="1"):
     """Return a SQL expression for a value weighted by recorded rounds.
 
     Rating-like fields are emitted per map.  Averaging those map averages
@@ -70,11 +73,19 @@ def weighted_average_sql(value_sql, weight_sql):
     use the same rule.
     """
     valid = f"COALESCE({weight_sql}, 0) > 0 AND {value_sql} IS NOT NULL"
-    return (
-        "COALESCE("
+    weighted = (
         f"SUM(CASE WHEN {valid} THEN {value_sql} * {weight_sql} END) * 1.0 / "
-        f"NULLIF(SUM(CASE WHEN {valid} THEN {weight_sql} END), 0), "
-        f"AVG({value_sql}))"
+        f"NULLIF(SUM(CASE WHEN {valid} THEN {weight_sql} END), 0)"
+    )
+    return f"COALESCE({weighted}, AVG(CASE WHEN {unweighted_where} THEN {value_sql} END))"
+
+
+def stat_average_sql(field, side="both", *, weight="rounds_played", alias="ms"):
+    """Average current samples using the metric's own scope and recorded weight."""
+    return weighted_average_sql(
+        side_metric_sql(field, side, alias),
+        side_metric_sql(weight, side, alias),
+        unweighted_where=f"{alias}.scheduled_map_id IS NULL",
     )
 
 
@@ -82,28 +93,36 @@ def weighted_rate_sql(numerator_sql, denominator_sql):
     """Return a SQL expression for totals divided by recorded rounds."""
     valid = f"COALESCE({denominator_sql}, 0) > 0 AND {numerator_sql} IS NOT NULL"
     return (
-        "COALESCE("
-        f"SUM(CASE WHEN {valid} THEN COALESCE({numerator_sql}, 0) ELSE 0 END) * 1.0 / "
-        f"NULLIF(SUM(CASE WHEN {valid} THEN {denominator_sql} END), 0), 0)"
+        f"(SUM(CASE WHEN {valid} THEN {numerator_sql} END) * 1.0 / "
+        f"NULLIF(SUM(CASE WHEN {valid} THEN {denominator_sql} END), 0))"
     )
 
 
-def summary_metric_sql(summary_column, raw_column, summary_alias="s"):
+def summary_metric_sql(summary_column, raw_column, summary_alias="s", *, stats_source="match_stats"):
     """旧汇总表不允许 NULL，读取时用原始记录区分未知和真实零值。"""
+    coverage = ""
+    if summary_column in {"avg_kpr", "avg_dpr"}:
+        coverage = "AND available.rounds_played > 0 "
+    elif stats_source != "match_stats" and summary_column in {
+        "avg_rating", "avg_adr", "avg_kast", "avg_impact", "avg_hs",
+    }:
+        weight = "kills" if summary_column == "avg_hs" else "rounds_played"
+        coverage = f"AND (available.scheduled_map_id IS NULL OR available.{weight} > 0) "
     return (
-        "CASE WHEN EXISTS (SELECT 1 FROM match_stats available "
+        f"CASE WHEN EXISTS (SELECT 1 FROM {stats_source} available "
         f"WHERE available.player_id={summary_alias}.player_id "
         "AND COALESCE(available.data_status, 'final') <> 'superseded' "
-        f"AND available.{raw_column} IS NOT NULL) "
+        f"AND available.{raw_column} IS NOT NULL {coverage}) "
         f"THEN {summary_alias}.{summary_column} END"
     )
 
 
 def refresh_player_performance(conn, player_ids=None):
-    """Refresh compact career rows from persisted per-map match_stats."""
+    """Refresh compact career rows from all current per-map samples."""
     ids = sorted({int(player_id) for player_id in (player_ids or []) if player_id})
     if player_ids is not None and not ids:
         return
+    source = stats_relation(conn)
     params = ()
     where_sql = ""
     if ids:
@@ -116,10 +135,10 @@ def refresh_player_performance(conn, player_ids=None):
         params = tuple(ids)
     else:
         conn.execute(
-            """DELETE FROM player_performance_summary
+            f"""DELETE FROM player_performance_summary
                WHERE player_id NOT IN (
                    SELECT DISTINCT player_id
-                   FROM match_stats
+                   FROM {source}
                    WHERE player_id IS NOT NULL
                      AND COALESCE(data_status, 'final') <> 'superseded'
                )"""
@@ -131,23 +150,23 @@ def refresh_player_performance(conn, player_ids=None):
     )
 
     columns_sql = ",".join(SUMMARY_COLUMNS)
-    avg_rating = weighted_average_sql("rating", "rounds_played")
-    avg_adr = weighted_average_sql("adr", "rounds_played")
-    avg_kast = weighted_average_sql("kast", "rounds_played")
-    avg_hs = weighted_average_sql("headshot_percentage", "kills")
+    avg_rating = stat_average_sql("rating")
+    avg_adr = stat_average_sql("adr")
+    avg_kast = stat_average_sql("kast")
+    avg_hs = stat_average_sql("headshot_percentage", weight="kills")
     avg_kpr = weighted_rate_sql("kills", "rounds_played")
     avg_dpr = weighted_rate_sql("deaths", "rounds_played")
-    avg_impact = weighted_average_sql("impact", "rounds_played")
+    avg_impact = stat_average_sql("impact")
     avg_utility_damage_per_round = weighted_rate_sql("utility_damage", "rounds_played")
-    avg_damage_delta_per_round = weighted_average_sql("damage_delta_per_round", "rounds_played")
-    avg_rws_basic = weighted_average_sql("rws_basic", "rounds_played")
+    avg_damage_delta_per_round = stat_average_sql("damage_delta_per_round")
+    avg_rws_basic = stat_average_sql("rws_basic")
     conn.execute(
         f"""
         INSERT OR REPLACE INTO player_performance_summary({columns_sql})
         SELECT
             player_id,
             COUNT(DISTINCT match_id),
-            COUNT(id),
+            {stat_map_count_sql()},
             COALESCE(SUM(kills), 0),
             COALESCE(SUM(deaths), 0),
             COALESCE(SUM(assists), 0),
@@ -158,13 +177,13 @@ def refresh_player_performance(conn, player_ids=None):
             COALESCE({avg_adr}, 0),
             COALESCE({avg_kast}, 0),
             COALESCE({avg_hs}, 0),
-            {avg_kpr},
-            {avg_dpr},
+            COALESCE({avg_kpr}, 0),
+            COALESCE({avg_dpr}, 0),
             COALESCE({avg_impact}, 0),
-            COALESCE(AVG(NULLIF(t_rating, 0)), 0),
-            COALESCE(AVG(NULLIF(ct_rating, 0)), 0),
-            COALESCE(AVG(NULLIF(t_adr, 0)), 0),
-            COALESCE(AVG(NULLIF(ct_adr, 0)), 0),
+            COALESCE({stat_average_sql("rating", "t")}, 0),
+            COALESCE({stat_average_sql("rating", "ct")}, 0),
+            COALESCE({stat_average_sql("adr", "t")}, 0),
+            COALESCE({stat_average_sql("adr", "ct")}, 0),
             COALESCE(SUM(rounds_played), 0),
             COALESCE(SUM(multi1k), 0),
             COALESCE(SUM(multi2k), 0),
@@ -199,7 +218,7 @@ def refresh_player_performance(conn, player_ids=None):
             COALESCE({avg_damage_delta_per_round}, 0),
             COALESCE({avg_rws_basic}, 0),
             CURRENT_TIMESTAMP
-        FROM match_stats
+        FROM {source} ms
         {filter_sql}
         GROUP BY player_id
         """,

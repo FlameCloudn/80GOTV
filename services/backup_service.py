@@ -7,10 +7,19 @@ import shutil
 import sqlite3
 import tempfile
 import zipfile
+from contextlib import closing
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from config import BASE_DIR, Config
+from site_core.matches.demo_storage import original_path, private_root
+
+
+def _originals_in_snapshot(conn):
+    if not conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='demo_originals'").fetchone():
+        return []
+    conn.row_factory = sqlite3.Row
+    return conn.execute("SELECT storage_key,byte_count FROM demo_originals").fetchall()
 
 
 def _add_tree(archive, folder, archive_root):
@@ -47,37 +56,72 @@ def _snapshot_database(target):
         source.close()
 
 
+_DATABASE_MEMBER = "database/cs_site.db"
+_ALLOWED_PREFIXES = ("static/avatars/", "static/uploads/", "static/demos/", "instance/match-demos/")
+
+
+def _check_member_path(filename):
+    path = PurePosixPath(filename.replace("\\", "/"))
+    if path.is_absolute() or ".." in path.parts:
+        raise RuntimeError(f"备份包含不安全路径：{filename}")
+    name = path.as_posix().rstrip("/")
+    if name in {_DATABASE_MEMBER, "BACKUP_INFO.json", "database", "static"}:
+        return
+    if not any(
+        name.startswith(prefix) or prefix.startswith(name + "/") for prefix in _ALLOWED_PREFIXES
+    ):
+        raise RuntimeError(f"备份包含未知内容：{filename}")
+
+
+def read_backup_manifest(archive, *, database_only=False):
+    """验证同一份已打开的包。单库恢复不提取其他成员，仍兼容旧包的附加文件。"""
+    names = archive.namelist()
+    if len(names) != len(set(names)):
+        raise RuntimeError("备份中包含重复路径")
+    if not database_only:
+        for name in names:
+            _check_member_path(name)
+    bad_member = archive.testzip()
+    if bad_member:
+        raise RuntimeError(f"备份文件损坏：{bad_member}")
+    if _DATABASE_MEMBER not in names:
+        raise RuntimeError("备份中缺少数据库")
+    if "BACKUP_INFO.json" not in names:
+        raise RuntimeError("备份中缺少说明文件")
+    try:
+        manifest = json.loads(archive.read("BACKUP_INFO.json"))
+    except (UnicodeDecodeError, ValueError, TypeError) as exc:
+        raise RuntimeError("备份说明文件无效") from exc
+    if not isinstance(manifest, dict) or manifest.get("type") not in {"日常", "完整"}:
+        raise RuntimeError("备份说明文件内容无效")
+    return manifest
+
+
+def verify_snapshot(archive, database_path, manifest):
+    """核对实际提取的数据库，以及完整备份承诺登记的 Demo 原件。"""
+    with closing(sqlite3.connect(database_path)) as conn:
+        result = conn.execute("PRAGMA integrity_check").fetchone()[0]
+        if result != "ok":
+            raise RuntimeError(f"备份数据库检查失败：{result}")
+        if manifest["type"] == "完整":
+            for original in _originals_in_snapshot(conn):
+                name = f"instance/match-demos/{original['storage_key']}"
+                if name not in archive.NameToInfo or archive.getinfo(name).file_size != original["byte_count"]:
+                    raise RuntimeError("完整备份缺少数据库登记的 Demo 原件，或文件大小不符")
+
+
+def extract_verified_database(archive, destination, *, database_only=False):
+    manifest = read_backup_manifest(archive, database_only=database_only)
+    with archive.open(_DATABASE_MEMBER) as source, destination.open("wb") as target:
+        shutil.copyfileobj(source, target, length=1024 * 1024)
+    verify_snapshot(archive, destination, manifest)
+
+
 def verify_backup(path):
-    """Check ZIP contents and the copied SQLite database."""
-    path = Path(path).resolve()
-    with zipfile.ZipFile(path) as archive:
-        names = archive.namelist()
-        if len(names) != len(set(names)):
-            raise RuntimeError("备份中包含重复路径")
-        bad_member = archive.testzip()
-        if bad_member:
-            raise RuntimeError(f"备份文件损坏：{bad_member}")
-        if "database/cs_site.db" not in names:
-            raise RuntimeError("备份中缺少数据库")
-        if "BACKUP_INFO.json" not in names:
-            raise RuntimeError("备份中缺少说明文件")
-        try:
-            manifest = json.loads(archive.read("BACKUP_INFO.json"))
-        except (UnicodeDecodeError, ValueError, TypeError) as exc:
-            raise RuntimeError("备份说明文件无效") from exc
-        if not isinstance(manifest, dict) or manifest.get("type") not in {"日常", "完整"}:
-            raise RuntimeError("备份说明文件内容无效")
+    """核对整站归档的成员、校验码、数据库和完整备份的原件。"""
+    with zipfile.ZipFile(Path(path).resolve()) as archive:
         with tempfile.TemporaryDirectory(prefix="80gotv-verify-") as temp_dir:
-            database_path = Path(temp_dir) / "cs_site.db"
-            with archive.open("database/cs_site.db") as source, database_path.open("wb") as target:
-                shutil.copyfileobj(source, target, length=1024 * 1024)
-            conn = sqlite3.connect(database_path)
-            try:
-                result = conn.execute("PRAGMA integrity_check").fetchone()[0]
-            finally:
-                conn.close()
-            if result != "ok":
-                raise RuntimeError(f"备份数据库检查失败：{result}")
+            extract_verified_database(archive, Path(temp_dir) / "cs_site.db")
     return True
 
 
@@ -122,6 +166,13 @@ def create_backup_file(output_dir, include_demos=False, keep=None):
                     counts["demos"] = _add_tree(
                         archive, Path(BASE_DIR) / "static" / "demos", "static/demos"
                     )
+                    # 只带走与这份数据库快照对应的永久原件，不复制正在上传或解析的临时文件。
+                    with closing(sqlite3.connect(snapshot)) as copied_db:
+                        originals = _originals_in_snapshot(copied_db)
+                    root = private_root(Path(BASE_DIR) / "instance", Path(BASE_DIR) / "static", Config.HOST_DEMO_ROOT)
+                    for original in originals:
+                        archive.write(original_path(root, original), f"instance/match-demos/{original['storage_key']}", zipfile.ZIP_STORED)
+                    counts["managed_demos"] = len(originals)
                 manifest = {
                     "created_at": datetime.now().isoformat(timespec="seconds"),
                     "type": kind,

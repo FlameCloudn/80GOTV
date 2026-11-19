@@ -13,7 +13,8 @@ from services.news_references import (
     normalize_news_reference_blocks,
     resolve_news_reference,
 )
-from utils.helpers import normalize_internal_path, sanitize_html
+from site_core.community import delete_target_comments
+from utils.helpers import normalize_internal_path, row_get, sanitize_html
 from utils.web_helpers import admin_required as login_required
 from utils.web_helpers import csrf_required
 
@@ -33,7 +34,8 @@ def _recent_matches(conn):
     return [supplement_temp_teams(row, conn) for row in conn.execute(RECENT_MATCHES_SQL).fetchall()]
 
 
-def _news_form_values():
+def _news_form_values(existing=None):
+    existing = existing or {}
     return {
         "title": request.form.get("title", "").strip(),
         "content": sanitize_html(request.form.get("content", "")).strip(),
@@ -43,6 +45,14 @@ def _news_form_values():
         or datetime.now().isoformat(timespec="minutes"),
         "related_match_id": request.form.get("related_match_id", "").strip() or None,
         "redirect_url": request.form.get("redirect_url", "").strip() or None,
+        "internal_link_url": request.form.get(
+            "internal_link_url", row_get(existing, "internal_link_url") or ""
+        ).strip()
+        or None,
+        "internal_link_text": request.form.get(
+            "internal_link_text", row_get(existing, "internal_link_text") or ""
+        ).strip()
+        or None,
     }
 
 
@@ -75,6 +85,17 @@ def _news_validation_error(conn, values, exclude_id=None):
             ).fetchone()
         ):
             return "关联比赛不存在"
+    internal_link_url = normalize_internal_path(values["internal_link_url"])
+    if values["internal_link_url"] and not internal_link_url:
+        return "新闻内链接只能填写有效的本站地址"
+    if len(values["internal_link_text"] or "") > 80:
+        return "链接文字不能超过80个字"
+    values["internal_link_url"] = internal_link_url
+    values["internal_link_text"] = (
+        (values["internal_link_text"] or "打开页面") if internal_link_url else None
+    )
+    if internal_link_url:
+        values["redirect_url"] = None
     redirect_url = normalize_internal_path(values["redirect_url"])
     if values["redirect_url"] and not redirect_url:
         return "跳转地址只能填写本站路径或 80gotv.cn 地址"
@@ -134,8 +155,8 @@ def admin_news_add():
             flash(error, "error")
             return _render_news_form(conn, values, 400)
         conn.execute(
-            """INSERT INTO news(title, content, summary, author, publish_time, related_match_id, redirect_url)
-            VALUES(?,?,?,?,?,?,?)""",
+            """INSERT INTO news(title, content, summary, author, publish_time, related_match_id, redirect_url, internal_link_url, internal_link_text)
+            VALUES(?,?,?,?,?,?,?,?,?)""",
             (
                 values["title"],
                 values["content"],
@@ -144,6 +165,8 @@ def admin_news_add():
                 values["publish_time"],
                 values["related_match_id"],
                 values["redirect_url"],
+                values["internal_link_url"],
+                values["internal_link_text"],
             ),
         )
         conn.commit()
@@ -164,14 +187,14 @@ def admin_news_edit(news_id):
         conn.close()
         return "新闻不存在", 404
     if request.method == "POST":
-        values = _news_form_values()
+        values = _news_form_values(news)
         error = _news_validation_error(conn, values, news_id)
         if error:
             values["id"] = news_id
             flash(error, "error")
             return _render_news_form(conn, values, 400)
         conn.execute(
-            """UPDATE news SET title=?, content=?, summary=?, author=?, publish_time=?, tags='', related_match_id=?, redirect_url=?
+            """UPDATE news SET title=?, content=?, summary=?, author=?, publish_time=?, tags='', related_match_id=?, redirect_url=?, internal_link_url=?, internal_link_text=?
             WHERE id=?""",
             (
                 values["title"],
@@ -181,6 +204,8 @@ def admin_news_edit(news_id):
                 values["publish_time"],
                 values["related_match_id"],
                 values["redirect_url"],
+                values["internal_link_url"],
+                values["internal_link_text"],
                 news_id,
             ),
         )
@@ -201,12 +226,7 @@ def admin_news_delete(news_id):
         if not news:
             flash("新闻不存在", "error")
             return redirect(url_for("admin.admin_news"))
-        conn.execute(
-            "DELETE FROM comment_likes WHERE comment_id IN "
-            "(SELECT id FROM comments WHERE target_type='news' AND target_id=?)",
-            (news_id,),
-        )
-        conn.execute("DELETE FROM comments WHERE target_type='news' AND target_id=?", (news_id,))
+        delete_target_comments(conn, "news", news_id)
         conn.execute("DELETE FROM news WHERE id=?", (news_id,))
         conn.commit()
         flash("新闻删除成功", "success")

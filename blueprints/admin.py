@@ -48,4 +48,5 @@ from blueprints import (  # noqa: E402,F401
     admin_matches,
     admin_news,
     admin_operations,
+    match_operations,
 )

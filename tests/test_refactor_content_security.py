@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+from contextlib import closing
 from unittest.mock import patch
 
 from app import app
@@ -189,6 +190,55 @@ class RefactorContentSecurityTests(unittest.TestCase):
         ).fetchone()["comment_count"]
         conn.close()
         self.assertEqual(comment_count, 2)
+
+    def test_replies_keep_their_target_floor_and_notification_recipient(self):
+        with closing(get_db()) as conn:
+            news_id = conn.execute("SELECT id FROM news ORDER BY id LIMIT 1").fetchone()[0]
+            match_id = conn.execute(
+                "INSERT INTO matches(slug, bo_format, status) VALUES('comment-match', 'BO1', 'scheduled')"
+            ).lastrowid
+            replier = conn.execute(
+                """INSERT INTO users(username,password_hash,approval_status,is_bashizhong_student)
+                   VALUES('CommentReplier','unused','approved',0)"""
+            ).lastrowid
+            conn.commit()
+
+        headers = {"X-Requested-With": "XMLHttpRequest", "X-CSRF-Token": "content-audit-token"}
+        news_path = f"/comment/news/{news_id}"
+        root = self.client.post(news_path, data={"content": "原评论"}, headers=headers).get_json()["comment"]
+        with self.client.session_transaction() as saved:
+            saved.update(user_id=replier, user_username="CommentReplier")
+        reply = self.client.post(
+            news_path, data={"content": "新闻回复", "parent_id": root["id"]}, headers=headers,
+        ).get_json()["comment"]
+        match_comment = self.client.post(
+            f"/comment/match/{match_id}", data={"content": "比赛评论", "parent_id": root["id"]}, headers=headers,
+        ).get_json()["comment"]
+        self.assertEqual((root["floor_number"], reply["floor_number"], match_comment["floor_number"]), (1, 2, 1))
+        self.assertEqual(reply["parent_id"], root["id"])
+        self.assertIsNone(match_comment["parent_id"])
+        self.assertEqual(self.client.get("/api/front/notifications").get_json()["unread"], 0)
+
+        for liked, count in ((True, 1), (False, 0), (True, 1)):
+            response = self.client.post(f"/comment/like/{reply['id']}", headers=headers)
+            self.assertEqual(response.get_json(), {"success": True, "liked": liked, "count": count})
+        detail = self.client.get(f"/news/{news_id}").get_data(as_text=True)
+        self.assertIn(f'href="#comment-{reply["id"]}">#2</a>', detail)
+
+        with self.client.session_transaction() as saved:
+            saved.update(user_id=self.user_id, user_username="ContentAuditUser")
+        summary = self.client.get("/api/front/notifications").get_json()
+        self.assertEqual(summary["unread"], 1)
+        notice = summary["notifications"][0]
+        self.assertEqual(notice["message"], "CommentReplier 回复了你的评论：新闻回复")
+        self.assertEqual(notice["url"], f"/news/{news_id}#comment-{root['id']}")
+
+        deleted = self.client.post(f"/comment/delete/{root['id']}", headers=headers).get_json()
+        self.assertEqual(deleted["deleted_ids"], [root["id"], reply["id"]])
+        news_data = self.client.get(f"/api/front/news/{news_id}").get_json()
+        match_data = self.client.get(f"/api/front/matches/{match_id}").get_json()
+        self.assertEqual(news_data["news"]["comments"], [])
+        self.assertEqual([item["id"] for item in match_data["comments"]], [match_comment["id"]])
 
 
 if __name__ == "__main__":

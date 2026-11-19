@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+from contextlib import closing
 
 from app import app
 from config import Config
@@ -256,6 +257,45 @@ class ForumFeatureTests(unittest.TestCase):
         conn.close()
         self.assertEqual(thread["reply_count"], 1)
         self.assertEqual(thread["last_reply_user_id"], self.owner_id)
+
+    def test_locked_thread_then_reply_and_delete_clear_the_related_activity(self):
+        thread_path = f"/forum/t/{self.tournament_thread_id}"
+        self.login_admin()
+        self.assertEqual(self.post(f"{thread_path}/manage", {"action": "lock"}).status_code, 302)
+        self.login_user(self.replier_id, "replier")
+        blocked = self.post(f"{thread_path}/reply", {"content": "Locked reply"}, follow_redirects=True)
+        self.assertIn("该帖子已锁定，无法回复", blocked.get_data(as_text=True))
+
+        self.login_admin()
+        self.assertEqual(self.post(f"{thread_path}/manage", {"action": "unlock"}).status_code, 302)
+        self.login_user(self.replier_id, "replier")
+        reply = self.post(
+            f"{thread_path}/reply", {"content": "New flat reply", "parent_id": self.first_reply_id},
+        )
+        self.assertEqual(reply.location, thread_path)
+        with closing(get_db()) as conn:
+            posted = conn.execute(
+                "SELECT id, parent_id FROM comments WHERE content='New flat reply'"
+            ).fetchone()
+        self.assertIsNone(posted["parent_id"])
+        self.assertEqual(self.post(f"/comment/like/{posted['id']}").get_json()["count"], 1)
+        threads = self.client.get("/api/front/forum?category=tournaments").get_json()["threads"]
+        self.assertEqual(threads[0]["replies"], 3)
+
+        self.login_user()
+        summary = self.client.get("/api/front/notifications").get_json()
+        self.assertEqual(summary["unread"], 1)
+        self.assertEqual(summary["notifications"][0]["type"], "forum_reply")
+        self.assertEqual(summary["notifications"][0]["url"], thread_path)
+        self.login_admin()
+        self.assertEqual(self.post(f"{thread_path}/manage", {"action": "delete"}).location, "/forum")
+        self.assertEqual(self.client.get(thread_path).status_code, 404)
+        self.login_user()
+        self.assertEqual(self.client.get("/api/front/notifications").get_json()["unread"], 0)
+        with closing(get_db()) as conn:
+            self.assertIsNone(conn.execute(
+                "SELECT 1 FROM comment_likes WHERE comment_id=?", (posted["id"],),
+            ).fetchone())
 
 
 if __name__ == "__main__":

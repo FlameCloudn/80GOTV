@@ -42,28 +42,13 @@ class StatsUiRegressionTests(unittest.TestCase):
         self.assertIn("{% if ms.has_stats %}", template)
         self.assertIn('class="ms-stats-placeholder"', template)
 
-    def test_half_scores_use_color_without_visible_side_abbreviations(self):
-        template = (ROOT / "templates/match_detail.html").read_text(encoding="utf-8")
-
-        self.assertIn(
-            "{{ ms.halves['h1_' ~ opponent.side] }}",
-            template,
-        )
-        self.assertIn(
-            "'ct-side' if side_label == 'CT' else 't-side' if side_label == 'T' else ''", template
-        )
-        self.assertNotIn("{{ t1_h1_side }} {{ ms.halves.h1_t1 }}", template)
-        self.assertNotIn("{{ t2_h2_side }} {{ ms.halves.h2_t2 }}", template)
-
     def test_temporary_match_teams_use_explicit_stat_side(self):
-        route = (ROOT / "routes/matches.py").read_text(encoding="utf-8")
-        demo_service = (ROOT / "services/demo_service.py").read_text(encoding="utf-8")
+        from services.match_service import match_stat_belongs_to_side
 
-        self.assertIn("def _stat_belongs_to_match_side", route)
-        self.assertIn('"match_team_side"', demo_service)
-        self.assertIn('"A": "t1" if a_to_t1 else "t2"', demo_service)
-        self.assertIn('_stat_belongs_to_match_side(row, "t1", t1_key)', route)
-        self.assertIn('_stat_belongs_to_match_side(row, "t2", t2_key)', route)
+        for recorded in ("t1", "t2"):
+            row = {"team_id": None, "match_team_side": recorded}
+            sides = [side for side in ("t1", "t2") if match_stat_belongs_to_side(row, side, None)]
+            self.assertEqual(sides, [recorded])
 
     def test_bracket_uses_current_team_rosters_and_only_marks_real_winners(self):
         detail = (ROOT / "templates/event_detail.html").read_text(encoding="utf-8")

@@ -15,6 +15,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from services.performance_service import weighted_average_sql  # noqa: E402
+from site_core.host import is_managed_match  # noqa: E402
 from utils.stats_calc import (  # noqa: E402
     HLTV2_ESTIMATE_METHOD,
     HLTV2_ESTIMATE_SOURCE,
@@ -118,6 +119,9 @@ def build_plan(database):
         rows = conn.execute(f"SELECT {','.join(ROW_FIELDS)} FROM match_stats ORDER BY id")
         for entry in rows:
             row = dict(entry)
+            if is_managed_match(conn, row["match_id"]):
+                plan["skipped"].append({"id": row["id"], "reason": "托管赛事未开放统计修订"})
+                continue
             impact, reason = _candidate(row)
             if reason:
                 plan["skipped"].append({"id": row["id"], "reason": reason})
@@ -152,6 +156,8 @@ def apply_plan(database, plan, backup):
             seen = set()
             for item in plan["rows"]:
                 before = item["before"]
+                if is_managed_match(conn, before.get("match_id")):
+                    raise ValueError("旧统计计划不能写入托管赛事")
                 if set(before) != set(ROW_FIELDS) or before["id"] in seen:
                     raise ValueError("计划包含不完整或重复的记录")
                 seen.add(before["id"])

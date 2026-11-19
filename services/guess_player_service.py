@@ -3,10 +3,12 @@
 import hashlib
 import hmac
 import secrets
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 
 from config import Config
 from services.guess_player_pool import BLAST_GUESS_PLAYERS, SOURCE_DATE
+from site_core.database import write_transaction
+from site_core.games import daily_streaks, game_date
 
 MAX_GUESSES = 8
 POOL_MODES = {"noob", "pro"}
@@ -187,16 +189,6 @@ def affiliation_feedback(guessed, answer):
     if guessed_status in no_team and answer_status in no_team:
         return "correct"
     return _text_feedback(player_affiliation(guessed), player_affiliation(answer))
-
-
-def game_date(value=None):
-    if value is None:
-        return datetime.now().date()
-    if isinstance(value, datetime):
-        return value.date()
-    if isinstance(value, date):
-        return value
-    return date.fromisoformat(str(value))
 
 
 def player_age(player, on_date):
@@ -517,75 +509,69 @@ def _attempt_rows(conn, room_id, user_id):
 
 
 def submit_multiplayer_guess(conn, room_code, user_id, guessed_player_id):
-    conn.execute("BEGIN IMMEDIATE")
-    room = get_multiplayer_room(conn, room_code)
-    side = _room_participant(room, user_id) if room else ""
-    if not room or not side:
-        conn.rollback()
-        return "你不在这个房间里"
-    if room["status"] != "active":
-        conn.rollback()
-        return "比赛还没有开始或已经结束"
-    pool_mode = normalize_pool_mode(room["pool_mode"])
-    extra = " AND noob_eligible=1" if pool_mode == "noob" else ""
-    guessed = conn.execute(
-        f"SELECT * FROM guess_players WHERE id=? AND active=1{extra}",
-        (guessed_player_id,),
-    ).fetchone()
-    if not guessed:
-        conn.rollback()
-        return "这名选手不在当前题库中"
-    existing = conn.execute(
-        """SELECT 1 FROM guess_player_room_attempts
-           WHERE room_id=? AND user_id=? AND guessed_player_id=?""",
-        (room["id"], user_id, guessed["id"]),
-    ).fetchone()
-    if existing:
-        conn.rollback()
-        return "这名选手本局已经猜过了"
-    attempt_number = (
-        conn.execute(
-            "SELECT COUNT(*) FROM guess_player_room_attempts WHERE room_id=? AND user_id=?",
-            (room["id"], user_id),
-        ).fetchone()[0]
-        + 1
-    )
-    if attempt_number > MAX_GUESSES:
-        conn.rollback()
-        return "你的 8 次机会已经用完"
-    is_correct = int(guessed["id"] == room["player_id"])
-    conn.execute(
-        """INSERT INTO guess_player_room_attempts(
-               room_id, user_id, guessed_player_id, attempt_number, is_correct
-           ) VALUES(?,?,?,?,?)""",
-        (room["id"], user_id, guessed["id"], attempt_number, is_correct),
-    )
-    if is_correct:
-        conn.execute(
-            """UPDATE guess_player_rooms
-               SET status='finished', winner_user_id=?, finished_at=CURRENT_TIMESTAMP
-               WHERE id=? AND status='active'""",
-            (user_id, room["id"]),
+    with write_transaction(conn):
+        room = get_multiplayer_room(conn, room_code)
+        side = _room_participant(room, user_id) if room else ""
+        if not room or not side:
+            return "你不在这个房间里"
+        if room["status"] != "active":
+            return "比赛还没有开始或已经结束"
+        pool_mode = normalize_pool_mode(room["pool_mode"])
+        extra = " AND noob_eligible=1" if pool_mode == "noob" else ""
+        guessed = conn.execute(
+            f"SELECT * FROM guess_players WHERE id=? AND active=1{extra}",
+            (guessed_player_id,),
+        ).fetchone()
+        if not guessed:
+            return "这名选手不在当前题库中"
+        existing = conn.execute(
+            """SELECT 1 FROM guess_player_room_attempts
+               WHERE room_id=? AND user_id=? AND guessed_player_id=?""",
+            (room["id"], user_id, guessed["id"]),
+        ).fetchone()
+        if existing:
+            return "这名选手本局已经猜过了"
+        attempt_number = (
+            conn.execute(
+                "SELECT COUNT(*) FROM guess_player_room_attempts WHERE room_id=? AND user_id=?",
+                (room["id"], user_id),
+            ).fetchone()[0]
+            + 1
         )
-    elif room["guest_user_id"] is not None:
-        opponent_id = room["guest_user_id"] if side == "host" else room["host_user_id"]
-        opponent_attempts = conn.execute(
-            "SELECT COUNT(*) FROM guess_player_room_attempts WHERE room_id=? AND user_id=?",
-            (room["id"], opponent_id),
-        ).fetchone()[0]
-        if attempt_number >= MAX_GUESSES and opponent_attempts >= MAX_GUESSES:
+        if attempt_number > MAX_GUESSES:
+            return "你的 8 次机会已经用完"
+        is_correct = int(guessed["id"] == room["player_id"])
+        conn.execute(
+            """INSERT INTO guess_player_room_attempts(
+                   room_id, user_id, guessed_player_id, attempt_number, is_correct
+               ) VALUES(?,?,?,?,?)""",
+            (room["id"], user_id, guessed["id"], attempt_number, is_correct),
+        )
+        if is_correct:
             conn.execute(
                 """UPDATE guess_player_rooms
-                   SET status='finished', finished_at=CURRENT_TIMESTAMP
+                   SET status='finished', winner_user_id=?, finished_at=CURRENT_TIMESTAMP
                    WHERE id=? AND status='active'""",
-                (room["id"],),
+                (user_id, room["id"]),
             )
-    seen_column = "host_last_seen" if side == "host" else "guest_last_seen"
-    conn.execute(
-        f"UPDATE guess_player_rooms SET {seen_column}=CURRENT_TIMESTAMP WHERE id=?",
-        (room["id"],),
-    )
-    conn.commit()
+        elif room["guest_user_id"] is not None:
+            opponent_id = room["guest_user_id"] if side == "host" else room["host_user_id"]
+            opponent_attempts = conn.execute(
+                "SELECT COUNT(*) FROM guess_player_room_attempts WHERE room_id=? AND user_id=?",
+                (room["id"], opponent_id),
+            ).fetchone()[0]
+            if attempt_number >= MAX_GUESSES and opponent_attempts >= MAX_GUESSES:
+                conn.execute(
+                    """UPDATE guess_player_rooms
+                       SET status='finished', finished_at=CURRENT_TIMESTAMP
+                       WHERE id=? AND status='active'""",
+                    (room["id"],),
+                )
+        seen_column = "host_last_seen" if side == "host" else "guest_last_seen"
+        conn.execute(
+            f"UPDATE guess_player_rooms SET {seen_column}=CURRENT_TIMESTAMP WHERE id=?",
+            (room["id"],),
+        )
     return ""
 
 
@@ -686,24 +672,7 @@ def user_statistics(conn, user_id, on_date=None):
         (user_id,),
     ).fetchall()
     wins = [date.fromisoformat(row["game_date"]) for row in rows if row["won"]]
-    longest = 0
-    run = 0
-    previous = None
-    for won_day in wins:
-        run = run + 1 if previous and won_day == previous + timedelta(days=1) else 1
-        longest = max(longest, run)
-        previous = won_day
-
-    current = 0
-    if wins:
-        latest_allowed = game_date(on_date)
-        if wins[-1] in (latest_allowed, latest_allowed - timedelta(days=1)):
-            current = 1
-            for index in range(len(wins) - 1, 0, -1):
-                if wins[index - 1] == wins[index] - timedelta(days=1):
-                    current += 1
-                else:
-                    break
+    current, longest = daily_streaks(wins, on_date)
     games = len(rows)
     won_count = len(wins)
     return {

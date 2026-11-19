@@ -9,7 +9,6 @@ from flask import jsonify, request
 
 from config import Config
 from models import get_db
-from routes.live import _gsi_team_mapping, _roster_side_by_steamid
 from services.bracket_service import BracketDependencyError
 from services.demo_service import (
     auto_create_user_from_demo,
@@ -18,6 +17,8 @@ from services.demo_service import (
     sync_match_scores,
 )
 from services.live_log_service import persist_live_match_events, record_ingest_status
+from services.live_roster_service import gsi_team_mapping as _gsi_team_mapping
+from services.live_roster_service import roster_side_by_steamid as _roster_side_by_steamid
 from services.live_service import (
     IngestValidationError,
     _is_recent_iso_timestamp,
@@ -38,6 +39,11 @@ from services.match_roster_service import freeze_match_roster, resolve_match_ros
 from services.match_service import get_series_result, supplement_temp_teams
 from services.performance_service import refresh_player_performance
 from services.player_service import record_observed_player_nickname
+from site_core.host import HostError, has_event_schema, is_managed_match
+from site_core.matches.live import director_receipts_for_run, live_schema_ready, start_projection
+from site_core.matches.live_results import receive_director_result
+from site_core.matches.live_sources import receive_gotv, receive_gsi
+from site_core.matches.maps import project_legacy_map_fields
 from utils.demo_parser import normalize_map_name
 from utils.match_utils import (
     build_raw_maps,
@@ -52,6 +58,7 @@ from utils.stats_calc import (
     estimate_hltv2_impact,
     non_negative_impact,
 )
+from utils.web_helpers import admin_required
 from web_app import app, logger
 
 
@@ -273,9 +280,9 @@ def _run_with_database(callback, *args):
     except IngestValidationError as exc:
         conn.rollback()
         return _receiver_error("live", str(exc), 400)
-    except BracketDependencyError as exc:
+    except (HostError, BracketDependencyError) as exc:
         conn.rollback()
-        return _receiver_error("live", str(exc), 409)
+        return _receiver_error("live", str(exc), exc.status if isinstance(exc, HostError) else 409)
     except Exception:
         try:
             conn.rollback()
@@ -369,6 +376,7 @@ def broadcast_connection_test(match_id):
 
 def _probe_broadcast_match(conn, match_id):
     """Return a small, non-sensitive identity check for the selected broadcast match."""
+    conn.execute("BEGIN")
     match = conn.execute(
         """
         SELECT m.*,
@@ -394,6 +402,13 @@ def _probe_broadcast_match(conn, match_id):
         bp_state = json.loads(match["bp_state"] or "{}")
     except (TypeError, ValueError, json.JSONDecodeError):
         bp_state = {}
+    if is_managed_match(conn, match_id):
+        start = start_projection(conn, match_id)
+    else:
+        start = {
+            "ready_for_start": roster_locked and bp_state.get("status") == "completed"
+            and str(match.get("status") or "").lower() not in {"completed", "cancelled"}
+        }
     return jsonify(
         {
             "ok": True,
@@ -403,9 +418,7 @@ def _probe_broadcast_match(conn, match_id):
             "bp_revision": int(bp_state.get("revision", 0) or 0),
             "roster_locked": roster_locked,
             "roster_issues": roster["issues"],
-            "ready_for_start": roster_locked
-            and bp_state.get("status") == "completed"
-            and str(match.get("status") or "").lower() not in {"completed", "cancelled"},
+            **start,
             "server_time": datetime.now(timezone.utc).isoformat(),
         }
     )
@@ -428,6 +441,19 @@ def broadcast_map_result_receiver(match_id):
     if has_nonfinite_number(payload):
         return _receiver_error("map_result", "结算不能包含无穷大或无效数字", 400, match_id)
     return _run_with_database(_save_broadcast_map_result, payload, match_id)
+
+
+@app.get("/admin/matches/<int:match_id>/operations/runs/<int:run_id>/director-receipts")
+@admin_required
+def admin_director_receipts(match_id, run_id):
+    return _run_with_database(_read_director_receipts, match_id, run_id)
+
+
+def _read_director_receipts(conn, match_id, run_id):
+    conn.execute("BEGIN")
+    if not is_managed_match(conn, match_id) or not live_schema_ready(conn):
+        raise HostError("该比赛没有托管导播回执", 404)
+    return jsonify(ok=True, receipts=director_receipts_for_run(conn, match_id, run_id))
 
 
 def _save_broadcast_map_result(conn, payload, match_id):
@@ -471,6 +497,11 @@ def _save_broadcast_map_result(conn, payload, match_id):
     if "series_complete" in payload and not isinstance(payload["series_complete"], bool):
         return _receiver_error("map_result", "系列赛结束标记无效", 400, match_id, map_name)
     stats = [_live_player_stat(player) for player in players]
+    if is_managed_match(conn, match_id):
+        conn.execute("BEGIN IMMEDIATE")
+        return jsonify(receive_director_result(
+            conn, match_id, map_name, payload, stats, team1_score, team2_score
+        ))
     conn.execute("UPDATE matches SET status=status WHERE id=?", (match_id,))
     match = conn.execute("SELECT * FROM matches WHERE id=?", (match_id,)).fetchone()
     if not match:
@@ -879,12 +910,23 @@ def _save_broadcast_map_result(conn, payload, match_id):
 
 def _save_gsi_payload(conn, data, map_name, forced_match_id=None):
     if forced_match_id is None:
+        live_filter = get_sql_match_live()
+        archive_filter = """AND NOT EXISTS(SELECT 1 FROM event_registration_control c
+            WHERE c.event_id=m.event_id AND c.archived_at IS NOT NULL)""" if has_event_schema(conn) else ""
+        if live_schema_ready(conn):
+            live_filter = f"""({live_filter} AND NOT EXISTS(
+                    SELECT 1 FROM event_registration_control c WHERE c.event_id=m.event_id
+                )) OR (m.status IN ('upcoming','live') AND EXISTS(
+                    SELECT 1 FROM match_start_authorizations a WHERE a.match_id=m.id
+                ))"""
         matches = conn.execute(
             f"""
             SELECT m.* FROM matches m
-            WHERE ({get_sql_match_live()})
+            WHERE ({live_filter}) {archive_filter}
         """,
         ).fetchall()
+        matches = [project_legacy_map_fields(conn, dict(m)) if is_managed_match(conn, m["id"])
+                   else m for m in matches]
         matches = [
             match
             for match in matches
@@ -894,6 +936,9 @@ def _save_gsi_payload(conn, data, map_name, forced_match_id=None):
             )
         ]
     else:
+        if is_managed_match(conn, forced_match_id):
+            conn.execute("BEGIN IMMEDIATE")
+            return jsonify(receive_gsi(conn, forced_match_id, map_name, data))
         matches = conn.execute(
             "SELECT * FROM matches WHERE id=?",
             (forced_match_id,),
@@ -922,6 +967,9 @@ def _save_gsi_payload(conn, data, map_name, forced_match_id=None):
             "gsi", "存在多场同地图直播比赛，请管理员检查赛程", 409, map_name=map_name
         )
     match_id = matches[0]["id"]
+    if is_managed_match(conn, match_id):
+        conn.execute("BEGIN IMMEDIATE")
+        return jsonify(receive_gsi(conn, match_id, map_name, data))
     conn.execute("UPDATE matches SET status=status WHERE id=?", (match_id,))
     match = conn.execute(
         """
@@ -1189,6 +1237,7 @@ def gotv_stats_receiver():
         team_b_score,
         rounds_count,
         halftime,
+        payload.get("map_run_id"),
     )
 
 
@@ -1203,7 +1252,16 @@ def _save_gotv_payload(
     team_b_score,
     rounds_count,
     halftime,
+    map_run_id=None,
 ):
+    if is_managed_match(conn, match_id):
+        expected = _bounded_number({"map_run_id": map_run_id}, "map_run_id", 1, 2**53 - 1,
+                                   integer=True)
+        conn.execute("BEGIN IMMEDIATE")
+        return jsonify(receive_gotv(
+            conn, match_id, map_name, players, team_a_name, team_b_name,
+            team_a_score, team_b_score, rounds_count, halftime, expected,
+        ))
     conn.execute("UPDATE matches SET status=status WHERE id=?", (match_id,))
     match = conn.execute(
         """

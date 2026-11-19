@@ -141,6 +141,32 @@ class MatchIntegrityTests(unittest.TestCase):
         self.assertEqual(conn.execute("SELECT points_earned FROM match_votes").fetchone()[0], 0)
         conn.close()
 
+    def test_vote_response_and_leaderboard_keep_one_winner_only_vote(self):
+        self._update(status="upcoming", match_time=None)
+        with self.client.session_transaction() as saved:
+            saved["user_id"] = self.user_id
+        url = f"/matches/{self.match_id}/vote"
+        vote = {"csrf_token": "integrity-test", "voted_for": "t2"}
+        self.assertEqual(
+            self.client.post(url, data=vote).get_json(),
+            {"ok": True, "user_voted": "t2", "t1_count": 0, "t2_count": 1, "total": 1},
+        )
+        repeated = self.client.post(url, data=vote)
+        self.assertEqual(
+            (repeated.status_code, repeated.get_json()), (200, {"ok": False, "msg": "您已投过票"})
+        )
+        self._update(status="completed", team1_score=0, team2_score=2)
+        leader = self.client.get("/api/front/predictions").get_json()["leaderboard"][0]
+        self.assertEqual(
+            (leader["user_id"], leader["votes"], leader["points"]), (self.user_id, 1, 3)
+        )
+        conn = get_db()
+        self.test_connections.append(conn)
+        score_predictions(conn, self.match_id)
+        self.assertEqual(
+            tuple(conn.execute("SELECT scored,points_earned FROM match_votes").fetchone()), (1, 3)
+        )
+
     def test_incomplete_completed_result_does_not_award_prediction_points(self):
         conn = get_db()
         self.test_connections.append(conn)

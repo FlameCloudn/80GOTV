@@ -15,6 +15,7 @@ from services.steam_playtime_service import (
     attach_latest_playtime,
     refresh_player_playtimes,
 )
+from site_core import accounts
 from utils.db_helpers import save_uploaded_avatar, save_uploaded_team_logo
 from utils.web_helpers import admin_required as login_required
 from utils.web_helpers import csrf_required
@@ -112,10 +113,7 @@ def _player_validation_error(conn, values, exclude_id=None):
             or not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", values["account_email"])
         ):
             return "邮箱格式不正确"
-        steam_account = conn.execute(
-            "SELECT id, is_placeholder FROM users WHERE steam_id64=?",
-            (values["steam_id"],),
-        ).fetchone()
+        steam_account = accounts.steam_account(conn, values["steam_id"])
         claimable_id = (
             steam_account["id"] if steam_account and steam_account["is_placeholder"] else None
         )
@@ -147,25 +145,6 @@ def _render_player_form(conn, player, status=200):
             player["is_bashizhong_student"] = player["managed_is_bashizhong_student"]
     conn.close()
     return render_template("admin/players_form.html", player=player, teams=teams), status
-
-
-def _sync_linked_user_profile(conn, steam_id, group_username, school_status):
-    if not steam_id:
-        return
-    conn.execute(
-        """
-        UPDATE users
-        SET is_bashizhong_student=?,
-            group_username=CASE WHEN ?=1 THEN ? ELSE group_username END
-        WHERE steam_id64=? AND COALESCE(is_placeholder, 0)=0
-        """,
-        (
-            school_status,
-            school_status,
-            group_username or None,
-            steam_id,
-        ),
-    )
 
 
 def _player_used_in_roster(conn, player_id):
@@ -314,25 +293,12 @@ def admin_teams_delete(team_id):
 @login_required
 def admin_players():
     conn = get_db()
-    players = conn.execute("""
+    players = conn.execute(f"""
         SELECT p.*, t.name AS team_name, u.id AS user_id,
-               u.username AS account_username,
-               COALESCE(u.is_bashizhong_student, p.is_bashizhong_student)
-                   AS managed_is_bashizhong_student,
-               COALESCE(
-                   NULLIF(TRIM(u.group_username), ''),
-                   NULLIF(TRIM(p.group_username_override), ''),
-                   ''
-               ) AS managed_group_username
+               u.username AS account_username, {accounts.MANAGED_PLAYER_IDENTITY_FIELDS}
         FROM players p
         LEFT JOIN teams t ON p.team_id=t.id
-        LEFT JOIN users u ON u.id=(
-            SELECT u2.id
-            FROM users u2
-            WHERE u2.steam_id64=p.steam_id AND COALESCE(u2.is_placeholder, 0)=0
-            ORDER BY u2.id DESC
-            LIMIT 1
-        )
+        {accounts.REGISTERED_PLAYER_ACCOUNT_JOIN}
         ORDER BY p.created_at DESC
     """).fetchall()
     players = attach_latest_playtime(conn, players, "steam_id")
@@ -399,17 +365,10 @@ def admin_players_refresh_playtime():
 
 def _linked_account_for_player(conn, player_id):
     return conn.execute(
-        """
+        f"""
         SELECT p.id AS player_id, p.nickname, p.steam_id,
                u.id AS user_id, u.username
-        FROM players p
-        LEFT JOIN users u ON u.id=(
-            SELECT u2.id
-            FROM users u2
-            WHERE u2.steam_id64=p.steam_id AND COALESCE(u2.is_placeholder, 0)=0
-            ORDER BY u2.id DESC
-            LIMIT 1
-        )
+        FROM players p {accounts.REGISTERED_PLAYER_ACCOUNT_JOIN}
         WHERE p.id=?
         """,
         (player_id,),
@@ -495,45 +454,22 @@ def admin_players_add():
         )
         player_id = cursor.lastrowid
         if values["create_account"]:
-            existing_placeholder = conn.execute(
-                "SELECT id FROM users WHERE steam_id64=? AND is_placeholder=1",
-                (values["steam_id"],),
-            ).fetchone()
-            account_values = (
-                values["nickname"],
-                generate_password_hash(values["password"]),
-                values["account_email"] or None,
-                values["steam_id"],
-                (values["group_username"] if values["is_bashizhong_student"] == 1 else None),
-                values["is_bashizhong_student"],
-                avatar_filename,
+            try:
+                accounts.create_approved_player_account(
+                    conn, steam_id=values["steam_id"], username=values["nickname"],
+                    password_hash=generate_password_hash(values["password"]),
+                    email=values["account_email"] or None,
+                    school_status=values["is_bashizhong_student"],
+                    group_username=values["group_username"], avatar=avatar_filename,
+                )
+            except accounts.SteamAccountInUse:
+                conn.rollback()
+                flash("该 Steam ID 已关联其他网站账号", "error")
+                return _render_player_form(conn, values, 400)
+        else:
+            accounts.sync_registered_account_identity(
+                conn, values["steam_id"], values["is_bashizhong_student"], values["group_username"],
             )
-            if existing_placeholder:
-                conn.execute(
-                    """UPDATE users
-                       SET username=?, password_hash=?, email=?, steam_id64=?,
-                           group_username=?, is_bashizhong_student=?,
-                           avatar=COALESCE(?, avatar), is_placeholder=0,
-                           approval_status='approved', approval_note=NULL,
-                           approved_at=CURRENT_TIMESTAMP
-                       WHERE id=?""",
-                    (*account_values, existing_placeholder["id"]),
-                )
-            else:
-                conn.execute(
-                    """INSERT INTO users(
-                           username, password_hash, email, steam_id64,
-                           group_username, is_bashizhong_student, avatar,
-                           is_placeholder, approval_status, approved_at
-                       ) VALUES(?,?,?,?,?,?,?,0,'approved',CURRENT_TIMESTAMP)""",
-                    account_values,
-                )
-        _sync_linked_user_profile(
-            conn,
-            values["steam_id"],
-            values["group_username"],
-            values["is_bashizhong_student"],
-        )
         record_player_nickname(conn, player_id, values["nickname"], "website")
         conn.commit()
         conn.close()
@@ -551,23 +487,9 @@ def admin_players_add():
 def admin_players_edit(player_id):
     conn = get_db()
     player = conn.execute(
-        """
-        SELECT p.*,
-               COALESCE(u.is_bashizhong_student, p.is_bashizhong_student)
-                   AS managed_is_bashizhong_student,
-               COALESCE(
-                   NULLIF(TRIM(u.group_username), ''),
-                   NULLIF(TRIM(p.group_username_override), ''),
-                   ''
-               ) AS managed_group_username
-        FROM players p
-        LEFT JOIN users u ON u.id=(
-            SELECT u2.id
-            FROM users u2
-            WHERE u2.steam_id64=p.steam_id AND COALESCE(u2.is_placeholder, 0)=0
-            ORDER BY u2.id DESC
-            LIMIT 1
-        )
+        f"""
+        SELECT p.*, {accounts.MANAGED_PLAYER_IDENTITY_FIELDS}
+        FROM players p {accounts.REGISTERED_PLAYER_ACCOUNT_JOIN}
         WHERE p.id=?
         """,
         (player_id,),
@@ -620,11 +542,8 @@ def admin_players_edit(player_id):
                     player_id,
                 ),
             )
-        _sync_linked_user_profile(
-            conn,
-            values["steam_id"],
-            values["group_username"],
-            values["is_bashizhong_student"],
+        accounts.sync_registered_account_identity(
+            conn, values["steam_id"], values["is_bashizhong_student"], values["group_username"],
         )
         conn.commit()
         conn.close()

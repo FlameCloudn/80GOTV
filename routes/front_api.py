@@ -6,18 +6,21 @@ place, while new frontend code can read the same data as JSON.
 
 from contextlib import closing
 from datetime import datetime
+from functools import partial
 
 from flask import jsonify, request, session, url_for
 
 from models import get_db
+from services.arg_event_service import is_arg_event, ordinary_event_condition
+from services.champion_service import list_championship_teams
 from services.home_service import load_home_feed
 from services.match_service import (
     add_effective_event_status,
-    get_prediction_leaderboard,
     get_prediction_upcoming_matches,
     supplement_temp_teams,
 )
 from services.performance_service import summary_metric_sql
+from services.player_awards_service import list_event_medals
 from services.player_remark_service import (
     private_player_identity,
     private_user_identity,
@@ -31,6 +34,9 @@ from services.public_data_service import (
     load_team_statistics,
 )
 from services.team_logo_service import team_logo_url
+from site_core import community
+from site_core.player_directory import ACCOUNT_JOIN, IDENTITY_FIELDS, player_profile
+from site_core.predictions import get_prediction_leaderboard
 from utils.db_helpers import avatar_static_filename
 from utils.filters import date_display_filter, datetime_display_filter, time_display_filter
 from utils.helpers import event_abbr, event_path, news_path, team_abbr
@@ -40,6 +46,7 @@ from utils.match_utils import (
 )
 from utils.pagination import page_params
 from utils.stats_display import optional_number
+from utils.stats_storage import stats_relation
 from web_app import app
 
 _SQL_MATCH_COMPLETED = get_sql_match_completed()
@@ -293,7 +300,7 @@ def _player_payload(row):
         "is_bashizhong_student": school_status,
         "origin_symbol": "🌐" if school_status == 0 else "",
         "team_id": _get(row, "team_id"),
-        "team": _text(_get(row, "team", _get(row, "team_name", ""))),
+        "team": _text(_get(row, "team", _get(row, "team_short", _get(row, "team_name", "")))),
         "avatar": _avatar_url(_get(row, "avatar", "")),
         "rating": _rounded(rating, 2),
         "maps": _get(row, "maps", _get(row, "match_count", 0)),
@@ -308,7 +315,7 @@ def _player_payload(row):
 def _team_payload(row):
     return {
         "id": row["id"],
-        "url": url_for("team_detail", team_id=row["id"]),
+        "url": url_for("team_detail", team_id=row["id"]) if row["id"] else _get(row, "event_url", ""),
         "name": _text(row["name"]),
         "short_name": _text(_get(row, "short_name", "")),
         "abbr": team_abbr(row["name"], _get(row, "short_name", "")),
@@ -477,20 +484,7 @@ def api_front_news_detail(news_id):
         ).fetchone()
         if related_match:
             related_match = supplement_temp_teams(related_match, conn)
-    comments = conn.execute(
-        """
-        SELECT c.*, u.username,
-               CASE WHEN COALESCE(u.is_bashizhong_student, 1)<>0
-                    THEN u.group_username END AS group_username,
-               u.avatar, u.is_cheater,
-               (SELECT COUNT(*) FROM comment_likes WHERE comment_id=c.id) AS like_count
-        FROM comments c
-        JOIN users u ON c.user_id=u.id
-        WHERE c.target_type='news' AND c.target_id=?
-        ORDER BY c.created_at ASC
-    """,
-        (news_id,),
-    ).fetchall()
+    comments = community.list_comments(conn, "news", news_id)
     conn.close()
     payload = _news_payload(news)
     payload["content"] = _text(news["content"])
@@ -564,31 +558,18 @@ def api_front_match_detail(match_id):
         return jsonify({"ok": False, "error": "比赛不存在"}), 404
     match = supplement_temp_teams(match, conn)
     stats_rows = conn.execute(
-        """
+        f"""
         SELECT ms.*, p.nickname, p.avatar, t.short_name AS team_short, t.name AS team_name
-        FROM match_stats ms
+        FROM {stats_relation(conn)} ms
         JOIN players p ON ms.player_id=p.id
         LEFT JOIN teams t ON ms.team_id=t.id
         WHERE ms.match_id=?
           AND COALESCE(ms.data_status, 'final') <> 'superseded'
-        ORDER BY ms.team_id, ms.rating DESC
+        ORDER BY ms.legacy_slot, ms.team_id, ms.rating DESC
     """,
         (match_id,),
     ).fetchall()
-    comments = conn.execute(
-        """
-        SELECT c.*, u.username,
-               CASE WHEN COALESCE(u.is_bashizhong_student, 1)<>0
-                    THEN u.group_username END AS group_username,
-               u.avatar, u.is_cheater,
-               (SELECT COUNT(*) FROM comment_likes WHERE comment_id=c.id) AS like_count
-        FROM comments c
-        JOIN users u ON c.user_id=u.id
-        WHERE c.target_type='match' AND c.target_id=?
-        ORDER BY c.created_at ASC
-    """,
-        (match_id,),
-    ).fetchall()
+    comments = community.list_comments(conn, "match", match_id)
     conn.close()
     return jsonify(
         {
@@ -608,6 +589,15 @@ def api_front_match_detail(match_id):
                     "adr": row["adr"],
                     "rating": row["rating"],
                     "hs": row["headshot_percentage"],
+                    **(
+                        {
+                            "scheduled_map_id": row["scheduled_map_id"],
+                            "map_slot": row["legacy_slot"],
+                            "team_side": row["match_team_side"],
+                        }
+                        if row["scheduled_map_id"] is not None
+                        else {}
+                    ),
                 }
                 for row in stats_rows
             ],
@@ -621,7 +611,7 @@ def api_front_events():
     """Event list data."""
     status_filter = request.args.get("status", "").strip()
     conn = get_db()
-    rows = conn.execute("""
+    rows = conn.execute(f"""
         SELECT e.*,
                COUNT(DISTINCT CASE
                    WHEN COALESCE(m.status, '') != 'cancelled' THEN m.id
@@ -635,11 +625,14 @@ def api_front_events():
                )) AS team_count
         FROM events e
         LEFT JOIN matches m ON e.id=m.event_id
+        WHERE {ordinary_event_condition("e")}
         GROUP BY e.id
         ORDER BY e.start_date DESC
     """).fetchall()
+    from site_core.events.reads import public_event
+
+    events = [add_effective_event_status(public_event(conn, row)) for row in rows]
     conn.close()
-    events = [add_effective_event_status(row) for row in rows]
     if status_filter in ("ongoing", "completed", "upcoming"):
         events = [event for event in events if event.get("effective_event_status") == status_filter]
     return jsonify({"ok": True, "events": [_event_payload(row) for row in events]})
@@ -650,10 +643,13 @@ def api_front_event_detail(event_id):
     """Event detail data with teams, matches and awards."""
     conn = get_db()
     event = conn.execute("SELECT * FROM events WHERE id=?", (event_id,)).fetchone()
-    if not event:
+    if not event or is_arg_event(event):
         conn.close()
         return jsonify({"ok": False, "error": "赛事不存在"}), 404
-    event = add_effective_event_status(event)
+    from site_core.events.reads import event_team_cards, public_event, registration_groups
+    from site_core.host import is_managed_event
+
+    event = add_effective_event_status(public_event(conn, event))
     matches = conn.execute(
         f"""
         SELECT m.*, t1.name AS team1_name, t2.name AS team2_name,
@@ -684,26 +680,12 @@ def api_front_event_detail(event_id):
     """,
         (event_id, event_id),
     ).fetchall()
-    awards = conn.execute(
-        """
-        SELECT pm.*, p.nickname, p.avatar, e.name AS event_name
-        FROM player_medals pm
-        JOIN players p ON pm.player_id=p.id
-        LEFT JOIN events e ON pm.event_id=e.id
-        WHERE pm.event_id=?
-        ORDER BY CASE pm.type WHEN 'MVP' THEN 0 ELSE 1 END, pm.evp_rank, p.nickname
-    """,
-        (event_id,),
-    ).fetchall()
-    champions = conn.execute(
-        """
-        SELECT t.id, t.name, t.short_name, t.logo, t.description, ec.created_at
-        FROM event_champions ec
-        JOIN teams t ON ec.team_id=t.id
-        WHERE ec.event_id=?
-    """,
-        (event_id,),
-    ).fetchall()
+    if is_managed_event(conn, event_id):
+        teams = [{**team, "players": len(team["players"]), "event_url": event_path(event)}
+                 for team in event_team_cards(registration_groups(conn, event_id))]
+        event["match_count"] = len(matches)
+    awards = list_event_medals(conn, event_id)
+    champions = list_championship_teams(conn, event_id)
     conn.close()
     return jsonify(
         {
@@ -722,7 +704,18 @@ def api_front_event_detail(event_id):
                 }
                 for row in awards
             ],
-            "champions": [_team_payload(row) for row in champions],
+            "champions": [
+                _team_payload(
+                    {
+                        **dict(row),
+                        "id": row["team_id"],
+                        "name": row["team_name"],
+                        "short_name": row["team_short"],
+                        "event_url": event_path(event),
+                    }
+                )
+                for row in champions
+            ],
         }
     )
 
@@ -733,6 +726,7 @@ def api_front_players():
     page, per_page, offset = _page_params(default=50, maximum=120)
     filter_key = request.args.get("filter", "").strip().lower()
     team_filter = request.args.get("team", "").strip()
+    # This older API uses Rating, not the published yearly awards shown by /players.
     if filter_key == "top20":
         filter_key = "top10"
     initial = request.args.get("initial", "all").strip().lower()
@@ -763,29 +757,7 @@ def api_front_players():
 def api_front_player_detail(player_id):
     """Player profile and statistics data."""
     conn = get_db()
-    player = conn.execute(
-        """
-        SELECT p.*, t.name AS team_name, t.short_name AS team,
-               COALESCE((
-                   SELECT NULLIF(TRIM(u.group_username), '')
-                   FROM users u
-                   WHERE u.steam_id64=p.steam_id
-                   ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC
-                   LIMIT 1
-                ), NULLIF(TRIM(p.group_username_override), ''), '') AS group_username,
-               COALESCE((
-                   SELECT u.is_bashizhong_student
-                   FROM users u
-                   WHERE u.steam_id64=p.steam_id
-                   ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC
-                   LIMIT 1
-               ), p.is_bashizhong_student) AS managed_is_bashizhong_student
-        FROM players p
-        LEFT JOIN teams t ON p.team_id=t.id
-        WHERE p.id=?
-    """,
-        (player_id,),
-    ).fetchone()
+    player = player_profile(conn, player_id)
     if not player:
         conn.close()
         return jsonify({"ok": False, "error": "选手不存在"}), 404
@@ -800,7 +772,7 @@ def api_front_player_detail(player_id):
         LEFT JOIN teams t2 ON m.team2_id=t2.id
         LEFT JOIN events e ON m.event_id=e.id
         WHERE EXISTS (
-            SELECT 1 FROM match_stats ms WHERE ms.match_id=m.id AND ms.player_id=?
+            SELECT 1 FROM {stats_relation(conn)} ms WHERE ms.match_id=m.id AND ms.player_id=?
               AND COALESCE(ms.data_status, 'final') <> 'superseded'
         )
         ORDER BY m.match_time DESC, m.id DESC
@@ -826,7 +798,7 @@ def api_front_player_detail(player_id):
             "player": _player_payload(player),
             "summary": {
                 "maps": summary["maps"] or 0,
-                "rounds": summary["rounds"] or 0,
+                "rounds": summary["rounds"],
                 "kills": summary["kills"],
                 "deaths": summary["deaths"],
                 "assists": summary["assists"],
@@ -837,6 +809,7 @@ def api_front_player_detail(player_id):
                 "kpr": _rounded(summary["kpr"], 2),
                 "dpr": _rounded(summary["dpr"], 2),
                 "impact": _rounded(summary["impact"], 2),
+                "coverage": summary["coverage"],
             },
             "recent_matches": [_match_payload(row) for row in recent],
             "awards": [
@@ -866,30 +839,18 @@ def api_front_teams():
 def api_front_stats_overview():
     """Stats overview data for frontend pages."""
     conn = get_db()
+    metric = partial(summary_metric_sql, stats_source=stats_relation(conn))
     top_players = conn.execute(f"""
         SELECT p.id, p.nickname, p.avatar, t.short_name AS team,
-               COALESCE((
-                   SELECT NULLIF(TRIM(u.group_username), '')
-                   FROM users u
-                   WHERE u.steam_id64=p.steam_id
-                   ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC
-                   LIMIT 1
-                ), NULLIF(TRIM(p.group_username_override), ''), '') AS group_username,
-               COALESCE((
-                   SELECT u.is_bashizhong_student
-                   FROM users u
-                   WHERE u.steam_id64=p.steam_id
-                   ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC
-                   LIMIT 1
-               ), p.is_bashizhong_student) AS managed_is_bashizhong_student,
-               s.maps, {summary_metric_sql("avg_rating", "rating")} AS rating,
-               {summary_metric_sql("total_kills", "kills")} AS kills,
-               {summary_metric_sql("total_deaths", "deaths")} AS deaths,
-               {summary_metric_sql("total_assists", "assists")} AS assists,
-               {summary_metric_sql("avg_adr", "adr")} AS adr,
-               {summary_metric_sql("avg_hs", "headshot_percentage")} AS hs
+               {IDENTITY_FIELDS},
+               s.maps, {metric("avg_rating", "rating")} AS rating,
+               {metric("total_kills", "kills")} AS kills,
+               {metric("total_deaths", "deaths")} AS deaths,
+               {metric("total_assists", "assists")} AS assists,
+               {metric("avg_adr", "adr")} AS adr,
+               {metric("avg_hs", "headshot_percentage")} AS hs
         FROM player_performance_summary s
-        JOIN players p ON s.player_id=p.id
+        JOIN players p ON s.player_id=p.id {ACCOUNT_JOIN}
         LEFT JOIN teams t ON p.team_id=t.id
         WHERE s.maps > 0
         ORDER BY rating DESC, s.maps DESC, p.id
@@ -936,7 +897,7 @@ def api_front_dashboard():
     top_players = feed["top_players"]
 
     # —— 赛事列表（含比赛/队伍数统计）——
-    event_rows = conn.execute("""
+    event_rows = conn.execute(f"""
         SELECT e.*,
                COUNT(DISTINCT CASE
                    WHEN COALESCE(m.status, '') != 'cancelled' THEN m.id
@@ -950,6 +911,7 @@ def api_front_dashboard():
                )) AS team_count
         FROM events e
         LEFT JOIN matches m ON e.id=m.event_id
+        WHERE {ordinary_event_condition("e")}
         GROUP BY e.id
         ORDER BY e.start_date DESC
     """).fetchall()
@@ -1008,10 +970,11 @@ def api_front_dashboard():
     """).fetchall()
 
     # —— 各赛事比赛数统计 ——
-    event_matches = conn.execute("""
+    event_matches = conn.execute(f"""
         SELECT e.id, e.name, COUNT(m.id) AS matches
         FROM events e
         LEFT JOIN matches m ON e.id=m.event_id
+        WHERE {ordinary_event_condition("e")}
         GROUP BY e.id
         ORDER BY matches DESC, e.start_date DESC
         LIMIT 10
@@ -1092,60 +1055,16 @@ def api_front_predictions():
 @app.route("/api/front/forum")
 def api_front_forum():
     """Forum thread list."""
-    page, per_page, offset = _page_params(default=25, maximum=80)
+    page, per_page, _ = _page_params(default=25, maximum=80)
     search_query = request.args.get("q", "").strip()
     category_slug = request.args.get("category", "").strip()
     sort_by = request.args.get("sort", "latest").strip()
-    order_sql = {
-        "latest": "t.is_pinned DESC, COALESCE(t.last_reply_at, t.created_at) DESC, t.id DESC",
-        "newest": "t.is_pinned DESC, t.created_at DESC, t.id DESC",
-        "popular": "t.is_pinned DESC, (t.reply_count * 8 + t.view_count) DESC, COALESCE(t.last_reply_at, t.created_at) DESC",
-    }.get(sort_by, "t.is_pinned DESC, COALESCE(t.last_reply_at, t.created_at) DESC, t.id DESC")
-    clauses = []
-    params = []
-    if search_query:
-        clauses.append("(t.title LIKE ? OR t.content LIKE ?)")
-        params.extend([f"%{search_query}%", f"%{search_query}%"])
-    if category_slug:
-        clauses.append("c.slug=?")
-        params.append(category_slug)
-    where_sql = " AND ".join(clauses) if clauses else "1=1"
-    conn = get_db()
-    categories = conn.execute(
-        """SELECT c.name, c.slug, COUNT(t.id) AS thread_count
-           FROM forum_categories c
-           LEFT JOIN forum_threads t ON t.category_id=c.id
-           GROUP BY c.id ORDER BY c.sort_order, c.id"""
-    ).fetchall()
-    rows = conn.execute(
-        f"""
-        SELECT t.*, c.name AS category_name, c.slug AS category_slug,
-               u.username,
-               CASE WHEN COALESCE(u.is_bashizhong_student, 1)<>0
-                    THEN u.group_username END AS group_username,
-               u.avatar, u.is_cheater,
-               lr.username AS last_reply_username,
-               CASE WHEN COALESCE(lr.is_bashizhong_student, 1)<>0
-                    THEN lr.group_username END
-                   AS last_reply_group_username,
-               lr.is_cheater AS last_reply_is_cheater
-        FROM forum_threads t
-        JOIN forum_categories c ON t.category_id=c.id
-        JOIN users u ON t.user_id=u.id
-        LEFT JOIN users lr ON lr.id=t.last_reply_user_id
-        WHERE {where_sql}
-        ORDER BY {order_sql}
-        LIMIT ? OFFSET ?
-    """,
-        (*params, per_page, offset),
-    ).fetchall()
-    total = conn.execute(
-        f"""SELECT COUNT(*) AS cnt FROM forum_threads t
-            JOIN forum_categories c ON t.category_id=c.id
-            WHERE {where_sql}""",
-        tuple(params),
-    ).fetchone()["cnt"]
-    conn.close()
+    with closing(get_db()) as conn:
+        categories = community.list_forum_categories(conn)
+        rows, total, _, _ = community.list_forum_threads(
+            conn, search_query=search_query, category_slug=category_slug, sort_by=sort_by,
+            page=page, per_page=per_page,
+        )
     return jsonify(
         {
             "ok": True,
@@ -1201,21 +1120,9 @@ def api_front_notifications():
     """Current user's notification summary."""
     if "user_id" not in session:
         return jsonify({"ok": True, "authenticated": False, "unread": 0, "notifications": []})
-    conn = get_db()
-    rows = conn.execute(
-        """
-        SELECT * FROM notifications
-        WHERE user_id=?
-        ORDER BY created_at DESC
-        LIMIT 20
-    """,
-        (session["user_id"],),
-    ).fetchall()
-    unread = conn.execute(
-        "SELECT COUNT(*) AS cnt FROM notifications WHERE user_id=? AND is_read=0",
-        (session["user_id"],),
-    ).fetchone()["cnt"]
-    conn.close()
+    with closing(get_db()) as conn:
+        rows = community.list_notifications(conn, session["user_id"], limit=20)
+        unread = community.unread_notification_count(conn, session["user_id"])
     return jsonify(
         {
             "ok": True,

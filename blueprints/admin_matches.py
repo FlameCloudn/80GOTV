@@ -7,8 +7,10 @@ import re
 import shutil
 import tempfile
 import uuid
+from datetime import datetime, timedelta, timezone
+from time import time
 
-from flask import flash, redirect, render_template, request, url_for
+from flask import flash, redirect, render_template, request, session, url_for
 
 from blueprints.admin import admin_bp
 from config import BASE_DIR
@@ -21,26 +23,43 @@ from services.bracket_service import (
 from services.demo_service import analyze_demo, import_demo_data
 from services.live_log_service import persist_live_match_events
 from services.manual_stats_service import (
-    prepare_manual_map_rows,
+    FORM_FIELDS,
+    StatsRevisionConflict,
+    manual_map_revision,
+    save_manual_map_stats,
     stats_editor_players,
-    write_manual_map_revision,
 )
 from services.match_roster_service import (
     freeze_match_roster,
+    managed_match_teams,
     match_player_slots,
     registration_player_slots,
 )
 from services.match_service import (
     completed_match_result_error,
-    score_predictions,
     supplement_temp_teams,
 )
 from services.performance_service import refresh_player_performance
+from site_core.community import delete_target_comments
+from site_core.events import public as event_rosters
+from site_core.events.registration import active_event
+from site_core.host import (
+    PREMATCH_ONLY,
+    HostError,
+    has_event_schema,
+    is_managed_event,
+    is_managed_match,
+    write,
+)
+from site_core.matches import participants
+from site_core.matches.maps import match_has_started
+from site_core.predictions import revoke_legacy_points, score_predictions
 from utils.demo_naming import build_demo_filename
 from utils.helpers import (
     ensure_unique_match_slug,
     make_match_slug,
     normalize_http_url,
+    normalize_map_key,
     record_match_slug_alias,
     row_get,
 )
@@ -270,12 +289,17 @@ def _get_form_dropdowns(conn):
 
 
 def _get_match_form_row(conn, match_id):
-    return conn.execute(
+    match = conn.execute(
         """SELECT m.*, t1.name AS team1_name, t2.name AS team2_name FROM matches m
         LEFT JOIN teams t1 ON m.team1_id=t1.id LEFT JOIN teams t2 ON m.team2_id=t2.id
         WHERE m.id=?""",
         (match_id,),
     ).fetchone()
+    if match and is_managed_event(conn, match["event_id"]):
+        from site_core.matches.maps import project_legacy_map_fields
+
+        return project_legacy_map_fields(conn, match)
+    return match
 
 
 def _match_player_ids(match, key):
@@ -312,7 +336,16 @@ def _match_roster_options(conn, match, side):
     registered_ids = [
         player["id"] for player in registration_player_slots(conn, match, side) if player.get("id")
     ]
-    reserve_ids = _event_reserve_player_ids(conn, row_get(match, "event_id"))
+    managed = managed_match_teams(conn, match)
+    reserve_ids = (
+        [
+            player["id"]
+            for player in managed.get(str(side), {}).get("players", [])
+            if player["is_substitute"]
+        ]
+        if managed is not None
+        else _event_reserve_player_ids(conn, row_get(match, "event_id"))
+    )
     candidate_ids = list(dict.fromkeys(current_ids + registered_ids + reserve_ids))
     if not candidate_ids:
         return []
@@ -403,6 +436,304 @@ def _parse_match_roster(conn, match, side, *, team_id=None):
     return json.dumps([int(value) for value in values]), None
 
 
+_UTC8 = timezone(timedelta(hours=8))
+
+
+def _utc_text_to_iso(raw):
+    if not raw:
+        return ""
+    text = str(raw).strip()
+    try:
+        dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(_UTC8).isoformat()
+    except ValueError:
+        return text
+
+
+def _epoch_to_iso(ts):
+    if ts is None:
+        return ""
+    return datetime.fromtimestamp(int(ts), _UTC8).isoformat()
+
+
+def annotate_managed_matches(conn, matches):
+    """Attach read-only is_managed / rosters_frozen flags to match dicts."""
+    if not matches:
+        return matches
+    if not has_event_schema(conn):
+        for m in matches:
+            m["is_managed"] = False
+            m["rosters_frozen"] = False
+        return matches
+    managed_events = {
+        r[0] for r in conn.execute("SELECT event_id FROM event_registration_control").fetchall()
+    }
+    managed_ids = [m["id"] for m in matches if m.get("event_id") in managed_events]
+    frozen_counts = {}
+    if managed_ids:
+        placeholders = ",".join("?" for _ in managed_ids)
+        for row in conn.execute(
+            f"""SELECT p.match_id, COUNT(*) AS cnt
+                FROM match_participants p
+                JOIN match_roster_members r ON r.match_participant_id=p.match_participant_id
+                WHERE p.match_id IN ({placeholders})
+                GROUP BY p.match_id""",
+            managed_ids,
+        ):
+            frozen_counts[row["match_id"]] = row["cnt"]
+    for m in matches:
+        managed = m.get("event_id") in managed_events
+        m["is_managed"] = managed
+        m["rosters_frozen"] = bool(managed and frozen_counts.get(m["id"], 0) == 10)
+    return matches
+
+
+def _managed_events_for_match_add(conn):
+    if not has_event_schema(conn):
+        return {}
+    controls = conn.execute(
+        """SELECT c.event_id, c.archived_at, b.formed_at
+           FROM event_registration_control c
+           LEFT JOIN event_formation_batches b USING(event_id)"""
+    ).fetchall()
+    if not controls:
+        return {}
+    entrants_rows = conn.execute(
+        """SELECT e.event_id, e.event_entrant_id, e.registration_id,
+                  g.club_id, g.group_origin, g.archived_at AS team_archived_at,
+                  r.team_name, r.status AS reg_status,
+                  t.name AS club_name,
+                  i.confirmed_at
+           FROM event_entrants e
+           JOIN event_registration_groups g ON g.event_id=e.event_id AND g.registration_id=e.registration_id
+           JOIN event_registrations r ON r.id=e.registration_id AND r.event_id=e.event_id
+           LEFT JOIN teams t ON t.id=g.club_id
+           LEFT JOIN event_initial_rosters i ON i.event_entrant_id=e.event_entrant_id
+           ORDER BY e.event_id, e.event_entrant_id"""
+    ).fetchall()
+    initial_by_entrant = {}
+    for row in conn.execute("SELECT event_entrant_id, player_id FROM event_initial_members"):
+        initial_by_entrant.setdefault(row["event_entrant_id"], set()).add(row["player_id"])
+    current_by_entrant = {}
+    for row in conn.execute(
+        """SELECT cm.event_entrant_id, cm.player_id, p.nickname
+           FROM event_current_members cm
+           JOIN players p ON p.id=cm.player_id
+           ORDER BY cm.event_entrant_id, cm.roster_slot"""
+    ):
+        current_by_entrant.setdefault(row["event_entrant_id"], []).append(
+            {"id": row["player_id"], "nickname": row["nickname"] or f"#{row['player_id']}"}
+        )
+
+    entrants_by_event = {}
+    for row in entrants_rows:
+        eid = row["event_entrant_id"]
+        confirmed = row["confirmed_at"] is not None
+        members = current_by_entrant.get(eid, [])
+        initial_set = initial_by_entrant.get(eid, set())
+        players = [
+            {**m, "is_added_sub": bool(confirmed and m["id"] not in initial_set)} for m in members
+        ]
+        not_ready_reason = ""
+        if row["team_archived_at"] is not None:
+            not_ready_reason = "已归档"
+        elif row["reg_status"] != "pending":
+            not_ready_reason = "报名状态无效"
+        elif not confirmed:
+            not_ready_reason = "首五待确认"
+        elif len(players) != 5:
+            not_ready_reason = f"当前仅 {len(players)} 人"
+        entrants_by_event.setdefault(row["event_id"], []).append(
+            {
+                "event_entrant_id": eid,
+                "name": row["team_name"] or f"参赛队 #{eid}",
+                "club_name": row["club_name"] or "",
+                "origin_label": "自动分队" if row["group_origin"] == "formed" else "报名队",
+                "ready": not not_ready_reason,
+                "not_ready_reason": not_ready_reason,
+                "players": players,
+            }
+        )
+
+    result = {}
+    for ctrl in controls:
+        ev_id = ctrl["event_id"]
+        result[str(ev_id)] = {
+            "event_id": ev_id,
+            "archived": ctrl["archived_at"] is not None,
+            "formed": ctrl["formed_at"] is not None,
+            "roster_url": url_for("admin.admin_event_roster", event_id=ev_id),
+            "entrants": entrants_by_event.get(ev_id, []),
+        }
+    return result
+
+
+def _managed_match_edit_info(conn, match):
+    match_id = match["id"]
+    event_id = match["event_id"]
+    fixed = participants.sides(conn, match_id)
+    rosters_frozen = participants.rosters_frozen(conn, match_id)
+    bp_started = bool(row_get(match, "bp_state"))
+    has_started = match_has_started(conn, match)
+    ctrl = conn.execute(
+        "SELECT archived_at FROM event_registration_control WHERE event_id=?", (event_id,)
+    ).fetchone()
+    event_archived = bool(ctrl and ctrl["archived_at"] is not None) or (
+        match.get("status") == "completed"
+    )
+    admins_map = {
+        r["id"]: r["username"] for r in conn.execute("SELECT id, username FROM admins").fetchall()
+    }
+    club_names = {
+        r["id"]: r["name"] for r in conn.execute("SELECT id, name FROM teams").fetchall()
+    }
+
+    approved_by_side = {}
+    all_player_ids = set()
+    for side_num, side_info in fixed.items():
+        approved = event_rosters.roster(conn, event_id, side_info["event_entrant_id"])
+        approved_by_side[side_num] = approved
+        all_player_ids.update(approved["initial_player_ids"])
+        all_player_ids.update(approved["current_player_ids"])
+        all_player_ids.update(p["id"] for p in side_info["players"])
+
+    players_map = {}
+    if all_player_ids:
+        placeholders = ",".join("?" for _ in all_player_ids)
+        for p in conn.execute(
+            f"SELECT id, nickname, steam_id FROM players WHERE id IN ({placeholders})",
+            tuple(all_player_ids),
+        ):
+            players_map[p["id"]] = dict(p)
+
+    sides_out = {}
+    freeze_blockers = []
+    if bp_started or has_started:
+        freeze_blockers.append("比赛已开始或已有 BP / 赛果记录，不能新建固定双方或重新冻结名单")
+    if event_archived:
+        freeze_blockers.append("本届赛事已归档，不能冻结新比赛名单")
+    if len(fixed) != 2:
+        freeze_blockers.append("请先确认本场的两支参赛队伍")
+    elif any(s["frozen_at"] for s in fixed.values()) and not rosters_frozen:
+        freeze_blockers.append("本场只有一侧已冻结，请核对原名单")
+
+    seen_player_ids = set()
+    seen_steam_ids = set()
+    for side_num in (1, 2):
+        side_info = fixed.get(side_num)
+        if not side_info:
+            sides_out[side_num] = None
+            continue
+        approved = approved_by_side[side_num]
+        initial_ids = approved["initial_player_ids"]
+        current_ids = approved["current_player_ids"]
+        initial_set = set(initial_ids)
+        initial_players = [
+            {
+                "id": pid,
+                "nickname": (players_map.get(pid) or {}).get("nickname") or f"#{pid}",
+                "swapped_out": pid not in set(current_ids),
+            }
+            for pid in initial_ids
+        ]
+        current_players = [
+            {
+                "id": pid,
+                "nickname": (players_map.get(pid) or {}).get("nickname") or f"#{pid}",
+                "is_added_sub": bool(approved["is_frozen"] and pid not in initial_set),
+                "steam_id": str((players_map.get(pid) or {}).get("steam_id") or "").strip(),
+            }
+            for pid in current_ids
+        ]
+        kept_initial = len(initial_set & set(current_ids)) if approved["is_frozen"] else None
+
+        frozen_meta = None
+        frozen_players = []
+        if side_info["frozen_at"]:
+            mr = conn.execute(
+                "SELECT frozen_by, frozen_at, team_name FROM match_rosters WHERE match_participant_id=?",
+                (side_info["match_participant_id"],),
+            ).fetchone()
+            frozen_meta = {
+                "frozen_at_iso": _utc_text_to_iso(mr["frozen_at"] if mr else side_info["frozen_at"]),
+                "frozen_by_name": admins_map.get(mr["frozen_by"], "") if mr else "",
+                "frozen_team_name": mr["team_name"] if mr else side_info["name"],
+            }
+            frozen_players = [
+                {
+                    "slot": p["slot"],
+                    "id": p["id"],
+                    "nickname": p["nickname"] or f"#{p['id']}",
+                    "is_substitute": bool(p["is_substitute"]),
+                }
+                for p in side_info["players"]
+            ]
+
+        team_archived = bool(
+            side_info["group_status"] != "pending" or approved["team_archived_at"] is not None
+        )
+        if not rosters_frozen and not (bp_started or has_started or event_archived):
+            if team_archived:
+                freeze_blockers.append(f"{side_info['name']} 已归档，不能冻结新比赛名单")
+            if not approved["is_frozen"]:
+                freeze_blockers.append(f"{side_info['name']} 尚未在「报名与阵容」页确认初始五人")
+            elif len(current_ids) != 5:
+                freeze_blockers.append(f"{side_info['name']} 当前阵容不足 5 人")
+            elif not event_rosters.keeps_initial_majority(initial_ids, current_ids):
+                freeze_blockers.append(f"{side_info['name']} 当前阵容保留初始成员不足 3 名")
+            if current_ids:
+                try:
+                    event_rosters.verify_registered_players(conn, event_id, current_ids)
+                except HostError as exc:
+                    freeze_blockers.append(f"{side_info['name']}：{exc.message}")
+            steams = [p["steam_id"] for p in current_players]
+            if len(current_ids) == 5 and (
+                not all(steams)
+                or len(set(steams)) != 5
+                or (set(steams) & seen_steam_ids)
+                or (set(current_ids) & seen_player_ids)
+            ):
+                freeze_blockers.append("本场十名选手须具备有效且互不重复的选手编号及 Steam ID")
+            seen_player_ids.update(current_ids)
+            seen_steam_ids.update(s for s in steams if s)
+
+        sides_out[side_num] = {
+            "event_entrant_id": side_info["event_entrant_id"],
+            "registration_id": side_info["registration_id"],
+            "name": side_info["name"],
+            "short_name": side_info["short_name"],
+            "club_name": club_names.get(side_info["team_id"], "") if side_info["team_id"] else "",
+            "team_archived": team_archived,
+            "initial_confirmed": bool(approved["is_frozen"]),
+            "initial_confirmed_at_iso": _epoch_to_iso(approved["confirmed_at"]),
+            "initial_players": initial_players,
+            "current_players": current_players,
+            "kept_initial_count": kept_initial,
+            "frozen": bool(side_info["frozen_at"]),
+            "frozen_at_iso": frozen_meta["frozen_at_iso"] if frozen_meta else "",
+            "frozen_by_name": frozen_meta["frozen_by_name"] if frozen_meta else "",
+            "frozen_team_name": frozen_meta["frozen_team_name"] if frozen_meta else "",
+            "frozen_players": frozen_players,
+        }
+
+    # Deduplicate blocker messages while preserving order
+    unique_blockers = list(dict.fromkeys(freeze_blockers))
+    return {
+        "is_managed": True,
+        "rosters_frozen": rosters_frozen,
+        "bp_started": bp_started,
+        "has_started": has_started,
+        "event_archived": event_archived,
+        "roster_url": url_for("admin.admin_event_roster", event_id=event_id),
+        "bp_url": f"/bp/{match_id}",
+        "can_freeze": not rosters_frozen and not unique_blockers,
+        "freeze_blockers": unique_blockers,
+        "sides": sides_out,
+    }
+
+
 def _match_form_response(conn, match=None, status=200):
     events, teams, all_players = _get_form_dropdowns(conn)
     team1_player_ids = _match_player_ids(match, "team1_players")
@@ -421,6 +752,22 @@ def _match_form_response(conn, match=None, status=200):
     # sqlite3.Row does not expose dict.get(); accept both a database row and
     # the submitted-form dict used when re-rendering validation errors.
     is_new_match = not match or ("_is_new_form" in match.keys() and bool(match["_is_new_form"]))
+    managed_events_data = _managed_events_for_match_add(conn) if is_new_match else {}
+    selected_sides = {}
+    if is_new_match and request.method == "POST":
+        selected_sides = {
+            "1": {
+                "type": request.form.get("side1_type", ""),
+                "id": request.form.get("side1_id", ""),
+            },
+            "2": {
+                "type": request.form.get("side2_type", ""),
+                "id": request.form.get("side2_id", ""),
+            },
+        }
+    managed_match_info = None
+    if not is_new_match and match and is_managed_event(conn, match["event_id"]):
+        managed_match_info = _managed_match_edit_info(conn, dict(match))
     if match and "_setup_editable" in match.keys():
         match_setup_editable = bool(match["_setup_editable"])
     elif match:
@@ -430,6 +777,7 @@ def _match_form_response(conn, match=None, status=200):
     custom_side_labels = {}
     if match:
         match = dict(match)
+        managed = managed_match_teams(conn, match)
         team_names = {team["id"]: team["name"] for team in teams}
         for side in (1, 2):
             team_id = match.get(f"team{side}_id")
@@ -438,7 +786,9 @@ def _match_form_response(conn, match=None, status=200):
         match = supplement_temp_teams(match, conn)
         for side in (1, 2):
             selected = match_roster_selected.get(side, [])
-            if not match_setup_editable and not is_new_match:
+            if managed is not None:
+                match[f"team{side}_id"] = managed.get(str(side), {}).get("team_id")
+            if (managed is not None or not match_setup_editable) and not is_new_match:
                 if side == 1:
                     team1_player_ids = selected
                 else:
@@ -463,6 +813,9 @@ def _match_form_response(conn, match=None, status=200):
         match_roster_selected=match_roster_selected,
         match_setup_editable=match_setup_editable,
         custom_side_labels=custom_side_labels,
+        managed_events_data=managed_events_data,
+        selected_sides=selected_sides,
+        managed_match_info=managed_match_info,
     ), status
 
 
@@ -620,8 +973,13 @@ def _generate_match_slug(conn, match_id):
     ).fetchone()
     if not match:
         return
+    if is_managed_match(conn, match_id):
+        sides = participants.sides(conn, match_id)
+        first, second = (sides[side]["short_name"] for side in (1, 2))
+    else:
+        first, second = match["t1n"], match["t2n"]
     # 根据队伍、时间、赛事信息自动生成 slug（每次编辑都会更新）
-    slug = make_match_slug(match["t1n"], match["t2n"], match["match_time"], match["esn"])
+    slug = make_match_slug(first, second, match["match_time"], match["esn"])
     slug = ensure_unique_match_slug(conn, match_id, slug)
     if match["old_slug"] and match["old_slug"] != slug:
         record_match_slug_alias(conn, match["old_slug"], match_id)
@@ -686,6 +1044,176 @@ def _match_values(f, team1_id, team2_id, team1_players, team2_players):
     )
 
 
+_PREMATCH_FIELDS = (
+    "event_id",
+    "match_time",
+    "bo_format",
+    "stage",
+    "bp_password",
+    "stream_url",
+    "watch_urls",
+    "server_address",
+    "server_password",
+)
+_PREMATCH_MAPS = tuple(f"map{index}" for index in range(1, 6))
+
+
+def _entrant_from_match_form(conn, event_id, side):
+    prefix = f"side{side}"
+    if request.form.get(f"{prefix}_type") == "entrant":
+        choice = request.form.get(f"{prefix}_id", "").strip()
+        if not (choice.isascii() and choice.isdigit() and 0 < len(choice) < 20):
+            raise HostError(f"请选择第 {side} 方的本届参赛队伍", 400)
+        # Bind through the current event, never through the old registration integer.
+        return participants.select_entrant(conn, event_id, entrant_id=choice)
+    club, players, error = _parse_side(conn, prefix)
+    if error:
+        raise HostError(error, 400)
+    if club:
+        return participants.select_entrant(conn, event_id, club_id=club)
+    if not players:
+        raise HostError("请选择已确认的本届队伍或完整五人名单", 400)
+    return participants.select_entrant(conn, event_id, player_ids=json.loads(players))
+
+
+def _sync_prematch_maps(conn, match_id, values):
+    from site_core.matches.maps import sync_scheduled_maps
+
+    setup = {key: values[key] for key in ("bo_format", *_PREMATCH_MAPS)}
+    setup.update({f"{key}_picked_by": values[f"{key}_pb"] for key in _PREMATCH_MAPS})
+    setup.update({f"has_map{slot}": values[f"has_map{slot}"] for slot in (3, 4, 5)})
+    sync_scheduled_maps(conn, match_id, setup=setup)
+
+
+def _unsupported_prematch_submission(match=None):
+    raw_status = request.form.get("status")
+    if raw_status not in (None, "upcoming"):
+        return True
+    fields = (
+        *(field for field in LIVE_SCORE_FIELDS if not field.startswith("has_map")),
+        "bp_process",
+        "decider_knife_winner",
+        "decider_start_side",
+    )
+    for field in fields:
+        if field in request.form:
+            submitted = request.form.get(field, "").strip()
+            current = str(row_get(match, field) or "").strip()
+            accepted = {"", current}
+            if field.endswith(("score", "_t1", "_t2")):
+                accepted.add("0")
+            if submitted not in accepted:
+                return True
+    return False
+
+
+def _create_prematch(conn, values):
+    if _unsupported_prematch_submission():
+        raise HostError(PREMATCH_ONLY)
+    if values["is_test_mode"]:
+        raise HostError("托管赛事必须选择两支已确认的参赛队伍，测试空位请使用原流程", 400)
+    with write(conn):
+        entrant_ids = [_entrant_from_match_form(conn, values["event_id"], side) for side in (1, 2)]
+        conn.execute(
+            f"INSERT INTO matches({','.join(_PREMATCH_FIELDS)},status) VALUES (?,?,?,?,?,?,?,?,?,'upcoming')",
+            tuple(values[field] for field in _PREMATCH_FIELDS),
+        )
+        match_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+        participants.bind(conn, match_id, *entrant_ids)
+        _generate_match_slug(conn, match_id)
+        _sync_prematch_maps(conn, match_id, values)
+
+
+def _edit_prematch(conn, current_match):
+    match_id = current_match["id"]
+    with write(conn):
+        match = _get_match_form_row(conn, match_id)
+        if not match or not is_managed_event(conn, match["event_id"]):
+            raise HostError("比赛已变化，请刷新页面")
+        active_event(conn, match["event_id"], int(time()))
+        if match["status"] != "upcoming" or _unsupported_prematch_submission(match):
+            raise HostError(PREMATCH_ONLY)
+        values = _parse_match_form(request, include_results=True)
+        if "event_id" in request.form and str(values["event_id"]) != str(match["event_id"]):
+            raise HostError("托管比赛不能更换所属赛事")
+        for field in ("event_id", "match_time", "bo_format", "stage", *_PREMATCH_MAPS):
+            if field not in request.form:
+                values[field] = match[field]
+        for field in _PREMATCH_MAPS:
+            if f"{field}_picked_by" not in request.form:
+                values[f"{field}_pb"] = match[f"{field}_picked_by"]
+        for slot in (3, 4, 5):
+            if f"no_map{slot}" not in request.form:
+                values[f"has_map{slot}"] = (
+                    match[f"has_map{slot}"]
+                    if values["bo_format"] == match["bo_format"]
+                    else int(slot <= {"BO1": 1, "BO3": 3, "BO5": 5}.get(values["bo_format"], 0))
+                )
+        if error := _match_validation_error(conn, values):
+            raise HostError(error, 400)
+        maps_changed = (
+            values["bo_format"] != match["bo_format"]
+            or any(
+                (values[key] or None) != match[key]
+                or values[f"{key}_pb"] != match[f"{key}_picked_by"]
+                for key in _PREMATCH_MAPS
+            )
+            or any(values[f"has_{key}"] != match[f"has_{key}"] for key in _PREMATCH_MAPS[2:])
+        )
+        if _started_bp_setup_change(values, match) or (match["bp_state"] and maps_changed):
+            raise HostError("BP 已开始，不能更改赛制或地图等比赛设置")
+        fixed = participants.sides(conn, match_id)
+        if len(fixed) != 2:
+            raise HostError("托管比赛缺少固定双方，请核对比赛资料")
+        for side, team in fixed.items():
+            current_ids = [str(player["id"]) for player in team["players"]]
+            if f"side{side}_type" in request.form:
+                if request.form.get(f"side{side}_type") == "players" and team["frozen_at"]:
+                    submitted = [request.form.get(f"side{side}_p{i}", "").strip() for i in range(5)]
+                    same = len(current_ids) == 5 and sorted(submitted) == sorted(current_ids)
+                else:
+                    same = (
+                        _entrant_from_match_form(conn, match["event_id"], side)
+                        == team["event_entrant_id"]
+                    )
+                if not same:
+                    raise HostError("比赛双方已绑定，不能互换或改绑")
+            roster_values = _match_roster_form_values(side)
+            if roster_values is not None and roster_values != current_ids:
+                raise HostError("本场名单须从已批准阵容冻结；请先办理赛前换人，再确认本场名单")
+        participants.check_duplicate(
+            conn,
+            match["event_id"],
+            values["match_time"],
+            [team["event_entrant_id"] for team in fixed.values()],
+            exclude_id=match_id,
+        )
+        # These controls keep the existing form's password and server connection behavior.
+        if request.form.get("clear_bp_password") == "1":
+            values["bp_password"] = None
+        elif not values["bp_password"]:
+            values["bp_password"] = match["bp_password"]
+        if "server_address" not in request.form:
+            values["server_address"] = match["server_address"]
+        if values["server_address"] and not values["server_password"]:
+            values["server_password"] = match["server_password"]
+        if "stream_url" not in request.form:
+            values["stream_url"] = match["stream_url"]
+        if "watch_name_0" not in request.form and "watch_url_0" not in request.form:
+            values["watch_urls"] = match["watch_urls"]
+        conn.execute(
+            "UPDATE matches SET "
+            + ",".join(f"{field}=?" for field in _PREMATCH_FIELDS)
+            + " WHERE id=?",
+            (*[values[field] for field in _PREMATCH_FIELDS], match_id),
+        )
+        if maps_changed:
+            _sync_prematch_maps(conn, match_id, values)
+        if request.form.get("freeze_rosters") == "1":
+            participants.freeze_rosters(conn, match_id, session["admin_id"])
+        _generate_match_slug(conn, match_id)
+
+
 # ---- 比赛管理 ----
 @admin_bp.route("/matches")
 @login_required
@@ -714,7 +1242,7 @@ def admin_matches():
     query += " ORDER BY m.match_time DESC, m.id DESC"
 
     raw_matches = conn.execute(query, params).fetchall()
-    matches = [supplement_temp_teams(m, conn) for m in raw_matches]
+    matches = annotate_managed_matches(conn, [supplement_temp_teams(m, conn) for m in raw_matches])
 
     if search_query:
         q_lower = search_query.lower()
@@ -759,6 +1287,16 @@ def admin_matches_add():
         if error:
             flash(error, "error")
             return _match_form_response(conn, _match_form_state(None, f), 400)
+
+        if is_managed_event(conn, f["event_id"]):
+            try:
+                _create_prematch(conn, f)
+            except HostError as exc:
+                flash(exc.message, "error")
+                return _match_form_response(conn, _match_form_state(None, f), exc.status)
+            conn.close()
+            flash("比赛添加成功，请确认本场名单后进行 BP", "success")
+            return redirect(url_for("admin.admin_matches"))
 
         team1_id = team2_id = None
         team1_players = team2_players = None
@@ -807,6 +1345,9 @@ def admin_matches_add():
                 400,
             )
         try:
+            conn.execute("BEGIN IMMEDIATE")
+            if is_managed_event(conn, f["event_id"]):
+                raise HostError("赛事的报名流程已切换，请刷新后再创建比赛")
             conn.execute(
                 f"INSERT INTO matches({MATCH_COLS}) VALUES{MATCH_PLACEHOLDERS}",
                 _match_values(f, team1_id, team2_id, team1_players, team2_players),
@@ -840,7 +1381,19 @@ def admin_matches_edit(match_id):
         conn.close()
         return "比赛不存在", 404
     if request.method == "POST":
+        if is_managed_event(conn, current_match["event_id"]):
+            try:
+                _edit_prematch(conn, current_match)
+            except HostError as exc:
+                flash(exc.message, "error")
+                return _match_form_response(conn, _match_form_state(current_match), exc.status)
+            conn.close()
+            flash("比赛更新成功", "success")
+            return redirect(url_for("admin.admin_matches"))
         f = _parse_match_form(request, include_results=True)
+        if is_managed_event(conn, f["event_id"]):
+            flash("旧比赛不能移动到托管赛事", "error")
+            return _match_form_response(conn, _match_form_state(current_match), 409)
         if _started_bp_setup_change(f, current_match):
             flash("BP 已开始，不能更改赛制或地图等比赛设置", "error")
             return _match_form_response(conn, _match_form_state(current_match), 400)
@@ -976,6 +1529,10 @@ def admin_matches_edit(match_id):
             latest_match = _get_match_form_row(conn, match_id)
             if not latest_match:
                 raise ValueError("比赛已不存在，请刷新页面后重试")
+            if is_managed_event(conn, latest_match["event_id"]) or is_managed_event(
+                conn, f["event_id"]
+            ):
+                raise ValueError("不能通过旧流程编辑托管赛事的比赛")
             if tuple(latest_match[field] for field in roster_fields) != guard_roster:
                 raise ValueError("比赛阵容已更新，请刷新页面后再保存")
             if _started_bp_setup_change(f, latest_match):
@@ -1043,9 +1600,7 @@ def admin_matches_edit(match_id):
                 if error:
                     raise ValueError(error)
             if existing["status"] == "completed" and f["status"] != "completed":
-                conn.execute(
-                    "UPDATE match_votes SET scored=0,points_earned=0 WHERE match_id=?", (match_id,)
-                )
+                revoke_legacy_points(conn, match_id)
             _generate_match_slug(conn, match_id)
             refresh_bracket_for_match(conn, match_id)
             if f["status"] == "completed":
@@ -1083,6 +1638,9 @@ def admin_matches_edit(match_id):
 @login_required
 def admin_matches_delete(match_id):
     conn = get_db()
+    if is_managed_match(conn, match_id):
+        conn.close()
+        return PREMATCH_ONLY, 409
     try:
         match = conn.execute("SELECT id,event_id FROM matches WHERE id=?", (match_id,)).fetchone()
         if not match:
@@ -1096,12 +1654,7 @@ def admin_matches_delete(match_id):
             ).fetchall()
             if row["player_id"]
         }
-        conn.execute(
-            "DELETE FROM comment_likes WHERE comment_id IN "
-            "(SELECT id FROM comments WHERE target_type='match' AND target_id=?)",
-            (match_id,),
-        )
-        conn.execute("DELETE FROM comments WHERE target_type='match' AND target_id=?", (match_id,))
+        delete_target_comments(conn, "match", match_id)
         for table in (
             "match_stats",
             "player_medals",
@@ -1128,12 +1681,60 @@ def admin_matches_delete(match_id):
     return redirect(url_for("admin.admin_matches"))
 
 
+@admin_bp.route("/matches/<int:match_id>/freeze-rosters", methods=["POST"])
+@csrf_required
+@login_required
+def admin_match_freeze_rosters(match_id):
+    conn = get_db()
+    try:
+        with write(conn):
+            participants.freeze_rosters(conn, match_id, session["admin_id"])
+    except HostError as exc:
+        return exc.message, exc.status
+    finally:
+        conn.close()
+    flash("本场双方名单已冻结", "success")
+    return redirect(url_for("admin.admin_matches_edit", match_id=match_id))
+
+
+def _managed_series_form(conn, match_id, action):
+    from blueprints.match_operations import _dispatch
+
+    try:
+        if request.is_json:
+            body = request.get_json(silent=True)
+            if not isinstance(body, dict):
+                raise HostError("请提交 JSON 对象", 400)
+        else:
+            body = {"reason": request.form.get("reason", "")}
+            revision = request.form.get("expected_revision")
+            if revision is not None:
+                try:
+                    body["expected_revision"] = int(revision)
+                except ValueError:
+                    raise HostError("裁定版本号无效", 400) from None
+        if action == "reopen" and (not body.get("reason") or "expected_revision" not in body):
+            raise HostError("请在比赛运营中核对结算版本，并填写重开原因")
+        with write(conn):
+            result = _dispatch(conn, match_id, action, body, session["admin_id"])
+        if request.is_json:
+            return {"ok": True, **result}
+        flash("比赛已正式完赛" if action == "settle" else "已撤销本次结算", "success")
+        return redirect(url_for("admin.admin_matches"))
+    except HostError as exc:
+        return ({"ok": False, "error": exc.message} if request.is_json else exc.message), exc.status
+    finally:
+        conn.close()
+
+
 @admin_bp.route("/matches/<int:match_id>/complete", methods=["POST"])
 @csrf_required
 @login_required
 def admin_match_complete(match_id):
     """Explicitly finish a match and optionally snapshot its Game Log."""
     conn = get_db()
+    if is_managed_match(conn, match_id):
+        return _managed_series_form(conn, match_id, "settle")
     try:
         conn.execute("UPDATE matches SET status=status WHERE id=?", (match_id,))
         match = conn.execute("SELECT * FROM matches WHERE id=?", (match_id,)).fetchone()
@@ -1178,14 +1779,14 @@ def admin_match_complete(match_id):
 def admin_match_reopen(match_id):
     """Reopen a mistakenly completed match; time decides live/upcoming."""
     conn = get_db()
+    if is_managed_match(conn, match_id):
+        return _managed_series_form(conn, match_id, "reopen")
     try:
         changed = conn.execute(
             "UPDATE matches SET status='live' WHERE id=? AND status='completed'", (match_id,)
         ).rowcount
         if changed:
-            conn.execute(
-                "UPDATE match_votes SET scored=0, points_earned=0 WHERE match_id=?", (match_id,)
-            )
+            revoke_legacy_points(conn, match_id)
             refresh_bracket_for_match(conn, match_id)
         conn.commit()
         flash("比赛已重新开启" if changed else "比赛未发生变化", "success")
@@ -1206,6 +1807,15 @@ def admin_match_reopen(match_id):
 @login_required
 def admin_match_stats(match_id):
     conn = get_db()
+    if is_managed_match(conn, match_id):
+        conn.close()
+        if request.method == "POST":
+            if request.is_json:
+                from blueprints.match_operations import managed_operation
+
+                return managed_operation(match_id, "stats")
+            return "请在比赛运营中选择实际局、选手和统计版本，旧表单不能覆盖整场统计。", 409
+        return redirect(url_for("admin.managed_match_operate", match_id=match_id) + "#stats")
     if request.method == "POST":
         # 取得写锁后再读取状态、阵容和统计，避免保存期间读到旧状态。
         conn.execute("BEGIN IMMEDIATE")
@@ -1223,47 +1833,42 @@ def admin_match_stats(match_id):
 
     team1_players = stats_editor_players(conn, match, 1)
     team2_players = stats_editor_players(conn, match, 2)
+    sides = {1: team1_players, 2: team2_players}
 
-    existing_stats = conn.execute(
+    stats_by_map = {}
+    for row in conn.execute(
         """SELECT * FROM match_stats
            WHERE match_id=? AND COALESCE(data_status, 'final') <> 'superseded'""",
         (match_id,),
-    ).fetchall()
+    ):
+        if key := normalize_map_key(row["map_name"]):
+            stats_by_map.setdefault(key, []).append(row)
     total_played = (match["team1_score"] or 0) + (match["team2_score"] or 0)
     bo = match["bo_format"] or "BO3"
     bo_max = {"BO1": 1, "BO3": 3, "BO5": 5}.get(bo, 3)
-    map_names = [match["map1"], match["map2"], match["map3"], match["map4"], match["map5"]]
-    map_score_sums = [
-        (match["map1_t1"] or 0) + (match["map1_t2"] or 0),
-        (match["map2_t1"] or 0) + (match["map2_t2"] or 0),
-        (match["map3_t1"] or 0) + (match["map3_t2"] or 0),
-        (match["map4_t1"] or 0) + (match["map4_t2"] or 0),
-        (match["map5_t1"] or 0) + (match["map5_t2"] or 0),
-    ]
-    has_map_flag = [
-        True,
-        True,
-        bool(match["has_map3"]),
-        bool(row_get(match, "has_map4", 1)),
-        bool(row_get(match, "has_map5", 1)),
-    ]
     maps = []
-    for i, mn in enumerate(map_names):
-        if i >= bo_max:
-            continue
-        is_active = (
-            (i < total_played or map_score_sums[i] > 0) if total_played > 0 else has_map_flag[i]
-        )
+    for slot in range(1, bo_max + 1):
+        mn = match[f"map{slot}"]
+        rounds = (match[f"map{slot}_t1"] or 0) + (match[f"map{slot}_t2"] or 0)
+        if total_played > 0:
+            is_active = slot <= total_played or rounds > 0
+        else:
+            is_active = slot <= 2 or match.get(f"has_map{slot}", 1)
         if not is_active:
             continue
-        map_stats = {s["player_id"]: s for s in existing_stats if s["map_name"] == mn}
+        key = normalize_map_key(mn)
+        existing_map = stats_by_map.get(key, [])
+        map_stats = {s["player_id"]: s for s in existing_map}
         maps.append(
             {
                 "name": mn,
                 "disabled": not mn,
                 "has_data": len(map_stats) > 0,
                 "stats": map_stats,
-                "index": i,
+                "index": slot - 1,
+                "key": key,
+                "rounds": rounds,
+                "revision": manual_map_revision(match, mn, sides, existing_map),
             }
         )
     if not maps:
@@ -1277,60 +1882,33 @@ def admin_match_stats(match_id):
             flash("已结束比赛的 Demo 数据不可修改", "error")
             conn.close()
             return redirect(url_for("admin.admin_match_stats", match_id=match_id))
-        map_name = request.form.get("map_name", "")
+        key = normalize_map_key(request.form.get("map_name", ""))
+        selected = next((m for m in maps if not m["disabled"] and m["key"] == key), None)
         try:
-            affected_player_ids = {
-                row["player_id"]
-                for row in conn.execute(
-                    """SELECT DISTINCT player_id
-                       FROM match_stats
-                       WHERE match_id=? AND map_name=?""",
-                    (match_id, map_name),
-                ).fetchall()
-                if row["player_id"]
-            }
-            if not map_name or map_name not in [name for name in map_names if name]:
+            if selected is None:
                 raise ValueError("请选择本场已有地图")
-            rounds = 0
-            for mn, t1, t2 in [
-                (match["map1"], match["map1_t1"], match["map1_t2"]),
-                (match["map2"], match["map2_t1"], match["map2_t2"]),
-                (match["map3"], match["map3_t1"], match["map3_t2"]),
-                (match["map4"], match["map4_t1"], match["map4_t2"]),
-                (match["map5"], match["map5_t1"], match["map5_t2"]),
-            ]:
-                if map_name == mn:
-                    rounds = (t1 or 0) + (t2 or 0)
-                    break
-            if rounds <= 0:
-                raise ValueError("该地图比分尚未确认，不能按旧的 30 回合默认值保存")
-            rows, changed = prepare_manual_map_rows(
-                match,
-                map_name,
-                rounds,
-                {1: team1_players, 2: team2_players},
-                [row for row in existing_stats if row["map_name"] == map_name],
-                request.form,
+            if request.form.get("stats_revision") != selected["revision"]:
+                raise StatsRevisionConflict("该地图的统计、比分或阵容已更新，请刷新页面核对后再保存")
+            affected_player_ids = save_manual_map_stats(
+                conn, match, selected["name"], selected["rounds"], sides,
+                stats_by_map.get(key, []), request.form,
             )
-            if changed:
-                write_manual_map_revision(conn, match_id, map_name, rows)
-            affected_player_ids.update(row["player_id"] for row in rows)
             refresh_player_performance(conn, affected_player_ids)
             conn.commit()
-            flash(f"{map_name} 数据已保存", "success")
+            flash(f"{selected['name']} 数据已保存", "success")
         except Exception as e:
             conn.rollback()
             flash(f"数据保存失败：{str(e)}", "error")
-            response_status = 400
+            response_status = 409 if isinstance(e, StatsRevisionConflict) else 400
             # 只回填本次提交地图的可编辑数字，不能靠浏览器草稿来保住整张表。
-            for tab_index, map_entry in enumerate(maps):
-                if map_entry["name"] != map_name or map_entry["disabled"]:
-                    continue
-                active_tab = tab_index
-                map_entry["server_rejected"] = True
-                for player in list(team1_players) + list(team2_players):
+            if selected is not None:
+                active_tab = maps.index(selected)
+                selected["server_rejected"] = True
+                # 被拒的旧表单不能拿到新版本号后再次覆盖；刷新后才重新核对。
+                selected["revision"] = request.form.get("stats_revision", "")
+                for player in team1_players + team2_players:
                     player_id = player["id"]
-                    saved = map_entry["stats"].get(player_id)
+                    saved = selected["stats"].get(player_id)
                     values = (
                         dict(saved)
                         if saved
@@ -1345,19 +1923,11 @@ def admin_match_stats(match_id):
                             "headshot_percentage": 50,
                         }
                     )
-                    for field, column in (
-                        ("kills", "kills"),
-                        ("deaths", "deaths"),
-                        ("assists", "assists"),
-                        ("adr", "adr"),
-                        ("impact", "impact"),
-                        ("kast", "kast"),
-                        ("hs", "headshot_percentage"),
-                    ):
+                    for field, (column, _, _) in FORM_FIELDS.items():
                         field_name = f"{field}_{player_id}"
                         if field_name in request.form:
                             values[column] = request.form[field_name]
-                    map_entry["stats"][player_id] = values
+                    selected["stats"][player_id] = values
         else:
             conn.close()
             return redirect(url_for("admin.admin_match_stats", match_id=match_id))
@@ -1378,6 +1948,17 @@ def admin_match_stats(match_id):
 @login_required
 def admin_import_demo(match_id):
     conn = get_db()
+    if is_managed_match(conn, match_id):
+        if request.method == "GET":
+            conn.close()
+            return redirect(url_for("admin.managed_match_operate", match_id=match_id) + "#demos")
+        has_run = conn.execute("SELECT 1 FROM map_runs r JOIN scheduled_maps s USING(scheduled_map_id) WHERE s.match_id=? LIMIT 1", (match_id,)).fetchone()
+        conn.close()
+        if not has_run:
+            return "本场尚没有可以关联录像的实际开局。", 409
+        from blueprints.match_operation_demos import managed_import_post
+
+        return managed_import_post(match_id)
     match = conn.execute(
         """SELECT m.*, t1.name AS team1_name, t2.name AS team2_name,
         e.name AS event_name, e.short_name AS event_short_name

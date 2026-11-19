@@ -1,7 +1,9 @@
 """Run or check 80GOTV database upgrades."""
 
 import argparse
+import sqlite3
 import sys
+from contextlib import closing
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -9,18 +11,26 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 # 必须先完成上面的 sys.path 处理，项目模块才可导入，故此处豁免 E402。
-from models import CURRENT_SCHEMA_VERSION, get_db, init_tables  # noqa: E402
+from config import Config  # noqa: E402
+from models import init_tables, supported_schema_version  # noqa: E402
+from site_core.database import get_db, using_turso  # noqa: E402
 
 
 def current_version():
-    conn = get_db()
-    try:
+    if using_turso():
+        connection = get_db()
+    else:
+        path = Path(Config.DATABASE).resolve()
+        if not path.exists():
+            return 0
+        connection = sqlite3.connect(path.as_uri() + "?mode=ro", uri=True)
+    with closing(connection) as conn:
+        if not conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='schema_migrations'"
+        ).fetchone():
+            return 0
         row = conn.execute("SELECT MAX(version) FROM schema_migrations").fetchone()
         return int(row[0] or 0)
-    except Exception:
-        return 0
-    finally:
-        conn.close()
 
 
 def main():
@@ -29,8 +39,9 @@ def main():
     args = parser.parse_args()
     before = current_version()
     if args.check:
-        if before != CURRENT_SCHEMA_VERSION:
-            raise SystemExit(f"数据库版本不正确：当前 {before}，代码需要 {CURRENT_SCHEMA_VERSION}")
+        expected = supported_schema_version(remote=using_turso())
+        if before != expected:
+            raise SystemExit(f"数据库版本不正确：当前 {before}，代码需要 {expected}")
         print(f"数据库版本正常：{before}")
         return
     init_tables()

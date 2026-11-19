@@ -1,12 +1,15 @@
 """赛事列表、详情、报名和赛事统计页面。"""
 
 import json
+import time
 from datetime import datetime
+from functools import lru_cache
 from zoneinfo import ZoneInfo
 
 from flask import (
     flash,
     jsonify,
+    make_response,
     redirect,
     render_template,
     request,
@@ -17,11 +20,13 @@ from flask import (
 
 from config import BASE_DIR
 from models import get_db
-from services.award_service import (
-    build_event_award_poster,
-    find_event_award_player,
-    list_event_award_players,
+from services.arg_event_service import (
+    ARG_EVENT_PATH,
+    ARG_UNAVAILABLE_ALT,
+    event_display_values,
+    is_arg_event,
 )
+from services.award_service import build_event_award_poster
 from services.match_roster_service import (
     match_player_slots,
     match_side_identity,
@@ -30,18 +35,25 @@ from services.match_roster_service import (
     resolve_match_roster,
 )
 from services.match_service import add_effective_event_status, supplement_temp_teams
-from services.performance_service import weighted_average_sql
+from services.performance_service import stat_average_sql
+from services.player_awards_service import find_event_award_player, list_event_award_players
 from services.steam_playtime_service import (
     attach_latest_playtime,
     build_balanced_assignments,
     build_balanced_roster_plan,
     refresh_registration_playtimes,
 )
+from site_core.events import public as event_rosters
+from site_core.events import reads as event_reads
+from site_core.events import registration as signup
+from site_core.host import HostError, is_managed_event
+from site_core.matches.bracket_display import public_bracket_data
 from utils.db_helpers import remove_uploaded_team_logo, save_uploaded_team_logo
 from utils.helpers import event_path, resolve_event_ref, team_abbr
 from utils.match_utils import get_sql_effective_status
 from utils.rate_limiter import rate_limit
 from utils.stats_display import resolve_match_team_side
+from utils.stats_storage import stat_map_count_sql, stat_map_key_sql, stats_relation
 from utils.web_helpers import csrf_required
 from web_app import app
 
@@ -65,6 +77,8 @@ def _bp_window_is_open(match):
 
 
 def _load_event_registrations(conn, event_id):
+    if is_managed_event(conn, event_id):
+        return event_reads.registration_groups(conn, event_id)
     regs = conn.execute(
         """
         SELECT r.*, u.username AS creator_name,
@@ -108,6 +122,8 @@ def _load_event_registrations(conn, event_id):
 
 
 def _load_individual_registrations(conn, event_id, current_user_id=None):
+    if is_managed_event(conn, event_id):
+        return event_reads.individual_registrations(conn, event_id, current_user_id)
     rows = conn.execute(
         """
         SELECT ir.*,
@@ -224,13 +240,14 @@ def _registration_success(event_id, message):
 
     conn = get_db()
     event = conn.execute("SELECT * FROM events WHERE id=?", (event_id,)).fetchone()
-    event = add_effective_event_status(event) if event else None
+    event = add_effective_event_status(event_reads.public_event(conn, event)) if event else None
     current_user = _get_registration_user(conn)
     current_user_id = current_user["id"] if current_user else None
     registrations = _load_event_registrations(conn, event_id) if event else []
     individual_registration = (
         _load_individual_registrations(conn, event_id, current_user_id) if event else None
     )
+    flags = _managed_registration_flags(conn, event, individual_registration) if event else {}
     conn.close()
     html = render_template(
         "_event_registration_list.html",
@@ -240,6 +257,7 @@ def _registration_success(event_id, message):
         individual_registration_open=_individual_registration_is_open(),
         substitute_registration_open=bool(event and event["effective_event_status"] != "completed"),
         current_user=current_user,
+        **flags,
     )
     return jsonify({"success": True, "message": message, "html": html})
 
@@ -280,7 +298,33 @@ def _registration_slot_is_open(slot):
 
 
 def _begin_registration_write(conn):
-    conn.execute("BEGIN IMMEDIATE")
+    if not conn.in_transaction:
+        conn.execute("BEGIN IMMEDIATE")
+
+
+def _managed_registration_flags(conn, event, individual):
+    if not is_managed_event(conn, event["id"]):
+        return {}
+    closed = event["effective_event_status"] == "completed" or bool(
+        conn.execute(
+            "SELECT archived_at IS NOT NULL FROM event_registration_control WHERE event_id=?",
+            (event["id"],),
+        ).fetchone()[0]
+    )
+    if closed:
+        event["registration_open"] = 0
+    if event["registration_open"]:
+        individual["has_assignment"] = any(
+            e["assignment_status"] == "assigned" for e in individual["entries"]
+        )
+    return dict(
+        entrant_slice_event=True,
+        entrant_registration_closed=closed,
+        entrant_reserve_signup_open=not closed,
+        entrant_reserve_only=not closed
+        and not event["registration_open"]
+        and event["effective_event_status"] != "upcoming",
+    )
 
 
 def _rollback_registration_write(conn):
@@ -288,6 +332,194 @@ def _rollback_registration_write(conn):
         conn.rollback()
     finally:
         conn.close()
+
+
+def _managed_registration_write(conn, event_id, **url_fields):
+    """Choose the event's only writer before interpreting old form IDs."""
+    _begin_registration_write(conn)
+    op = request.endpoint
+    if not is_managed_event(conn, event_id):
+        if op in ("event_randomize_individual_teams", "event_finalize_individual_teams"):
+            # Legacy Steam refresh can take time. Any real old signups disqualify an opt-in.
+            conn.rollback()
+        return None
+    account, admin, form = session.get("user_id"), session.get("admin_id"), request.form
+    now = int(time.time())
+    new_logo = old_logo = None
+    entry_id = url_fields.get("entry_id")
+    reg_id = url_fields["reg_id"] if "reg_id" in url_fields else None
+    try:
+        if op == "event_register":
+            own = form.get("my_slot", -1, type=int)
+            held = {
+                i: (form.get(f"pname_{i}", ""), form.get(f"psteam_{i}", ""))
+                for i in range(5)
+                if i != own and (form.get(f"pname_{i}") or form.get(f"psteam_{i}"))
+            }
+            reg_id = signup.create_group(
+                conn,
+                event_id,
+                session["user_id"],
+                form.get("team_name", ""),
+                roster_slot=own,
+                reservations=held,
+                now=now,
+            )
+            message = "队伍创建成功"
+        elif op in ("event_register_individual", "event_register_substitute"):
+            pref = (form.get("preferred_registration_id") or "").strip()
+            if pref and (
+                not pref.isascii()
+                or not pref.isdecimal()
+                or len(pref) > 19
+                or int(pref) > 2**63 - 1
+            ):
+                raise HostError("候补意向队伍编号无效", 400)
+            origin = "individual" if op == "event_register_individual" else "independent_reserve"
+            signup.enroll(
+                conn,
+                event_id,
+                session["user_id"],
+                origin,
+                preferred_registration_id=int(pref) if pref else None,
+                now=now,
+            )
+            message = (
+                "个人报名成功，等待按游戏时长平衡分队"
+                if origin == "individual"
+                else "替补报名已保存"
+            )
+        elif op in ("event_withdraw_individual", "event_remove_individual_registration"):
+            if entry_id is not None:
+                signup.require_admin(conn, admin)
+            who = conn.execute(
+                """SELECT e.account_id FROM event_signup_entries e
+                 LEFT JOIN event_reserve_candidates c USING(event_id,player_id) WHERE e.event_id=?
+                 AND (e.registration_origin<>'group' OR c.player_id IS NOT NULL)
+                 AND """
+                + ("e.registration_entry_id=?" if entry_id is not None else "e.account_id=?"),
+                (event_id, entry_id if entry_id is not None else account),
+            ).fetchone()
+            if who is None:
+                raise HostError("没有找到本届的个人或候补报名", 404)
+            signup.withdraw(conn, event_id, who[0], now=now)
+            message = "报名已取消"
+        elif op == "event_randomize_individual_teams":
+            signup.require_admin(conn, admin)
+            raise HostError("本届在截止时正式分队，不重复抽签")
+        elif op == "event_finalize_individual_teams":
+            signup.require_admin(conn, admin)
+            conn.rollback()  # Release the ownership check before looking up Steam playtime.
+            event_rosters.process_due_event(conn, event_id, admin_id=admin)
+            message = "本届正式分队已完成"
+        elif op == "event_join_slot":
+            signup.join_group(
+                conn,
+                event_id,
+                url_fields["reg_id"],
+                session["user_id"],
+                url_fields["slot"],
+                now=now,
+            )
+            message = "加入成功"
+        elif op == "event_leave_slot":
+            signup.leave_slot(
+                conn, event_id, url_fields["reg_id"], url_fields["slot"], account, now=now
+            )
+            message = "已退出本人的位置"
+        elif op == "event_registration_rename":
+            name = form.get("team_name", "").strip()
+            if not 2 <= len(name) <= 40:
+                raise HostError("队伍名需要为 2 至 40 个字符", 400)
+            signup.rename_group(
+                conn, event_id, url_fields["reg_id"], account, name, admin_id=admin, now=now
+            )
+            message = "队伍已更名"
+        elif op == "event_registration_update_member":
+            signup.set_reservation(
+                conn,
+                event_id,
+                url_fields["reg_id"],
+                account,
+                url_fields["slot"],
+                form.get("player_name", ""),
+                form.get("steam_id", ""),
+                admin_id=admin,
+                now=now,
+            )
+            message = "位置已更新"
+        elif op in ("event_registration_remove_member", "event_registration_transfer_captain"):
+            action = "remove" if op == "event_registration_remove_member" else "captain"
+            signup.manage_group(
+                conn,
+                event_id,
+                url_fields["reg_id"],
+                account,
+                action,
+                admin_id=admin,
+                slot=url_fields["slot"],
+                now=now,
+            )
+            message = "位置已清空" if action == "remove" else "队长已移交"
+        elif op in (
+            "event_registration_upload_logo",
+            "event_registration_remove_logo",
+            "event_registration_dissolve",
+        ):
+            previous = signup.authorize_group_edit(
+                conn, event_id, reg_id, account, admin_id=admin, now=now
+            )
+            old_logo = previous["logo"]
+            if old_logo and (
+                match_snapshot_uses_logo(conn, old_logo)
+                or conn.execute(
+                    "SELECT 1 FROM match_rosters WHERE team_logo=? LIMIT 1", (old_logo,)
+                ).fetchone()
+            ):
+                old_logo = None
+            if op == "event_registration_dissolve":
+                signup.manage_group(
+                    conn, event_id, reg_id, account, "dissolve", admin_id=admin, now=now
+                )
+                message = "队伍已解散"
+            else:
+                signup.manage_group(
+                    conn, event_id, reg_id, account, "logo", admin_id=admin, now=now
+                )
+                message = "队标已移除" if op == "event_registration_remove_logo" else "队标已更新"
+        else:
+            raise HostError("未识别的报名操作", 400)
+        if op == "event_registration_upload_logo" or (
+            op == "event_register" and request.files.get("team_logo")
+        ):
+            new_logo = save_uploaded_team_logo(request.files.get("team_logo"), BASE_DIR)
+            if not new_logo:
+                raise HostError("队标无效，请上传不超过 10MB 的 PNG、JPG 或 GIF 图片", 400)
+            signup.manage_group(
+                conn, event_id, reg_id, account, "logo", admin_id=admin, logo=new_logo, now=now
+            )
+        conn.commit()
+    except HostError as exc:
+        conn.rollback()
+        if new_logo:
+            remove_uploaded_team_logo(BASE_DIR, new_logo)
+        if op != "event_register":
+            return _registration_failure(event_id, str(exc), exc.status)
+        flash(str(exc), "error")
+        return redirect(url_for("event_detail", event_id=event_id))
+    except Exception:
+        conn.rollback()
+        if new_logo:
+            remove_uploaded_team_logo(BASE_DIR, new_logo)
+        raise
+    finally:
+        conn.close()
+    if old_logo:
+        remove_uploaded_team_logo(BASE_DIR, old_logo)
+    if op == "event_register":
+        flash(message, "success")
+        return redirect(url_for("event_detail", event_id=event_id))
+    return _registration_success(event_id, message)
 
 
 def _move_individual_registration_to_reserve(conn, event_id, user_id):
@@ -302,6 +534,25 @@ def _move_individual_registration_to_reserve(conn, event_id, user_id):
         """,
         (event_id, user_id),
     )
+
+
+@app.route(ARG_EVENT_PATH)
+def arg_unavailable():
+    return make_response(render_template("arg_unavailable.html", alt_line=ARG_UNAVAILABLE_ALT), 503)
+
+
+@app.get("/api/events/<int:event_id>/display")
+def event_display(event_id):
+    if not rate_limit("event_display", 240, 60, by_ip=True):
+        return jsonify({"ok": False}), 429
+    conn = get_db()
+    try:
+        event = conn.execute("SELECT name,slug FROM events WHERE id=?", (event_id,)).fetchone()
+    finally:
+        conn.close()
+    if not event or not is_arg_event(event):
+        return jsonify({"ok": False}), 404
+    return jsonify({"values": event_display_values(request.args.get("after", ""))})
 
 
 @app.route("/events")
@@ -330,7 +581,8 @@ def events_list():
         GROUP BY e.id
         ORDER BY e.start_date DESC
     """).fetchall()
-    events = [add_effective_event_status(e) for e in events]
+    events = [add_effective_event_status(event_reads.public_event(conn, e)) for e in events]
+    events.sort(key=lambda event: not is_arg_event(event))
 
     # 状态筛选
     if status_filter in ("ongoing", "completed", "upcoming"):
@@ -347,18 +599,24 @@ def events_list():
 def event_detail(event_id):
     """赛事详情"""
     conn = get_db()
+    # A settlement changes both the score and the downstream participant in one commit.
+    if not conn.in_transaction:
+        conn.execute("BEGIN")
     event_ref = str(event_id)
     event = resolve_event_ref(conn, event_ref)
 
     if not event:
         conn.close()
         return "赛事不存在", 404
+    if is_arg_event(event):
+        conn.close()
+        return redirect(ARG_EVENT_PATH, code=302)
     if event["slug"] and event_ref != event["slug"]:
         conn.close()
         return redirect(event_path(event), code=301)
     event_id = event["id"]
 
-    event = add_effective_event_status(event)
+    event = add_effective_event_status(event_reads.public_event(conn, event))
 
     matches = conn.execute(
         f"""
@@ -402,11 +660,11 @@ def event_detail(event_id):
                 }
 
     # 已结束的场次只展示该场表现；未开赛的场次使用本赛事已有的数据。
+    stats_source = stats_relation(conn)
     event_ratings = conn.execute(
         f"""
-        SELECT ms.player_id,
-               {weighted_average_sql("ms.rating", "ms.rounds_played")} AS rating
-        FROM match_stats ms
+        SELECT ms.player_id, {stat_average_sql("rating")} AS rating
+        FROM {stats_source} ms
         JOIN matches m ON m.id=ms.match_id
         WHERE m.event_id=? AND ms.player_id IS NOT NULL
           AND COALESCE(ms.data_status, 'final') <> 'superseded'
@@ -423,8 +681,8 @@ def event_detail(event_id):
         (row["match_id"], row["player_id"]): round(float(row["rating"]), 2)
         for row in conn.execute(
             f"""SELECT ms.match_id,ms.player_id,
-                       {weighted_average_sql("ms.rating", "ms.rounds_played")} AS rating
-                FROM match_stats ms JOIN matches m ON m.id=ms.match_id
+                       {stat_average_sql("rating")} AS rating
+                FROM {stats_source} ms JOIN matches m ON m.id=ms.match_id
                 WHERE m.event_id=? AND COALESCE(ms.data_status,'final')<>'superseded'
                 GROUP BY ms.match_id,ms.player_id""",
             (event_id,),
@@ -439,7 +697,11 @@ def event_detail(event_id):
                     if match["effective_status"] == "completed"
                     else rating_by_player.get(player.get("id"))
                 )
-    teams = list(team_map.values())
+    if is_managed_event(conn, event_id):
+        event["bracket_data"] = public_bracket_data(conn, event, matches)
+        teams = event_reads.event_team_cards(registrations)
+    else:
+        teams = list(team_map.values())
     teams.sort(key=lambda t: (t["is_temp"], t["name"]))
 
     # 构建 team_id → players 映射（供对阵图卡片悬停用）
@@ -481,6 +743,7 @@ def event_detail(event_id):
         event_id,
         current_user["id"] if current_user else None,
     )
+    flags = _managed_registration_flags(conn, event, individual_registration)
     conn.close()
 
     return render_template(
@@ -497,6 +760,7 @@ def event_detail(event_id):
         substitute_registration_open=event["effective_event_status"] != "completed",
         award_players=award_players,
         current_user=current_user,
+        **flags,
     )
 
 
@@ -522,14 +786,7 @@ def event_award_poster(event_id, award_type, player_id):
     if award_type not in ("MVP", "EVP"):
         return "荣誉类型不存在", 404
     conn = get_db()
-    medal = conn.execute(
-        """
-        SELECT 1 FROM player_medals
-        WHERE event_id=? AND player_id=? AND type=?
-    """,
-        (event_id, player_id, award_type),
-    ).fetchone()
-    if not medal:
+    if not find_event_award_player(conn, event_id, award_type, player_id=player_id):
         conn.close()
         return "该赛事没有这张数据图", 404
     buffer = build_event_award_poster(conn, BASE_DIR, event_id, player_id, award_type)
@@ -551,6 +808,9 @@ def event_register(event_id):
         return redirect(url_for("event_detail", event_id=event_id))
 
     conn = get_db()
+    managed = _managed_registration_write(conn, event_id)
+    if managed is not None:
+        return managed
     _begin_registration_write(conn)
     event = conn.execute("SELECT * FROM events WHERE id=?", (event_id,)).fetchone()
     if not event or not event["registration_open"]:
@@ -685,6 +945,9 @@ def event_register_individual(event_id):
         return _registration_failure(event_id, "请先登录后再报名", 401)
 
     conn = get_db()
+    managed = _managed_registration_write(conn, event_id)
+    if managed is not None:
+        return managed
     _begin_registration_write(conn)
     event = conn.execute("SELECT * FROM events WHERE id=?", (event_id,)).fetchone()
     if not event or not event["registration_open"]:
@@ -747,6 +1010,9 @@ def event_register_substitute(event_id):
         return _registration_failure(event_id, "报名操作过于频繁，请稍后再试", 429)
 
     conn = get_db()
+    managed = _managed_registration_write(conn, event_id)
+    if managed is not None:
+        return managed
     _begin_registration_write(conn)
     event = conn.execute("SELECT * FROM events WHERE id=?", (event_id,)).fetchone()
     if not event:
@@ -879,6 +1145,9 @@ def event_withdraw_individual(event_id):
     if "user_id" not in session:
         return _registration_failure(event_id, "请先登录", 401)
     conn = get_db()
+    managed = _managed_registration_write(conn, event_id)
+    if managed is not None:
+        return managed
     _begin_registration_write(conn)
     entry = conn.execute(
         """
@@ -913,6 +1182,9 @@ def event_remove_individual_registration(event_id, entry_id):
     if "admin_id" not in session:
         return _registration_failure(event_id, "只有管理员可以移除个人报名", 403)
     conn = get_db()
+    managed = _managed_registration_write(conn, event_id, entry_id=entry_id)
+    if managed is not None:
+        return managed
     entry = conn.execute(
         """
         SELECT ir.*,
@@ -962,6 +1234,9 @@ def event_randomize_individual_teams(event_id):
     if "admin_id" not in session:
         return _registration_failure(event_id, "只有管理员可以进行平衡分队", 403)
     conn = get_db()
+    managed = _managed_registration_write(conn, event_id)
+    if managed is not None:
+        return managed
     event = conn.execute("SELECT id FROM events WHERE id=?", (event_id,)).fetchone()
     if not event:
         conn.close()
@@ -1063,6 +1338,9 @@ def event_finalize_individual_teams(event_id):
         return _registration_failure(event_id, "只有管理员可以完成正式分队", 403)
 
     conn = get_db()
+    managed = _managed_registration_write(conn, event_id)
+    if managed is not None:
+        return managed
     event = conn.execute("SELECT id FROM events WHERE id=?", (event_id,)).fetchone()
     if not event:
         conn.close()
@@ -1313,6 +1591,9 @@ def event_join_slot(event_id, reg_id, slot):
         return _registration_failure(event_id, "该位置不存在", 404)
 
     conn = get_db()
+    managed = _managed_registration_write(conn, event_id, reg_id=reg_id, slot=slot)
+    if managed is not None:
+        return managed
     _begin_registration_write(conn)
     user = conn.execute(
         "SELECT username, steam_id64 FROM users WHERE id=?", (session["user_id"],)
@@ -1393,6 +1674,9 @@ def event_leave_slot(event_id, reg_id, slot):
         return _registration_failure(event_id, "该位置不存在", 404)
 
     conn = get_db()
+    managed = _managed_registration_write(conn, event_id, reg_id=reg_id, slot=slot)
+    if managed is not None:
+        return managed
     _begin_registration_write(conn)
     slot_row = conn.execute(
         """
@@ -1445,6 +1729,9 @@ def event_leave_slot(event_id, reg_id, slot):
 def event_registration_rename(event_id, reg_id):
     """队长或管理员直接修改报名队伍名称。"""
     conn = get_db()
+    managed = _managed_registration_write(conn, event_id, reg_id=reg_id)
+    if managed is not None:
+        return managed
     _begin_registration_write(conn)
     registration = _registration_for_management(conn, event_id, reg_id)
     if not _can_manage_registration(registration):
@@ -1477,6 +1764,9 @@ def event_registration_rename(event_id, reg_id):
 def event_registration_upload_logo(event_id, reg_id):
     """队长或管理员上传、替换报名队伍的队标。"""
     conn = get_db()
+    managed = _managed_registration_write(conn, event_id, reg_id=reg_id)
+    if managed is not None:
+        return managed
     registration = _registration_for_management(conn, event_id, reg_id)
     if not _can_manage_registration(registration):
         conn.close()
@@ -1518,6 +1808,9 @@ def event_registration_upload_logo(event_id, reg_id):
 def event_registration_remove_logo(event_id, reg_id):
     """队长或管理员移除报名队伍的队标。"""
     conn = get_db()
+    managed = _managed_registration_write(conn, event_id, reg_id=reg_id)
+    if managed is not None:
+        return managed
     registration = _registration_for_management(conn, event_id, reg_id)
     if not _can_manage_registration(registration):
         conn.close()
@@ -1539,6 +1832,9 @@ def event_registration_remove_logo(event_id, reg_id):
 def event_registration_dissolve(event_id, reg_id):
     """队长或管理员解散报名队伍。"""
     conn = get_db()
+    managed = _managed_registration_write(conn, event_id, reg_id=reg_id)
+    if managed is not None:
+        return managed
     registration = _registration_for_management(conn, event_id, reg_id)
     if not _can_manage_registration(registration):
         conn.close()
@@ -1547,7 +1843,7 @@ def event_registration_dissolve(event_id, reg_id):
     team_name = registration["team_name"]
     team_logo = registration["team_logo"]
     try:
-        conn.execute("BEGIN IMMEDIATE")
+        _begin_registration_write(conn)
         preserve_event_rosters(conn, event_id, reg_id)
         retain_logo = match_snapshot_uses_logo(conn, team_logo)
         member_rows = conn.execute(
@@ -1586,6 +1882,9 @@ def event_registration_remove_member(event_id, reg_id, slot):
         return _registration_failure(event_id, "该位置不存在", 404)
 
     conn = get_db()
+    managed = _managed_registration_write(conn, event_id, reg_id=reg_id, slot=slot)
+    if managed is not None:
+        return managed
     _begin_registration_write(conn)
     registration = _registration_for_management(conn, event_id, reg_id)
     if not _can_manage_registration(registration):
@@ -1628,6 +1927,9 @@ def event_registration_update_member(event_id, reg_id, slot):
         return _registration_failure(event_id, "该位置不存在", 404)
 
     conn = get_db()
+    managed = _managed_registration_write(conn, event_id, reg_id=reg_id, slot=slot)
+    if managed is not None:
+        return managed
     _begin_registration_write(conn)
     registration = _registration_for_management(conn, event_id, reg_id)
     if not _can_manage_registration(registration):
@@ -1686,6 +1988,9 @@ def event_registration_transfer_captain(event_id, reg_id, slot):
         return _registration_failure(event_id, "该位置不存在", 404)
 
     conn = get_db()
+    managed = _managed_registration_write(conn, event_id, reg_id=reg_id, slot=slot)
+    if managed is not None:
+        return managed
     registration = _registration_for_management(conn, event_id, reg_id)
     if not registration:
         conn.close()
@@ -1757,9 +2062,9 @@ def _event_player_teams(conn, event_id, matches):
     """每名选手在本赛事代表的队伍（按每场数据记的是哪一方）：换过队的记 None（页面写“-”），认不出哪一方的记录不算。"""
     found = {}
     records = conn.execute(
-        """
+        f"""
         SELECT ms.player_id, ms.match_id, ms.team_id, ms.match_team_side
-        FROM match_stats ms
+        FROM {stats_relation(conn)} ms
         JOIN matches m ON ms.match_id=m.id
         WHERE m.event_id=? AND ms.player_id IS NOT NULL
           AND COALESCE(ms.data_status, 'final') <> 'superseded'
@@ -1821,6 +2126,27 @@ def _event_team_rankings(matches):
     )
 
 
+class _KnownZeroRatio(float):
+    def __bool__(self):
+        # The original template uses truthiness to decide if a K/D exists.
+        return True
+
+
+@lru_cache(maxsize=1)
+def _event_stats_environment(environment):
+    """Let the original numeric cells display missing stats without changing other pages."""
+    default_format = environment.filters["format"]
+
+    def format_metric(pattern, *args, **kwargs):
+        if pattern in ("%.1f", "%.2f") and args == (None,) and not kwargs:
+            return "-"
+        return default_format(pattern, *args, **kwargs)
+
+    local = environment.overlay()
+    local.filters = {**local.filters, "format": format_metric}
+    return local
+
+
 @app.route("/events/<event_id>/stats")
 def event_stats(event_id):
     """赛事数据统计"""
@@ -1830,26 +2156,30 @@ def event_stats(event_id):
     if not event:
         conn.close()
         return "赛事不存在", 404
+    if is_arg_event(event):
+        conn.close()
+        return redirect(ARG_EVENT_PATH, code=302)
     if event["slug"] and event_ref != event["slug"]:
         conn.close()
         return redirect(event_path(event) + "/stats", code=301)
     event_id = event["id"]
 
     # 选手排行
+    stats_source = stats_relation(conn)
     rankings = conn.execute(
         f"""
         SELECT p.nickname, p.id,
                CASE WHEN COUNT(DISTINCT ms.team_id)=1 THEN MAX(t.short_name) END AS team,
-               {weighted_average_sql("ms.rating", "ms.rounds_played")} AS rating,
+               {stat_average_sql("rating")} AS rating,
                (SUM(ms.kills) * 1.0 / NULLIF(SUM(ms.deaths), 0)) AS kd,
-               {weighted_average_sql("ms.adr", "ms.rounds_played")} AS adr,
-               {weighted_average_sql("ms.kast", "ms.rounds_played")} AS kast,
-               {weighted_average_sql("ms.impact", "ms.rounds_played")} AS impact,
-               {weighted_average_sql("ms.headshot_percentage", "ms.kills")} AS hs,
+               {stat_average_sql("adr")} AS adr,
+               {stat_average_sql("kast")} AS kast,
+               {stat_average_sql("impact")} AS impact,
+               {stat_average_sql("headshot_percentage", weight="kills")} AS hs,
                SUM(ms.clutches_won) AS clutch,
                COUNT(DISTINCT ms.match_id) AS matches,
-               COUNT(ms.id) AS maps
-        FROM match_stats ms
+               {stat_map_count_sql()} AS maps
+        FROM {stats_source} ms
         JOIN players p ON ms.player_id=p.id
         LEFT JOIN teams t ON ms.team_id=t.id
         JOIN matches m ON ms.match_id=m.id
@@ -1864,26 +2194,34 @@ def event_stats(event_id):
     player_teams = _event_player_teams(conn, event_id, matches)
     # 认得出比赛里是哪一方的按比赛取；一条都认不出的才用正式队伍库的简称
     rankings = [
-        dict(row, team=player_teams[row["id"]] if row["id"] in player_teams else row["team"])
+        dict(
+            row,
+            team=player_teams[row["id"]] if row["id"] in player_teams else row["team"],
+            kd=_KnownZeroRatio(0) if row["kd"] == 0 else row["kd"],
+        )
         for row in rankings
     ]
 
     # 地图统计
     map_stats = conn.execute(
         f"""
-        SELECT ms.map_name,
-               COUNT(DISTINCT ms.match_id) AS times_played,
-               {weighted_average_sql("ms.rating", "ms.rounds_played")} AS avg_rating,
+        SELECT MIN(ms.map_name) AS map_name,
+               {stat_map_count_sql(per_player=False)} AS times_played,
+               {stat_average_sql("rating")} AS avg_rating,
                (SUM(ms.kills) * 1.0 / NULLIF(SUM(ms.deaths), 0)) AS avg_kd
-        FROM match_stats ms
+        FROM {stats_source} ms
         JOIN matches m ON ms.match_id=m.id
         WHERE m.event_id=? AND ms.map_name != '' AND ms.map_name IS NOT NULL
           AND COALESCE(ms.data_status, 'final') <> 'superseded'
-        GROUP BY ms.map_name
+        GROUP BY CASE WHEN ms.scheduled_map_id IS NULL THEN ms.map_name ELSE {stat_map_key_sql()} END
         ORDER BY times_played DESC
     """,
         (event_id,),
     ).fetchall()
+    map_stats = [
+        dict(row, avg_kd=_KnownZeroRatio(0) if row["avg_kd"] == 0 else row["avg_kd"])
+        for row in map_stats
+    ]
 
     # 队伍数据：只算已结束的比赛，临时组队、报名队伍也算
     team_rankings = _event_team_rankings(matches)
@@ -1891,7 +2229,7 @@ def event_stats(event_id):
     team_count = _event_team_count(conn, event_id) or event["total_teams"]
     conn.close()
     return render_template(
-        "event_stats.html",
+        _event_stats_environment(app.jinja_env).get_template("event_stats.html"),
         event=event,
         rankings=rankings,
         map_stats=map_stats,

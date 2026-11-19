@@ -124,6 +124,11 @@ def ensure_bp_started(conn, match):
             state = json.loads(raw_state) if isinstance(raw_state, str) else raw_state
             changed = normalize_bp_state(state)
             if changed:
+                from site_core.host import is_managed_match
+
+                if is_managed_match(conn, match["id"]):
+                    # Hosted reads can normalize the response but cannot write BP or maps.
+                    return state, False
                 updated = conn.execute(
                     "UPDATE matches SET bp_state=? WHERE id=? AND bp_state=?",
                     (json.dumps(state, ensure_ascii=False), match["id"], raw_state),
@@ -673,11 +678,14 @@ def save_bp_to_match(conn, match_id, state):
     if len({_storage_map_name(name) for name in map_order}) != len(map_order):
         return False
 
+    from site_core.host import is_managed_match
+
+    managed = is_managed_match(conn, match_id)
     try:
         from services.match_service import supplement_temp_teams
 
         match_row = conn.execute(
-            """SELECT m.team1_id, m.team2_id, m.team1_players, m.team2_players,
+            """SELECT m.*,
                       t1.name AS team1_name, t2.name AS team2_name,
                       t1.short_name AS t1s, t2.short_name AS t2s
                FROM matches m
@@ -690,6 +698,8 @@ def save_bp_to_match(conn, match_id, state):
         team1_name = filled.get("team1_name") or "TBD"
         team2_name = filled.get("team2_name") or "TBD"
     except Exception:
+        if managed:
+            raise
         team1_name, team2_name = "TBD", "TBD"
 
     # 构建更新数据
@@ -699,6 +709,27 @@ def save_bp_to_match(conn, match_id, state):
         "bp_state": json.dumps(state, ensure_ascii=False),
         "map_pool": json.dumps(state.get("initial_pool", ALL_MAPS), ensure_ascii=False),
     }
+
+    if managed:
+        from site_core.matches.maps import save_bp_plan
+
+        picks = {pick["map"]: pick for pick in state["picks"]}
+        if len(picks) != len(map_order) or any(name not in picks for name in map_order):
+            return False
+        plan = []
+        for name in map_order:
+            pick = picks[name]
+            picker = pick.get("picked_by")
+            chooser = pick.get("side_team") or _opposite_team(picker)
+            if picker == "remaining" and bo == "BO1" and not chooser:
+                chooser = _bo1_remaining_side_team(state)
+            plan.append((_storage_map_name(name), picker, chooser, pick.get("side")))
+        save_bp_plan(conn, match_id, bo, plan)
+        conn.execute(
+            "UPDATE matches SET bp_process=?,bp_state=?,map_pool=? WHERE id=?",
+            (updates["bp_process"], updates["bp_state"], updates["map_pool"], match_id),
+        )
+        return True
 
     # 先清空旧 BP 留下的地图名和选图方，避免从 BO5 改成 BO1 后残留旧图。
     for i in range(1, 6):

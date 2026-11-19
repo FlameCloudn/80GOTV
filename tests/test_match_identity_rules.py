@@ -126,6 +126,17 @@ class MatchIdentityRulesTests(ProDatabaseCase):
         )
         self.assertEqual([player["slot"] for player in actual_players], [1, 3])
 
+    def test_live_identity_omits_a_steam_account_assigned_to_both_teams(self):
+        registered = self._registered_roster()
+        match = self._match()
+        match.update(
+            team1_players=json.dumps(registered[:2]), team2_players=json.dumps([registered[0]])
+        )
+        profiles = _roster_profiles_by_steamid(self.conn, match)
+        sides = _roster_side_by_steamid(self.conn, match)
+        self.assertEqual({sid: p["team"] for sid, p in profiles.items()}, sides)
+        self.assertEqual([p["player_id"] for p in profiles.values()], [registered[1]])
+
     def test_custom_roster_does_not_invent_a_team_name_from_a_side_number(self):
         other = self.conn.execute(
             "INSERT INTO players(nickname) VALUES('Another Player')"

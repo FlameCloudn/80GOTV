@@ -344,6 +344,40 @@ class PublicBackendWorkflowTests(unittest.TestCase):
         self.assertNotIn("Traceback", response.get_data(as_text=True))
         self.assertEqual(self.client.get("/healthz", base_url="https://80gotv.cn").status_code, 200)
 
+    def test_directory_and_search_use_the_same_linked_account(self):
+        steam = "76561198000000111"
+        with closing(get_db()) as conn:
+            conn.execute(
+                "UPDATE players SET steam_id=?,is_bashizhong_student=1,group_username_override='LegacyAlias' WHERE id=?",
+                (steam, self.player_id),
+            )
+            conn.execute(
+                "UPDATE users SET steam_id64=?,group_username='OffsiteAlias',is_bashizhong_student=0 WHERE id=?",
+                (steam, self.user_id),
+            )
+            conn.execute(
+                """INSERT INTO users(username,password_hash,steam_id64,is_placeholder,is_bashizhong_student,group_username)
+                   VALUES('placeholder','unused',?,1,1,'DraftAlias')""",
+                (steam,),
+            )
+            conn.commit()
+        for alias in ("LegacyAlias", "DraftAlias", "OffsiteAlias"):
+            self.assertEqual(self.client.get("/api/search", query_string={"q": alias}).json["results"], [])
+            context, _ = self.rendered("/search?q=" + alias)
+            self.assertEqual(context["results"]["players"], [])
+        context, _ = self.rendered("/players")
+        directory = next(p for p in context["players"] if p["id"] == self.player_id)
+        self.assertEqual((directory["linked_user_id"], directory["is_bashizhong_student"]), (self.user_id, 0))
+        self.assertEqual(directory["group_username"], "")
+
+    def test_full_search_matches_article_body_but_suggestions_only_match_title(self):
+        with closing(get_db()) as conn:
+            conn.execute("INSERT INTO news(title,content) VALUES('赛事采访','专访正文关键词')")
+            conn.commit()
+        context, _ = self.rendered("/search?q=专访正文关键词")
+        self.assertEqual([n["title"] for n in context["results"]["news"]], ["赛事采访"])
+        self.assertEqual(self.client.get("/api/search?q=专访正文关键词").json["results"], [])
+
     def test_search_database_failure_closes_connection_and_is_not_an_empty_success(self):
         class TrackedConnection(sqlite3.Connection):
             closed = False

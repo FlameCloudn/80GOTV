@@ -3,41 +3,22 @@
 import argparse
 import os
 import shutil
-import sqlite3
 import sys
 import tempfile
 import time
 import zipfile
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 # 必须先完成上面的 sys.path 处理，项目模块才可导入，故此处豁免 E402。
-from services.backup_service import verify_backup  # noqa: E402
-
-ALLOWED_FILES = {"database/cs_site.db", "BACKUP_INFO.json"}
-ALLOWED_PREFIXES = ("static/avatars/", "static/uploads/", "static/demos/")
-
-
-def _validated_member_path(filename):
-    normalized = filename.replace("\\", "/")
-    member_path = PurePosixPath(normalized)
-    if member_path.is_absolute() or ".." in member_path.parts:
-        raise RuntimeError(f"备份包含不安全路径：{filename}")
-    member_name = member_path.as_posix().rstrip("/")
-    allowed_directory = member_name in {"database", "static"} or any(
-        member_name == prefix.rstrip("/") or prefix.rstrip("/").startswith(f"{member_name}/")
-        for prefix in ALLOWED_PREFIXES
-    )
-    if (
-        member_name not in ALLOWED_FILES
-        and not any(member_name.startswith(prefix) for prefix in ALLOWED_PREFIXES)
-        and not allowed_directory
-    ):
-        raise RuntimeError(f"备份包含未知内容：{filename}")
-    return member_path
+from services.backup_service import (  # noqa: E402
+    extract_verified_database,
+    read_backup_manifest,
+    verify_snapshot,
+)
 
 
 def restore_to_empty_directory(backup, target):
@@ -45,39 +26,29 @@ def restore_to_empty_directory(backup, target):
     target = Path(target).resolve()
     if target.exists():
         raise RuntimeError("恢复目录已经存在，已停止以免覆盖文件")
-    verify_backup(backup)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    staging = Path(tempfile.mkdtemp(prefix=f".{target.name}-restore-", dir=target.parent))
-    try:
-        with zipfile.ZipFile(backup) as archive:
-            for member in archive.infolist():
-                _validated_member_path(member.filename)
-            archive.extractall(staging)
-
-        restored_database = staging / "database" / "cs_site.db"
-        conn = sqlite3.connect(restored_database)
+    with zipfile.ZipFile(backup) as archive:
+        manifest = read_backup_manifest(archive)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        staging = Path(tempfile.mkdtemp(prefix=f".{target.name}-restore-", dir=target.parent))
         try:
-            result = conn.execute("PRAGMA integrity_check").fetchone()[0]
+            archive.extractall(staging)
+            verify_snapshot(archive, staging / "database" / "cs_site.db", manifest)
+            # Only retry Windows rename denials; never replace a newly created target.
+            for attempt in range(4):
+                try:
+                    staging.rename(target)
+                    break
+                except PermissionError as error:
+                    if (
+                        getattr(error, "winerror", None) not in (5, 32)
+                        or target.exists()
+                        or attempt == 3
+                    ):
+                        raise
+                    time.sleep(0.05 * (attempt + 1))
         finally:
-            conn.close()
-        if result != "ok":
-            raise RuntimeError(f"恢复后的数据库检查失败：{result}")
-        # Only retry Windows rename denials; never replace a newly created target.
-        for attempt in range(4):
-            try:
-                staging.rename(target)
-                break
-            except PermissionError as error:
-                if (
-                    getattr(error, "winerror", None) not in (5, 32)
-                    or target.exists()
-                    or attempt == 3
-                ):
-                    raise
-                time.sleep(0.05 * (attempt + 1))
-    finally:
-        if staging.exists():
-            shutil.rmtree(staging, ignore_errors=True)
+            if staging.exists():
+                shutil.rmtree(staging, ignore_errors=True)
     return target
 
 
@@ -87,7 +58,6 @@ def restore_database_in_place(backup, target):
     target = Path(target).resolve()
     if not target.parent.is_dir():
         raise RuntimeError("数据库所在目录不存在")
-    verify_backup(backup)
     handle, temporary_name = tempfile.mkstemp(
         prefix=f".{target.name}-restore-", suffix=".db", dir=target.parent
     )
@@ -95,15 +65,7 @@ def restore_database_in_place(backup, target):
     temporary = Path(temporary_name)
     try:
         with zipfile.ZipFile(backup) as archive:
-            with archive.open("database/cs_site.db") as source, temporary.open("wb") as output:
-                shutil.copyfileobj(source, output, length=1024 * 1024)
-        conn = sqlite3.connect(temporary)
-        try:
-            result = conn.execute("PRAGMA integrity_check").fetchone()[0]
-        finally:
-            conn.close()
-        if result != "ok":
-            raise RuntimeError(f"恢复后的数据库检查失败：{result}")
+            extract_verified_database(archive, temporary, database_only=True)
         temporary.replace(target)
     finally:
         temporary.unlink(missing_ok=True)

@@ -4,6 +4,7 @@ import logging
 import os
 
 from blueprints.admin import admin_bp
+from blueprints.match_operation_demos import match_operation_demos_bp
 from config import validate_production_config
 from models import init_tables
 
@@ -33,11 +34,11 @@ from routes import (  # noqa: F401,E402
     sitemap,
     stats,
 )
-from utils.live_poller import start_poller
 from web_app import app
 
 validate_production_config()
 app.register_blueprint(admin_bp)
+app.register_blueprint(match_operation_demos_bp)
 
 
 def _local_server_options():
@@ -77,7 +78,6 @@ if __name__ == "__main__":
         level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
     )
     init_tables()
-    start_poller()
 
     # 启动快速自检（不阻塞，错误只警告）
     import subprocess
@@ -106,4 +106,13 @@ if __name__ == "__main__":
     app.config["TEMPLATES_AUTO_RELOAD"] = True
     app.jinja_env.auto_reload = True
 
-    app.run(**_local_server_options())
+    from live_worker import run_background
+
+    shutdown = threading.Event()
+    worker = threading.Thread(target=run_background, args=(shutdown,), name="site-worker", daemon=True)
+    worker.start()
+    try:
+        app.run(**_local_server_options())
+    finally:
+        shutdown.set()
+        worker.join()

@@ -5,25 +5,25 @@ import json
 from flask import flash, redirect, render_template, request, session, url_for
 
 from models import get_db
-from routes.stats import SIDE_OPTIONS, SIDE_VALUES, TIME_FILTER_MAP, TIME_FILTERS
+from services.arg_event_service import ordinary_event_condition
 from services.champion_service import player_championships
 from services.match_service import supplement_temp_teams
-from services.performance_service import summary_metric_sql, weighted_average_sql, weighted_rate_sql
+from services.performance_service import stat_average_sql, summary_metric_sql, weighted_rate_sql
 from services.player_awards_service import build_award_page, build_top10_page
 from services.player_remark_service import validate_player_remark
+from services.public_data_service import player_coverage_sql
 from services.steam_profile_service import enrich_player_from_steam
-from utils.demo_parser import normalize_map_name
+from site_core.player_directory import ACCOUNT_JOIN, IDENTITY_FIELDS, player_profile
 from utils.filters import date_display_filter
+from utils.helpers import normalize_map_key
 from utils.match_utils import get_sql_match_completed
 from utils.rate_limiter import rate_limit
+from utils.side_stats import side_metric_sql
+from utils.stat_filters import SIDE_OPTIONS, TIME_FILTER_MAP, TIME_FILTERS, stat_filters
 from utils.stats_display import optional_number, resolve_match_team_side
+from utils.stats_storage import stat_map_count_sql, stat_map_key_sql, stats_relation
 from utils.web_helpers import csrf_required, safe_redirect_target, user_required
 from web_app import app
-
-PLAYER_TIME_FILTERS = TIME_FILTERS
-PLAYER_TIME_MAP = TIME_FILTER_MAP
-PLAYER_SIDE_OPTIONS = SIDE_OPTIONS
-PLAYER_SIDE_VALUES = SIDE_VALUES
 
 
 def _with_effective_school_status(row):
@@ -55,21 +55,10 @@ def _fmt(value, digits=2, suffix=""):
     return f"{float(value):.{digits}f}{suffix}"
 
 
-def _player_current_filters():
-    time_key = request.args.get("time") or request.args.get("period") or "all"
-    if time_key not in PLAYER_TIME_MAP:
-        time_key = "all"
-    map_key = (request.args.get("map") or "all").strip() or "all"
-    side_key = (request.args.get("side") or "both").strip().lower()
-    if side_key not in PLAYER_SIDE_VALUES:
-        side_key = "both"
-    return {"time": time_key, "map": map_key, "side": side_key}
-
-
 def _player_available_maps(conn):
-    rows = conn.execute("""
+    rows = conn.execute(f"""
         SELECT DISTINCT map_name
-        FROM match_stats
+        FROM {stats_relation(conn)}
         WHERE map_name IS NOT NULL AND map_name != ''
           AND COALESCE(data_status, 'final') <> 'superseded'
         ORDER BY map_name
@@ -77,7 +66,7 @@ def _player_available_maps(conn):
     seen = set()
     maps = []
     for row in rows:
-        key = normalize_map_name(row["map_name"])
+        key = normalize_map_key(row["map_name"])
         if not key or key in seen:
             continue
         seen.add(key)
@@ -88,48 +77,25 @@ def _player_available_maps(conn):
 def _player_stat_where(player_id, filters):
     clauses = ["ms.player_id=?", "COALESCE(ms.data_status, 'final') <> 'superseded'"]
     params = [player_id]
-    months = PLAYER_TIME_MAP[filters["time"]]["months"]
+    months = TIME_FILTER_MAP[filters["time"]]["months"]
     if months:
         clauses.append("m.match_time >= datetime('now', ?)")
         params.append(f"-{months} months")
     if filters["map"] != "all":
-        clauses.append("ms.map_name=?")
-        params.append(filters["map"])
+        clauses.append(f"{stat_map_key_sql()}=?")
+        params.append(normalize_map_key(filters["map"]))
     return " WHERE " + " AND ".join(clauses), params
 
 
 def _player_side_expr(side):
-    if side == "t":
-        return {
-            "kills": "SUM(ms.t_kills)",
-            "deaths": "SUM(ms.t_deaths)",
-            "kills_value": "ms.t_kills",
-            "deaths_value": "ms.t_deaths",
-            "rating": "AVG(NULLIF(ms.t_rating, 0))",
-            "adr": "AVG(NULLIF(ms.t_adr, 0))",
-            "row_rating": "NULLIF(ms.t_rating, 0)",
-            "row_adr": "NULLIF(ms.t_adr, 0)",
-        }
-    if side == "ct":
-        return {
-            "kills": "SUM(ms.ct_kills)",
-            "deaths": "SUM(ms.ct_deaths)",
-            "kills_value": "ms.ct_kills",
-            "deaths_value": "ms.ct_deaths",
-            "rating": "AVG(NULLIF(ms.ct_rating, 0))",
-            "adr": "AVG(NULLIF(ms.ct_adr, 0))",
-            "row_rating": "NULLIF(ms.ct_rating, 0)",
-            "row_adr": "NULLIF(ms.ct_adr, 0)",
-        }
     return {
-        "kills": "SUM(ms.kills)",
-        "deaths": "SUM(ms.deaths)",
-        "kills_value": "ms.kills",
-        "deaths_value": "ms.deaths",
-        "rating": weighted_average_sql("ms.rating", "ms.rounds_played"),
-        "adr": weighted_average_sql("ms.adr", "ms.rounds_played"),
-        "row_rating": "ms.rating",
-        "row_adr": "ms.adr",
+        key: side_metric_sql(key, side)
+        for key in (
+            "kills", "deaths", "assists", "rounds_played", "rating", "adr", "multi1k",
+            "multi2k", "multi3k", "multi4k", "multi5k", "first_kills", "first_deaths",
+            "trade_kills", "trade_deaths", "clutches_won", "utility_damage", "enemies_flashed",
+            "bomb_plants", "bomb_defuses", "flash_count",
+        )
     }
 
 
@@ -140,7 +106,7 @@ def _recent_matches_with_teams(rows, conn, player_id):
     by_id = {match["id"]: match for match in matches}
     placeholders = ",".join("?" for _ in by_id)
     records = conn.execute(
-        f"""SELECT match_id, team_id, match_team_side FROM match_stats
+        f"""SELECT match_id, team_id, match_team_side FROM {stats_relation(conn)}
             WHERE player_id=? AND match_id IN ({placeholders})
               AND COALESCE(data_status, 'final') <> 'superseded'""",
         (player_id, *by_id),
@@ -539,34 +505,12 @@ def players_list():
 
     query = f"""
         SELECT p.*, t.name AS team_name, t.short_name AS team_short, t.logo AS team_logo,
-               (SELECT u.id FROM users u
-                WHERE u.steam_id64=p.steam_id
-                ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC
-                LIMIT 1) AS linked_user_id,
-               COALESCE((
-                   SELECT NULLIF(TRIM(u.group_username), '')
-                   FROM users u
-                   WHERE u.steam_id64=p.steam_id
-                   ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC
-                   LIMIT 1
-                ), NULLIF(TRIM(p.group_username_override), ''), '') AS group_username,
-               COALESCE((
-                   SELECT u.is_bashizhong_student
-                   FROM users u
-                   WHERE u.steam_id64=p.steam_id
-                   ORDER BY u.id DESC
-                   LIMIT 1
-               ), p.is_bashizhong_student) AS managed_is_bashizhong_student,
-               COALESCE((
-                   SELECT u.is_cheater
-                   FROM users u
-                   WHERE u.steam_id64=p.steam_id
-                   LIMIT 1
-               ), 0) AS is_cheater,
-               {summary_metric_sql("avg_rating", "rating")} AS avg_rating,
+               {IDENTITY_FIELDS}, COALESCE(linked.is_cheater, 0) AS is_cheater,
+               {summary_metric_sql("avg_rating", "rating", stats_source=stats_relation(conn))} AS avg_rating,
                s.avg_kills, s.avg_deaths,
                COALESCE(s.maps, 0) AS match_count
         FROM players p
+        {ACCOUNT_JOIN}
         LEFT JOIN teams t ON p.team_id=t.id
         LEFT JOIN player_performance_summary s ON p.id=s.player_id
     """
@@ -758,8 +702,9 @@ def _compare_player(conn, player_id):
         "first_kills": "first_kills",
         "flash_assists": "flash_assists",
     }
+    source = stats_relation(conn)
     select_metrics = ", ".join(
-        f"{summary_metric_sql(column, raw_column)} AS {column}"
+        f"{summary_metric_sql(column, raw_column, stats_source=source)} AS {column}"
         for column, raw_column in summary_metrics.items()
     )
     summary = conn.execute(
@@ -836,68 +781,14 @@ def player_detail(player_id):
         stat_params.append(event_filter)
 
     conn = get_db()
-    player = conn.execute(
-        """
-        SELECT p.*, t.name AS team_name, t.short_name AS team_short, t.logo AS team_logo,
-               (SELECT u.id FROM users u
-                WHERE u.steam_id64=p.steam_id
-                ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC
-                LIMIT 1) AS linked_user_id,
-               COALESCE((
-                   SELECT NULLIF(TRIM(u.group_username), '')
-                   FROM users u
-                   WHERE u.steam_id64=p.steam_id
-                   ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC
-                   LIMIT 1
-                ), NULLIF(TRIM(p.group_username_override), ''), '') AS group_username,
-               COALESCE((
-                   SELECT u.is_bashizhong_student
-                   FROM users u
-                   WHERE u.steam_id64=p.steam_id
-                   ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC
-                   LIMIT 1
-               ), p.is_bashizhong_student) AS managed_is_bashizhong_student,
-               COALESCE((SELECT u.is_cheater FROM users u WHERE u.steam_id64=p.steam_id LIMIT 1), 0) AS is_cheater
-        FROM players p
-        LEFT JOIN teams t ON p.team_id=t.id
-        WHERE p.id=?
-    """,
-        (player_id,),
-    ).fetchone()
+    player = player_profile(conn, player_id)
 
     if not player:
         conn.close()
         return "选手不存在", 404
     if enrich_player_from_steam(conn, player, app.root_path):
         conn.commit()
-        player = conn.execute(
-            """
-            SELECT p.*, t.name AS team_name, t.short_name AS team_short, t.logo AS team_logo,
-                   (SELECT u.id FROM users u
-                    WHERE u.steam_id64=p.steam_id
-                    ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC
-                    LIMIT 1) AS linked_user_id,
-                   COALESCE((
-                       SELECT NULLIF(TRIM(u.group_username), '')
-                       FROM users u
-                       WHERE u.steam_id64=p.steam_id
-                       ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC
-                       LIMIT 1
-                    ), NULLIF(TRIM(p.group_username_override), ''), '') AS group_username,
-                   COALESCE((
-                       SELECT u.is_bashizhong_student
-                       FROM users u
-                       WHERE u.steam_id64=p.steam_id
-                       ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC
-                       LIMIT 1
-                   ), p.is_bashizhong_student) AS managed_is_bashizhong_student,
-                   COALESCE((SELECT u.is_cheater FROM users u WHERE u.steam_id64=p.steam_id LIMIT 1), 0) AS is_cheater
-            FROM players p
-            LEFT JOIN teams t ON p.team_id=t.id
-            WHERE p.id=?
-        """,
-            (player_id,),
-        ).fetchone()
+        player = player_profile(conn, player_id)
         if player is None:
             conn.close()
             return "选手不存在", 404
@@ -905,27 +796,29 @@ def player_detail(player_id):
     player = _with_effective_school_status(player)
 
     # 总体统计：与数据详情页共用同一套按实际回合加权的口径。
-    avg_rating = weighted_average_sql("ms.rating", "ms.rounds_played")
-    avg_adr = weighted_average_sql("ms.adr", "ms.rounds_played")
-    avg_kast = weighted_average_sql("ms.kast", "ms.rounds_played")
-    avg_hs = weighted_average_sql("ms.headshot_percentage", "ms.kills")
+    source = stats_relation(conn)
+    avg_rating = stat_average_sql("rating")
+    avg_adr = stat_average_sql("adr")
+    avg_kast = stat_average_sql("kast")
+    avg_hs = stat_average_sql("headshot_percentage", weight="kills")
     avg_kpr = weighted_rate_sql("ms.kills", "ms.rounds_played")
     avg_dpr = weighted_rate_sql("ms.deaths", "ms.rounds_played")
-    avg_impact = weighted_average_sql("ms.impact", "ms.rounds_played")
+    avg_impact = stat_average_sql("impact")
     utility_damage_per_round = weighted_rate_sql("ms.utility_damage", "ms.rounds_played")
-    damage_delta_per_round = weighted_average_sql("ms.damage_delta_per_round", "ms.rounds_played")
-    rws_basic = weighted_average_sql("ms.rws_basic", "ms.rounds_played")
+    damage_delta_per_round = stat_average_sql("damage_delta_per_round")
+    rws_basic = stat_average_sql("rws_basic")
     overall = conn.execute(
         f"""
-        SELECT COUNT(DISTINCT ms.match_id) AS matches, COUNT(ms.id) AS maps,
+        SELECT COUNT(DISTINCT ms.match_id) AS matches, {stat_map_count_sql()} AS maps,
+               {player_coverage_sql()},
                SUM(ms.kills) AS total_kills,
                SUM(ms.deaths) AS total_deaths, SUM(ms.assists) AS total_assists,
                {avg_rating} AS avg_rating, {avg_adr} AS avg_adr,
                {avg_kast} AS avg_kast, {avg_hs} AS avg_hs,
                {avg_kpr} AS avg_kpr, {avg_dpr} AS avg_dpr,
                {avg_impact} AS avg_impact,
-               AVG(CASE WHEN ms.t_rating > 0 THEN ms.t_rating END) AS avg_t_rating,
-               AVG(CASE WHEN ms.ct_rating > 0 THEN ms.ct_rating END) AS avg_ct_rating,
+               {stat_average_sql("rating", "t")} AS avg_t_rating,
+               {stat_average_sql("rating", "ct")} AS avg_ct_rating,
                SUM(ms.rounds_played) AS rounds_played,
                SUM(ms.multi1k) AS multi1k, SUM(ms.multi2k) AS multi2k,
                SUM(ms.multi3k) AS multi3k, SUM(ms.multi4k) AS multi4k,
@@ -943,7 +836,7 @@ def player_detail(player_id):
                SUM(ms.bomb_defuses) AS bomb_defuses,
                {damage_delta_per_round} AS damage_delta_per_round,
                {rws_basic} AS rws_basic
-        FROM match_stats ms
+        FROM {source} ms
         JOIN matches m ON ms.match_id=m.id
         WHERE ms.player_id=? {stat_filter}
     """,
@@ -976,12 +869,12 @@ def player_detail(player_id):
         f"""
         SELECT m.*,
                SUM(ms.kills) AS kills, SUM(ms.deaths) AS deaths, SUM(ms.assists) AS assists,
-               {weighted_average_sql("ms.rating", "ms.rounds_played")} AS rating,
-               {weighted_average_sql("ms.adr", "ms.rounds_played")} AS adr,
+               {avg_rating} AS rating,
+               {avg_adr} AS adr,
                t1.name AS team1_name, t2.name AS team2_name,
                t1.short_name AS t1s, t2.short_name AS t2s,
                e.name AS event_name
-        FROM match_stats ms
+        FROM {source} ms
         JOIN matches m ON ms.match_id=m.id
         LEFT JOIN teams t1 ON m.team1_id=t1.id
         LEFT JOIN teams t2 ON m.team2_id=t2.id
@@ -1003,7 +896,7 @@ def player_detail(player_id):
                MAX(CASE WHEN LOWER(TRIM(ms.match_team_side)) IN ('t1', 't2')
                         THEN LOWER(TRIM(ms.match_team_side))='t2'
                         ELSE ms.team_id=COALESCE(m.team2_id, -2) END) AS on_team2
-        FROM match_stats ms
+        FROM {source} ms
         JOIN matches m ON ms.match_id=m.id
         WHERE ms.player_id=? {stat_filter} AND {get_sql_match_completed()}
         GROUP BY m.id
@@ -1033,10 +926,10 @@ def player_detail(player_id):
     chart_rows = conn.execute(
         f"""
         SELECT m.match_time,
-               {weighted_average_sql("ms.rating", "ms.rounds_played")} AS rating,
-               {weighted_average_sql("ms.adr", "ms.rounds_played")} AS adr,
+               {avg_rating} AS rating,
+               {avg_adr} AS adr,
                SUM(ms.kills) AS kills, SUM(ms.deaths) AS deaths
-        FROM match_stats ms
+        FROM {source} ms
         JOIN matches m ON ms.match_id=m.id
         WHERE ms.player_id=? {stat_filter}
         GROUP BY m.id
@@ -1084,7 +977,7 @@ def player_detail(player_id):
     ).fetchall()
 
     filter_events = conn.execute(
-        "SELECT id, name FROM events ORDER BY start_date DESC LIMIT 30"
+        f"SELECT id, name FROM events WHERE {ordinary_event_condition()} ORDER BY start_date DESC LIMIT 30"
     ).fetchall()
 
     teammates = []
@@ -1371,79 +1264,50 @@ def player_detail(player_id):
 @app.route("/stats/players/<int:player_id>")
 def player_stats_detail(player_id):
     """选手详细数据页。"""
-    filters = _player_current_filters()
+    filters = stat_filters(request.args)
     conn = get_db()
-    player = conn.execute(
-        """
-        SELECT p.*, t.name AS team_name, t.short_name AS team_short, t.logo AS team_logo,
-               COALESCE((
-                   SELECT NULLIF(TRIM(u.group_username), '')
-                   FROM users u
-                   WHERE u.steam_id64=p.steam_id
-                   ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC
-                   LIMIT 1
-                ), NULLIF(TRIM(p.group_username_override), ''), '') AS group_username,
-               COALESCE((
-                   SELECT u.is_bashizhong_student
-                   FROM users u
-                   WHERE u.steam_id64=p.steam_id
-                   ORDER BY COALESCE(u.is_placeholder, 0), u.id DESC
-                   LIMIT 1
-               ), p.is_bashizhong_student) AS managed_is_bashizhong_student
-        FROM players p
-        LEFT JOIN teams t ON p.team_id=t.id
-        WHERE p.id=?
-    """,
-        (player_id,),
-    ).fetchone()
+    player = player_profile(conn, player_id)
     if not player:
         conn.close()
         return "选手不存在", 404
     player = _with_effective_school_status(player)
 
-    expr = _player_side_expr(filters["side"])
+    source = stats_relation(conn)
+    side = filters["side"]
+    expr = _player_side_expr(side)
     where_sql, params = _player_stat_where(player_id, filters)
-    avg_kast = weighted_average_sql("ms.kast", "ms.rounds_played")
-    avg_hs = weighted_average_sql("ms.headshot_percentage", "ms.kills")
-    avg_kpr = weighted_rate_sql(expr["kills_value"], "ms.rounds_played")
-    avg_dpr = weighted_rate_sql(expr["deaths_value"], "ms.rounds_played")
-    avg_impact = weighted_average_sql("ms.impact", "ms.rounds_played")
-    utility_damage_per_round = weighted_rate_sql("ms.utility_damage", "ms.rounds_played")
-    damage_delta_per_round = weighted_average_sql("ms.damage_delta_per_round", "ms.rounds_played")
-    rws_basic = weighted_average_sql("ms.rws_basic", "ms.rounds_played")
+    avg_rating = stat_average_sql("rating", side)
+    avg_adr = stat_average_sql("adr", side)
+    avg_kast = stat_average_sql("kast", side)
+    avg_hs = stat_average_sql("headshot_percentage", side, weight="kills")
+    avg_kpr = weighted_rate_sql(expr["kills"], expr["rounds_played"])
+    avg_dpr = weighted_rate_sql(expr["deaths"], expr["rounds_played"])
+    avg_impact = stat_average_sql("impact", side)
+    utility_damage_per_round = weighted_rate_sql(expr["utility_damage"], expr["rounds_played"])
+    damage_delta_per_round = stat_average_sql("damage_delta_per_round", side)
+    rws_basic = stat_average_sql("rws_basic", side)
+    totals = ", ".join(
+        f"SUM({value}) AS {f'total_{key}' if key in ('kills', 'deaths', 'assists') else key}"
+        for key, value in expr.items() if key not in ("rating", "adr")
+    )
     overall = conn.execute(
         f"""
-        SELECT COUNT(DISTINCT ms.match_id) AS matches, COUNT(ms.id) AS maps,
-               {expr["kills"]} AS total_kills,
-               {expr["deaths"]} AS total_deaths,
-               SUM(ms.assists) AS total_assists,
-               {expr["rating"]} AS avg_rating,
-               {expr["adr"]} AS avg_adr,
+        SELECT COUNT(DISTINCT ms.match_id) AS matches, {stat_map_count_sql()} AS maps,
+               {player_coverage_sql(side)},
+               {totals},
+               {avg_rating} AS avg_rating,
+               {avg_adr} AS avg_adr,
                {avg_kast} AS avg_kast,
                {avg_hs} AS avg_hs,
                {avg_kpr} AS avg_kpr,
                {avg_dpr} AS avg_dpr,
                {avg_impact} AS avg_impact,
-               AVG(CASE WHEN ms.t_rating > 0 THEN ms.t_rating END) AS avg_t_rating,
-               AVG(CASE WHEN ms.ct_rating > 0 THEN ms.ct_rating END) AS avg_ct_rating,
-               SUM(ms.rounds_played) AS rounds_played,
-               SUM(ms.multi1k) AS multi1k, SUM(ms.multi2k) AS multi2k,
-               SUM(ms.multi3k) AS multi3k, SUM(ms.multi4k) AS multi4k,
-               SUM(ms.multi5k) AS multi5k,
-               SUM(ms.first_kills) AS first_kills,
-               SUM(ms.first_deaths) AS first_deaths,
-               SUM(ms.trade_kills) AS trade_kills,
-               SUM(ms.trade_deaths) AS trade_deaths,
-               SUM(ms.clutches_won) AS clutches_won,
-               SUM(ms.utility_damage) AS utility_damage,
+               {stat_average_sql("rating", "t")} AS avg_t_rating,
+               {stat_average_sql("rating", "ct")} AS avg_ct_rating,
                {utility_damage_per_round} AS utility_damage_per_round,
-               SUM(ms.enemies_flashed) AS enemies_flashed,
-               SUM(ms.flash_count) AS flash_count,
-               SUM(ms.bomb_plants) AS bomb_plants,
-               SUM(ms.bomb_defuses) AS bomb_defuses,
                {damage_delta_per_round} AS damage_delta_per_round,
                {rws_basic} AS rws_basic
-        FROM match_stats ms
+        FROM {source} ms
         JOIN matches m ON ms.match_id=m.id
         {where_sql}
     """,
@@ -1456,15 +1320,15 @@ def player_stats_detail(player_id):
     recent_matches = conn.execute(
         f"""
         SELECT m.*,
-               SUM(ms.kills) AS kills,
-               SUM(ms.deaths) AS deaths,
-               SUM(ms.assists) AS assists,
-               {expr["rating"]} AS rating,
-               {expr["adr"]} AS adr,
+               SUM({expr["kills"]}) AS kills,
+               SUM({expr["deaths"]}) AS deaths,
+               SUM({expr["assists"]}) AS assists,
+               {avg_rating} AS rating,
+               {avg_adr} AS adr,
                t1.name AS team1_name, t2.name AS team2_name,
                t1.short_name AS t1s, t2.short_name AS t2s,
                e.name AS event_name
-        FROM match_stats ms
+        FROM {source} ms
         JOIN matches m ON ms.match_id=m.id
         LEFT JOIN teams t1 ON m.team1_id=t1.id
         LEFT JOIN teams t2 ON m.team2_id=t2.id
@@ -1479,11 +1343,11 @@ def player_stats_detail(player_id):
 
     chart_rows = conn.execute(
         f"""
-        SELECT m.match_time, {expr["row_rating"]} AS rating, {expr["row_adr"]} AS adr
-        FROM match_stats ms
+        SELECT m.match_time, {expr["rating"]} AS rating, {expr["adr"]} AS adr
+        FROM {source} ms
         JOIN matches m ON ms.match_id=m.id
         {where_sql}
-        ORDER BY m.match_time ASC LIMIT 30
+        ORDER BY m.match_time ASC, ms.legacy_slot ASC LIMIT 30
     """,
         params,
     ).fetchall()
@@ -1525,9 +1389,9 @@ def player_stats_detail(player_id):
         championships=championships,
         chart_data=chart_data,
         filters=filters,
-        time_options=PLAYER_TIME_FILTERS,
+        time_options=TIME_FILTERS,
         map_options=map_options,
-        side_options=PLAYER_SIDE_OPTIONS,
+        side_options=SIDE_OPTIONS,
         player_summary=player_summary,
         player_category_cards=player_category_cards,
         player_statistics=player_statistics,

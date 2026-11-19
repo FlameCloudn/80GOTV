@@ -3,9 +3,14 @@
 import argparse
 import re
 import sqlite3
+import sys
 from pathlib import Path
 
 from werkzeug.security import generate_password_hash
+
+if str(Path(__file__).resolve().parents[1]) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from site_core.host import is_managed_event
 
 DEFAULT_TEST_TEAMS = (
     "星辰电竞社",
@@ -175,6 +180,8 @@ def promote_event_teams(
     initial_password=None,
 ):
     conn.row_factory = sqlite3.Row
+    if is_managed_event(conn, event_id):
+        raise ValueError("托管赛事的临时参赛队不能按名称转为长期俱乐部")
     event = conn.execute("SELECT id, name FROM events WHERE id=?", (event_id,)).fetchone()
     if not event:
         raise ValueError(f"没有找到赛事 ID {event_id}")

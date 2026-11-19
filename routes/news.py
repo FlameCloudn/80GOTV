@@ -4,7 +4,8 @@ from flask import redirect, render_template, request, session
 
 from models import get_db
 from services.match_service import supplement_temp_teams
-from utils.helpers import build_comment_tree
+from site_core.community import build_comment_tree, list_comments
+from utils.helpers import normalize_internal_path
 from web_app import app
 
 
@@ -58,6 +59,7 @@ def news_detail(news_id):
         return "新闻不存在", 404
     news = dict(news)
     news["comment_count"] = news.pop("actual_comment_count", 0)
+    news["internal_link_url"] = normalize_internal_path(news.get("internal_link_url"))
     if news["redirect_url"]:
         target = news["redirect_url"]
         conn.close()
@@ -89,21 +91,7 @@ def news_detail(news_id):
                 conn,
             )
 
-    raw_comments = conn.execute(
-        """
-        SELECT c.*, u.username,
-               CASE WHEN COALESCE(u.is_bashizhong_student, 1)<>0
-                    THEN u.group_username END AS group_username,
-               u.avatar, u.is_cheater,
-               (SELECT COUNT(*) FROM comment_likes WHERE comment_id=c.id) as like_count,
-               (SELECT 1 FROM comment_likes WHERE comment_id=c.id AND user_id=?) as user_liked
-        FROM comments c
-        JOIN users u ON c.user_id = u.id
-        WHERE c.target_type='news' AND c.target_id=?
-        ORDER BY c.created_at ASC, c.id ASC
-    """,
-        (session.get("user_id"), news_id),
-    ).fetchall()
+    raw_comments = list_comments(conn, "news", news_id, session.get("user_id"))
 
     conn.close()
 

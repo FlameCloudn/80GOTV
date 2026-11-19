@@ -11,6 +11,7 @@ from models import get_db
 from services.match_service import supplement_temp_teams
 from services.player_service import record_player_nickname
 from services.steam_playtime_service import attach_latest_playtime
+from site_core.accounts import approval_status, profile_completion_required
 from utils.db_helpers import save_news_image
 from utils.match_utils import get_sql_effective_status
 from utils.rate_limiter import rate_limit
@@ -56,13 +57,10 @@ def admin_login():
             session.clear()
             session.permanent = True
             session["csrf_token"] = uuid.uuid4().hex
-            if user and (user["approval_status"] or "approved") == "approved":
+            if user and approval_status(user) == "approved":
                 session["user_id"] = user["id"]
                 session["user_username"] = user["username"]
-                if user["is_bashizhong_student"] is None or (
-                    user["is_bashizhong_student"] == 1
-                    and not str(user["group_username"] or "").strip()
-                ):
+                if profile_completion_required(user):
                     session["profile_completion_required"] = True
             session["admin_id"] = admin["id"]
             session["admin_username"] = admin["username"]
@@ -139,7 +137,9 @@ def _dashboard_work(conn):
                      m.match_time IS NULL, m.match_time ASC, m.id ASC
             LIMIT 8"""
     ).fetchall()
-    matches = [supplement_temp_teams(m, conn) for m in rows]
+    from blueprints.admin_matches import annotate_managed_matches
+
+    matches = annotate_managed_matches(conn, [supplement_temp_teams(m, conn) for m in rows])
     return {
         "pending_users": pending_users,
         "open_feedback": open_feedback,

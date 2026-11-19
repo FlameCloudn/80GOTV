@@ -2,7 +2,8 @@
 
 from flask import jsonify, render_template, session
 
-from models import db
+from site_core import community
+from site_core.database import db
 from utils.web_helpers import csrf_required, user_required
 from web_app import app
 
@@ -12,10 +13,7 @@ from web_app import app
 def notifications_list():
     """通知列表"""
     with db() as conn:
-        notifications = conn.execute(
-            "SELECT * FROM notifications WHERE user_id=? ORDER BY created_at DESC LIMIT 50",
-            (session["user_id"],),
-        ).fetchall()
+        notifications = community.list_notifications(conn, session["user_id"], limit=50)
     return render_template("notifications.html", notifications=notifications)
 
 
@@ -25,12 +23,9 @@ def notifications_list():
 def notification_read(notif_id):
     """标记单条已读"""
     with db() as conn:
-        updated = conn.execute(
-            "UPDATE notifications SET is_read=1 WHERE id=? AND user_id=?",
-            (notif_id, session["user_id"]),
-        ).rowcount
-        if updated != 1:
-            return jsonify({"success": False, "error": "通知不存在"}), 404
+        updated = community.mark_notification_read(conn, session["user_id"], notif_id)
+    if not updated:
+        return jsonify({"success": False, "error": "通知不存在"}), 404
     return jsonify({"success": True})
 
 
@@ -40,7 +35,7 @@ def notification_read(notif_id):
 def notification_read_all():
     """全部已读"""
     with db() as conn:
-        conn.execute("UPDATE notifications SET is_read=1 WHERE user_id=?", (session["user_id"],))
+        community.mark_all_notifications_read(conn, session["user_id"])
     return jsonify({"success": True})
 
 
@@ -49,8 +44,5 @@ def notification_read_all():
 def notification_unread_count():
     """AJAX 获取未读数"""
     with db() as conn:
-        count = conn.execute(
-            "SELECT COUNT(*) FROM notifications WHERE user_id=? AND is_read=0",
-            (session["user_id"],),
-        ).fetchone()[0]
+        count = community.unread_notification_count(conn, session["user_id"])
     return jsonify({"count": count})

@@ -6,14 +6,16 @@ import tempfile
 import unittest
 import uuid
 from contextlib import closing
+from pathlib import Path
+from unittest.mock import patch
 
 from flask import template_rendered
 
 from app import app
 from config import Config
 from models import get_db, init_tables
-from routes.stats import _pistol_match_teams
 from services.performance_service import build_demo_performance_payload
+from services.public_stat_evidence import pistol_match_teams
 
 
 class SiteReviewFixTests(unittest.TestCase):
@@ -179,6 +181,105 @@ class SiteReviewFixTests(unittest.TestCase):
         # 日历和“全部日期”链接都保留赛事条件
         self.assertIn(f"event={self.event_id}&amp;month=2026-10", html)
 
+    def test_pistol_rounds_prefer_reviewed_rounds_and_do_not_revive_unofficial_cache(self):
+        mid, legacy, managed = self.match_ids
+        root = Path(self.temp.name)
+        cache, analysis = root / "csda_cache", root / "static/demos/analysis"
+        cache.mkdir()
+        analysis.mkdir(parents=True)
+        pistol = {
+            "number": 1,
+            "teamAEconomyType": "pistol",
+            "teamASide": 3,
+            "teamBSide": 2,
+            "winnerSide": 3,
+        }
+        rounds = [pistol, {"number": 2, "teamASide": 3, "teamBSide": 2, "winnerSide": 2}]
+        for match, slot, name in (
+            (mid, 0, "Mirage"),
+            (legacy, 0, "Mirage"),
+            (legacy, 1, "Vertigo"),
+            (managed, 0, "Mirage"),
+        ):
+            (cache / f"match_{match}_slot_{slot}.json").write_text(
+                json.dumps({"mapName": name, "teamA": {"name": "Review Alpha"}, "rounds": rounds}),
+                encoding="utf-8",
+            )
+        filename = "f" * 32 + ".json"
+        (analysis / filename).write_text(
+            json.dumps({"raw_events": {"rounds": rounds}}), encoding="utf-8"
+        )
+        with closing(get_db()) as conn:
+            conn.execute("UPDATE matches SET map1='Mirage', map2='Vertigo'")
+            conn.execute("UPDATE matches SET event_id=? WHERE id=?", (self.other_event, managed))
+            conn.execute(
+                """INSERT INTO event_registration_control(event_id,registration_deadline,enabled_by,enabled_at)
+                   VALUES(?,2,?,1)""",
+                (self.other_event, self.admin_id),
+            )
+            conn.execute(
+                "UPDATE matches SET map_halves=? WHERE id=?",
+                (
+                    json.dumps(
+                        {
+                            "0": {
+                                "analysis": {
+                                    "snapshot": f"analysis/{filename}",
+                                    "data_version": 1,
+                                    "demo_a_to_t1": False,
+                                }
+                            }
+                        }
+                    ),
+                    mid,
+                ),
+            )
+            conn.commit()
+        self.addCleanup(setattr, app, "static_folder", app.static_folder)
+        app.static_folder = str(root / "static")
+        with patch.object(app, "instance_path", str(root)):
+            path = "/stats/overview/pistol-rounds"
+            context, _ = self.rendered(path)
+            rows = {r["team_name"]: r for r in context["rows"]}
+            self.assertEqual(
+                [(r["maps"], r["won"], r["lost"]) for r in rows.values()], [(2, 1, 1)] * 2
+            )
+            ct, _ = self.rendered(path + "?side=ct")
+            self.assertEqual(
+                [(r["maps"], r["won"], r["lost"]) for r in ct["rows"]], [(1, 1, 0)] * 2
+            )
+            for query in (f"event={self.other_event}", "map=Vertigo"):
+                self.assertEqual(self.rendered(path + "?" + query)[0]["rows"], [])
+
+    def test_weapon_chart_filters_the_killers_side_event_and_game_ownership(self):
+        legacy, other, managed = self.match_ids
+        with closing(get_db()) as conn:
+            managed_event = conn.execute("INSERT INTO events(name) VALUES('托管赛')").lastrowid
+            conn.execute("UPDATE matches SET event_id=? WHERE id=?", (self.other_event, other))
+            conn.execute("UPDATE matches SET event_id=? WHERE id=?", (managed_event, managed))
+            conn.execute(
+                """INSERT INTO event_registration_control(event_id,registration_deadline,enabled_by,enabled_at)
+                   VALUES(?,2,?,1)""",
+                (managed_event, self.admin_id),
+            )
+            conn.executemany(
+                "INSERT INTO match_kill_events(match_id,map_name,killer_side,weapon) VALUES(?,'de_mirage',?,?)",
+                [
+                    (legacy, "CT", "m4a1"),
+                    (legacy, "T", "ak47"),
+                    (other, "CT", "awp"),
+                    (managed, "CT", "deagle"),
+                ],
+            )
+            conn.commit()
+        path = f"/stats?map=Mirage&side=ct&event={self.event_id}"
+        context, _ = self.rendered(path)
+        self.assertEqual([w["name"] for w in context["overview"]["top_weapons"]], ["m4a1"])
+        context, _ = self.rendered("/stats")
+        self.assertEqual(
+            {w["name"] for w in context["overview"]["top_weapons"]}, {"m4a1", "ak47", "awp"}
+        )
+
     def test_unnamed_temp_teams_do_not_invent_side_names(self):
         with closing(get_db()) as conn:
             match_id = conn.execute(
@@ -187,7 +288,7 @@ class SiteReviewFixTests(unittest.TestCase):
                 (self.event_id, json.dumps([self.player_id, 98]), json.dumps([97, 96])),
             ).lastrowid
             conn.commit()
-            names = _pistol_match_teams(conn, {match_id})[match_id]
+            names = pistol_match_teams(conn, {match_id})[match_id]
         self.assertEqual((names["t1_name"], names["t2_name"]), ("TBD", "TBD"))
         self.login_admin()
         page = self.client.get("/admin/news/add").get_data(as_text=True)

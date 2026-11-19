@@ -128,6 +128,20 @@ class ProDatabaseCase(unittest.TestCase):
 
 
 class ProLogicRegressionTests(ProDatabaseCase):
+    def test_half_scores_use_color_without_visible_side_abbreviations(self):
+        self.conn.execute(
+            "UPDATE matches SET status='completed',map_halves=? WHERE id=?",
+            (json.dumps({"0": {"h1_t1": 4, "h1_t2": 0, "opening_ct_team": "t1",
+                               "side_source": "website_bp"}}), self.match_id),
+        )
+        self.conn.commit()
+        response = self.client.get(f"/matches/{self.match_id}", follow_redirects=True)
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn('(<span class="ct-side">4</span>:<span class="t-side">0</span>; '
+                      '<span class="t-side">-</span>:<span class="ct-side">-</span>)', html)
+        self.assertNotIn('class="ms-ot-detail"', html)
+
     def test_regular_edit_does_not_overwrite_scores_written_after_its_read(self):
         original = admin_matches._preserve_managed_match_fields
         halves = json.dumps({"0": {"h1_t1": 6, "h1_t2": 4}})

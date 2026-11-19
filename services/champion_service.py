@@ -4,6 +4,7 @@ import json
 from collections import defaultdict
 
 from services.match_roster_service import resolve_match_roster
+from site_core.awards.championship import has_championship_schema
 
 
 def _historical_members(conn, event_id, team_id):
@@ -119,12 +120,40 @@ def save_champion(conn, event_id, team_id):
     _freeze_champion(conn, retained)
 
 
-def player_championships(conn, player_id):
+def championship_teams_relation(conn):
+    legacy = """SELECT ec.id, ec.event_id, ec.team_id, t.name AS team_name, t.short_name AS team_short,
+                       t.logo, t.description, 0 AS players
+                FROM event_champions ec JOIN teams t ON t.id=ec.team_id"""
+    if not has_championship_schema(conn):
+        return f"({legacy})"
+    return f"""({legacy} UNION ALL
+        SELECT c.event_id, c.event_id, c.club_id, c.team_name, c.team_short_name,
+               c.team_logo, t.description, 5
+        FROM managed_event_champions c LEFT JOIN teams t ON t.id=c.club_id)"""
+
+
+def list_championship_teams(conn, event_id: int | None = None):
     return conn.execute(
-        """SELECT ec.*, e.name AS event_name, e.id AS event_id,
-                  e.slug AS event_slug, e.start_date AS event_date
+        f"""SELECT c.*, e.name AS event_name, e.slug AS event_slug, e.start_date AS event_date
+           FROM {championship_teams_relation(conn)} c JOIN events e ON e.id=c.event_id
+           WHERE (? IS NULL OR c.event_id=?) ORDER BY e.start_date DESC""",
+        (event_id, event_id),
+    ).fetchall()
+
+
+def player_championships(conn, player_id):
+    query = """SELECT ec.id, ec.event_id, ec.team_id, ec.players_snapshot_at, ec.created_at,
+                  e.name AS event_name, e.id AS event_id, e.slug AS event_slug, e.start_date AS event_date
            FROM event_champions ec JOIN events e ON ec.event_id=e.id
            JOIN event_champion_players ecp ON ecp.champion_id=ec.id
-           WHERE ecp.player_id=? ORDER BY e.start_date DESC""",
-        (player_id,),
-    ).fetchall()
+           WHERE ecp.player_id=?"""
+    params = (player_id,)
+    if has_championship_schema(conn):
+        query += """ UNION ALL
+            SELECT c.event_id, c.event_id, c.club_id, c.created_at, c.created_at,
+                   e.name, e.id, e.slug, e.start_date
+            FROM managed_event_champions c JOIN events e ON e.id=c.event_id
+            JOIN managed_event_champion_players cp ON cp.event_id=c.event_id
+            WHERE cp.player_id=?"""
+        params += (player_id,)
+    return conn.execute(f"{query} ORDER BY event_date DESC", params).fetchall()

@@ -18,6 +18,7 @@ if APP_ROOT not in sys.path:
     sys.path.insert(0, APP_ROOT)
 
 from services.match_service import supplement_temp_teams  # noqa: E402
+from site_core.host import is_managed_match  # noqa: E402
 from utils.bp_manager import format_bp_log  # noqa: E402
 
 
@@ -59,6 +60,9 @@ def main():
     for match in conn.execute(
         "SELECT id, bp_state, bp_process FROM matches WHERE bp_state IS NOT NULL"
     ):
+        if is_managed_match(conn, match["id"]):
+            skipped.append((match["id"], "托管比赛的 BP 由原房间统一维护"))
+            continue
         try:
             state = json.loads(match["bp_state"])
         except (TypeError, ValueError, json.JSONDecodeError):

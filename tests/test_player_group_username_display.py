@@ -182,6 +182,25 @@ class PlayerGroupUsernameDisplayTests(unittest.TestCase):
             self.client.get(f"/players/{self.linked_player_id}").get_data(as_text=True),
         )
 
+    def test_admin_leaving_legacy_player_group_blank_keeps_linked_account_nickname(self):
+        with self.client.session_transaction() as browser_session:
+            browser_session.update(admin_id=1, csrf_token="group-name-admin-csrf")
+        response = self.client.post(
+            f"/admin/players/edit/{self.linked_player_id}",
+            data={
+                "csrf_token": "group-name-admin-csrf",
+                "nickname": "LinkedPlayer",
+                "group_username": "",
+                "is_bashizhong_student": "1",
+                "steam_id": "76561198000000001",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        conn = get_db()
+        account = conn.execute("SELECT group_username FROM users WHERE id=?", (self.user_id,)).fetchone()
+        conn.close()
+        self.assertEqual(account["group_username"], "Crinia_")
+
     def test_unlinked_player_uses_admin_group_name_and_initial_avatar(self):
         with self.client.session_transaction() as browser_session:
             browser_session["admin_id"] = 1

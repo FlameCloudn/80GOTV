@@ -308,7 +308,7 @@ def _build_round_rosters(match_data, rounds, player_team_map, kills_by_round):
     return round_rosters
 
 
-def _reconstruct_clutch_stats(match_data, player_team_map, result):
+def _reconstruct_clutch_stats(match_data, player_team_map, result, side_result=None):
     """Reconstruct won clutches from the chronological round kill timeline.
 
     The analyzer's clutch array is optional and has historically contained
@@ -442,6 +442,11 @@ def _reconstruct_clutch_stats(match_data, player_team_map, result):
             if sid in result and sid in alive[winner_letter]:
                 result[sid]["clutches_won"] += 1
                 result[sid][f"clutch_1v{opponent_count}"] += 1
+                side = _event_int(round_data, "teamASide" if winner_letter == "A" else "teamBSide")
+                label = "t" if side == 2 else "ct" if side == 3 else ""
+                if side_result is not None and label in side_result.get(sid, {}):
+                    side_result[sid][label]["clutches_won"] += 1
+                    side_result[sid][label][f"clutch_1v{opponent_count}"] += 1
 
 
 def calculate_event_player_stats(match_data):
@@ -920,6 +925,11 @@ def parse_player_stats(match_data):
             }
         )
 
+    from utils.demo_side_parser import parse_side_stats
+
+    side_stats = parse_side_stats(match_data)
+    for result in results:
+        result["side_stats"] = side_stats.get(str(result["steam_id"]), {})
     return results
 
 
