@@ -80,9 +80,10 @@
     <div class="tba-message">TBA，BP 结束后可录入数据</div>
     {% else %}
     {#- 保存被拒时服务器回填原值；草稿只补充刷新或离开页面后的恢复。 -#}
-    <form method="post" class="match-stats-form" id="statsForm-{{ loop.index0 }}" data-busy-text="保存中……"{% if not readonly %} data-guard data-draft data-draft-context="map:{{ m.name }}"{% endif %}{% if m.server_rejected %} data-server-rejected{% endif %}>
+    <form method="post" class="match-stats-form" id="statsForm-{{ loop.index0 }}" data-busy-text="保存中……"{% if not readonly %} data-guard data-draft data-draft-context="map:{{ m.name }}" data-draft-revision="{{ m.revision }}"{% endif %}{% if m.server_rejected %} data-server-rejected{% endif %}>
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="map_name" value="{{ m.name if m.name else '' }}">
+      <input type="hidden" name="stats_revision" value="{{ m.revision }}">
 
       {% for opponent in opponents %}
       <h3 class="stats-team-title"><span data-i18n-ignore>{{ opponent.name }}</span> 选手数据</h3>

@@ -137,7 +137,7 @@
   function writeDraft(key, form) {
     if (!local) return;
     try {
-      local.setItem(key, JSON.stringify({ savedAt: Date.now(), fields: collect(form, false), files: chosenFiles(form) }));
+      local.setItem(key, JSON.stringify({ savedAt: Date.now(), fields: collect(form, false), files: chosenFiles(form), revision: form.getAttribute('data-draft-revision') }));
     } catch (e) { /* 存满或被禁止时不影响填写 */ }
   }
 

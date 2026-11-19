@@ -7,7 +7,7 @@
   {% if p.avatar %}
   <img class="avatar sm award-player-avatar" src="{{ avatar_thumbnail_url(p.avatar) }}" alt="" loading="lazy">
   {% else %}
-  <span class="avatar sm award-player-avatar award-player-avatar-fallback" aria-hidden="true">{{ private_name_for_player(p.id, p.nickname)[:1] }}</span>
+  <span class="avatar sm award-player-avatar award-player-avatar-fallback" aria-hidden="true" data-i18n-ignore>{{ private_name_for_player(p.id, p.nickname)[:1] }}</span>
   {% endif %}
 {% endmacro %}
 

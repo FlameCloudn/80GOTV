@@ -39,7 +39,7 @@
       {% if player.avatar %}
       <img src="{{ url_for('static', filename='avatars/' + player.avatar) }}" alt="{{ player_display_name }}" loading="eager">
       {% else %}
-      <div class="pp-portrait-fallback">{{ player_display_name[:1] }}</div>
+      <div class="pp-portrait-fallback" data-i18n-ignore>{{ player_display_name[:1] }}</div>
       {% endif %}
       {% if player.is_cheater %}
       <img src="{{ url_for('static', filename='images/pac_cheating_overlay.png') }}" class="pac-avatar-overlay pp-pac-overlay" alt="作弊封禁" loading="lazy">
@@ -150,6 +150,7 @@
     <div class="pp-overview-column pp-skills">
       <h2>数据统计</h2>
       {% if player_summary.maps %}
+      {% include '_player_coverage.html' %}
       <div class="pp-skill-body">
         {% if player_category_cards|length == 6 %}{{ skill_radar(player_category_cards) }}{% endif %}
         <div class="pp-skill-list">
@@ -215,7 +216,7 @@
     {% for p in teammates %}
     {% set teammate_name = private_name_for_player(p.id, p.nickname) %}
     <a href="/players/{{ p.id }}">
-      {% if p.avatar %}<img src="{{ url_for('static', filename='avatars/' + p.avatar) }}" alt="{{ teammate_name }}" loading="lazy">{% else %}<span>{{ teammate_name[:1] }}</span>{% endif %}
+      {% if p.avatar %}<img src="{{ url_for('static', filename='avatars/' + p.avatar) }}" alt="{{ teammate_name }}" loading="lazy">{% else %}<span data-i18n-ignore>{{ teammate_name[:1] }}</span>{% endif %}
       <b data-i18n-ignore>{{ teammate_name }}</b>
     </a>
     {% endfor %}

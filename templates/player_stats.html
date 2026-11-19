@@ -140,6 +140,7 @@
   </section>
 
   {% if player_summary.maps %}
+  {% include '_player_coverage.html' %}
   <div class="pd-category-grid">
     {% for card in player_category_cards %}{{ category_card(card, loop.index, true) }}{% endfor %}
   </div>

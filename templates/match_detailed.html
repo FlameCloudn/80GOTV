@@ -71,7 +71,7 @@
           <td class="num" data-stat-sort="kast" data-val="{{ p.kast if p.kast is not none else '' }}">{{ stat_value('kast', p.kast, 1, '%') }}</td>
           <td class="num" data-stat-sort="clutches_won" data-val="{{ p.clutches_won if p.clutches_won is not none else '' }}">{{ stat_value('clutches_won', p.clutches_won) }}</td>
           <td class="num" data-stat-sort="kills" data-val="{{ p.kills if p.kills is not none else '' }}">{{ stat_value('kills', p.kills) }} <small>({{ stat_value('headshot_kills', p.headshot_kills) }})</small></td>
-          <td class="num" data-stat-sort="assists" data-val="{{ p.assists if p.assists is not none else '' }}">{{ stat_value('assists', p.assists) }} <small>({{ stat_value('enemies_flashed', p.enemies_flashed) }})</small></td>
+          <td class="num" data-stat-sort="assists" data-val="{{ p.assists if p.assists is not none else '' }}">{{ stat_value('assists', p.assists) }} <small>({{ stat_value('flash_assists', p.flash_assists) }})</small></td>
           <td class="num" data-stat-sort="deaths" data-val="{{ p.deaths if p.deaths is not none else '' }}">{{ stat_value('deaths', p.deaths) }} <small>({{ stat_value('trade_deaths', p.trade_deaths) }})</small></td>
           <td class="num md-col-overall" data-val="{{ p.adr if p.adr is not none else '' }}">{{ metric(p.adr, 1) }}</td>
           <td class="num md-col-t" data-val="{{ p.t_adr if p.t_adr is not none else '' }}">{{ metric(p.t_adr, 1) }}</td>

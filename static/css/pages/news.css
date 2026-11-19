@@ -24,6 +24,8 @@
 .news-detail-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: var(--space-sm); color: var(--text-muted); font-size: var(--font-sm); }
 .news-detail-links { display: grid; gap: var(--space-md); margin-bottom: var(--space-lg); }
 .news-related-page-cta { justify-self: start; }
+.news-article-actions { margin-top: var(--space-lg); margin-bottom: 0; }
+.news-article-actions .news-related-page-cta { max-width: 100%; white-space: normal; overflow-wrap: anywhere; text-align: left; }
 
 .related-match-card {
   display: grid;

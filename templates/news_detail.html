@@ -49,6 +49,11 @@
   {% endif %}
 
   <div class="prose news-content" data-i18n-ignore>{{ news.content|safe }}</div>
+  {% if news.internal_link_url %}
+  <div class="news-detail-links news-article-actions">
+    <a class="btn btn-primary news-related-page-cta" href="{{ news.internal_link_url }}" data-i18n-ignore>{{ news.internal_link_text or '打开页面' }}</a>
+  </div>
+  {% endif %}
 </article>
 
 {% from '_comment_macros.html' import render_comment with context %}

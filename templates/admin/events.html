@@ -37,9 +37,21 @@
             {% elif event_status == 'ongoing' %}<span class="badge badge-live status-badge status-ongoing">进行中</span>
             {% else %}<span class="badge badge-done status-badge status-completed">已结束</span>{% endif %}
           </td>
-          <td>{% if e.registration_open and event_status != 'completed' %}<span class="badge badge-green">报名中</span>{% else %}<span class="muted">-</span>{% endif %}</td>
+          <td>
+            {% if e.registration_control and e.registration_control.enabled %}
+            <span class="badge {{ e.registration_control.phase_badge }}">{{ e.registration_control.phase_label }}</span>
+            <span class="cell-sub">截止 {{ e.registration_control.deadline_iso|datetime_display }}</span>
+            {% elif e.registration_open and event_status != 'completed' %}
+            <span class="badge badge-green">报名中</span>
+            {% else %}
+            <span class="muted">-</span>
+            {% endif %}
+          </td>
           <td class="col-actions">
             <div class="row-actions">
+              {% if e.registration_control and e.registration_control.enabled %}
+              <a href="{{ url_for('admin.admin_event_roster', event_id=e.id) }}" class="btn btn-sm">{{ ui.icon('team') }}报名与阵容</a>
+              {% endif %}
               <a href="{{ url_for('admin.admin_events_edit', event_id=e.id) }}" class="btn btn-sm">{{ ui.icon('edit') }}编辑</a>
               <a href="{{ url_for('admin.admin_event_bracket', event_id=e.id) }}" class="btn btn-sm">{{ ui.icon('bracket') }}对阵图</a>
               {{ ui.icon_link('match', url_for('admin.admin_matches', event=e.id), '本赛事的比赛') }}

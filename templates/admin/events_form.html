@@ -1,6 +1,8 @@
 {% extends "admin/_layout.html" %}
 {% import "admin/_icons.html" as ui %}
 {% set editing = event and event.id %}
+{% set rc = registration_control or {} %}
+{% set managed = rc.get('enabled') %}
 {% block title %}{% if editing %}编辑赛事{% else %}添加赛事{% endif %}{% endblock %}
 {% block main %}
 <a href="{{ url_for('admin.admin_events') }}" class="back-link">← 返回赛事管理</a>
@@ -8,11 +10,86 @@
   <div><span class="page-head-kicker" data-i18n-ignore>EVENTS</span><h1>{% if editing %}编辑赛事{% else %}添加赛事{% endif %}</h1></div>
   {% if editing %}
   <div class="page-actions">
+    {% if managed %}
+    <a class="btn btn-primary" href="{{ url_for('admin.admin_event_roster', event_id=event.id) }}">{{ ui.icon('team') }}报名与阵容</a>
+    <a class="btn" href="#managedAwardsPanel">{{ ui.icon('event') }}赛后荣誉</a>
+    {% endif %}
     <a class="btn" href="{{ url_for('admin.admin_matches', event=event.id) }}">{{ ui.icon('match') }}本赛事比赛</a>
     <a class="btn" href="{{ url_for('admin.admin_event_bracket', event_id=event.id) }}">{{ ui.icon('bracket') }}编辑对阵图</a>
   </div>
   {% endif %}
 </header>
+
+{% if editing %}
+<section class="panel managed-control-panel">
+  <div class="panel-head">
+    <h2 class="panel-title">新报名管理</h2>
+    {% if not rc.get('schema_ready') %}
+    <span class="muted">未安装新报名结构</span>
+    {% elif managed %}
+    <span class="badge {{ rc.phase_badge }}">{{ rc.phase_label }}</span>
+    {% else %}
+    <span class="muted">未启用新报名管理</span>
+    {% endif %}
+  </div>
+  <div class="panel-body managed-control-body">
+    {% if not rc.get('schema_ready') %}
+    <p class="lock-note">{{ ui.icon('lock') }}此数据库尚未安装新报名管理结构，当前继续使用原报名流程。</p>
+    {% elif managed %}
+    <dl class="managed-facts">
+      <div>
+        <dt>报名截止时间</dt>
+        <dd>{{ rc.deadline_iso|datetime_display }} <span class="muted">({{ '已截止' if rc.is_due else '报名进行中' }})</span></dd>
+      </div>
+      <div>
+        <dt>启用于</dt>
+        <dd>{{ rc.enabled_at_iso|datetime_display }}</dd>
+      </div>
+      {% if rc.formed %}
+      <div>
+        <dt>正式分队</dt>
+        <dd>{{ rc.formed_at_iso|datetime_display }} · 已确认首五 {{ rc.confirmed_entrants }} / {{ rc.active_entrants }} 队</dd>
+      </div>
+      {% endif %}
+      {% if rc.archived_at %}
+      <div>
+        <dt>归档于</dt>
+        <dd>{{ rc.archived_at_iso|datetime_display }}</dd>
+      </div>
+      {% endif %}
+    </dl>
+    <div class="managed-control-actions">
+      <a class="btn btn-primary" href="{{ url_for('admin.admin_event_roster', event_id=event.id) }}">{{ ui.icon('team') }}打开报名与阵容</a>
+      {% if rc.can_disable %}
+      <button type="button" class="btn btn-danger" id="disableManagedBtn" data-action-url="{{ url_for('admin.admin_registration_action', event_id=event.id, action='disable') }}">停用新报名管理</button>
+      {% else %}
+      <span class="field-hint lock-hint">{{ ui.icon('lock') }}{{ rc.disable_block_reason }}</span>
+      {% endif %}
+    </div>
+    <p class="field-error" id="managedControlError" role="alert" hidden></p>
+    {% elif rc.get('can_enable') %}
+    <p class="lock-note">这届还没有报名、比赛和对阵图，可以改用新报名管理。</p>
+    <div class="managed-enable-row">
+      <label class="field">
+        <span class="field-label">报名截止时间 <span class="field-required">*</span></span>
+        <input type="datetime-local" id="enableDeadlineLocal" aria-label="启用新报名管理的报名截止时间">
+      </label>
+      <button type="button" class="btn btn-primary" id="enableManagedBtn" data-action-url="{{ url_for('admin.admin_registration_action', event_id=event.id, action='enable') }}">{{ ui.icon('check') }}启用新报名管理</button>
+    </div>
+    <p class="field-hint">启用后本届报名改由新流程管理，截止时间不能再修改。产生报名或分队后不能退回原流程。</p>
+    <p class="field-error" id="managedControlError" role="alert" hidden></p>
+    {% else %}
+    <p class="lock-note">{{ ui.icon('lock') }}这届赛事不能改用新报名管理，原因：</p>
+    <ul class="managed-blocker-list">
+      {% for reason in rc.get('blockers', []) %}
+      <li>{{ reason }}</li>
+      {% endfor %}
+    </ul>
+    <p class="field-hint">往届或已有业务记录的赛事继续使用原流程，不提供迁移。</p>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
 
 {#- 分组：必填的“基本信息”“赛期”直接展开；报名单独一组；网址、描述、直播间、赛后荣誉折叠。
     data-guard / data-draft：未保存离开提醒、草稿（见 static/js/admin_form_draft.js） -#}
@@ -39,11 +116,17 @@
           {% if editing %}
           <label class="field">
             <span class="field-label">状态 <span class="field-required">*</span></span>
+            {% if managed and event.status == 'completed' %}
+            <input type="hidden" name="status" value="completed">
+            <input type="text" value="已结束（已归档，不可重新开放）" disabled>
+            {% else %}
             <select name="status" required>
               <option value="upcoming" {% if event.status=='upcoming' %}selected{% endif %}>即将开始</option>
-              <option value="ongoing" {% if event.status=='ongoing' %}selected{% endif %}>进行中</option>
-              <option value="completed" {% if event.status=='completed' %}selected{% endif %}>已结束</option>
+              <option value="ongoing" {% if event.status=='ongoing' %}selected{% endif %} {% if managed %}disabled{% endif %}>进行中{% if managed %}（本届只办理赛前管理与归档）{% endif %}</option>
+              <option value="completed" {% if event.status=='completed' %}selected{% endif %}>已结束{% if managed %}（保存后归档本届赛事）{% endif %}</option>
             </select>
+            {% if managed %}<span class="field-hint">新流程当前只开放赛前管理与归档，不可切换为进行中。</span>{% endif %}
+            {% endif %}
           </label>
           {% endif %}
         </div>
@@ -75,6 +158,33 @@
 
       <section class="form-group">
         <div class="form-group-head"><h2 class="form-group-title">报名</h2></div>
+        {% if not editing %}
+        <div class="reg-mode-list">
+          <label class="check-row">
+            <input type="radio" name="registration_mode" value="closed" {% if not event or not event.registration_open %}checked{% endif %}>
+            <span>不开放报名</span>
+          </label>
+          <label class="check-row">
+            <input type="radio" name="registration_mode" value="legacy_open" {% if event and event.registration_open %}checked{% endif %}>
+            <span>原报名开关：开放队伍报名</span>
+          </label>
+          <label class="check-row">
+            <input type="radio" name="registration_mode" value="managed" {% if not rc.get('schema_ready') %}disabled{% endif %}>
+            <span>新报名管理（报名截止后自动分队）{% if not rc.get('schema_ready') %}（当前数据库未安装新报名结构）{% endif %}</span>
+          </label>
+        </div>
+        <input type="hidden" name="registration_open" id="legacyRegOpenInput" value="1" {% if not (event and event.registration_open) %}disabled{% endif %}>
+        <div id="managedAddDeadlineWrap" class="managed-deadline-box" hidden>
+          <label class="field form-narrow">
+            <span class="field-label">报名截止时间 <span class="field-required">*</span></span>
+            <input type="datetime-local" id="newRegDeadlineLocal" data-draft-name="registration_deadline_local">
+            <span class="field-hint">截止后按 Steam 时长自动分队；之后由管理员确认初始五人。启用后不能修改截止时间。</span>
+          </label>
+          <input type="hidden" name="registration_deadline" id="newRegDeadlineEpoch" disabled>
+        </div>
+        {% elif managed %}
+        <p class="lock-note">{{ ui.icon('lock') }}报名开关由上方「新报名管理」按截止时间自动控制。</p>
+        {% else %}
         <label class="check-row">
           <input type="checkbox" name="registration_open" value="1"
                  {% if event and event.registration_open and event.status != 'completed' %}checked{% endif %}
@@ -83,6 +193,7 @@
         </label>
         {% if event and event.status == 'completed' %}
         <span class="field-hint lock-hint">{{ ui.icon('lock') }}赛事已完赛，不可再开放报名。</span>
+        {% endif %}
         {% endif %}
       </section>
 
@@ -106,7 +217,7 @@
         </div>
       </details>
 
-      {% if editing %}
+      {% if editing and not managed %}
       <details class="form-group optional" {% if champion_team or mvp_player or evp_players %}open{% endif %}>
         <summary><span class="form-group-title">赛后荣誉：冠军、MVP、EVP</span><span data-group-status></span></summary>
         <div class="details-body">
@@ -154,6 +265,45 @@
     </div>
   </form>
 </section>
+
+{% if editing and managed %}
+<section class="panel managed-awards-panel" id="managedAwardsPanel"
+         data-event-id="{{ event.id }}"
+         data-championship-url="{{ url_for('admin.managed_championship', event_id=event.id) }}"
+         data-player-awards-url="{{ url_for('admin.managed_player_awards', event_id=event.id) }}">
+  <div class="panel-head">
+    <h2 class="panel-title">赛后荣誉</h2>
+    <div class="managed-awards-head-links">
+      <a class="btn btn-sm" href="{{ url_for('admin.admin_award_poster') }}">{{ ui.icon('image') }}荣誉海报</a>
+      <a class="btn btn-sm" href="/awards">{{ ui.icon('external') }}荣誉总览</a>
+    </div>
+  </div>
+  <div class="panel-body managed-awards-body">
+    <div class="managed-awards-grid">
+      <article class="managed-award-card" id="managedChampCard">
+        <div class="managed-award-card-head">
+          <h3>团队冠军</h3>
+          <span class="muted" id="managedChampBadge"></span>
+        </div>
+        <div class="managed-award-card-body" id="managedChampBody">
+          <p class="muted">加载中……</p>
+        </div>
+        <p id="managedChampError" class="roster-inline-error" role="alert" hidden></p>
+      </article>
+
+      <article class="managed-award-card" id="managedMedalsCard">
+        <div class="managed-award-card-head">
+          <h3>个人荣誉</h3>
+        </div>
+        <div class="managed-award-card-body" id="managedMedalsBody">
+          <p class="muted">加载中……</p>
+        </div>
+        <p id="managedMedalsError" class="roster-inline-error" role="alert" hidden></p>
+      </article>
+    </div>
+  </div>
+</section>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
@@ -184,5 +334,468 @@ function setEventDuration(days) {
 document.querySelectorAll('[data-event-days]').forEach(function (chip) {
   chip.addEventListener('click', function () { setEventDuration(Number(chip.getAttribute('data-event-days'))); });
 });
+
+function evText(text) { return window.siteTranslate ? window.siteTranslate(text) : text; }
+
+function parseLocalDeadlineToEpoch(rawValue) {
+  if (!rawValue) return null;
+  var ms = new Date(rawValue).getTime();
+  if (!Number.isFinite(ms)) return null;
+  return Math.floor(ms / 1000);
+}
+
+// 新增赛事：三种报名方式切换 + 截止时间转成 UTC 秒
+(function bindAddRegistrationMode() {
+  var radios = document.querySelectorAll('input[name="registration_mode"]');
+  if (!radios.length) return;
+  var legacyOpen = document.getElementById('legacyRegOpenInput');
+  var wrap = document.getElementById('managedAddDeadlineWrap');
+  var localInput = document.getElementById('newRegDeadlineLocal');
+  var epochInput = document.getElementById('newRegDeadlineEpoch');
+  var eventForm = document.getElementById('eventForm');
+
+  function syncDeadline() {
+    if (!localInput || !epochInput) return;
+    var active = !localInput.disabled;
+    if (!active) {
+      localInput.setCustomValidity('');
+      epochInput.value = '';
+      epochInput.disabled = true;
+      return;
+    }
+    var epoch = parseLocalDeadlineToEpoch(localInput.value);
+    if (epoch === null) {
+      localInput.setCustomValidity('');
+      epochInput.value = '';
+      epochInput.disabled = false;
+      return;
+    }
+    if (epoch <= Math.floor(Date.now() / 1000)) {
+      localInput.setCustomValidity(evText('请填写晚于当前时间的报名截止时间'));
+      epochInput.value = '';
+      epochInput.disabled = false;
+      return;
+    }
+    localInput.setCustomValidity('');
+    epochInput.disabled = false;
+    epochInput.value = String(epoch);
+  }
+
+  function syncMode() {
+    var checked = document.querySelector('input[name="registration_mode"]:checked');
+    var mode = checked ? checked.value : 'closed';
+    if (legacyOpen) legacyOpen.disabled = mode !== 'legacy_open';
+    var isManaged = mode === 'managed';
+    if (wrap) wrap.hidden = !isManaged;
+    if (localInput) {
+      localInput.disabled = !isManaged;
+      localInput.required = isManaged;
+    }
+    if (epochInput) epochInput.disabled = !isManaged;
+    syncDeadline();
+  }
+
+  radios.forEach(function (radio) { radio.addEventListener('change', syncMode); });
+  if (localInput) {
+    localInput.addEventListener('input', syncDeadline);
+    localInput.addEventListener('change', syncDeadline);
+  }
+  if (eventForm) {
+    eventForm.addEventListener('admin-draft:restored', syncMode);
+  }
+  syncMode();
+})();
+
+// 编辑赛事：独立的启用 / 停用新报名管理请求
+(function bindEditRegistrationControl() {
+  var enableBtn = document.getElementById('enableManagedBtn');
+  var disableBtn = document.getElementById('disableManagedBtn');
+  var errBox = document.getElementById('managedControlError');
+  var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+  var csrf = csrfMeta ? csrfMeta.getAttribute('content') : '';
+
+  function showErr(text) {
+    if (errBox) {
+      errBox.textContent = text;
+      errBox.hidden = !text;
+    }
+    if (text && window.showToast) window.showToast(text, 'error');
+  }
+
+  async function postControl(btn, url, payload, pendingLabel, successMsg) {
+    showErr('');
+    var oldLabel = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = evText(pendingLabel);
+    try {
+      var resp = await fetch(url, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
+        body: JSON.stringify(payload || {})
+      });
+      var data = await resp.json().catch(function () { return {}; });
+      if (!resp.ok || data.success === false) {
+        showErr(data.error || ('操作失败（状态码 ' + resp.status + '）'));
+        btn.disabled = false;
+        btn.textContent = oldLabel;
+        return;
+      }
+      if (window.showToast) window.showToast(evText(successMsg), 'success');
+      window.location.reload();
+    } catch (e) {
+      showErr('网络错误，请稍后重试');
+      btn.disabled = false;
+      btn.textContent = oldLabel;
+    }
+  }
+
+  if (enableBtn) {
+    enableBtn.addEventListener('click', function () {
+      var input = document.getElementById('enableDeadlineLocal');
+      var epoch = parseLocalDeadlineToEpoch(input ? input.value : '');
+      if (epoch === null) {
+        showErr('请先填写报名截止时间');
+        if (input) input.focus();
+        return;
+      }
+      if (epoch <= Math.floor(Date.now() / 1000)) {
+        showErr('报名截止时间必须晚于当前时间');
+        if (input) input.focus();
+        return;
+      }
+      var msg = '确定启用新报名管理吗？启用后截止时间不能再修改，产生报名后不能退回原流程。';
+      var confirmFn = window.adminConfirm || window.showConfirm;
+      confirmFn(msg).then(function (yes) {
+        if (!yes) return;
+        postControl(enableBtn, enableBtn.getAttribute('data-action-url'), { registration_deadline: epoch }, '启用中……', '已启用新报名管理');
+      });
+    });
+  }
+
+  if (disableBtn) {
+    disableBtn.addEventListener('click', function () {
+      var msg = '确定停用新报名管理吗？停用后本届退回原报名流程，仅在尚无任何报名和比赛时可用。';
+      var confirmFn = window.adminConfirm || window.showConfirm;
+      confirmFn(msg, { danger: true }).then(function (yes) {
+        if (!yes) return;
+        postControl(disableBtn, disableBtn.getAttribute('data-action-url'), {}, '停用中……', '已停用新报名管理');
+      });
+    });
+  }
+})();
+
+(function bindManagedAwardsPanel() {
+  var panel = document.getElementById('managedAwardsPanel');
+  if (!panel) return;
+  var eventId = panel.getAttribute('data-event-id');
+  var champUrl = panel.getAttribute('data-championship-url');
+  var medalsUrl = panel.getAttribute('data-player-awards-url');
+  var champBadge = document.getElementById('managedChampBadge');
+  var champBody = document.getElementById('managedChampBody');
+  var medalsBody = document.getElementById('managedMedalsBody');
+  var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+  var csrf = csrfMeta ? csrfMeta.getAttribute('content') : '';
+
+  function escHtml(v) {
+    return String(v == null ? '' : v)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function showAwardErr(id, message) {
+    var el = document.getElementById(id);
+    el.textContent = message ? evText(message) : '';
+    el.hidden = !message;
+  }
+
+  async function awardRequest(url, payload) {
+    var options = { credentials: 'same-origin', headers: { Accept: 'application/json' } };
+    if (payload) {
+      options.method = 'POST';
+      options.headers['Content-Type'] = 'application/json';
+      options.headers['X-CSRF-Token'] = csrf;
+      options.body = JSON.stringify(payload);
+    }
+    var response;
+    try {
+      response = await fetch(url, options);
+    } catch (error) {
+      throw new Error('网络请求失败，请稍后重试');
+    }
+    if (!(response.headers.get('content-type') || '').includes('application/json')) {
+      throw new Error('未收到有效回复，请检查登录状态后重试');
+    }
+    var data = await response.json();
+    if (!response.ok || data.ok !== true) throw new Error(data.error || '操作失败');
+    return data;
+  }
+
+  function renderChampionship(data) {
+    var stored = data.championship;
+    var team = stored || data.candidate;
+    champBadge.textContent = stored ? evText(stored.needs_review ? '待复核' : '已授予') : '';
+    if (!team) {
+      champBody.textContent = evText(data.blocked_reason || '决赛尚未正式完赛');
+      return;
+    }
+    var identity = team.club_id
+      ? '<a href="/teams/' + encodeURIComponent(team.club_id) + '">' + escHtml(evText('长期俱乐部')) + '</a>'
+      : escHtml(evText('本届临时队'));
+    champBody.innerHTML = '<p><strong data-i18n-ignore>' + escHtml(team.team_name) + '</strong> · ' + identity + '</p>' +
+      '<ol class="managed-award-players">' + team.players.map(function (p) {
+        return '<li value="' + escHtml(p.roster_slot) + '"><span data-i18n-ignore>' + escHtml(p.nickname) + '</span></li>';
+      }).join('') + '</ol>' +
+      '<p class="field-hint"><a href="/admin/matches/' + encodeURIComponent(team.match_id) + '/operate#results">' +
+        escHtml(evText('决赛赛果')) + ' #' + escHtml(team.match_id) + '</a> · ' +
+        escHtml(evText('正式结算')) + ' #' + escHtml(team.settlement_id) + '</p>' +
+      (stored ? '' : '<button type="button" class="btn btn-primary" id="awardManagedChampBtn">' + escHtml(evText('授予冠军')) + '</button>');
+    if (stored && data.blocked_reason) showAwardErr('managedChampError', data.blocked_reason);
+    var btn = document.getElementById('awardManagedChampBtn');
+    if (btn) btn.addEventListener('click', async function () {
+      if (!await window.adminConfirm('将冠军授予这支队伍和以上五名选手？')) return;
+      showAwardErr('managedChampError', '');
+      btn.disabled = true;
+      btn.textContent = evText('保存中……');
+      try {
+        var saved = await awardRequest(champUrl, {
+          match_id: team.match_id, settlement_id: team.settlement_id,
+          player_ids: team.players.map(function (p) { return p.player_id; })
+        });
+        renderChampionship(saved);
+        window.showToast(evText('已授予冠军'), 'success');
+      } catch (error) {
+        showAwardErr('managedChampError', error.message);
+        await loadAwardSection(champUrl, champBody, renderChampionship);
+      }
+    });
+  }
+
+  var medalState = {
+    candidates: [],
+    candidateMap: {},
+    mvpId: null,
+    evpIds: [],
+    savedMvpId: null,
+    savedEvpIds: [],
+    blockedReason: null,
+    needsReview: false,
+    awards: []
+  };
+
+  function syncMedalStateFromServer(data) {
+    medalState.candidates = data.candidates || [];
+    medalState.candidateMap = {};
+    medalState.candidates.forEach(function (c) {
+      medalState.candidateMap[c.player_id] = c;
+    });
+    medalState.awards = data.awards || [];
+    medalState.blockedReason = data.blocked_reason || null;
+    medalState.needsReview = Boolean(data.needs_review);
+    var mvpRow = medalState.awards.find(function (a) { return String(a.type).toUpperCase() === 'MVP'; });
+    var evpRows = medalState.awards.filter(function (a) { return String(a.type).toUpperCase() === 'EVP'; });
+    medalState.mvpId = mvpRow ? mvpRow.player_id : null;
+    medalState.savedMvpId = medalState.mvpId;
+    medalState.evpIds = evpRows.map(function (a) { return a.player_id; });
+    medalState.savedEvpIds = medalState.evpIds.slice();
+  }
+
+  function candidateLabel(player) {
+    return escHtml(player.nickname + ' (' + player.team_name + ' · ' + evText('出场地图') + ': ' + player.maps + ')');
+  }
+
+  function renderMedals() {
+    var cands = medalState.candidates;
+    var awards = medalState.awards;
+
+    if (!cands.length) {
+      var blockedHtml = '<div class="managed-award-blocked">' +
+        '<p>' + escHtml(evText(medalState.blockedReason || '本届仍有未正式完赛的比赛，或没有正式赛果')) + '</p>';
+      if (awards.length) {
+        blockedHtml += '<ul class="managed-saved-medals">' +
+          awards.map(function (a) {
+            var label = String(a.type).toUpperCase() === 'MVP' ? 'MVP' : ('EVP #' + (a.evp_rank || '?'));
+            return '<li>' + escHtml(label) + ' · <a href="/players/' + encodeURIComponent(a.player_id) + '" data-i18n-ignore>' + escHtml(a.nickname || '#' + a.player_id) + '</a></li>';
+          }).join('') + '</ul>';
+      }
+      blockedHtml += '</div>';
+      medalsBody.innerHTML = blockedHtml;
+      return;
+    }
+
+    var warnHtml = medalState.needsReview
+      ? '<p class="managed-award-warn" role="status">' + escHtml(evText('部分获奖人已不在候选名单中，请重新核对。')) + '</p>'
+      : '';
+
+    var priorMvp = awards.find(a => a.type === 'MVP');
+    var unavailableMvp = priorMvp && medalState.mvpId === priorMvp.player_id && !medalState.candidateMap[priorMvp.player_id];
+    var mvpOptions = '<option value="">' + escHtml(evText('-- 未指定 --')) + '</option>' +
+      (unavailableMvp ? '<option selected disabled value="' + priorMvp.player_id + '" data-i18n-ignore>' + escHtml(priorMvp.nickname || '#' + priorMvp.player_id) + '</option>' : '') +
+      cands.map(function (c) {
+        var sel = medalState.mvpId === c.player_id ? ' selected' : '';
+        return '<option value="' + escHtml(c.player_id) + '" data-i18n-ignore' + sel + '>' + candidateLabel(c) + '</option>';
+      }).join('');
+
+    var mvpPosterHtml = (medalState.mvpId && medalState.savedMvpId === medalState.mvpId)
+      ? ' <a class="managed-poster-link" target="_blank" rel="noopener" href="/events/' + encodeURIComponent(eventId) + '/award-poster/MVP/' + encodeURIComponent(medalState.mvpId) + '.png">' + escHtml(evText('预览 MVP 海报')) + '</a>'
+      : '';
+
+    var evpListHtml = '';
+    if (medalState.evpIds.length) {
+      evpListHtml = '<ol class="managed-evp-list" id="managedEvpOrderList">' +
+        medalState.evpIds.map(function (pid, idx) {
+          var info = medalState.candidateMap[pid];
+          var saved = awards.find(a => a.player_id === pid);
+          var nameText = escHtml((info && info.nickname) || (saved && saved.nickname) || '#' + pid);
+          var posterLink = medalState.savedEvpIds.includes(pid)
+            ? '<a class="btn btn-sm btn-icon" target="_blank" rel="noopener" href="/events/' + encodeURIComponent(eventId) + '/award-poster/EVP/' + encodeURIComponent(pid) + '.png" title="' + escHtml(evText('预览 EVP 海报')) + '" aria-label="' + escHtml(evText('预览 EVP 海报')) + '">{{ ui.icon("image") }}</a>'
+            : '';
+          var upDisabled = idx === 0 ? ' disabled' : '';
+          var downDisabled = idx === medalState.evpIds.length - 1 ? ' disabled' : '';
+          return '<li class="managed-evp-item" data-player-id="' + escHtml(pid) + '">' +
+            '<span class="managed-evp-rank" data-i18n-ignore>#' + (idx + 1) + '</span>' +
+            '<span class="managed-evp-name" data-i18n-ignore>' + nameText + '</span>' +
+            '<div class="managed-evp-item-actions">' +
+              posterLink +
+              '<button type="button" class="btn btn-sm btn-icon" data-evp-move="up" data-idx="' + idx + '"' + upDisabled + ' title="' + escHtml(evText('上移')) + '" aria-label="' + escHtml(evText('上移')) + '">↑</button>' +
+              '<button type="button" class="btn btn-sm btn-icon" data-evp-move="down" data-idx="' + idx + '"' + downDisabled + ' title="' + escHtml(evText('下移')) + '" aria-label="' + escHtml(evText('下移')) + '">↓</button>' +
+              '<button type="button" class="btn btn-sm btn-icon" data-evp-remove="' + escHtml(pid) + '" title="' + escHtml(evText('移除')) + '" aria-label="' + escHtml(evText('移除')) + '">{{ ui.icon("close") }}</button>' +
+            '</div>' +
+          '</li>';
+        }).join('') +
+      '</ol>';
+    }
+
+    var availableForEvp = cands.filter(function (c) {
+      return medalState.evpIds.indexOf(c.player_id) === -1;
+    });
+    var evpAddOptions = '<option value="">' + escHtml(evText('选择选手')) + '</option>' +
+      availableForEvp.map(function (c) {
+        return '<option value="' + escHtml(c.player_id) + '" data-i18n-ignore>' + candidateLabel(c) + '</option>';
+      }).join('');
+
+    medalsBody.innerHTML = warnHtml +
+      '<fieldset class="managed-medals-editor">' +
+        '<div class="field">' +
+          '<div class="managed-field-head"><label class="field-label" for="managedMvpSelect">' + escHtml(evText('赛事 MVP')) + '</label>' + mvpPosterHtml + '</div>' +
+          '<select id="managedMvpSelect">' + mvpOptions + '</select>' +
+        '</div>' +
+        '<div class="field">' +
+          '<label class="field-label" for="managedEvpAddSelect">' + escHtml(evText('EVP 公布顺序')) + '</label>' +
+          evpListHtml +
+          '<div class="managed-evp-add-row">' +
+            '<select id="managedEvpAddSelect"' + (availableForEvp.length ? '' : ' disabled') + '>' + evpAddOptions + '</select>' +
+            '<button type="button" class="btn btn-sm" id="managedEvpAddBtn" disabled>{{ ui.icon("plus") }}' + escHtml(evText('加入 EVP')) + '</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="managed-award-actions">' +
+          '<button type="button" class="btn btn-primary" id="saveManagedMedalsBtn">' + escHtml(evText('保存个人荣誉')) + '</button>' +
+        '</div>' +
+      '</fieldset>';
+
+    var mvpSelect = document.getElementById('managedMvpSelect');
+    if (mvpSelect) {
+      mvpSelect.addEventListener('change', function () {
+        var val = mvpSelect.value ? Number(mvpSelect.value) : null;
+        medalState.mvpId = val;
+        renderMedals();
+        document.getElementById('managedMvpSelect').focus();
+      });
+    }
+
+    var addSelect = document.getElementById('managedEvpAddSelect');
+    var addBtn = document.getElementById('managedEvpAddBtn');
+    if (addBtn && addSelect) {
+      addSelect.addEventListener('change', function () { addBtn.disabled = !addSelect.value; });
+      addBtn.addEventListener('click', function () {
+        var pid = addSelect.value ? Number(addSelect.value) : null;
+        if (!pid || medalState.evpIds.indexOf(pid) !== -1) return;
+        medalState.evpIds.push(pid);
+        renderMedals();
+        document.getElementById('managedEvpAddSelect').focus();
+      });
+    }
+
+    medalsBody.querySelectorAll('[data-evp-move]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var idx = Number(btn.getAttribute('data-idx'));
+        var dir = btn.getAttribute('data-evp-move');
+        var targetIdx = dir === 'up' ? idx - 1 : idx + 1;
+        if (targetIdx < 0 || targetIdx >= medalState.evpIds.length) return;
+        var tmp = medalState.evpIds[idx];
+        medalState.evpIds[idx] = medalState.evpIds[targetIdx];
+        medalState.evpIds[targetIdx] = tmp;
+        renderMedals();
+        var row = medalsBody.querySelector('[data-player-id="' + tmp + '"]');
+        (row.querySelector('[data-evp-move="' + dir + '"]:enabled') || row.querySelector('[data-evp-move]:enabled')).focus();
+      });
+    });
+
+    medalsBody.querySelectorAll('[data-evp-remove]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var pid = Number(btn.getAttribute('data-evp-remove'));
+        medalState.evpIds = medalState.evpIds.filter(function (id) { return id !== pid; });
+        renderMedals();
+        document.getElementById('managedEvpAddSelect').focus();
+      });
+    });
+
+    var saveBtn = document.getElementById('saveManagedMedalsBtn');
+    if (saveBtn) {
+      saveBtn.disabled = medalState.mvpId === medalState.savedMvpId &&
+        medalState.evpIds.length === medalState.savedEvpIds.length &&
+        medalState.evpIds.every(function (id, index) { return id === medalState.savedEvpIds[index]; });
+      saveBtn.addEventListener('click', function () {
+        submitMedals(saveBtn);
+      });
+    }
+  }
+
+  async function submitMedals(btn) {
+    var editor = btn.closest('fieldset');
+    showAwardErr('managedMedalsError', '');
+    editor.disabled = true;
+    btn.textContent = evText('保存中……');
+    try {
+      var data = await awardRequest(medalsUrl, {
+        mvp_player_id: medalState.mvpId, evp_player_ids: medalState.evpIds
+      });
+      syncMedalStateFromServer(data);
+      renderMedals();
+      document.getElementById('managedMvpSelect').focus();
+      window.showToast(evText('个人荣誉已保存'), 'success');
+    } catch (error) {
+      showAwardErr('managedMedalsError', error.message);
+      editor.disabled = false;
+      btn.textContent = evText('保存个人荣誉');
+      btn.focus();
+    }
+  }
+
+  async function loadAwardSection(url, body, render) {
+    var data;
+    try {
+      data = await awardRequest(url);
+    } catch (error) {
+      body.textContent = evText(error.message) + ' ';
+      var retry = document.createElement('button');
+      retry.type = 'button';
+      retry.className = 'btn btn-sm';
+      retry.textContent = evText('重试');
+      retry.onclick = function () { retry.disabled = true; loadAwardSection(url, body, render); };
+      body.appendChild(retry);
+      return;
+    }
+    render(data);
+  }
+
+  loadAwardSection(champUrl, champBody, renderChampionship);
+  loadAwardSection(medalsUrl, medalsBody, function (data) {
+    syncMedalStateFromServer(data);
+    renderMedals();
+  });
+})();
 </script>
 {% endblock %}

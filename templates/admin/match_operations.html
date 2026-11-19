@@ -1,0 +1,468 @@
+{% extends "admin/_layout.html" %}
+{% import "admin/_icons.html" as ui %}
+{% block title %}比赛运营 #{{ match.id }}{% endblock %}
+{% block main %}
+{% set home = participants|selectattr('side_key', 'equalto', 'home')|first %}
+{% set away = participants|selectattr('side_key', 'equalto', 'away')|first %}
+<a href="{{ url_for('admin.admin_matches') }}" class="back-link">← 返回比赛管理</a>
+
+<header class="page-head ops-page-head">
+  <div>
+    <span class="page-head-kicker" data-i18n-ignore>MATCH OPERATIONS · #{{ match.id }}</span>
+    <h1>
+      <span data-i18n-ignore>{{ home.name if home else 'TBD' }}</span>
+      <span class="ops-vs" data-i18n-ignore>vs</span>
+      <span data-i18n-ignore>{{ away.name if away else 'TBD' }}</span>
+    </h1>
+    <p class="page-sub">
+      <span data-i18n-ignore>{{ match.event_name }}</span>
+      {% if match.stage %} · <span data-i18n-ignore>{{ match.stage }}</span>{% endif %}
+      · <span>{{ match.bo_format }}</span>
+      {% if match.match_time %} · <span>{{ match.match_time|datetime_display }}</span>{% endif %}
+    </p>
+  </div>
+  <div class="page-actions ops-head-actions">
+    <a class="btn btn-sm" href="{{ match.edit_url }}">{{ ui.icon('edit') }}赛前配置</a>
+    <a class="btn btn-sm" href="{{ match.bp_url }}" target="_blank" rel="noopener">{{ ui.icon('flag') }}BP 房间</a>
+    <a class="btn btn-sm" href="{{ match.event_roster_url }}">{{ ui.icon('player') }}赛事名单</a>
+    <a class="btn btn-sm" href="{{ match.event_bracket_url }}">{{ ui.icon('bracket') }}晋级签表</a>
+    <a class="btn btn-sm" href="{{ match.public_url }}" target="_blank" rel="noopener">{{ ui.icon('external') }}前台比赛页</a>
+    <button type="button" class="btn btn-sm" id="opsRefreshBtn">{{ ui.icon('reopen') }}刷新状态</button>
+  </div>
+</header>
+
+<section class="panel ops-summary-panel" id="opsSummaryPanel" aria-label="比赛运营概览">
+  <div class="ops-summary-top" id="opsSummaryTop"></div>
+  <div class="ops-gate-grid" id="opsGateGrid"></div>
+</section>
+
+<div id="opsFeedback" class="ops-feedback" role="status" hidden></div>
+
+<div class="match-tabs ops-tabs" role="tablist" aria-label="比赛运营分区">
+  <button type="button" class="match-tab active" role="tab" id="ops-tab-runs" aria-controls="ops-pane-runs" aria-selected="true" data-ops-tab="runs">开赛与局次</button>
+  <button type="button" class="match-tab" role="tab" id="ops-tab-demos" aria-controls="ops-pane-demos" aria-selected="false" data-ops-tab="demos">Demo 与数据采纳</button>
+  <button type="button" class="match-tab" role="tab" id="ops-tab-results" aria-controls="ops-pane-results" aria-selected="false" data-ops-tab="results">赛果、结算与竞猜</button>
+  <button type="button" class="match-tab" role="tab" id="ops-tab-stats" aria-controls="ops-pane-stats" aria-selected="false" data-ops-tab="stats">统计修订</button>
+</div>
+
+{# ================= Tab 1: 开赛与局次 ================= #}
+<section class="ops-tab-pane active" id="ops-pane-runs" role="tabpanel" aria-labelledby="ops-tab-runs" data-ops-pane="runs">
+  <div class="ops-section-stack">
+    <section class="panel" id="opsAuthCard">
+      <div class="panel-head">
+        <h2 class="panel-title">开赛资格与授权</h2>
+        <span class="badge" id="opsAuthBadge">加载中</span>
+      </div>
+      <div class="ops-panel-body" id="opsAuthBody"></div>
+    </section>
+
+    <section class="panel" id="opsFrozenRosterCard">
+      <div class="panel-head">
+        <h2 class="panel-title">本场固定阵容（Match Roster · 只读）</h2>
+        <span class="muted">冻结阵容仅代表本场批准资格，不等同于单局实际出场</span>
+      </div>
+      <div class="ops-panel-body" id="opsFrozenRosterBody"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2 class="panel-title">排定赛图与实际开局（Scheduled Maps &amp; Map Runs）</h2>
+        <span class="muted">作废局保留审计留档，不计入正式赛果与统计</span>
+      </div>
+      <div class="ops-panel-body" id="opsMapsContainer"></div>
+    </section>
+  </div>
+</section>
+
+{# ================= Tab 2: Demo 与数据采纳 ================= #}
+<section class="ops-tab-pane" id="ops-pane-demos" role="tabpanel" aria-labelledby="ops-tab-demos" data-ops-pane="demos" hidden>
+  <div class="ops-section-stack">
+    <section class="panel">
+      <div class="panel-head">
+        <h2 class="panel-title">上传原始 Demo（.dem）</h2>
+        <span class="muted">必须绑定到明确的排定赛图与实际开局，上传后原档不可覆盖</span>
+      </div>
+      <div class="ops-panel-body">
+        <form id="opsDemoUploadForm" class="ops-inline-form">
+          <label class="field">
+            <span class="field-label">排定赛图</span>
+            <select id="demoUploadMapSelect" required></select>
+          </label>
+          <label class="field">
+            <span class="field-label">实际开局</span>
+            <select id="demoUploadRunSelect" required></select>
+          </label>
+          <label class="field ops-file-field">
+            <span class="field-label">原始录像文件（.dem）</span>
+            <input type="file" id="demoUploadFile" accept=".dem" required>
+          </label>
+          <div class="ops-form-btn-slot">
+            <button type="submit" class="btn btn-primary" id="demoUploadSubmitBtn">{{ ui.icon('upload') }}上传 Demo</button>
+          </div>
+        </form>
+        <div id="demoUploadError" class="roster-inline-error" role="alert" hidden></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2 class="panel-title">已上传 Demo 原档与解析记录</h2>
+        <button type="button" class="btn btn-sm" id="demoRefreshBtn">{{ ui.icon('reopen') }}刷新列表</button>
+      </div>
+      <div class="ops-panel-body" id="opsDemosList"></div>
+    </section>
+
+    <section class="panel" id="opsDemoPreviewPanel" hidden>
+      <div class="panel-head">
+        <h2 class="panel-title" id="opsDemoPreviewTitle">Demo 解析预览与选择性采纳</h2>
+        <button type="button" class="btn btn-sm" id="opsDemoPreviewCloseBtn">关闭预览</button>
+      </div>
+      <div class="ops-panel-body" id="opsDemoPreviewBody"></div>
+    </section>
+  </div>
+</section>
+
+{# ================= Tab 3: 赛果、结算与竞猜 ================= #}
+<section class="ops-tab-pane" id="ops-pane-results" role="tabpanel" aria-labelledby="ops-tab-results" data-ops-pane="results" hidden>
+  <div class="ops-section-stack">
+    <section class="panel">
+      <div class="panel-head">
+        <h2 class="panel-title">单图正式赛果（Official Map Results）</h2>
+        <span class="muted">严格区分直播实时比分、Demo 候选比分与管理员确认的正式赛果</span>
+      </div>
+      <div class="ops-panel-body" id="opsMapResultsContainer"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2 class="panel-title">系列赛结算与下游联动（Series Settlement）</h2>
+        <span class="badge" id="opsSeriesRevBadge"></span>
+      </div>
+      <div class="ops-panel-body" id="opsSeriesContainer"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2 class="panel-title">赛前竞猜结算状态（Predictions）</h2>
+        <span class="badge" id="opsPredStateBadge"></span>
+      </div>
+      <div class="ops-panel-body" id="opsPredictionsContainer"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2 class="panel-title">赛果、签表与结算审计记录</h2>
+        <span class="muted">按版本号保留每一次修改与撤销历史</span>
+      </div>
+      <div class="ops-panel-body" id="opsHistoryContainer"></div>
+    </section>
+  </div>
+</section>
+
+{# ================= Tab 4: 统计修订 ================= #}
+<section class="ops-tab-pane" id="ops-pane-stats" role="tabpanel" aria-labelledby="ops-tab-stats" data-ops-pane="stats" hidden>
+  <div class="ops-section-stack">
+    <section class="panel">
+      <div class="panel-head">
+        <h2 class="panel-title">按开局 / 选手 / 阵营修订统计字段</h2>
+        <span class="badge" id="statsRevBadge">未加载</span>
+      </div>
+      <div class="ops-panel-body">
+        <div class="ops-stats-toolbar">
+          <label class="field">
+            <span class="field-label">实际开局（Map Run）</span>
+            <select id="statsRunSelect"></select>
+          </label>
+          <label class="field">
+            <span class="field-label">出场选手</span>
+            <select id="statsPlayerSelect"></select>
+          </label>
+          <div class="field">
+            <span class="field-label">统计阵营（Scope）</span>
+            <div class="segmented ops-scope-toggle" role="group" aria-label="统计阵营切换">
+              <button type="button" class="btn btn-sm active" aria-pressed="true" data-stats-scope="all">全场 (all)</button>
+              <button type="button" class="btn btn-sm" aria-pressed="false" data-stats-scope="ct">CT 阵营 (ct)</button>
+              <button type="button" class="btn btn-sm" aria-pressed="false" data-stats-scope="t">T 阵营 (t)</button>
+            </div>
+          </div>
+          <div class="ops-form-btn-slot">
+            <button type="button" class="btn btn-sm" id="statsReloadBtn">{{ ui.icon('reopen') }}读取统计</button>
+          </div>
+        </div>
+        <div class="ops-callout-note">规则说明：0 表示真实零值，留空 / - 表示未知；系统不会自动把未知填成 0。保存时仅提交你实际改动的字段，且版本号按整局（all / ct / t 共享）校验。</div>
+        <div id="statsStatusBanner" class="ops-status-banner" hidden></div>
+        <div id="statsInlineError" class="roster-inline-error" role="alert" hidden></div>
+        <div id="statsEditorArea"></div>
+        <div id="statsPreviewArea" hidden></div>
+        <div id="statsHistoryArea"></div>
+      </div>
+    </section>
+  </div>
+</section>
+
+{# ================= 弹窗集合 ================= #}
+
+{# 1. 登记实际开局 / 开启重赛新局 #}
+<dialog class="roster-dialog" id="startRunDialog" aria-labelledby="startRunDialogTitle">
+  <form method="dialog" id="startRunForm">
+    <div class="roster-dialog-head">
+      <h3 id="startRunDialogTitle">登记实际开局</h3>
+      <button type="button" class="btn btn-sm" data-close-dialog="startRunDialog">关闭</button>
+    </div>
+    <div class="roster-dialog-body">
+      <p id="startRunContext" class="ops-dialog-meta"></p>
+      <div id="startRunReplayNote" class="ops-callout-note" hidden></div>
+      <label class="field">
+        <span class="field-label">开局现场依据（必填）</span>
+        <textarea id="startRunEvidence" rows="3" maxlength="2000" placeholder="例如：管理员核对首回合服务器已开打、双方十人已就位" required></textarea>
+      </label>
+      <div id="startRunError" class="roster-inline-error" role="alert" hidden></div>
+    </div>
+    <div class="roster-dialog-foot">
+      <button type="button" class="btn" data-close-dialog="startRunDialog">取消</button>
+      <button type="submit" class="btn btn-primary" id="startRunSubmitBtn">确认登记开局</button>
+    </div>
+  </form>
+</dialog>
+
+{# 2. 绑定独立导播会话 #}
+<dialog class="roster-dialog" id="bindDirectorDialog" aria-labelledby="bindDirectorDialogTitle">
+  <form method="dialog" id="bindDirectorForm">
+    <div class="roster-dialog-head">
+      <h3 id="bindDirectorDialogTitle">绑定独立导播会话</h3>
+      <button type="button" class="btn btn-sm" data-close-dialog="bindDirectorDialog">关闭</button>
+    </div>
+    <div class="roster-dialog-body">
+      <p id="bindDirectorContext" class="ops-dialog-meta"></p>
+      <p class="field-hint">用相同配置重启导播不会产生新会话。请核对新的会话编号和实际开局。</p>
+      <label class="field">
+        <span class="field-label">导播会话编号（session_id，必填）</span>
+        <input type="text" id="bindDirectorSessionId" maxlength="120" placeholder="例如：dir-session-map2-replay" required>
+      </label>
+      <label class="field">
+        <span class="field-label">核对说明（必填）</span>
+        <textarea id="bindDirectorReason" rows="2" maxlength="2000" placeholder="说明如何核对该导播会话对应此次实际开局" required></textarea>
+      </label>
+      <div id="bindDirectorError" class="roster-inline-error" role="alert" hidden></div>
+    </div>
+    <div class="roster-dialog-foot">
+      <button type="button" class="btn" data-close-dialog="bindDirectorDialog">取消</button>
+      <button type="submit" class="btn btn-primary">确认绑定</button>
+    </div>
+  </form>
+</dialog>
+
+{# 3. 查看导播回执 #}
+<dialog class="roster-dialog ops-dialog-wide" id="directorReceiptsDialog" aria-labelledby="directorReceiptsTitle">
+  <div class="roster-dialog-head">
+    <h3 id="directorReceiptsTitle">导播终图回执记录</h3>
+    <button type="button" class="btn btn-sm" data-close-dialog="directorReceiptsDialog">关闭</button>
+  </div>
+  <div class="roster-dialog-body" id="directorReceiptsBody"></div>
+  <div class="roster-dialog-foot">
+    <button type="button" class="btn" data-close-dialog="directorReceiptsDialog">关闭</button>
+  </div>
+</dialog>
+
+{# 4. 登记选手出场 #}
+<dialog class="roster-dialog" id="recordPartDialog" aria-labelledby="recordPartDialogTitle">
+  <form method="dialog" id="recordPartForm">
+    <div class="roster-dialog-head">
+      <h3 id="recordPartDialogTitle">登记本局选手出场</h3>
+      <button type="button" class="btn btn-sm" data-close-dialog="recordPartDialog">关闭</button>
+    </div>
+    <div class="roster-dialog-body">
+      <p id="recordPartContext" class="ops-dialog-meta"></p>
+      <label class="field">
+        <span class="field-label">本局批准名单选手</span>
+        <select id="recordPartPlayerSelect" required></select>
+      </label>
+      <div class="ops-two-col">
+        <label class="field">
+          <span class="field-label">观测回合号（可选）</span>
+          <input type="number" id="recordPartRound" min="1" max="1000" placeholder="例如：1">
+        </label>
+        <label class="field">
+          <span class="field-label">回合阵营（填回合号时可选）</span>
+          <select id="recordPartSide">
+            <option value="">不指定</option>
+            <option value="CT">CT</option>
+            <option value="T">T</option>
+          </select>
+        </label>
+      </div>
+      <label class="field">
+        <span class="field-label">登记依据（必填）</span>
+        <textarea id="recordPartReason" rows="2" maxlength="2000" placeholder="例如：管理员现场核对首回合上场" required></textarea>
+      </label>
+      <div id="recordPartError" class="roster-inline-error" role="alert" hidden></div>
+    </div>
+    <div class="roster-dialog-foot">
+      <button type="button" class="btn" data-close-dialog="recordPartDialog">取消</button>
+      <button type="submit" class="btn btn-primary">确认登记出场</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="roster-dialog" id="batchPartDialog" aria-labelledby="batchPartDialogTitle">
+  <form method="dialog" id="batchPartForm">
+    <div class="roster-dialog-head">
+      <h3 id="batchPartDialogTitle">批量登记出场</h3>
+      <button type="button" class="btn btn-sm" data-close-dialog="batchPartDialog">关闭</button>
+    </div>
+    <div class="roster-dialog-body">
+      <p id="batchPartContext" class="ops-dialog-meta"></p>
+      <fieldset id="batchPartFields" class="batch-part-fields">
+        <legend class="field-label">选择本局实际出场的选手</legend>
+        <label class="check-row"><input type="checkbox" id="batchPartAll"><span>全选</span></label>
+        <div class="batch-part-sides" id="batchPartPlayerList"></div>
+        <label class="field">
+          <span class="field-label">登记依据</span>
+          <textarea id="batchPartReason" rows="2" maxlength="2000" required></textarea>
+        </label>
+      </fieldset>
+      <div id="batchPartError" class="roster-inline-error" role="alert" hidden></div>
+    </div>
+    <div class="roster-dialog-foot">
+      <button type="button" class="btn" data-close-dialog="batchPartDialog">取消</button>
+      <button type="submit" class="btn btn-primary" id="batchPartSubmitBtn" disabled>确认登记出场</button>
+    </div>
+  </form>
+</dialog>
+
+{# 5. 撤回 / 恢复选手出场 #}
+<dialog class="roster-dialog" id="reviewPartDialog" aria-labelledby="reviewPartDialogTitle">
+  <form method="dialog" id="reviewPartForm">
+    <div class="roster-dialog-head">
+      <h3 id="reviewPartDialogTitle">核准选手出场</h3>
+      <button type="button" class="btn btn-sm" data-close-dialog="reviewPartDialog">关闭</button>
+    </div>
+    <div class="roster-dialog-body">
+      <p id="reviewPartContext" class="ops-dialog-meta"></p>
+      <label class="field">
+        <span class="field-label">核准原因（必填）</span>
+        <textarea id="reviewPartReason" rows="3" maxlength="2000" placeholder="说明撤回或恢复出场记录的原因" required></textarea>
+      </label>
+      <div id="reviewPartError" class="roster-inline-error" role="alert" hidden></div>
+    </div>
+    <div class="roster-dialog-foot">
+      <button type="button" class="btn" data-close-dialog="reviewPartDialog">取消</button>
+      <button type="submit" class="btn btn-primary" id="reviewPartSubmitBtn">确认</button>
+    </div>
+  </form>
+</dialog>
+
+{# 6. 批准技术重赛（可选技术替补） #}
+<dialog class="roster-dialog ops-dialog-wide" id="techReplayDialog" aria-labelledby="techReplayDialogTitle">
+  <form method="dialog" id="techReplayForm">
+    <div class="roster-dialog-head">
+      <h3 id="techReplayDialogTitle">批准技术重赛</h3>
+      <button type="button" class="btn btn-sm" data-close-dialog="techReplayDialog">关闭</button>
+    </div>
+    <div class="roster-dialog-body">
+      <p id="techReplayContext" class="ops-dialog-meta"></p>
+      <div class="ops-callout-warn">
+        批准技术重赛会将当前局次标记为<strong>作废（void）</strong>，清除其站内直播画面；若该图已有正式赛果或本场已结算，将同步撤销原裁定。原局与录像仍保留供审计查看。
+      </div>
+      <label class="field">
+        <span class="field-label">故障与无法原局继续的原因（必填）</span>
+        <textarea id="techReplayReason" rows="3" maxlength="2000" placeholder="例如：第 8 回合服务器崩服且无法恢复备份，经双方队长确认重赛" required></textarea>
+      </label>
+      <label class="ops-checkbox-row">
+        <input type="checkbox" id="techReplaySubToggle">
+        <span>同时办理技术替补（换入已获该队替补席的候补选手，且后续赛图继续沿用）</span>
+      </label>
+      <div id="techReplaySubFields" class="ops-sub-box" hidden>
+        <label class="field">
+          <span class="field-label">换出选手（当前有效阵容）</span>
+          <select id="techReplayOutgoing"></select>
+        </label>
+        <label class="field">
+          <span class="field-label">换入替补（该队已分配候补席）</span>
+          <select id="techReplayIncoming"></select>
+        </label>
+        <div id="techReplaySubCheck" class="ops-sub-check"></div>
+      </div>
+      <div id="techReplayRetentionBox" class="ops-retention-box" hidden></div>
+      <div id="techReplayError" class="roster-inline-error" role="alert" hidden></div>
+      <button type="button" class="btn btn-sm" id="techReplayReload" hidden>核对最新裁定，保留输入</button>
+    </div>
+    <div class="roster-dialog-foot">
+      <button type="button" class="btn" data-close-dialog="techReplayDialog">取消</button>
+      <button type="submit" class="btn btn-danger" id="techReplaySubmitBtn">确认批准技术重赛</button>
+    </div>
+  </form>
+</dialog>
+
+{# 7. 确认 / 修改单图正式赛果 #}
+<dialog class="roster-dialog ops-dialog-wide" id="confirmMapDialog" aria-labelledby="confirmMapDialogTitle">
+  <form method="dialog" id="confirmMapForm">
+    <div class="roster-dialog-head">
+      <h3 id="confirmMapDialogTitle">确认单图正式赛果</h3>
+      <button type="button" class="btn btn-sm" data-close-dialog="confirmMapDialog">关闭</button>
+    </div>
+    <div class="roster-dialog-body">
+      <p id="confirmMapContext" class="ops-dialog-meta"></p>
+      <label class="field">
+        <span class="field-label">关联实际开局</span>
+        <select id="confirmMapRunSelect" required></select>
+      </label>
+      <div class="ops-two-col">
+        <label class="field">
+          <span class="field-label" id="confirmMapScore1Label">主队回合分</span>
+          <input type="number" id="confirmMapScore1" min="0" max="100" required>
+        </label>
+        <label class="field">
+          <span class="field-label" id="confirmMapScore2Label">客队回合分</span>
+          <input type="number" id="confirmMapScore2" min="0" max="100" required>
+        </label>
+      </div>
+      <label class="field">
+        <span class="field-label">裁定原因（修改原正式比分或录入非常规/判负比分时必填）</span>
+        <textarea id="confirmMapReason" rows="2" maxlength="2000" placeholder="例如：核对服务器终局比分及录像无误"></textarea>
+      </label>
+      <div id="confirmMapRetentionBox" class="ops-retention-box" hidden></div>
+      <div id="confirmMapError" class="roster-inline-error" role="alert" hidden></div>
+      <button type="button" id="confirmMapReload" class="btn btn-sm" hidden>核对最新裁定，保留输入</button>
+    </div>
+    <div class="roster-dialog-foot">
+      <button type="button" class="btn" data-close-dialog="confirmMapDialog">取消</button>
+      <button type="submit" class="btn btn-primary">确认保存正式赛果</button>
+    </div>
+  </form>
+</dialog>
+
+{# 8. 正式完赛 / 撤销完赛 #}
+<dialog class="roster-dialog ops-dialog-wide" id="seriesActionDialog" aria-labelledby="seriesActionDialogTitle">
+  <form method="dialog" id="seriesActionForm">
+    <div class="roster-dialog-head">
+      <h3 id="seriesActionDialogTitle">系列赛结算操作</h3>
+      <button type="button" class="btn btn-sm" data-close-dialog="seriesActionDialog">关闭</button>
+    </div>
+    <div class="roster-dialog-body">
+      <p id="seriesActionContext" class="ops-dialog-meta"></p>
+      <div id="seriesActionWarn" class="ops-callout-warn"></div>
+      <label class="field">
+        <span class="field-label" id="seriesActionReasonLabel">说明 / 原因</span>
+        <textarea id="seriesActionReason" rows="3" maxlength="2000" placeholder="填写本次结算或重开说明"></textarea>
+      </label>
+      <div id="seriesRetentionBox" class="ops-retention-box" hidden></div>
+      <div id="seriesActionError" class="roster-inline-error" role="alert" hidden></div>
+      <button type="button" class="btn btn-sm" id="seriesActionReload" hidden>核对最新裁定，保留输入</button>
+    </div>
+    <div class="roster-dialog-foot">
+      <button type="button" class="btn" data-close-dialog="seriesActionDialog">取消</button>
+      <button type="submit" class="btn btn-primary" id="seriesActionSubmitBtn">确认</button>
+    </div>
+  </form>
+</dialog>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.MATCH_OPS_BUNDLE = {{ panel_bundle|tojson }};
+  window.MATCH_OPS_MATCH_ID = {{ match_id }};
+</script>
+<script src="{{ versioned_url('static/js/admin_match_operations.js') }}"></script>
+{% endblock %}

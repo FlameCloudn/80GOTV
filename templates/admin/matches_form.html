@@ -5,6 +5,7 @@
 <a href="{{ url_for('admin.admin_matches') }}" class="back-link">← 返回比赛管理</a>
 {% set current_status = match.status if not is_new_match and match else 'upcoming' %}
 {% set setup_editable = is_new_match or match_setup_editable %}
+{% set managed_info = managed_match_info or none %}
 {% macro side_name(side) -%}
   {% if side in custom_side_labels %}<span data-i18n-translate>{{ custom_side_labels[side] }}</span>{% else %}<span data-i18n-ignore>{{ match['team' ~ side ~ '_name'] or 'TBD' }}</span>{% endif %}
 {%- endmacro %}
@@ -29,9 +30,9 @@
       {% if not is_new_match %}
       <div class="status-pills" id="statusPills" role="radiogroup" aria-label="比赛状态">
         <button type="button" class="status-pill {% if current_status == 'upcoming' %}active{% endif %}" data-status="upcoming" onclick="setMatchStatus('upcoming', this)">未开始</button>
-        <button type="button" class="status-pill {% if current_status in ('live', 'ongoing') %}active{% endif %}" data-status="live" onclick="setMatchStatus('live', this)">进行中</button>
-        <button type="button" class="status-pill {% if current_status == 'completed' %}active{% endif %}" data-status="completed" onclick="setMatchStatus('completed', this)">已结束</button>
-        <button type="button" class="status-pill {% if current_status == 'cancelled' %}active{% endif %}" data-status="cancelled" onclick="setMatchStatus('cancelled', this)">已取消</button>
+        <button type="button" class="status-pill {% if current_status in ('live', 'ongoing') %}active{% endif %}" data-status="live" {% if managed_info %}disabled title="托管比赛请前往“比赛运营”办理开赛授权与开局"{% else %}onclick="setMatchStatus('live', this)"{% endif %}>进行中</button>
+        <button type="button" class="status-pill {% if current_status == 'completed' %}active{% endif %}" data-status="completed" {% if managed_info %}disabled title="托管比赛请前往“比赛运营”确认赛果并正式完赛"{% else %}onclick="setMatchStatus('completed', this)"{% endif %}>已结束</button>
+        <button type="button" class="status-pill {% if current_status == 'cancelled' %}active{% endif %}" data-status="cancelled" {% if managed_info %}disabled title="托管比赛状态由比赛运营流转，此处不可直接切换"{% else %}onclick="setMatchStatus('cancelled', this)"{% endif %}>已取消</button>
       </div>
       <select name="status" id="statusSelect" hidden>
         <option value="upcoming" {% if current_status == 'upcoming' %}selected{% endif %}>未开始</option>
@@ -44,7 +45,12 @@
 
     {% if not is_new_match %}
     <div class="match-form-notes">
-      {% if current_status == 'upcoming' %}
+      {% if managed_info %}
+      <div class="ops-entry-bar">
+        <p class="lock-note">{{ ui.icon('lock') }}新流程托管比赛：此处仅负责赛前配置、本场阵容冻结与 BP；开赛授权、实际开局、技术重赛、Demo 采纳、正式赛果、结算与统计修订请前往“比赛运营”。</p>
+        <a class="btn btn-sm btn-primary" href="{{ url_for('admin.managed_match_operate', match_id=match.id) }}">{{ ui.icon('stats') }}进入比赛运营</a>
+      </div>
+      {% elif current_status == 'upcoming' %}
       <p class="lock-note">赛前设置可以修改；比分由数据直播自动同步。</p>
       {% elif current_status in ('live', 'ongoing') %}
       <p class="lock-note">{{ ui.icon('lock') }}比赛进行中：赛事、时间、赛制、地图和比分已锁定，比分只由数据直播更新。</p>
@@ -66,7 +72,9 @@
     <div class="match-tabs" role="tablist">
       <button type="button" class="match-tab active" data-tab="matchup" onclick="switchMatchTab('matchup')">基础与对阵</button>
       <button type="button" class="match-tab" data-tab="maps" onclick="switchMatchTab('maps')">地图与赛制</button>
-      {% if setup_editable %}
+      {% if managed_info %}
+      <button type="button" class="match-tab" data-tab="roster" onclick="switchMatchTab('roster')">本场阵容 <span class="badge {{ 'badge-accent' if managed_info.rosters_frozen else 'badge-gold' }}">{{ '已冻结' if managed_info.rosters_frozen else '未冻结' }}</span></button>
+      {% elif setup_editable %}
       <button type="button" class="match-tab" data-tab="roster" onclick="switchMatchTab('roster')">出场名单与替补</button>
       {% endif %}
       <button type="button" class="match-tab" data-tab="broadcast" onclick="switchMatchTab('broadcast')">直播与房间信息</button>
@@ -78,17 +86,28 @@
         <div class="form-grid">
           <label class="field">
             <span class="field-label">所属赛事 <span class="field-required">*</span></span>
-            <select name="event_id" {% if setup_editable %}required{% else %}disabled{% endif %}>
+            <select id="eventIdSelect" name="event_id" {% if setup_editable and not managed_info %}required{% else %}disabled{% endif %}>
               <option value="">选择赛事</option>
               {% for e in events %}
-              <option value="{{ e.id }}" data-i18n-ignore {% if match and match.event_id|string == e.id|string %}selected{% endif %}>{{ e.name }}</option>
+              <option value="{{ e.id }}" data-i18n-ignore {% if (match and match.event_id|string == e.id|string) or (not match and request.args.get('event') == e.id|string) %}selected{% endif %}>{{ e.name }}</option>
               {% endfor %}
             </select>
+            {% if managed_info %}<span class="field-hint lock-hint">{{ ui.icon('lock') }}托管比赛所属赛事不可更换。</span>{% endif %}
           </label>
-          <label class="field">
-            <span class="field-label">比赛阶段</span>
-            <input type="text" name="stage" value="{{ match.stage if match and match.stage else '' }}" placeholder="例如：GF、SF、QF、小组赛（可不填）" {% if not setup_editable %}disabled{% endif %}>
-          </label>
+          <div class="field">
+            <label class="field-label" for="matchStageInput">比赛阶段</label>
+            <input type="text" id="matchStageInput" name="stage" value="{{ match.stage if match and match.stage else '' }}" {% if not setup_editable %}disabled{% endif %}>
+            {% if setup_editable %}
+            <div class="time-chips" role="group" aria-label="快捷阶段">
+              <button type="button" class="time-chip" data-match-stage="小组赛">小组赛</button>
+              <button type="button" class="time-chip" data-match-stage="八强赛">八强赛</button>
+              <button type="button" class="time-chip" data-match-stage="半决赛">半决赛</button>
+              <button type="button" class="time-chip" data-match-stage="季军赛">季军赛</button>
+              <button type="button" class="time-chip" data-match-stage="总决赛">总决赛</button>
+            </div>
+            <span id="managedFinalHint" class="field-hint" {% if not managed_info %}hidden{% endif %}>本届只能有一场总决赛，且不能连接下游席位。</span>
+            {% endif %}
+          </div>
         </div>
 
         {# 比赛时间：日期 + 时间 + 常用开赛时间；实际提交的是隐藏的 match_time #}
@@ -117,7 +136,7 @@
         </div>
 
         {% if is_new_match %}
-        <div class="test-mode-control">
+        <div class="test-mode-control" id="testModeControl">
           <label class="check-row test-mode-toggle" for="testMode">
             <input type="checkbox" id="testMode" name="is_test_mode" value="1" onchange="toggleTestMode()">
             <span>测试模式</span>
@@ -130,14 +149,48 @@
         {% endif %}
 
         {# 对阵双方（不写红蓝，选边由拼刀 / 在线 BP 决定） #}
-        {% if setup_editable %}
+        {% if managed_info %}
+        <div class="vs-matchup-card" id="matchParticipants">
+          <div class="vs-matchup-heading">
+            <div>
+              <strong>对阵双方（已绑定本届参赛队）</strong>
+              <span class="field-hint">比赛建立后双方已固定，不能互换或改绑；需要冻结本场五人请切到「本场阵容」页签。</span>
+            </div>
+            <a class="btn btn-sm" href="{{ managed_info.roster_url }}">{{ ui.icon('team') }}前往报名与阵容</a>
+          </div>
+          <div class="vs-grid">
+            {% for side_num in (1, 2) %}
+            {% set s = managed_info.sides.get(side_num) %}
+            {% if side_num == 2 %}<div class="vs-divider" data-i18n-ignore>VS</div>{% endif %}
+            <div class="field-section">
+              {% if s %}
+              <h3><span data-i18n-ignore>{{ s.name }}</span> <span class="badge {{ 'badge-done' if s.team_archived else 'badge-accent' }}">{{ '已归档' if s.team_archived else ('俱乐部：' ~ s.club_name if s.club_name else '临时队') }}</span></h3>
+              <span class="field-hint">参赛身份 #{{ s.event_entrant_id }} · 当前阵容</span>
+              <div class="readonly-teams" data-i18n-ignore>
+                {% for p in s.current_players %}
+                <span class="player-tag">{{ p.nickname }}{% if p.is_added_sub %}<span data-i18n-translate>（换入）</span>{% endif %}</span>
+                {% endfor %}
+              </div>
+              {% else %}
+              <h3>第 {{ side_num }} 方</h3>
+              <span class="field-hint">未找到绑定参赛方</span>
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% elif setup_editable %}
         <div class="vs-matchup-card" id="matchParticipants">
           <div class="vs-matchup-heading">
             <div>
               <strong>对阵双方</strong>
-              <span class="field-hint">开局 CT / T 以 BP 结果为准</span>
+              <span class="field-hint" id="matchupSideHint">开局 CT / T 以 BP 结果为准</span>
             </div>
             <button type="button" class="btn btn-sm" onclick="swapSides()">{{ ui.icon('reopen') }}互换参赛双方</button>
+          </div>
+          <div id="managedEntrantNotice" class="entrant-empty-notice" hidden>
+            <span>本届还没有确认初始五人的参赛队伍，暂时无法建立比赛。</span>
+            <a id="managedEntrantRosterLink" href="#" class="btn btn-sm">{{ ui.icon('team') }}去报名与阵容确认首五</a>
           </div>
           <div class="vs-grid">
             {% for side in ('1', '2') %}
@@ -146,29 +199,43 @@
             {% set side_is_team = side_team_id is not none or not side_ids %}
             {% if side == '2' %}<div class="vs-divider" data-i18n-ignore>VS</div>{% endif %}
             <div class="field-section">
-              <h3>参赛方</h3>
-              <div class="side-type-row">
-                <label class="check-row"><input type="radio" name="side{{ side }}_type" value="team" {% if side_is_team %}checked{% endif %} onchange="toggleSide('{{ side }}')"> 选择队伍</label>
-                <label class="check-row"><input type="radio" name="side{{ side }}_type" value="players" {% if not side_is_team %}checked{% endif %} onchange="toggleSide('{{ side }}')"> 自选选手</label>
-              </div>
-              <div id="side{{ side }}_team" {% if not side_is_team %}hidden{% endif %}>
-                <select name="side{{ side }}_id" id="side{{ side }}_select" aria-label="{{ '左侧' if side == '1' else '右侧' }}参赛队伍">
-                  <option value="">选择队伍</option>
-                  {% for t in teams %}
-                  <option value="{{ t.id }}" data-i18n-ignore {% if side_team_id|string == t.id|string %}selected{% endif %}>{{ t.name }}</option>
+              <h3>{{ '第一方' if side == '1' else '第二方' }}</h3>
+              <div id="side{{ side }}_legacy">
+                <div class="side-type-row">
+                  <label class="check-row"><input type="radio" name="side{{ side }}_type" value="team" {% if side_is_team %}checked{% endif %} onchange="toggleSide('{{ side }}')"> 选择队伍</label>
+                  <label class="check-row"><input type="radio" name="side{{ side }}_type" value="players" {% if not side_is_team %}checked{% endif %} onchange="toggleSide('{{ side }}')"> 自选选手</label>
+                </div>
+                <div id="side{{ side }}_team" {% if not side_is_team %}hidden{% endif %}>
+                  <select name="side{{ side }}_id" id="side{{ side }}_select" aria-label="{{ '左侧' if side == '1' else '右侧' }}参赛队伍">
+                    <option value="">选择队伍</option>
+                    {% for t in teams %}
+                    <option value="{{ t.id }}" data-i18n-ignore {% if side_team_id|string == t.id|string %}selected{% endif %}>{{ t.name }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div id="side{{ side }}_players" class="side-players" {% if side_is_team %}hidden{% endif %}>
+                  {% for i in range(5) %}
+                  <select name="side{{ side }}_p{{ i }}" aria-label="{{ '左侧' if side == '1' else '右侧' }}参赛方 第{{ i+1 }}位选手">
+                    <option value="">选手 {{ i+1 }}</option>
+                    {% for p in all_players %}
+                    <option value="{{ p.id }}" data-i18n-ignore {% if side_ids|length > i and side_ids[i]|string == p.id|string %}selected{% endif %}>{{ p.nickname }}{% if p.team_name %} ({{ p.team_name }}){% endif %}</option>
+                    {% endfor %}
+                  </select>
                   {% endfor %}
-                </select>
+                </div>
               </div>
-              <div id="side{{ side }}_players" class="side-players" {% if side_is_team %}hidden{% endif %}>
-                {% for i in range(5) %}
-                <select name="side{{ side }}_p{{ i }}" aria-label="{{ '左侧' if side == '1' else '右侧' }}参赛方 第{{ i+1 }}位选手">
-                  <option value="">选手 {{ i+1 }}</option>
-                  {% for p in all_players %}
-                  <option value="{{ p.id }}" data-i18n-ignore {% if side_ids|length > i and side_ids[i]|string == p.id|string %}selected{% endif %}>{{ p.nickname }}{% if p.team_name %} ({{ p.team_name }}){% endif %}</option>
-                  {% endfor %}
-                </select>
-                {% endfor %}
+              {% if is_new_match %}
+              <div id="side{{ side }}_entrant" class="side-entrant-box" hidden>
+                <input type="hidden" name="side{{ side }}_type" id="side{{ side }}_entrant_type" value="entrant" disabled>
+                <label class="field">
+                  <span class="field-label">本届参赛队 <span class="field-required">*</span></span>
+                  <select id="side{{ side }}_entrant_select" aria-label="{{ '第一方' if side == '1' else '第二方' }}本届参赛队" disabled>
+                    <option value="">选择本届参赛队</option>
+                  </select>
+                </label>
+                <div id="side{{ side }}_entrant_preview" class="entrant-preview"></div>
               </div>
+              {% endif %}
             </div>
             {% endfor %}
           </div>
@@ -255,8 +322,137 @@
         </div>
       </div>
 
-      {# ---------- 标签 3：出场名单与替补（选手 1~5，不用“几号位”的叫法） ---------- #}
-      {% if setup_editable %}
+      {# ---------- 标签 3：托管比赛本场阵容 / 旧赛事出场名单与替补 ---------- #}
+      {% if managed_info %}
+      <div id="pane-roster" class="tab-pane">
+        <div class="roster-freeze-banner {{ 'is-frozen' if managed_info.rosters_frozen else 'is-unfrozen' }}">
+          <div class="roster-freeze-banner-main">
+            <div class="roster-freeze-title-row">
+              {% if managed_info.rosters_frozen %}
+              <span class="badge badge-accent">{{ ui.icon('lock') }}本场阵容已冻结</span>
+              {% if managed_info.sides[1] and managed_info.sides[1].frozen_at_iso %}
+              <span class="muted">冻结于 {{ managed_info.sides[1].frozen_at_iso|datetime_display }}{% if managed_info.sides[1].frozen_by_name %}（{{ managed_info.sides[1].frozen_by_name }}）{% endif %}</span>
+              {% endif %}
+              {% else %}
+              <span class="badge badge-gold">本场阵容未冻结</span>
+              {% endif %}
+            </div>
+            {% if managed_info.rosters_frozen %}
+            <p class="lock-note">本场双方十人已记录为只读状态，可以继续进行 BP。注意：冻结本场阵容只记录参赛名单，不表示选手已到场或比赛已开始。</p>
+            {% else %}
+            <p class="lock-note">冻结后将把当前双方的五人名单、队名与队标固定到本场比赛，之后才能开始 BP，且本场不可重新冻结。冻结只记录本场参赛名单，不表示选手已到场或比赛已开始。</p>
+            {% endif %}
+          </div>
+          <div class="roster-freeze-banner-actions">
+            {% if managed_info.rosters_frozen %}
+            <a class="btn btn-primary" href="{{ managed_info.bp_url }}" target="_blank" rel="noopener">{{ ui.icon('flag') }}打开 BP 房间</a>
+            {% else %}
+            <button type="button" class="btn btn-primary" id="freezeMatchRostersBtn"
+                    data-freeze-url="{{ url_for('admin.admin_match_freeze_rosters', match_id=match.id) }}"
+                    {% if managed_info.bp_started or managed_info.has_started %}disabled{% endif %}>{{ ui.icon('lock') }}确认冻结本场阵容</button>
+            {% endif %}
+          </div>
+        </div>
+
+        {% if not managed_info.rosters_frozen and managed_info.freeze_blockers %}
+        <div class="roster-precheck-box" role="status">
+          <strong>冻结前检查发现以下问题（解决后才能冻结成功）：</strong>
+          <ul>
+            {% for reason in managed_info.freeze_blockers %}
+            <li>{{ reason }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+
+        <div id="freezeRosterError" class="roster-inline-error" role="alert" hidden></div>
+
+        <div class="match-roster-grid">
+          {% for side_num in (1, 2) %}
+          {% set s = managed_info.sides.get(side_num) %}
+          <div class="field-section match-side-roster-card">
+            {% if s %}
+            <div class="match-side-roster-head">
+              <div>
+                <h3 data-i18n-ignore>{{ s.name }}</h3>
+                <span class="cell-sub">{% if s.club_name %}俱乐部：<span data-i18n-ignore>{{ s.club_name }}</span>{% else %}临时队{% endif %} · 参赛身份 #{{ s.event_entrant_id }}</span>
+              </div>
+              {% if s.team_archived %}<span class="badge badge-done">已归档</span>{% endif %}
+            </div>
+
+            <div class="roster-subbox is-initial">
+              <div class="roster-subbox-head">
+                <span class="roster-subbox-title">{{ ui.icon('lock') }}本届初始五人</span>
+                <span class="muted">{% if s.initial_confirmed %}只读 · 确认于 {{ s.initial_confirmed_at_iso|datetime_display }}{% else %}首五待确认{% endif %}</span>
+              </div>
+              {% if s.initial_confirmed %}
+              <ol class="roster-player-list" data-i18n-ignore>
+                {% for p in s.initial_players %}
+                <li class="{% if p.swapped_out %}is-out{% endif %}">
+                  <span class="roster-slot-num">{{ loop.index }}</span>
+                  <span class="roster-player-name">{{ p.nickname }}</span>
+                  {% if p.swapped_out %}<span class="badge badge-done" data-i18n-translate>已换出</span>{% endif %}
+                </li>
+                {% endfor %}
+              </ol>
+              {% else %}
+              <p class="field-hint">尚未在「报名与阵容」页确认初始五人。</p>
+              {% endif %}
+            </div>
+
+            <div class="roster-subbox is-current">
+              <div class="roster-subbox-head">
+                <span class="roster-subbox-title">本届当前阵容</span>
+                {% if s.initial_confirmed %}
+                <span class="roster-keep-count {% if s.kept_initial_count < 3 %}is-invalid{% endif %}">保留初始成员 {{ s.kept_initial_count }} / 5（至少 3）</span>
+                {% endif %}
+              </div>
+              <ol class="roster-player-list" data-i18n-ignore>
+                {% for p in s.current_players %}
+                <li>
+                  <span class="roster-slot-num">{{ loop.index }}</span>
+                  <span class="roster-player-name">{{ p.nickname }}</span>
+                  {% if p.is_added_sub %}<span class="badge badge-accent" data-i18n-translate>换入</span>{% endif %}
+                </li>
+                {% else %}
+                <li class="muted" data-i18n-translate>暂无队员</li>
+                {% endfor %}
+              </ol>
+              {% if not managed_info.rosters_frozen and not managed_info.bp_started %}
+              <a class="panel-link" href="{{ managed_info.roster_url }}#entrant-{{ s.event_entrant_id }}">去「报名与阵容」页调整或赛前换人 →</a>
+              {% else %}
+              <span class="field-hint">本届当前阵容之后若有变动，不会改写本场已冻结名单。</span>
+              {% endif %}
+            </div>
+
+            <div class="roster-subbox {{ 'is-frozen' if s.frozen else 'is-unfrozen' }}">
+              <div class="roster-subbox-head">
+                <span class="roster-subbox-title">{% if s.frozen %}{{ ui.icon('lock') }}{% endif %}本场冻结阵容</span>
+                <span class="badge {{ 'badge-accent' if s.frozen else 'badge-gold' }}">{{ '只读 · 已冻结' if s.frozen else '未冻结' }}</span>
+              </div>
+              {% if s.frozen %}
+              <p class="field-hint">本场记录队名：<span data-i18n-ignore>{{ s.frozen_team_name }}</span></p>
+              <ol class="roster-player-list" data-i18n-ignore>
+                {% for p in s.frozen_players %}
+                <li>
+                  <span class="roster-slot-num">{{ p.slot }}</span>
+                  <span class="roster-player-name">{{ p.nickname }}</span>
+                  {% if p.is_substitute %}<span class="badge badge-purple" data-i18n-translate>替补</span>{% endif %}
+                </li>
+                {% endfor %}
+              </ol>
+              {% else %}
+              <p class="field-hint">尚未冻结。点击上方「确认冻结本场阵容」后，将按上方「本届当前阵容」的五人记录到本场比赛。</p>
+              {% endif %}
+            </div>
+            {% else %}
+            <p class="empty-state">未绑定第 {{ side_num }} 方参赛队</p>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% elif setup_editable %}
       <div id="pane-roster" class="tab-pane">
         <p class="lock-note">默认使用战队报名名单；有人缺席时在对应位置换成已报名的替补，保存后网站和导播软件用同一份名单。</p>
         <div class="match-roster-grid">
@@ -401,7 +597,173 @@ function quickDate(offsetDays) {
   syncMatchTime();
 }
 
+var MANAGED_EVENTS_DATA = {{ (managed_events_data or {})|tojson }};
+var INITIAL_SUBMITTED_SIDES = {{ (selected_sides or {})|tojson }};
+var IS_MANAGED_EDIT = {{ (managed_match_info is not none)|tojson }};
+
+function currentSelectedEventId() {
+  var sel = document.getElementById('eventIdSelect');
+  return sel ? String(sel.value || '') : '';
+}
+
+function isManagedEventSelected(eventId) {
+  var eid = eventId != null ? String(eventId) : currentSelectedEventId();
+  return !!(eid && Object.prototype.hasOwnProperty.call(MANAGED_EVENTS_DATA, eid));
+}
+
+function renderEntrantPreview(side, eventId) {
+  var preview = document.getElementById('side' + side + '_entrant_preview');
+  var sel = document.getElementById('side' + side + '_entrant_select');
+  if (!preview || !sel) return;
+  var ev = MANAGED_EVENTS_DATA[eventId];
+  var eid = sel.value;
+  if (!ev || !eid) {
+    preview.innerHTML = '';
+    return;
+  }
+  var found = null;
+  for (var i = 0; i < ev.entrants.length; i += 1) {
+    if (String(ev.entrants[i].event_entrant_id) === String(eid)) { found = ev.entrants[i]; break; }
+  }
+  if (!found) { preview.innerHTML = ''; return; }
+  var wrap = document.createElement('div');
+  wrap.className = 'entrant-preview-card';
+  var meta = document.createElement('div');
+  meta.className = 'entrant-preview-meta';
+  var tag = document.createElement('span');
+  tag.className = 'badge ' + (found.club_name ? 'badge-accent' : 'badge-done');
+  if (found.club_name) {
+    tag.textContent = '';
+    tag.appendChild(document.createTextNode(matchText('俱乐部：')));
+    var clubSpan = document.createElement('span');
+    clubSpan.setAttribute('data-i18n-ignore', '');
+    clubSpan.textContent = found.club_name;
+    tag.appendChild(clubSpan);
+  } else {
+    tag.textContent = matchText('临时队');
+  }
+  meta.appendChild(tag);
+  var origin = document.createElement('span');
+  origin.className = 'muted';
+  origin.textContent = matchText(found.origin_label);
+  meta.appendChild(origin);
+  wrap.appendChild(meta);
+
+  var playersWrap = document.createElement('div');
+  playersWrap.className = 'readonly-teams';
+  playersWrap.setAttribute('data-i18n-ignore', '');
+  found.players.forEach(function (p) {
+    var span = document.createElement('span');
+    span.className = 'player-tag';
+    span.textContent = p.nickname + (p.is_added_sub ? matchText('（换入）') : '');
+    playersWrap.appendChild(span);
+  });
+  wrap.appendChild(playersWrap);
+  preview.innerHTML = '';
+  preview.appendChild(wrap);
+}
+
+function checkEntrantDuplicates() {
+  var s1 = document.getElementById('side1_entrant_select');
+  var s2 = document.getElementById('side2_entrant_select');
+  if (!s1 || !s2) return;
+  if (s1.disabled || s2.disabled) {
+    s1.setCustomValidity('');
+    s2.setCustomValidity('');
+    return;
+  }
+  if (s1.value && s2.value && s1.value === s2.value) {
+    s2.setCustomValidity('两方不能选择同一支本届参赛队');
+  } else {
+    s1.setCustomValidity('');
+    s2.setCustomValidity('');
+  }
+}
+
+function syncManagedEventSides(overrideEventId) {
+  if (IS_MANAGED_EDIT) return;
+  var eventId = overrideEventId != null ? String(overrideEventId) : currentSelectedEventId();
+  var managed = isManagedEventSelected(eventId);
+  var finalHint = document.getElementById('managedFinalHint');
+  if (finalHint) finalHint.hidden = !managed;
+  var testWrap = document.getElementById('testModeControl');
+  var testCheck = document.getElementById('testMode');
+  if (testWrap) testWrap.hidden = managed;
+  if (testCheck && managed) testCheck.checked = false;
+
+  var rosterTab = document.querySelector('.match-tabs .match-tab[data-tab="roster"]');
+  if (rosterTab) rosterTab.hidden = managed;
+
+  var notice = document.getElementById('managedEntrantNotice');
+  var rosterLink = document.getElementById('managedEntrantRosterLink');
+  var evData = managed ? MANAGED_EVENTS_DATA[eventId] : null;
+  var hasReady = false;
+  if (evData) {
+    hasReady = evData.entrants.some(function (e) { return e.ready; });
+    if (notice) notice.hidden = hasReady;
+    if (rosterLink) rosterLink.href = evData.roster_url || '#';
+  } else if (notice) {
+    notice.hidden = true;
+  }
+
+  var sideHint = document.getElementById('matchupSideHint');
+  if (sideHint) {
+    sideHint.textContent = managed
+      ? '新流程赛事请从本届已确认初始五人的参赛队中选择双方（支持临时队与俱乐部队）。'
+      : '开局 CT / T 以 BP 结果为准';
+  }
+
+  ['1', '2'].forEach(function (side) {
+    var legacyWrap = document.getElementById('side' + side + '_legacy');
+    var entrantWrap = document.getElementById('side' + side + '_entrant');
+    var entrantType = document.getElementById('side' + side + '_entrant_type');
+    var entrantSelect = document.getElementById('side' + side + '_entrant_select');
+    var teamSelect = document.getElementById('side' + side + '_select');
+    if (teamSelect && entrantSelect) {
+      (managed ? teamSelect : entrantSelect).removeAttribute('name');
+      (managed ? entrantSelect : teamSelect).name = 'side' + side + '_id';
+    }
+
+    if (legacyWrap) {
+      legacyWrap.hidden = managed;
+      legacyWrap.querySelectorAll('input, select').forEach(function (el) {
+        el.disabled = managed;
+        if (managed) el.required = false;
+      });
+    }
+    if (entrantWrap && entrantType && entrantSelect) {
+      entrantWrap.hidden = !managed;
+      entrantType.disabled = !managed;
+      entrantSelect.disabled = !managed;
+      entrantSelect.required = managed;
+      if (managed && evData) {
+        var prevVal = entrantSelect.value || (INITIAL_SUBMITTED_SIDES[side] && INITIAL_SUBMITTED_SIDES[side].type === 'entrant' ? INITIAL_SUBMITTED_SIDES[side].id : '');
+        entrantSelect.innerHTML = '';
+        var blank = document.createElement('option');
+        blank.value = '';
+        blank.textContent = matchText(evData.entrants.length ? '选择本届参赛队' : '暂无已分队的参赛队伍');
+        entrantSelect.appendChild(blank);
+        evData.entrants.forEach(function (ent) {
+          var opt = document.createElement('option');
+          opt.value = String(ent.event_entrant_id);
+          opt.textContent = ent.name + ' · ' + (ent.ready ? matchText('可建场') : matchText(ent.not_ready_reason));
+          opt.disabled = !ent.ready;
+          opt.setAttribute('data-i18n-ignore', '');
+          if (String(prevVal) === opt.value && ent.ready) opt.selected = true;
+          entrantSelect.appendChild(opt);
+        });
+        renderEntrantPreview(side, eventId);
+      } else {
+        entrantSelect.innerHTML = '<option value="">选择本届参赛队</option>';
+        renderEntrantPreview(side, '');
+      }
+    }
+  });
+  checkEntrantDuplicates();
+}
+
 function swapSides() {
+  if (IS_MANAGED_EDIT) return;
   function notifyChanged(control) {
     if (!control) return;
     control.dispatchEvent(new Event('input', { bubbles: true }));
@@ -422,6 +784,11 @@ function swapSides() {
     second.value = firstValue;
     notifyChanged(first);
     notifyChanged(second);
+  }
+
+  if (isManagedEventSelected()) {
+    swapSelectState(document.getElementById('side1_entrant_select'), document.getElementById('side2_entrant_select'));
+    return;
   }
 
   var firstType = document.querySelector('input[name="side1_type"]:checked');
@@ -466,11 +833,12 @@ function updateMapFields() {
 // 是否测试比赛：新建页看“测试模式”勾选框，编辑页看隐藏的 is_test_mode 标记
 function isTestMatch() {
   var testMode = document.getElementById('testMode');
-  if (testMode) return testMode.checked;
+  if (testMode && !isManagedEventSelected()) return testMode.checked;
   return !!document.querySelector('input[type="hidden"][name="is_test_mode"][value="1"]');
 }
 
 function toggleSide(num) {
+  if (IS_MANAGED_EDIT || isManagedEventSelected()) return;
   var checked = document.querySelector('input[name="side' + num + '_type"]:checked');
   if (!checked) return;
   var isTeam = checked.value === 'team';
@@ -478,7 +846,7 @@ function toggleSide(num) {
   var playersEl = document.getElementById('side' + num + '_players');
   if (teamEl) teamEl.hidden = !isTeam;
   if (playersEl) playersEl.hidden = isTeam;
-  var sel = document.querySelector('select[name="side' + num + '_id"]');
+  var sel = document.getElementById('side' + num + '_select');
   if (sel) sel.required = isTeam && !isTestMatch();
 }
 
@@ -549,14 +917,18 @@ function switchMapMode(mode) {
   });
 })();
 
-// 恢复草稿：先按草稿补齐观赛平台行；填回后同步状态按钮、比赛时间、参赛方显示
+// 恢复草稿：先按草稿补齐观赛平台行与本届参赛队；填回后同步状态按钮、比赛时间、参赛方显示
 (function bindDraftRestore() {
   var form = document.getElementById('matchForm');
   form.addEventListener('admin-draft:before-restore', function (event) {
-    Object.keys(event.detail || {}).forEach(function (name) {
+    var detail = event.detail || {};
+    Object.keys(detail).forEach(function (name) {
       var m = /^watch_name_(\d+)$/.exec(name);
       if (m && !form.elements[name]) addWatchUrl('', '', Number(m[1]));
     });
+    if (detail.event_id && isManagedEventSelected(detail.event_id)) {
+      syncManagedEventSides(detail.event_id);
+    }
   });
   form.addEventListener('admin-draft:restored', function () {
     var select = document.getElementById('statusSelect');
@@ -564,18 +936,121 @@ function switchMapMode(mode) {
     if (pill) setMatchStatus(select.value, pill);
     syncMatchTime();
     updateMapFields();
+    syncManagedEventSides();
     toggleTestMode();
     toggleSide('1');
     toggleSide('2');
   });
 })();
 
+// 新建比赛：所属赛事与参赛队下拉联动
+(function bindEntrantMatchup() {
+  var evSel = document.getElementById('eventIdSelect');
+  if (evSel && !IS_MANAGED_EDIT) {
+    evSel.addEventListener('change', function () { syncManagedEventSides(); });
+  }
+  ['1', '2'].forEach(function (side) {
+    var sel = document.getElementById('side' + side + '_entrant_select');
+    if (sel) {
+      sel.addEventListener('change', function () {
+        renderEntrantPreview(side, currentSelectedEventId());
+        checkEntrantDuplicates();
+      });
+    }
+  });
+  document.querySelectorAll('[data-match-stage]').forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      var input = document.getElementById('matchStageInput');
+      if (!input || input.disabled) return;
+      input.value = matchText(chip.dataset.matchStage);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.focus();
+    });
+  });
+})();
+
+// 编辑比赛：独立的「确认冻结本场阵容」操作
+(function bindFreezeMatchRosters() {
+  var btn = document.getElementById('freezeMatchRostersBtn');
+  var errBox = document.getElementById('freezeRosterError');
+  var form = document.getElementById('matchForm');
+  var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+  var csrf = csrfMeta ? csrfMeta.getAttribute('content') : '';
+
+  try {
+    var pendingSuccess = sessionStorage.getItem('gotv_match_freeze_success');
+    if (pendingSuccess) {
+      sessionStorage.removeItem('gotv_match_freeze_success');
+      if (window.showToast) window.showToast(pendingSuccess, 'success');
+      switchMatchTab('roster');
+    }
+  } catch (e) {}
+
+  if (window.location.hash === '#pane-roster' && document.querySelector('.match-tab[data-tab="roster"]')) {
+    switchMatchTab('roster');
+  }
+  if (!btn) return;
+
+  btn.addEventListener('click', function () {
+    if (errBox) { errBox.hidden = true; errBox.textContent = ''; }
+    var dirty = form && form._adminState && form._adminState.check();
+    var msg = dirty
+      ? '当前比赛设置（如时间或赛制）有未保存的修改；冻结本场阵容不会保存这些改动。仍要冻结双方五人名单吗？冻结后不可重选，且不代表选手已到场或比赛已开始。'
+      : '确定冻结本场比赛双方阵容吗？冻结后双方各自五人、队名与队标将固定到本场比赛，之后才能开始 BP，且本场不能重新冻结。注意：冻结不代表选手已到场或比赛已开打。';
+    var confirmFn = window.adminConfirm || window.showConfirm;
+    confirmFn(msg).then(async function (yes) {
+      if (!yes) return;
+      var oldHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.textContent = matchText('冻结中……');
+      try {
+        var resp = await fetch(btn.getAttribute('data-freeze-url'), {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'X-CSRF-Token': csrf, 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        if (!resp.ok) {
+          var rawErr = (await resp.text()).trim();
+          var errText = rawErr ? matchText(rawErr) : (matchText('操作失败（状态码 ') + resp.status + ')');
+          if (errBox) { errBox.textContent = errText; errBox.hidden = false; }
+          if (window.showToast) window.showToast(errText, 'error');
+          btn.disabled = false;
+          btn.innerHTML = oldHtml;
+          return;
+        }
+        if (resp.url && resp.url.indexOf('/admin/login') !== -1) {
+          if (window.showToast) window.showToast('登录已过期，请重新登录', 'error');
+          window.location.href = resp.url;
+          return;
+        }
+        try { sessionStorage.setItem('gotv_match_freeze_success', '本场双方名单已冻结'); } catch (e) {}
+        if (form && form._adminState) form._adminState.submitting = true;
+        window.location.hash = '#pane-roster';
+        window.location.reload();
+      } catch (e) {
+        var netErr = '网络错误，未能冻结本场阵容';
+        if (errBox) { errBox.textContent = netErr; errBox.hidden = false; }
+        if (window.showToast) window.showToast(netErr, 'error');
+        btn.disabled = false;
+        btn.innerHTML = oldHtml;
+      }
+    });
+  });
+})();
+
 // 初始化
 syncMatchTime();
 updateMapFields();
+syncManagedEventSides();
 toggleTestMode();
 toggleSide('1');
 toggleSide('2');
+document.querySelectorAll('select[name^="match_team"] option[data-i18n-ignore]').forEach(function (opt) {
+  if (!opt.value) return;
+  opt.textContent = opt.textContent
+    .replace('（替补队员）', matchText('（替补队员）'))
+    .replace('（缺 Steam ID）', matchText('（缺 Steam ID）'));
+});
 {% if is_new_match %}
 switchMapMode('manual');
 {% endif %}

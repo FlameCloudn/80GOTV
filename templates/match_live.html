@@ -229,9 +229,40 @@ function bindStableImage(image) {
 }
 
 let lastScores = null;
+let currentMapRunId = null;
 const MATCH_ID = {{ match.id }};
 let fetchInFlight = false;
 let pollTimer = null;
+
+function clearLiveForVoid() {
+  currentMapRunId = null;
+  lastScores = null;
+  const neutral = ['#20262b', '#333e46', '#b4bdc4', '#161c21'];
+  [1, 2].forEach(number => {
+    ['bg', 'header', 'accent', 'row'].forEach((key, index) => {
+      document.getElementById('liveApp').style.setProperty('--t' + number + '-' + key, neutral[index]);
+    });
+  });
+  setText(document.getElementById('roundNum'), '-');
+  setText(document.getElementById('mapName'), '-');
+  setText(document.getElementById('timer'), '-');
+  setText(document.getElementById('updatedAt'), '-');
+  setText(document.getElementById('score1'), '-');
+  setText(document.getElementById('score2'), '-');
+  renderTeam('team1Players', [], 't1');
+  renderTeam('team2Players', [], 't2');
+  const rb = document.getElementById('roundBar');
+  if (rb) rb.dataset.signature = '';
+  renderRoundHistory([]);
+  const badge = document.getElementById('statusBadge');
+  let badgeContent = badge.firstElementChild;
+  if (!badgeContent) {
+    badgeContent = document.createElement('span');
+    badge.appendChild(badgeContent);
+  }
+  badgeContent.className = 'pause-badge';
+  setText(badgeContent, tr('当前局已因技术重赛作废，等待新局开打'));
+}
 
 async function fetchLive() {
   if (fetchInFlight) return;
@@ -240,7 +271,17 @@ async function fetchLive() {
     const r = await fetch(`/api/live/${MATCH_ID}`, {cache:'no-store', credentials:'same-origin'});
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const d = await r.json();
-    if (!d.ok) return;
+    if (!d.ok) {
+      if (d.reason === 'map_run_void') clearLiveForVoid();
+      return;
+    }
+    const nextRunId = d.map_run_id ?? null;
+    if (nextRunId !== null && currentMapRunId !== null && nextRunId !== currentMapRunId) {
+      lastScores = null;
+      const rb = document.getElementById('roundBar');
+      if (rb) rb.dataset.signature = '';
+    }
+    if (nextRunId !== null) currentMapRunId = nextRunId;
     renderLive(d);
   } catch(e) {
     console.error('Live fetch error:', e);
@@ -354,7 +395,8 @@ function renderTeam(containerId, players, cls) {
     setImage(row.querySelector('.p-icon img'), p && p.secondary && p.secondary !== '-' ? weaponIconPath(p.secondary) : '', p?.secondary || '');
     setImage(row.querySelector('.p-weapon img'), p && p.primary && p.primary !== '-' ? weaponIconPath(p.primary) : '', p?.primary || '');
 
-    const hpVal = !p || p.hp === '-' ? '-' : (p.hp ?? 0);
+    const rawHp = !p || p.hp == null || p.hp === '-' || p.hp === '' ? null : Number(p.hp);
+    const hpVal = rawHp != null && Number.isFinite(rawHp) ? rawHp : '-';
     const hpPct = typeof hpVal === 'number' ? Math.min(100, Math.max(0, hpVal)) : 0;
     const hpColor = hpPct > 60 ? '' : (hpPct > 30 ? 'low' : 'crit');
     const hpBar = row.querySelector('.hp-bar');
@@ -364,16 +406,16 @@ function renderTeam(containerId, players, cls) {
     if (hpFill.style.width !== `${hpPct}%`) hpFill.style.width = `${hpPct}%`;
     setText(row.querySelector('.hp-text'), hpVal);
 
-    const armorAvailable = !!p && p.armor !== '-';
+    const armorAvailable = !!p && p.armor != null && p.armor !== '-';
     const armorSrc = armorAvailable && p.helmet ? ICON_BASE + 'kevlar_helmet.webp'
       : (armorAvailable && Number(p.armor) > 0 ? ICON_BASE + 'kevlar.webp' : '');
     setImage(row.querySelector('.p-armor img'), armorSrc, tr(p?.helmet ? '甲+盔' : '护甲'));
     row.querySelector('.p-armor-empty').hidden = armorAvailable && !!armorSrc;
-    setText(row.querySelector('.p-money'), !p || p.money === '-' ? '-' : `$${p.money ?? 0}`);
-    setText(row.querySelector('.p-stat.k'), p ? (p.kills ?? 0) : '-');
-    setText(row.querySelectorAll('.p-stat')[1], p ? (p.assists ?? 0) : '-');
-    setText(row.querySelector('.p-stat.d'), p ? (p.deaths ?? 0) : '-');
-    setText(row.querySelector('.p-adr'), p ? (p.adr ?? 0) : '-');
+    setText(row.querySelector('.p-money'), !p || p.money == null || p.money === '-' || p.money === '' ? '-' : `$${p.money}`);
+    setText(row.querySelector('.p-stat.k'), p && p.kills != null ? p.kills : '-');
+    setText(row.querySelectorAll('.p-stat')[1], p && p.assists != null ? p.assists : '-');
+    setText(row.querySelector('.p-stat.d'), p && p.deaths != null ? p.deaths : '-');
+    setText(row.querySelector('.p-adr'), p && p.adr != null ? p.adr : '-');
   });
 }
 

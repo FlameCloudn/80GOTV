@@ -109,7 +109,10 @@ function getActingTeam(stepIdx) {
   return bpState.first_choice === 'first' ? (fp === 't1' ? 't2' : 't1') : fp;
 }
 
+function bpT(text) { return window.siteTranslate ? window.siteTranslate(String(text)) : String(text); }
 function getTeamName(t) { return teamNames[t] || 'TBD'; }
+function bpTeamSpan(t) { return '<span data-i18n-ignore>' + getTeamName(t) + '</span>'; }
+function bpIsEn() { return typeof bpT === 'function' && bpT('先手') !== '先手'; }
 function getSideTeam(p) {
   if (['t1', 't2'].includes(p.side_team)) return p.side_team;
   return p.picked_by === 't1' ? 't2' : (p.picked_by === 't2' ? 't1' : null);
@@ -267,13 +270,13 @@ function renderPool() {
 
     if (bans.indexOf(map) !== -1) {
       cls += ' banned';
-      statusText = '已被 Ban';
+      statusText = bpT('已被 Ban');
     } else if (pickMapNames.indexOf(map) !== -1) {
       var pick = picks.find(function(p) { return p.map === map; }) || {};
       cls += ' picked';
-      if (pick.picked_by === 't1') { cls += ' t1'; statusText = getTeamName('t1') + ' 选'; }
-      else if (pick.picked_by === 't2') { cls += ' t2'; statusText = getTeamName('t2') + ' 选'; }
-      else { cls += ' remaining'; statusText = '剩余地图'; }
+      if (pick.picked_by === 't1') { cls += ' t1'; statusText = bpT(getTeamName('t1') + ' 选'); }
+      else if (pick.picked_by === 't2') { cls += ' t2'; statusText = bpT(getTeamName('t2') + ' 选'); }
+      else { cls += ' remaining'; statusText = bpT('剩余地图'); }
     } else if (myTurn && pool.indexOf(map) !== -1) {
       cls += ' clickable ' + (currentAction === 'ban' ? 'ban-action' : 'pick-action');
       var actTeam = isAdmin ? actingTeam : myTeam;
@@ -281,15 +284,15 @@ function renderPool() {
       statusText = (isAdmin ? getTeamName(actingTeam) + ' ' : '') + (currentAction === 'ban' ? 'Ban' : 'Pick');
     } else if (pool.indexOf(map) !== -1) {
       cls += ' available';
-      statusText = bpState ? 'TBA' : '地图池';
+      statusText = bpState ? 'TBA' : bpT('地图池');
     } else {
       cls += ' available';
       statusText = '';
     }
 
     html += '<div class="' + cls + '" style="background-image:url(' + imgUrl + ')"' + onclick + '>';
-    html += '<span class="map-name">' + displayName + '</span>';
-    if (statusText) html += '<span class="map-status">' + statusText + '</span>';
+    html += '<span class="map-name" data-i18n-ignore>' + displayName + '</span>';
+    if (statusText) html += '<span class="map-status" data-i18n-ignore>' + statusText + '</span>';
     html += '</div>';
   }
   document.getElementById('map-pool').innerHTML = html;
@@ -313,7 +316,7 @@ function renderPicks() {
       var sideTeam = getSideTeam(p);
       label += ' (' + (sideTeam ? getTeamName(sideTeam) + ' ' : '') + p.side + ')';
     }
-    html += '<div class="' + cls + '">' + label + '<span class="pick-num">图 ' + (i+1) + '</span></div>';
+    html += '<div class="' + cls + '"><span data-i18n-ignore>' + label + '</span><span class="pick-num">' + bpT('图 ' + (i+1)) + '</span></div>';
   }
   document.getElementById('picks-row').innerHTML = html;
 }
@@ -332,18 +335,18 @@ function renderStatus() {
     var rolls = bpState.rolls || {};
     var t1r = rolls.t1, t2r = rolls.t2;
     var rollLabels = teamOrder.map(function(side) {
-      return getTeamName(side) + ' <b>' + (rolls[side] != null ? rolls[side] : '?') + '</b>';
+      return bpTeamSpan(side) + ' <b>' + (rolls[side] != null ? rolls[side] : '?') + '</b>';
     }).join(' : ');
     if (t1r == null && t2r == null) {
       html = '双方 Roll 点决定先手 — 点数大者可以选择先 Ban/Pick 或后 Ban/Pick';
     } else if (bpState.first_picker) {
-      html = 'Roll 结果: ' + rollLabels + ' → <span class="bp-good">' + getTeamName(bpState.first_picker) + ' 胜出!</span>';
+      html = (bpIsEn() ? 'Roll: ' : 'Roll 结果: ') + rollLabels + ' → <span class="bp-good">' + bpTeamSpan(bpState.first_picker) + (bpIsEn() ? ' wins!' : ' 胜出!') + '</span>';
     } else {
       html = 'Roll: ' + rollLabels + ' (等待另一方)';
     }
   } else if (status === 'bp') {
     if (bpState.first_choice === null && bpState.first_picker) {
-      html = '<span class="bp-accent">' + getTeamName(bpState.first_picker) + '</span> Roll 胜出 — 请选择先手或后手';
+      html = '<span class="bp-accent">' + bpTeamSpan(bpState.first_picker) + '</span>' + (bpIsEn() ? ' won the roll — choose first or second' : ' Roll 胜出 — 请选择先手或后手');
     } else {
       var idx = bpState.current_step;
       var steps = bpState.steps;
@@ -353,7 +356,7 @@ function renderStatus() {
         var act = step.action === 'ban' ? 'Ban' : 'Pick';
         var remaining = Math.max(1, step.count - (bpState.current_step_progress || 0));
         var isMe = acting === myTeam;
-        html = '<span class="' + (isMe || isAdmin ? 'bp-good' : 'bp-accent') + '">' + getTeamName(acting) + '</span> '
+        html = '<span class="' + (isMe || isAdmin ? 'bp-good' : 'bp-accent') + '">' + bpTeamSpan(acting) + '</span> '
              + act + ' ' + remaining + ' 张图 (' + (idx+1) + '/' + steps.length + ')'
              + (isMe ? ' <span class="bp-turn-tag bp-good">● 你的回合</span>' : '')
              + (isAdmin && !isMe ? ' <span class="bp-turn-tag bp-accent">● 替对方操作</span>' : '');
@@ -396,7 +399,7 @@ function renderActions() {
     teamOrder.forEach(function(side, index) {
       if (index) html += '<div class="roll-vs">VS</div>';
       var value = rolls[side];
-      html += '<div class="roll-team-dice"><div class="dice-label">' + getTeamName(side) + '</div>';
+      html += '<div class="roll-team-dice"><div class="dice-label">' + bpTeamSpan(side) + '</div>';
       html += '<div class="roll-dice' + (value != null ? ' rolled' : '') + (bpState.first_picker === side ? ' winner' : '') + '">' + (value != null ? value : '?') + '</div></div>';
     });
     html += '</div>';
@@ -406,18 +409,18 @@ function renderActions() {
       if (isAdmin) {
         // 管理员可以替任意一方 Roll
         teamOrder.forEach(function(side) {
-          if (rolls[side] == null) html += '<button class="btn btn-lg" type="button" onclick="doRoll(\x27' + side + '\x27)">' + getTeamName(side) + ' Roll</button>';
+          if (rolls[side] == null) html += '<button class="btn btn-lg" type="button" onclick="doRoll(\x27' + side + '\x27)">' + bpTeamSpan(side) + ' Roll</button>';
         });
       } else if (bpVerified && t1r == null && myTeam === 't1') {
-        html += '<button class="btn btn-primary btn-lg" type="button" onclick="doRoll(\x27t1\x27)">' + getTeamName('t1') + ' Roll</button>';
+        html += '<button class="btn btn-primary btn-lg" type="button" onclick="doRoll(\x27t1\x27)">' + bpTeamSpan('t1') + ' Roll</button>';
       } else if (bpVerified && t2r == null && myTeam === 't2') {
-        html += '<button class="btn btn-primary btn-lg" type="button" onclick="doRoll(\x27t2\x27)">' + getTeamName('t2') + ' Roll</button>';
+        html += '<button class="btn btn-primary btn-lg" type="button" onclick="doRoll(\x27t2\x27)">' + bpTeamSpan('t2') + ' Roll</button>';
       }
       html += '</div>';
       if (isAdmin && t1r != null && t2r == null) {
-        html += '<div class="bp-waiting">等待 ' + getTeamName('t2') + ' Roll...</div>';
+        html += '<div class="bp-waiting">' + (bpIsEn() ? ('Waiting for ' + bpTeamSpan('t2') + ' to roll...') : ('等待 ' + bpTeamSpan('t2') + ' Roll...')) + '</div>';
       } else if (isAdmin && t2r != null && t1r == null) {
-        html += '<div class="bp-waiting">等待 ' + getTeamName('t1') + ' Roll...</div>';
+        html += '<div class="bp-waiting">' + (bpIsEn() ? ('Waiting for ' + bpTeamSpan('t1') + ' to roll...') : ('等待 ' + bpTeamSpan('t1') + ' Roll...')) + '</div>';
       } else if (!isAdmin && !(bpVerified && ((t1r == null && myTeam === 't1') || (t2r == null && myTeam === 't2'))) && (t1r == null || t2r == null)) {
         html += '<div class="bp-waiting">等待对方 Roll...</div>';
       }
@@ -426,7 +429,7 @@ function renderActions() {
     // Roll 胜方选择先手 / 后手
     if (bpVerified && (isAdmin || (myTeam && myTeam === bpState.first_picker))) {
       html = '<div class="bp-choice-title">';
-      if (isAdmin) html += '[管理员] 替 ' + getTeamName(bpState.first_picker) + ' 选择：';
+      if (isAdmin) html += bpIsEn() ? ('[Admin] Choose for ' + bpTeamSpan(bpState.first_picker) + ': ') : ('[管理员] 替 ' + bpTeamSpan(bpState.first_picker) + ' 选择：');
       else html += '作为 Roll 胜方，你选择：';
       html += '</div>';
       html += '<div class="bp-btn-row">';
@@ -435,7 +438,7 @@ function renderActions() {
       html += '</div>';
       html += '<div class="bp-hint">先手 = 先 Ban/Pick · 后手 = 后 Ban/Pick</div>';
     } else {
-      html = '<div class="bp-waiting">等待 ' + getTeamName(bpState.first_picker) + ' 选择先手/后手...</div>';
+      html = '<div class="bp-waiting">' + (bpIsEn() ? ('Waiting for ' + bpTeamSpan(bpState.first_picker) + ' to choose first or second...') : ('等待 ' + bpTeamSpan(bpState.first_picker) + ' 选择先手/后手...')) + '</div>';
     }
   } else if (status === 'bp') {
     var idx = bpState.current_step;
@@ -443,9 +446,9 @@ function renderActions() {
       var acting = getActingTeam(idx);
       if (isAdmin) {
         html = '<div class="bp-admin-hint"><span class="bp-accent">[管理员] </span>';
-        html += '当前轮到 <b>' + getTeamName(acting) + '</b> — 点击上方地图替其操作</div>';
+        html += bpIsEn() ? ('Current turn: <b>' + bpTeamSpan(acting) + '</b> — click a map above to act for them</div>') : ('当前轮到 <b>' + bpTeamSpan(acting) + '</b> — 点击上方地图替其操作</div>');
       } else if (!bpVerified || !myTeam || acting !== myTeam) {
-        html = '<div class="bp-waiting">等待 ' + getTeamName(acting) + ' 操作...</div>';
+        html = '<div class="bp-waiting">' + (bpIsEn() ? ('Waiting for ' + bpTeamSpan(acting) + '...') : ('等待 ' + bpTeamSpan(acting) + ' 操作...')) + '</div>';
       } else {
         html = '<div class="bp-hint">点击上方地图卡片执行操作</div>';
       }
@@ -458,15 +461,15 @@ function renderActions() {
       if (p.side) continue;
       var sideTeam = getSideTeam(p);
       var sideLabel = p.picked_by === 'remaining' ? '最后地图' : '被选地图';
-      html += '<div class="bp-side-item"><b>' + p.map + '</b> — ' + sideLabel + '，由 ' + getTeamName(sideTeam) + ' 选边';
+      html += '<div class="bp-side-item"><b>' + p.map + '</b> — ' + (bpIsEn() ? ((sideLabel === '最后地图' ? 'decider map' : (sideLabel === '被选地图' ? 'picked map' : bpT(sideLabel))) + ', side chosen by ' + bpTeamSpan(sideTeam)) : (sideLabel + '，由 ' + bpTeamSpan(sideTeam) + ' 选边'));
       if (sideTeam && bpVerified && (isAdmin || (myTeam && myTeam === sideTeam))) {
         html += '<div class="side-btns">';
         html += '<button class="side-btn ct" type="button" data-bp-action="choose_side" data-bp-team="' + sideTeam + '" data-bp-map="' + p.map + '" data-bp-side="CT">CT 方</button>';
         html += '<button class="side-btn t" type="button" data-bp-action="choose_side" data-bp-team="' + sideTeam + '" data-bp-map="' + p.map + '" data-bp-side="T">T 方</button>';
         html += '</div>';
-        if (isAdmin) html += '<div class="bp-hint">替 ' + getTeamName(sideTeam) + ' 操作</div>';
+        if (isAdmin) html += '<div class="bp-hint">' + (bpIsEn() ? ('Acting for ' + bpTeamSpan(sideTeam)) : ('替 ' + bpTeamSpan(sideTeam) + ' 操作')) + '</div>';
       } else {
-        html += '<div class="bp-hint">等待 ' + getTeamName(sideTeam) + ' 选边...</div>';
+        html += '<div class="bp-hint">' + (bpIsEn() ? ('Waiting for ' + bpTeamSpan(sideTeam) + ' to choose a side...') : ('等待 ' + bpTeamSpan(sideTeam) + ' 选边...')) + '</div>';
       }
       html += '</div>';
     }

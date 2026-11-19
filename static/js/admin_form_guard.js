@@ -37,11 +37,11 @@
     var v = el.validity;
     if (v.valid) return '';
     var choose = el.tagName === 'SELECT' || el.type === 'radio' || el.type === 'checkbox';
-    if (v.valueMissing) return en ? (choose ? 'Please choose ' : 'Please fill in ') + label : (choose ? '请选择' : '请填写') + label;
+    if (v.valueMissing) return en ? label + ' is required' : (choose ? '请选择' : '请填写') + label;
     if (v.patternMismatch && el.getAttribute('data-msg-pattern')) return t(el.getAttribute('data-msg-pattern'));
-    if (v.tooShort) return en ? label + ' needs at least ' + el.minLength + ' characters' : label + '至少 ' + el.minLength + ' 个字符';
-    if (v.tooLong) return en ? label + ' allows at most ' + el.maxLength + ' characters' : label + '不能超过 ' + el.maxLength + ' 个字符';
-    return en ? label + ' is not valid' : label + '格式不正确';
+    if (v.tooShort) return en ? label + ' must be at least ' + el.minLength + ' characters' : label + '至少 ' + el.minLength + ' 个字符';
+    if (v.tooLong) return en ? label + ' cannot exceed ' + el.maxLength + ' characters' : label + '不能超过 ' + el.maxLength + ' 个字符';
+    return en ? label + ' is invalid' : label + '格式不正确';
   }
 
   // ---------- 显示 / 清除字段错误 ----------
@@ -126,7 +126,7 @@
     var key = 'form-errors:' + (form.id || form.getAttribute('action') || location.pathname);
     if (!bad.length) { window.dismissToast(key); return; }
     var text = bad.length === 1 ? message(bad[0])
-      : (F.isEnglish() ? bad.length + ' fields need fixing:' : bad.length + ' 处需修改：');
+      : (F.isEnglish() ? bad.length + ' fields need attention:' : bad.length + ' 处需修改：');
     var actions = bad.length === 1 ? [] : bad.slice(0, 5).map(function (el) {
       return { label: message(el) || t(F.fieldLabel(el)), run: function () { focusField(el); } };
     });

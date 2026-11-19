@@ -12,7 +12,7 @@
     <span class="page-head-kicker" data-i18n-ignore>MATCHES</span><h1>比赛管理</h1>
     <p class="page-head-sub">共 {{ matches|length }} 场比赛</p>
   </div>
-  <div class="page-actions"><a href="{{ url_for('admin.admin_matches_add') }}" class="btn btn-primary">{{ ui.icon('plus') }}添加比赛</a></div>
+  <div class="page-actions"><a href="{{ url_for('admin.admin_matches_add', event=current_event) if current_event else url_for('admin.admin_matches_add') }}" class="btn btn-primary">{{ ui.icon('plus') }}添加比赛</a></div>
 </header>
 
 <section class="panel">
@@ -56,19 +56,31 @@
           <td class="num nowrap"><b>{{ left_team.score if left_team.score is not none else '-' }} : {{ right_team.score if right_team.score is not none else '-' }}</b></td>
           <td class="nowrap cell-datetime">{{ m.match_time|datetime_display }}</td>
           <td>
-            {% if m.effective_status == 'upcoming' %}<span class="badge badge-upcoming">未开始</span>
-            {% elif m.effective_status == 'live' %}<span class="badge badge-live live-badge">直播中</span>
-            {% elif m.effective_status == 'cancelled' %}<span class="badge badge-red">已取消</span>
-            {% else %}<span class="badge badge-done">已结束</span>{% endif %}
+            <div class="status-stack">
+              {% if m.effective_status == 'upcoming' %}<span class="badge badge-upcoming">未开始</span>
+              {% elif m.effective_status == 'live' %}<span class="badge badge-live live-badge">直播中</span>
+              {% elif m.effective_status == 'cancelled' %}<span class="badge badge-red">已取消</span>
+              {% else %}<span class="badge badge-done">已结束</span>{% endif %}
+              {% if m.is_managed %}
+                {% if m.rosters_frozen %}
+                <span class="badge badge-accent">{{ ui.icon('lock') }}本场阵容已冻结</span>
+                {% else %}
+                <span class="badge badge-gold">本场阵容未冻结</span>
+                {% endif %}
+              {% endif %}
+            </div>
           </td>
           <td class="actions-cell">
             <div class="row-actions action-group">
               {{ match_ui.quick_actions(m) }}
+              {% if not m.is_managed %}
               <form method="post" action="{{ url_for('admin.admin_matches_delete', match_id=m.id) }}" data-confirm="确定删除比赛吗？相关统计、直播记录和评论也会一起删除。">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <button type="submit" class="btn btn-sm btn-icon btn-danger action-delete-btn" title="删除比赛" aria-label="删除比赛 #{{ m.id }}">{{ ui.icon('trash') }}</button>
               </form>
+              {% endif %}
             </div>
+            {% if not m.is_managed %}
             {% if m.effective_status == 'live' %}
             <div class="row-forms">
               <form class="inline-form match-action-form" method="post" action="/admin/matches/{{ m.id }}/complete" data-confirm="确定结束这场比赛吗？" data-confirm-danger>
@@ -84,6 +96,7 @@
                 <button class="btn btn-sm btn-success match-action-btn reopen-btn" type="submit">{{ ui.icon('reopen') }}重新开启</button>
               </form>
             </div>
+            {% endif %}
             {% endif %}
           </td>
         </tr>

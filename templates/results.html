@@ -32,7 +32,7 @@
       <select id="mobileResultEvent" name="event" onchange="this.form.submit()">
         <option value="" {% if not event_filter %}selected{% endif %}>全部赛事</option>
         {% for e in events %}
-        <option value="{{ e.id }}" {% if event_filter==e.id|string %}selected{% endif %}>{{ e.name }}</option>
+        <option value="{{ e.id }}" {% if event_filter==e.id|string %}selected{% endif %} data-i18n-ignore>{{ e.name }}</option>
         {% endfor %}
       </select>
     </form>

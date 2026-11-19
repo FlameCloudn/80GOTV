@@ -389,10 +389,12 @@
             {% set t2_h1_side = 'CT' if ms.halves.opening_ct_team == 't2' else ('T' if ms.halves.opening_ct_team == 't1' else '?') %}
             {% set t1_h2_side = 'T' if t1_h1_side == 'CT' else ('CT' if t1_h1_side == 'T' else '?') %}
             {% set t2_h2_side = 'T' if t2_h1_side == 'CT' else ('CT' if t2_h1_side == 'T' else '?') %}
-            {% set ot1 = (ms.t1|int) - (ms.halves.h1_t1|int) - (ms.halves.h2_t1|int) %}
-            {% set ot2 = (ms.t2|int) - (ms.halves.h1_t2|int) - (ms.halves.h2_t2|int) %}
-            <span class="ms-half-detail" title="上半场 / 下半场（蓝色 CT、橙色 T）">({% for opponent in opponents %}{% set side_label = t1_h1_side if opponent.side == 't1' else t2_h1_side %}<span class="{{ 'ct-side' if side_label == 'CT' else 't-side' if side_label == 'T' else '' }}">{{ ms.halves['h1_' ~ opponent.side] }}</span>{{ ':' if not loop.last else '' }}{% endfor %}; {% for opponent in opponents %}{% set side_label = t1_h2_side if opponent.side == 't1' else t2_h2_side %}<span class="{{ 'ct-side' if side_label == 'CT' else 't-side' if side_label == 'T' else '' }}">{{ ms.halves['h2_' ~ opponent.side] }}</span>{{ ':' if not loop.last else '' }}{% endfor %})</span>
+            <span class="ms-half-detail" title="上半场 / 下半场（蓝色 CT、橙色 T）">({% for half, sides in [('h1', [t1_h1_side, t2_h1_side]), ('h2', [t1_h2_side, t2_h2_side])] %}{% for opponent in opponents %}{% set side_label = sides[0 if opponent.side == 't1' else 1] %}{% set points = ms.halves[half ~ '_' ~ opponent.side] %}<span class="{{ 'ct-side' if side_label == 'CT' else 't-side' if side_label == 'T' else '' }}">{{ points if points is not none else '-' }}</span>{{ ':' if not loop.last else '' }}{% endfor %}{{ '; ' if not loop.last else '' }}{% endfor %})</span>
+            {% if none not in (ms.t1, ms.t2, ms.halves.h1_t1, ms.halves.h2_t1, ms.halves.h1_t2, ms.halves.h2_t2) %}
+            {% set ot1 = ms.t1|int - ms.halves.h1_t1|int - ms.halves.h2_t1|int %}
+            {% set ot2 = ms.t2|int - ms.halves.h1_t2|int - ms.halves.h2_t2|int %}
             {% if ot1 >= 0 and ot2 >= 0 and (ot1 + ot2) > 0 %}<span class="ms-ot-detail" title="加时">({{ ot1 if left_team.side == 't1' else ot2 }}:{{ ot2 if right_team.side == 't2' else ot1 }})</span>{% endif %}
+            {% endif %}
             {% endif %}
           </span>
         </div>
@@ -521,8 +523,14 @@ function loadStream() {
 {# -- 赛前预测 -- #}
 {% if match.effective_status not in ('completed', 'cancelled') %}
 <section class="panel vote-section">
-  <div class="panel-head"><h2 class="panel-title section-title">赛前预测</h2></div>
+  <div class="panel-head">
+    <h2 class="panel-title section-title">赛前预测</h2>
+    {% if prediction_disabled %}<span class="badge badge-done">暂未开放</span>{% endif %}
+  </div>
   <div class="vote-body">
+    {% if prediction_disabled %}
+    <p class="empty-state">本场对阵未确定或已停止接受竞猜，暂不开放赛前预测。</p>
+    {% else %}
     {% set t1_pct = (vote_data.t1_count / vote_data.total * 100)|round|int if vote_data.total > 0 else 50 %}
     {% set t2_pct = 100 - t1_pct %}
     <div class="vote-bar-wrap">
@@ -535,7 +543,7 @@ function loadStream() {
     </div>
     {% if session.user_id %}
       {% if vote_data.user_voted %}
-      <p class="vote-voted-hint">✅ 你已投票给 {{ match.t1s if vote_data.user_voted == 't1' else match.t2s }}</p>
+      <p class="vote-voted-hint">你已投票给 <span data-i18n-ignore>{{ match.t1s if vote_data.user_voted == 't1' else match.t2s }}</span></p>
       {% else %}
       <div class="vote-form-row">
         <div class="vote-score-inputs">
@@ -547,11 +555,12 @@ function loadStream() {
         </div>
       </div>
       <div class="vote-buttons">
-        {% for opponent in opponents %}<button class="btn vote-btn vote-btn-{{ opponent.side }}" type="button" data-vote="{{ opponent.side }}" onclick="submitVote(this)"><span data-i18n-ignore>{{ opponent.short }}</span></button>{% endfor %}
+        {% for opponent in opponents %}<button class="btn vote-btn vote-btn-{{ opponent.side }}" type="button" data-vote="{{ opponent.side }}" onclick="submitVote(this)"><span data-vote-label data-i18n-ignore>{{ opponent.short }}</span></button>{% endfor %}
       </div>
       {% endif %}
     {% else %}
     <p class="vote-login-hint"><a href="/login">登录</a> 后即可参与投票预测</p>
+    {% endif %}
     {% endif %}
   </div>
 </section>
@@ -590,7 +599,8 @@ function loadStream() {
 function submitVote(btn) {
   var votedFor = btn.getAttribute('data-vote');
   btn.disabled = true;
-  btn.textContent = '提交中...';
+  var label = btn.querySelector('[data-vote-label]');
+  btn.textContent = window.siteTranslate ? window.siteTranslate('提交中...') : '提交中...';
   var formData = new FormData();
   formData.append('voted_for', votedFor);
   formData.append('csrf_token', window._csrfToken || '');
@@ -611,13 +621,13 @@ function submitVote(btn) {
     } else {
       showToast(res.msg, 'error');
       btn.disabled = false;
-      btn.textContent = votedFor === 't1' ? '🏆 ' + {{ match.t1s|tojson }} : '🏆 ' + {{ match.t2s|tojson }};
+      btn.replaceChildren(label);
     }
   })
   .catch(function() {
     showToast('网络错误，请重试', 'error');
     btn.disabled = false;
-    btn.textContent = votedFor === 't1' ? '🏆 ' + {{ match.t1s|tojson }} : '🏆 ' + {{ match.t2s|tojson }};
+    btn.replaceChildren(label);
   });
 }
 

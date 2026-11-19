@@ -35,7 +35,14 @@
         <tbody>
           {% for m in active_matches %}
           <tr>
-            <td>{% if m.effective_status == 'live' %}<span class="badge badge-live live-badge">直播中</span>{% else %}<span class="badge badge-upcoming">未开始</span>{% endif %}</td>
+            <td>
+              <div class="status-stack">
+                {% if m.effective_status == 'live' %}<span class="badge badge-live live-badge">直播中</span>{% else %}<span class="badge badge-upcoming">未开始</span>{% endif %}
+                {% if m.get('is_managed') %}
+                  {% if m.get('rosters_frozen') %}<span class="badge badge-accent">{{ ui.icon('lock') }}阵容已冻结</span>{% else %}<span class="badge badge-gold">阵容未冻结</span>{% endif %}
+                {% endif %}
+              </div>
+            </td>
             <td class="nowrap cell-datetime">{{ m.match_time|datetime_display if m.match_time else '-' }}</td>
             <td>
               {% set left_team, right_team = match_opponents(m) %}

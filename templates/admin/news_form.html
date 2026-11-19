@@ -70,7 +70,7 @@
       </div>
     </details>
 
-    <details class="form-group optional" {% if news and (news.related_match_id or news.redirect_url) %}open{% endif %}>
+    <details class="form-group optional" {% if news and (news.related_match_id or news.redirect_url or news.internal_link_url) %}open{% endif %}>
       <summary><span class="form-group-title">关联与跳转</span><span data-group-status></span></summary>
       <div class="details-body form-grid">
         <label class="field">
@@ -86,10 +86,20 @@
           </select>
         </label>
         <label class="field">
+          <span class="field-label">新闻内链接</span>
+          <input type="text" name="internal_link_url" inputmode="url" maxlength="2048" value="{{ news.internal_link_url if news and news.internal_link_url else '' }}" placeholder="例如：/events">
+        </label>
+        <label class="field">
+          <span class="field-label">链接文字</span>
+          <input type="text" name="internal_link_text" maxlength="80" value="{{ news.internal_link_text if news and news.internal_link_text else '' }}" placeholder="打开页面">
+        </label>
+        {% if news and news.redirect_url %}
+        <label class="field">
           <span class="field-label">点击新闻后跳转到</span>
           <input type="text" name="redirect_url" value="{{ news.redirect_url if news and news.redirect_url else '' }}" placeholder="例如：/events/80cs-summer-major">
           <span class="field-hint">留空打开新闻正文；只能填本站地址。</span>
         </label>
+        {% endif %}
       </div>
     </details>
 

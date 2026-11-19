@@ -19,7 +19,7 @@
   <span class="p-pistol"><img class="sb-mono" hidden alt=""></span>
   <span class="p-weapon"><img class="sb-mono" hidden alt=""></span>
   <span class="p-money">-</span>
-  <span class="p-stat k">0</span><span class="p-stat a">0</span><span class="p-stat d">0</span><span class="p-adr">0</span>
+  <span class="p-stat k">-</span><span class="p-stat a">-</span><span class="p-stat d">-</span><span class="p-adr">-</span>
 </div>
 {% endmacro %}
 
@@ -85,7 +85,7 @@
       <div class="kill-feed-list" id="killFeed" role="log" aria-label="比赛事件" tabindex="0"><div class="kill-line" data-feed-placeholder><span class="kill-round" data-i18n-translate>等待数据</span></div></div>
     </div>
     <div class="radar" id="radar">
-      <img loading="lazy" class="radar-image" id="radarImage" src="/resources/radars/mirage.svg" alt="">
+      <img loading="lazy" class="radar-image" id="radarImage" hidden alt="">
       <div id="killMarkers"></div>
     </div>
   </div>
@@ -137,8 +137,15 @@ let markerSignature = '';
 let currentRadarKey = '';
 let initialFeedRendered = false;
 let lastScores = null;
+let currentMapRunId = null;
 let fetchTimer = 0;
 let fetching = false;
+
+function liveMetric(value){
+  if(value===null||value===undefined||value===''||value==='-')return '-';
+  const num=Number(value);
+  return Number.isFinite(num)?num:'-';
+}
 
 // 取界面文字的翻译：英文模式下返回英文，中文模式原样返回（翻译脚本没加载时也原样返回）
 function tr(text){return window.siteTranslate?window.siteTranslate(String(text)):String(text)}
@@ -204,7 +211,8 @@ function updatePlayerName(row,player){
 }
 // 血量：数字 + 一根条；60 以上绿、30 以上黄、更低红
 function updatePlayerHealth(row,player){
-  const hp=player?Number(player.hp):NaN;
+  const rawHp=player?player.hp:null;
+  const hp=rawHp===null||rawHp===undefined||rawHp===''||rawHp==='-'?NaN:Number(rawHp);
   const known=Number.isFinite(hp);
   const fill=row.querySelector('.hp-fill');
   const width=(known?Math.max(0,Math.min(100,hp)):0)+'%';
@@ -222,11 +230,12 @@ function updatePlayerRow(row,player){
   updateWeapon(row.querySelector('.p-weapon'),empty?'':player.primary);
   const armorSrc=empty?'':(player.helmet?ICON_BASE+'kevlar_helmet.webp':(Number(player.armor)>0?ICON_BASE+'kevlar.webp':''));
   setImage(row.querySelector('.p-armor img'),armorSrc);
-  setText(row.querySelector('.p-money'),empty||player.money==='-'?'-':'$'+Number(player.money||0).toLocaleString('en-US'));
-  setText(row.querySelector('.p-stat.k'),empty?0:Number(player.kills||0));
-  setText(row.querySelector('.p-stat.a'),empty?0:Number(player.assists||0));
-  setText(row.querySelector('.p-stat.d'),empty?0:Number(player.deaths||0));
-  setText(row.querySelector('.p-adr'),empty?0:Number(player.adr||0));
+  const moneyVal=empty?'-':liveMetric(player.money);
+  setText(row.querySelector('.p-money'),moneyVal==='-'?'-':'$'+Number(moneyVal).toLocaleString('en-US'));
+  setText(row.querySelector('.p-stat.k'),empty?'-':liveMetric(player.kills));
+  setText(row.querySelector('.p-stat.a'),empty?'-':liveMetric(player.assists));
+  setText(row.querySelector('.p-stat.d'),empty?'-':liveMetric(player.deaths));
+  setText(row.querySelector('.p-adr'),empty?'-':liveMetric(player.adr));
 }
 function renderTeam(target,players){
   const rows=ensurePlayerRows(target);
@@ -240,10 +249,10 @@ function radarPoint(x,y,mapName){
   return {left:50,top:50};
 }
 function renderRadarMap(mapName){
-  const requested=mapKey(mapName),key=SUPPORTED_MAPS.has(requested)?requested:'mirage';
+  const requested=mapKey(mapName),key=SUPPORTED_MAPS.has(requested)?requested:'';
   if(key===currentRadarKey)return;
   currentRadarKey=key;
-  setImage(document.getElementById('radarImage'),'/resources/radars/'+encodeURIComponent(key)+'.svg');
+  setImage(document.getElementById('radarImage'),key?'/resources/radars/'+encodeURIComponent(key)+'.svg':'');
 }
 // 小地图：只画当前回合的阵亡点（最多 10 个），颜色是阵亡者的阵营
 function renderMarkers(data){
@@ -307,7 +316,7 @@ function renderRounds(rounds){
     const roundNumber=Number(round.round_number??round.round);
     return Number.isFinite(roundNumber)&&roundNumber>=0&&(roundNumber<24||roundNumber===24);
   });
-  const signature=JSON.stringify(safe.map(function(round){return [round.id,round.round,round.side,round.winner,round.reason_code,round.reason]}));
+  const signature=JSON.stringify(safe.map(function(round){return [round.id,round.round_number??round.round,round.side,round.winner,round.reason_code,round.reason]}));
   if(signature===roundSignature)return;
   roundSignature=signature;
   const team1Rounds=document.createDocumentFragment(),team2Rounds=document.createDocumentFragment();
@@ -372,7 +381,7 @@ function collectFeedEvents(data){
     items.push({id:'plant:'+(event.id||event.round+':'+index+':'+event.player),type:'plant',data:event,order:eventOrder(event,'plant',index)});
   });
   [...(data.round_history||[]),...(data.overtime_history||[])].forEach(function(event,index){
-    items.push({id:'round:'+(event.id||event.round+':'+(event.side||event.winner)),type:'round',data:event,order:eventOrder(event,'round',index)});
+    items.push({id:'round:'+(event.id??event.round_number??event.round),type:'round',data:event,order:eventOrder(event,'round',index)});
   });
   return items.sort(function(a,b){return b.order-a.order}).slice(0,36);
 }
@@ -392,6 +401,7 @@ function addIcon(parent,className,src){
 // 日志一行：下包 = “谁在哪个点下了包（几对几）”；回合结束 = “哪边赢了（比分）· 怎么赢的”
 function updateFeedNode(node,item){
   const event=item.data||{};
+  const round=event.round_number??event.round;
   const signature=JSON.stringify(event);
   if(node.dataset.signature===signature)return;
   node.dataset.signature=signature;
@@ -400,8 +410,9 @@ function updateFeedNode(node,item){
     node.className='kill-line bomb-planted';
     addIcon(node,'plant-icon sb-mono',ICON_BASE+'bombplant.webp');
     addText(node,'kill-name t',event.player||'T Player');
-    addText(node,'event-text',tr('在 '+(event.site||'?')+' 点安放 C4')+' · '+Number(event.alive_t||0)+'v'+Number(event.alive_ct||0));
-    addText(node,'kill-round','R'+Number((event.round_number??event.round) || 0));
+    const aliveKnown=event.alive_t!=null&&event.alive_ct!=null;
+    addText(node,'event-text',tr('在 '+(event.site||'?')+' 点安放 C4')+(aliveKnown?' · '+Number(event.alive_t)+'v'+Number(event.alive_ct):''));
+    if(round!=null)addText(node,'kill-round','R'+round);
     return;
   }
   const side=sideClass(event.side||event.winner),code=reasonCode(event);
@@ -409,8 +420,9 @@ function updateFeedNode(node,item){
   addIcon(node,'reason-icon',reasonIcon(code,side));
   addText(node,'event-text',tr('回合结束')+' · '+tr('胜方')+' ');
   addText(node,'round-winner '+side,side.toUpperCase()||'?');
-  addText(node,'event-text',' ('+Number(event.score_ct||0)+' - '+Number(event.score_t||0)+') · '+reasonLabel(code));
-  addText(node,'kill-round','R'+Number((event.round_number??event.round) || 0));
+  const scoreKnown=event.score_ct!=null&&event.score_t!=null;
+  addText(node,'event-text',(scoreKnown?' ('+liveMetric(event.score_ct)+' - '+liveMetric(event.score_t)+')':'')+' · '+reasonLabel(code));
+  if(round!=null)addText(node,'kill-round','R'+round);
 }
 function syncKillFeed(data){
   const feed=document.getElementById('killFeed');
@@ -462,7 +474,7 @@ function bombIcon(bomb){
 function bombLabel(bomb){
   const states={planted:'已安放',carried:'携带中',dropped:'已掉落',defused:'已拆除',exploded:'已爆炸',planting:'正在安放',defusing:'正在拆除'};
   if(!bomb||!bomb.state)return tr('炸弹状态：')+'-';
-  const seconds=Number(bomb.countdown);
+  const seconds=bomb.countdown==null?NaN:Number(bomb.countdown);
   return tr('炸弹状态：')+tr(states[bomb.state]||bomb.state)+(Number.isFinite(seconds)?' '+seconds.toFixed(1)+'s':'');
 }
 function formatUpdatedAt(value){
@@ -542,6 +554,50 @@ function render(data){
   renderMarkers(data);
   syncKillFeed(data);
 }
+function resetLiveFeedAndMarkers(){
+  feedNodes.clear();
+  initialFeedRendered=false;
+  roundSignature='';
+  markerSignature='';
+  lastScores=null;
+  const markers=document.getElementById('killMarkers');
+  if(markers)markers.replaceChildren();
+  const feed=document.getElementById('killFeed');
+  if(feed){
+    const placeholder=document.createElement('div');
+    placeholder.className='kill-line';
+    placeholder.dataset.feedPlaceholder='1';
+    addText(placeholder,'kill-round',tr('等待数据'));
+    feed.replaceChildren(placeholder);
+  }
+}
+function clearLiveForVoid(message){
+  currentMapRunId=null;
+  resetLiveFeedAndMarkers();
+  setText('liveScore1','-');
+  setText('liveScore2','-');
+  applyTeamSide(1,'');
+  applyTeamSide(2,'');
+  setText('roundNum',tr('等待新局开打'));
+  setText('mapName','-');
+  setText('timer','-');
+  setText('radarMap','-');
+  renderRadarMap('');
+  setText('updatedAt',tr('尚未收到数据'));
+  setImage(document.getElementById('bombStateIcon'),bombIcon(null));
+  setText('bombStateText',bombLabel(null));
+  const bombEl=document.getElementById('bombState');
+  if(bombEl)bombEl.classList.remove('active');
+  renderTeam('team1Players',[]);
+  renderTeam('team2Players',[]);
+  renderRounds([]);
+  renderOvertime([]);
+  const badge=document.getElementById('sourceBadge');
+  if(badge){
+    badge.className='sb-status paused';
+    setText(badge,tr(message||'当前局已因技术重赛作废，等待新局开打'));
+  }
+}
 async function fetchLive(){
   if(fetching)return;
   fetching=true;
@@ -549,8 +605,15 @@ async function fetchLive(){
     const response=await fetch('/api/live/'+MATCH_ID,{cache:'no-store'});
     const data=await response.json();
     if(data.ok){
+      const nextRunId=data.map_run_id??null;
+      if(nextRunId!==null&&currentMapRunId!==null&&nextRunId!==currentMapRunId){
+        resetLiveFeedAndMarkers();
+      }
+      if(nextRunId!==null)currentMapRunId=nextRunId;
       render(data);
       fetchLive.lastSuccess=Date.now();
+    }else if(data.reason==='map_run_void'){
+      clearLiveForVoid('当前局已因技术重赛作废，等待新局开打');
     }else{
       markLiveUnavailable('直播数据中断，保留最后一次成功数据');
     }

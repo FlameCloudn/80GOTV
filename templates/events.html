@@ -4,7 +4,17 @@
 {% block layout_class %}events-layout no-side-layout{% endblock %}
 
 {% macro event_card(e) %}
-<a class="event-card event-list-row" href="{{ event_path(e) }}">
+<a class="event-card event-list-row{% if is_arg_event(e) %} event-card-unavailable{% endif %}" href="{{ event_path(e) }}">
+  {% if is_arg_event(e) %}
+  <span class="event-card-body">
+    <h3 data-i18n-ignore data-event-display="{{ url_for('event_display', event_id=e.id) }}">{{ e.name }}</h3>
+    <span class="event-info">
+      <span class="event-list-status badge" data-i18n-ignore>???</span>
+      <span class="event-list-date" data-i18n-ignore>{{ arg_event_date }}</span>
+    </span>
+    <span class="meta" data-i18n-ignore>{{ arg_event_format }}</span>
+  </span>
+  {% else %}
   <span class="event-card-date" aria-hidden="true">
     <b>{{ e.start_date[5:7] if e.start_date else '--' }}.{{ e.start_date[8:10] if e.start_date else '--' }}</b>
     <small>{{ e.start_date[:4] if e.start_date else '' }}</small>
@@ -21,6 +31,7 @@
     </span>
     <span class="meta">{{ e.format }} · {{ e.team_count }} 支队伍 · {{ e.match_count }} 场比赛</span>
   </span>
+  {% endif %}
 </a>
 {% endmacro %}
 
@@ -39,9 +50,12 @@
 
 <div class="events-list-layout">
 {% if view_mode == 'calendar' %}
+{% for e in events if is_arg_event(e) %}
+<div class="events-grid">{{ event_card(e) }}</div>
+{% endfor %}
 {# ── 日历视图：按月分组 ── #}
 {% set months = {} %}
-{% for e in events %}
+{% for e in events if not is_arg_event(e) %}
   {% set ym = e.start_date[:7] if e.start_date else '未知' %}
   {% if ym not in months %}{% set _ = months.update({ym: []}) %}{% endif %}
   {% set _ = months[ym].append(e) %}
@@ -64,3 +78,7 @@
 {% endblock %}
 
 {% block side %}{% endblock %}
+
+{% block extra_js %}
+<script src="{{ versioned_url('static/js/event_display.js') }}" defer></script>
+{% endblock %}

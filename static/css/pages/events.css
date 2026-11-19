@@ -41,6 +41,8 @@
 .event-info { display: flex; align-items: center; flex-wrap: nowrap; gap: var(--space-sm); min-width: 0; }
 .event-list-date { min-width: 0; overflow: hidden; color: var(--text-secondary); font-size: var(--font-sm); text-overflow: ellipsis; white-space: nowrap; }
 .event-card .meta { color: var(--text-muted); font-size: var(--font-xs); }
+.event-card-unavailable { min-height: 112px; }
+.event-card-unavailable h3 { font-family: ui-monospace, Consolas, monospace; font-size: 16px; }
 
 @media (max-width: 900px) {
   .events-grid { grid-template-columns: minmax(0, 1fr); }

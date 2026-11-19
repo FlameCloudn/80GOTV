@@ -61,6 +61,11 @@
   }
 
   function restore(form, state, draft, reason) {
+    var revision = form.getAttribute('data-draft-revision');
+    if (revision !== null && draft.revision !== revision) {
+      restoredToast(form, state, t('此草稿对应的统计已更新，请核对当前数据后重新填写。'));
+      return;
+    }
     F.apply(form, draft.fields || {});
     state.check();
     G.updateGroups(form);

@@ -71,6 +71,22 @@ for (const blockDraftStorage of [false, true]) {
     await expect(form.locator(`[name="kills_${fixture.teams[0].player_ids[0]}"]`)).toHaveValue('21');
 
     await page.request.get(`/__e2e__/dot-stats-fixture/${fixture.match_id}/confirm-score`);
+    const conflict = page.waitForResponse(response =>
+      response.url().endsWith(statsUrl) && response.request().method() === 'POST' && response.status() === 409
+    );
+    await form.getByRole('button', { name: '保存此图数据' }).click();
+    await conflict;
+    await expect(page.locator('.admin-flashes .alert-error')).toContainText('请刷新页面核对后再保存');
+    page.once('dialog', dialog => dialog.accept());
+    await page.goto(statsUrl);
+    await page.locator('.stats-map-tabs .tab-btn').nth(1).click();
+    await expect(form).toBeVisible();
+    for (const team of fixture.teams) {
+      await expect(form.locator(`[name="kills_${team.player_ids[0]}"]`)).toHaveValue('10');
+      for (const [field, value] of Object.entries(values)) {
+        await form.locator(`[name="${field}_${team.player_ids[0]}"]`).fill(value);
+      }
+    }
     const saved = page.waitForResponse(response =>
       response.url().endsWith(statsUrl) && response.request().method() === 'POST' && response.status() === 302
     );

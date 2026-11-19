@@ -1,0 +1,7 @@
+<p class="meta player-coverage">
+  <span>出场地图</span> {{ overall.maps }} ·
+  <span>已知击杀</span> {{ overall.total_kills if overall.total_kills is not none else '-' }}
+  (<span>覆盖地图</span> {{ overall.kills_maps }}) ·
+  ADR {{ '%.1f'|format(overall.avg_adr) if overall.avg_adr is not none else '-' }}
+  (<span>覆盖地图</span> {{ overall.adr_maps }}{% if overall.adr_rounds is not none %} / <span>已知回合</span> {{ overall.adr_rounds }}{% endif %})
+</p>
