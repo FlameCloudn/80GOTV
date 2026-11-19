@@ -383,7 +383,8 @@ test('Chinese content remains available when JavaScript is disabled', async ({ b
 });
 
 test('English mode translates static UI without hiding user content', async ({ page }, testInfo) => {
-  await page.addInitScript(() => localStorage.setItem('siteLang', 'en'));
+  await page.context().addInitScript(() => localStorage.setItem('siteLang', 'en'));
+  const tabs = [page, await page.context().newPage()];
   const publicPaths = [
     '/', '/matches', '/results', '/events', '/players', '/stats', '/predictions',
     '/dashboard', '/forum', '/games', '/guess-player', '/map-quiz', '/player-bingo',
@@ -391,7 +392,7 @@ test('English mode translates static UI without hiding user content', async ({ p
     '/teams', '/awards', '/players/compare', '/stats?tab=players',
   ];
 
-  async function untranslatedText(path, expectFeedback = false) {
+  async function untranslatedText(page, path, expectFeedback = false) {
     const response = await page.goto(path, { waitUntil: 'domcontentloaded' });
     expect(response.ok(), path).toBeTruthy();
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
@@ -446,26 +447,25 @@ test('English mode translates static UI without hiding user content', async ({ p
   }
 
   const untranslated = {};
-  for (const path of publicPaths) {
-    const values = await untranslatedText(path);
-    if (values.length) untranslated[path] = values;
+  // 同一身份的页面可独立检查；两页共享真实会话，每组完成后才切换身份。
+  async function checkPages(paths, expectFeedback = false) {
+    await Promise.all(tabs.map(async (tab, index) => {
+      for (let i = index; i < paths.length; i += tabs.length) {
+        const path = paths[i];
+        const values = await untranslatedText(tab, path, expectFeedback);
+        if (values.length) untranslated[path] = values;
+      }
+    }));
   }
-
+  await checkPages(publicPaths);
   expect((await page.request.get('/__e2e__/user-session')).ok()).toBeTruthy();
-  for (const path of [
+  await checkPages([
     '/profile', '/notifications', '/guess-player', '/guess-player/practice',
     '/guess-player/multiplayer', '/map-quiz', '/map-quiz/practice',
     '/player-bingo', '/player-bingo/practice',
-  ]) {
-    const values = await untranslatedText(path, true);
-    if (values.length) untranslated[path] = values;
-  }
-
+  ], true);
   expect((await page.request.get('/__e2e__/admin-session')).ok()).toBeTruthy();
-  for (const path of ['/admin', '/admin/registrations', '/admin/players', '/admin/events/add', '/admin/matches/add', '/admin/news/add']) {
-    const values = await untranslatedText(path);
-    if (values.length) untranslated[path] = values;
-  }
+  await checkPages(['/admin', '/admin/registrations', '/admin/players', '/admin/events/add', '/admin/matches/add', '/admin/news/add']);
   expect(untranslated).toEqual({});
 });
 
