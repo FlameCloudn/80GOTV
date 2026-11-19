@@ -70,14 +70,14 @@
 
     {# 2. 分类标签 #}
     <div class="match-tabs" role="tablist">
-      <button type="button" class="match-tab active" data-tab="matchup" onclick="switchMatchTab('matchup')">基础与对阵</button>
-      <button type="button" class="match-tab" data-tab="maps" onclick="switchMatchTab('maps')">地图与赛制</button>
+      <button type="button" class="match-tab active" data-tab="matchup" disabled>基础与对阵</button>
+      <button type="button" class="match-tab" data-tab="maps" disabled>地图与赛制</button>
       {% if managed_info %}
-      <button type="button" class="match-tab" data-tab="roster" onclick="switchMatchTab('roster')">本场阵容 <span class="badge {{ 'badge-accent' if managed_info.rosters_frozen else 'badge-gold' }}">{{ '已冻结' if managed_info.rosters_frozen else '未冻结' }}</span></button>
+      <button type="button" class="match-tab" data-tab="roster" disabled>本场阵容 <span class="badge {{ 'badge-accent' if managed_info.rosters_frozen else 'badge-gold' }}">{{ '已冻结' if managed_info.rosters_frozen else '未冻结' }}</span></button>
       {% elif setup_editable %}
-      <button type="button" class="match-tab" data-tab="roster" onclick="switchMatchTab('roster')">出场名单与替补</button>
+      <button type="button" class="match-tab" data-tab="roster" disabled>出场名单与替补</button>
       {% endif %}
-      <button type="button" class="match-tab" data-tab="broadcast" onclick="switchMatchTab('broadcast')">直播与房间信息</button>
+      <button type="button" class="match-tab" data-tab="broadcast" disabled>直播与房间信息</button>
     </div>
 
     <div class="admin-form match-form-body">
@@ -550,6 +550,10 @@ function switchMatchTab(tabKey) {
     pane.classList.toggle('active', pane.id === 'pane-' + tabKey);
   });
 }
+document.querySelectorAll('.match-tabs .match-tab').forEach(function (btn) {
+  btn.addEventListener('click', function () { switchMatchTab(btn.dataset.tab); });
+  btn.disabled = false;
+});
 
 function setMatchStatus(statusVal, btn) {
   var select = document.getElementById('statusSelect');

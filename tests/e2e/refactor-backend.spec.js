@@ -153,6 +153,23 @@ for (const size of ['wide', 'narrow']) {
   }
 }
 
+test('比赛表单只在标签可以响应时启用它', async ({ page }) => {
+  await page.request.get('/__e2e__/admin-session');
+  let resume;
+  const hold = new Promise(resolve => { resume = resolve; });
+  await page.route('**/static/js/i18n.js*', route => hold.then(() => route.continue()), { times: 1 });
+  const maps = page.locator('.match-tab[data-tab="maps"]');
+  try {
+    await page.goto('/admin/matches/add', { waitUntil: 'commit' });
+    await expect(maps).toBeDisabled();
+  } finally {
+    resume();
+  }
+  await expect(maps).toBeEnabled();
+  await maps.press('Enter');
+  await expect(page.locator('#pane-maps')).toBeVisible();
+});
+
 test('unknown metrics survive JSON, HTML, browser refresh and mobile layout', async ({ page }, testInfo) => {
   const fixture = await (await page.request.get('/__e2e__/refactor-fixture')).json();
   const detail = await (await page.request.get(`/api/front/players/${fixture.player_id}`)).json();
