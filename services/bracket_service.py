@@ -4,12 +4,11 @@ import json
 from copy import deepcopy
 from datetime import datetime
 
-from services.match_service import _has_temp_players, get_series_result
+from services.match_service import _has_temp_players, get_series_result, update_match_slug
 from site_core.events.registration import require_admin
 from site_core.host import HostError, is_managed_event
 from site_core.matches.maps import match_has_started, sync_scheduled_maps
 from site_core.matches.participants import check_duplicate, select_entrant
-from utils.helpers import ensure_unique_match_slug, make_match_slug, record_match_slug_alias
 
 FORMAT_SPECS = {
     "4se": {
@@ -317,31 +316,6 @@ def _ensure_team(teams, team_row):
     return key
 
 
-def _update_match_slug(conn, match_id):
-    row = conn.execute(
-        """SELECT m.match_time,m.slug AS old_slug,
-                  COALESCE(t1.short_name,t1.name,'tbd') AS t1n,
-                  COALESCE(t2.short_name,t2.name,'tbd') AS t2n,
-                  COALESCE(e.slug,e.short_name,e.name,'event') AS event_name
-           FROM matches m
-           LEFT JOIN teams t1 ON m.team1_id=t1.id
-           LEFT JOIN teams t2 ON m.team2_id=t2.id
-           LEFT JOIN events e ON m.event_id=e.id
-           WHERE m.id=?""",
-        (match_id,),
-    ).fetchone()
-    if not row:
-        return
-    base = make_match_slug(row["t1n"], row["t2n"], row["match_time"], row["event_name"])
-    slug = ensure_unique_match_slug(conn, match_id, base)
-    if row["old_slug"] and row["old_slug"] != slug:
-        record_match_slug_alias(conn, row["old_slug"], match_id)
-    conn.execute(
-        "UPDATE matches SET slug=? WHERE id=?",
-        (slug, match_id),
-    )
-
-
 def _read_existing_bracket(event):
     raw = event["bracket_data"]
     if not raw:
@@ -397,7 +371,7 @@ def _create_match(conn, event_id, stage, bo_format):
         (event_id, None, None, bo_format, stage),
     )
     match_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
-    _update_match_slug(conn, match_id)
+    update_match_slug(conn, match_id)
     return match_id
 
 
@@ -560,7 +534,7 @@ def build_event_bracket(conn, event_id, payload):
                         "UPDATE matches SET match_time=? WHERE id=? AND event_id=?",
                         (match_time, match_id, event_id),
                     )
-                    _update_match_slug(conn, match_id)
+                    update_match_slug(conn, match_id)
                 else:
                     time_row = conn.execute(
                         "SELECT match_time FROM matches WHERE id=?", (match_id,)
@@ -758,7 +732,7 @@ def refresh_event_bracket(conn, event_id, data=None):
                 "UPDATE matches SET team1_id=?, team2_id=? WHERE id=? AND event_id=?",
                 (*desired, row["id"], event_id),
             )
-            _update_match_slug(conn, row["id"])
+            update_match_slug(conn, row["id"])
         for slot, team_id in enumerate(desired, 1):
             bracket_match[f"team{slot}"] = (
                 (_team_key_by_db_id(teams, team_id) or _ensure_team(teams, team_rows.get(team_id)))
@@ -825,7 +799,7 @@ def create_bracket_match(conn, event_id, *, bo_format, stage, actor, match_time=
            VALUES(?,'upcoming',?,?,?)""",
         (event_id, bo_format, stage.strip(), match_time),
     ).lastrowid
-    _update_match_slug(conn, match_id)
+    update_match_slug(conn, match_id)
     sync_scheduled_maps(conn, match_id)
     return {"match_id": match_id, "event_id": event_id}
 

@@ -1,7 +1,6 @@
 """Admin event and bracket management pages."""
 
 import json
-import re
 import time
 from contextlib import closing, nullcontext
 from datetime import datetime, timedelta, timezone
@@ -11,7 +10,11 @@ from flask import flash, jsonify, redirect, render_template, request, session, u
 from blueprints.admin import admin_bp
 from models import get_db
 from services.bracket_service import build_event_bracket, refresh_event_bracket
-from services.match_service import add_effective_event_status, supplement_temp_teams
+from services.match_service import (
+    add_effective_event_status,
+    supplement_temp_teams,
+    update_match_slug,
+)
 from services.player_awards_service import (
     delete_event_awards,
     event_medal_selections,
@@ -24,12 +27,7 @@ from site_core.events import public as event_rosters
 from site_core.events import registration as signup
 from site_core.events.legacy_matches import has_unfinished_binding
 from site_core.host import HostError, has_event_schema, is_managed_event, write
-from utils.demo_naming import normalize_event_short_name
-from utils.helpers import (
-    ensure_unique_match_slug,
-    make_event_slug,
-    make_match_slug,
-)
+from utils.helpers import event_short_slug
 from utils.web_helpers import admin_required as login_required
 from utils.web_helpers import csrf_required
 
@@ -221,24 +219,20 @@ def _admin_events_control_map(conn, now=None):
     return result
 
 
-def _event_form_values(include_status=False):
-    raw_short_name = request.form.get("short_name", "").strip()
-    short_name = (
-        normalize_event_short_name(raw_short_name, "NEW")
-        if re.search(r"[A-Za-z0-9]", raw_short_name)
-        else raw_short_name
-    )
+def _event_form_values(event=None):
+    short_name = request.form.get("short_name", "").strip()
     name = request.form.get("name", "").strip()
-    raw_slug = request.form.get("slug", "").strip()
-    slug_source = raw_slug if re.search(r"[A-Za-z0-9]", raw_slug) else name or short_name
-    status = request.form.get("status", "upcoming") if include_status else "upcoming"
+    slug = event_short_slug(short_name)
+    if event is not None and short_name == event["short_name"] and event["slug"]:
+        slug = event["slug"]  # 修改描述等无关字段时，不重写已经发布的历史网址。
+    status = request.form.get("status", "upcoming") if event is not None else "upcoming"
     registration_open = (
         1 if request.form.get("registration_open") == "1" and status != "completed" else 0
     )
     return (
         name,
         short_name,
-        make_event_slug(slug_source),
+        slug,
         request.form.get("description", "").strip(),
         request.form.get("start_date", "").strip(),
         request.form.get("end_date", "").strip(),
@@ -441,6 +435,8 @@ def _event_validation_error(conn, values, exclude_id=None):
     name, short_name, slug, _, start_date, end_date, _, status, _, _ = values
     if not name or not short_name:
         return "赛事名和简称不能为空"
+    if not slug:
+        return "赛事简称至少需要一个汉字、字母或数字"
     if not start_date or not end_date:
         return "开始时间和结束时间不能为空"
     if end_date < start_date:
@@ -482,40 +478,6 @@ def _event_dict(values, event_id=None):
     if event_id is not None:
         result["id"] = event_id
     return result
-
-
-def _refresh_event_match_slugs(conn, event_id):
-    managed = is_managed_event(conn,event_id)
-    rows = conn.execute(
-        """SELECT m.*,
-                  COALESCE(t1.short_name, t1.name, 'team1') AS team1_name,
-                  COALESCE(t2.short_name, t2.name, 'team2') AS team2_name,
-                  COALESCE(e.slug, e.short_name, e.name, 'event') AS event_name
-           FROM matches m
-           LEFT JOIN teams t1 ON m.team1_id=t1.id
-           LEFT JOIN teams t2 ON m.team2_id=t2.id
-           LEFT JOIN events e ON m.event_id=e.id
-           WHERE m.event_id=? ORDER BY m.id""",
-        (event_id,),
-    ).fetchall()
-    for match in rows:
-        labels = supplement_temp_teams(match,conn) if managed else match
-        base = make_match_slug(
-            labels["team1_name"],
-            labels["team2_name"],
-            match["match_time"],
-            match["event_name"],
-        )
-        new_slug = ensure_unique_match_slug(conn, match["id"], base)
-        if match["slug"] and match["slug"] != new_slug:
-            conn.execute(
-                "INSERT OR IGNORE INTO match_slug_aliases(slug,match_id) VALUES(?,?)",
-                (match["slug"], match["id"]),
-            )
-        conn.execute(
-            "UPDATE matches SET slug=? WHERE id=?",
-            (new_slug, match["id"]),
-        )
 
 
 def _submit_event_awards(conn, event_id):
@@ -941,7 +903,7 @@ def admin_events_edit(event_id):
         return "赛事不存在", 404
     reg_control = _event_registration_control(conn, event)
     if request.method == "POST":
-        values = _event_form_values(include_status=True)
+        values = _event_form_values(event)
         managed = is_managed_event(conn, event_id)
         award_fields = ("champion_team_id", "mvp_player_id", "evp_player_ids")
         submit_awards = any(field in request.form for field in award_fields)
@@ -988,8 +950,9 @@ def admin_events_edit(event_id):
                         WHERE id=?""",
             values + (event_id,),
         )
-        if not managed or event["slug"] != values[2]:
-            _refresh_event_match_slugs(conn, event_id)
+        if event["short_name"] != values[1]:
+            for match in conn.execute("SELECT id FROM matches WHERE event_id=? ORDER BY id", (event_id,)).fetchall():
+                update_match_slug(conn, match["id"])
         if managed and values[7] == "completed":
             signup.archive_event(
                 conn, event_id, admin_id=session.get("admin_id"), now=int(time.time())

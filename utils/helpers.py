@@ -334,6 +334,12 @@ def make_event_slug(value, fallback="event"):
     return slugify_url_part(value, fallback)[:80].rstrip("-") or fallback
 
 
+def event_short_slug(short_name):
+    part = re.sub(r"[\W_]+", "-", (short_name or "").strip().lower()).strip("-")[:80].rstrip("-")
+    # 纯数字网址已经用于按旧赛事 ID 访问。
+    return f"event-{part}" if part.isdecimal() else part
+
+
 def ensure_unique_event_slug(conn, event_id, slug_base):
     slug_base = make_event_slug(slug_base)
     slug = slug_base
@@ -353,7 +359,7 @@ def make_match_slug(team1_name, team2_name, match_time, event_short_name):
     """
     生成“赛事-队伍1-vs-队伍2-年-月-日”格式的网址名称。
     """
-    event_part = slugify_url_part(event_short_name, "event")
+    event_part = event_short_slug(event_short_name) or "event"
     team1_part = slugify_url_part(team1_name, "team1")
     team2_part = slugify_url_part(team2_name, "team2")
     date_part = "date-tbd"

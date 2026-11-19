@@ -163,11 +163,13 @@ class AdminUxLogicOverhaulTests(unittest.TestCase):
 
         conn = get_db()
         row = conn.execute(
-            "SELECT short_name FROM events WHERE name='北京八十中秋季邀请赛'"
+            "SELECT short_name, slug FROM events WHERE name='北京八十中秋季邀请赛'"
         ).fetchone()
         conn.close()
         self.assertIsNotNone(row)
         self.assertEqual(row["short_name"], "八十中杯")
+        self.assertEqual(row["slug"], "八十中杯")
+        self.assertEqual(self.client.get("/events/八十中杯").status_code, 200)
 
     def test_completed_event_forces_registration_closed(self):
         """测试已结束赛事会自动关闭报名，避免脏数据展示"""

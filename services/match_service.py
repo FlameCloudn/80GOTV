@@ -22,7 +22,45 @@ from site_core.predictions import (  # noqa: F401 - 保留旧调用方的竞猜�
     settle_managed_predictions,
     upcoming_match_rows,
 )
-from utils.helpers import normalize_map_key, row_get, team_abbr
+from utils.helpers import (
+    ensure_unique_match_slug,
+    make_match_slug,
+    normalize_map_key,
+    record_match_slug_alias,
+    row_get,
+    team_abbr,
+)
+
+
+def update_match_slug(conn, match_id):
+    match = conn.execute(
+        """SELECT m.id, m.event_id, m.team1_id, m.team2_id, m.roster_snapshot, m.slug, m.match_time,
+                  e.short_name, e.slug AS event_slug,
+                  COALESCE(NULLIF(t1.short_name,''),t1.name,r1.team_name,'tbd') AS first_name,
+                  COALESCE(NULLIF(t2.short_name,''),t2.name,r2.team_name,'tbd') AS second_name
+           FROM matches m JOIN events e ON e.id=m.event_id
+           LEFT JOIN teams t1 ON t1.id=m.team1_id LEFT JOIN teams t2 ON t2.id=m.team2_id
+           LEFT JOIN event_registrations r1 ON r1.id=m.team1_registration_id
+           LEFT JOIN event_registrations r2 ON r2.id=m.team2_registration_id WHERE m.id=?""",
+        (match_id,),
+    ).fetchone()
+    if not match:
+        return
+    sides = managed_match_teams(conn, match)
+    if sides is not None:
+        names = [sides.get(str(side), {}).get("short_name") or "tbd" for side in (1, 2)]
+    else:
+        frozen = frozen_match_teams(match) or {}
+        names = [match["first_name"], match["second_name"]]
+        for side in (1, 2):
+            if (match[f"team{side}_id"] or 0) < 0 and str(side) in frozen:
+                names[side - 1] = frozen[str(side)].get("name") or names[side - 1]
+    base = make_match_slug(names[0], names[1], match["match_time"], match["short_name"] or match["event_slug"])
+    slug = ensure_unique_match_slug(conn, match_id, base)
+    if match["slug"] != slug:
+        if match["slug"]:
+            record_match_slug_alias(conn, match["slug"], match_id)
+        conn.execute("UPDATE matches SET slug=? WHERE id=?", (slug, match_id))
 
 
 def match_stat_belongs_to_side(row, expected_side, expected_team_id):

@@ -38,6 +38,7 @@ from services.match_roster_service import (
 from services.match_service import (
     completed_match_result_error,
     supplement_temp_teams,
+    update_match_slug,
 )
 from services.performance_service import refresh_player_performance
 from site_core.community import delete_target_comments
@@ -56,11 +57,8 @@ from site_core.matches.maps import match_has_started
 from site_core.predictions import revoke_legacy_points, score_predictions
 from utils.demo_naming import build_demo_filename
 from utils.helpers import (
-    ensure_unique_match_slug,
-    make_match_slug,
     normalize_http_url,
     normalize_map_key,
-    record_match_slug_alias,
     row_get,
 )
 from utils.match_utils import get_demo_upload_slot_count, get_sql_effective_status
@@ -955,37 +953,6 @@ def _duplicate_match(
     return False
 
 
-def _generate_match_slug(conn, match_id):
-    """根据比赛的队伍、时间、赛事信息自动生成并保存唯一 slug"""
-    match = conn.execute(
-        """
-        SELECT m.match_time, m.slug AS old_slug,
-               COALESCE(t1.short_name, t1.name, 'team-1') AS t1n,
-               COALESCE(t2.short_name, t2.name, 'team-2') AS t2n,
-               COALESCE(e.slug, e.short_name, e.name) AS esn
-        FROM matches m
-        LEFT JOIN teams t1 ON m.team1_id=t1.id
-        LEFT JOIN teams t2 ON m.team2_id=t2.id
-        LEFT JOIN events e ON m.event_id=e.id
-        WHERE m.id=?
-    """,
-        (match_id,),
-    ).fetchone()
-    if not match:
-        return
-    if is_managed_match(conn, match_id):
-        sides = participants.sides(conn, match_id)
-        first, second = (sides[side]["short_name"] for side in (1, 2))
-    else:
-        first, second = match["t1n"], match["t2n"]
-    # 根据队伍、时间、赛事信息自动生成 slug（每次编辑都会更新）
-    slug = make_match_slug(first, second, match["match_time"], match["esn"])
-    slug = ensure_unique_match_slug(conn, match_id, slug)
-    if match["old_slug"] and match["old_slug"] != slug:
-        record_match_slug_alias(conn, match["old_slug"], match_id)
-    conn.execute("UPDATE matches SET slug=? WHERE id=?", (slug, match_id))
-
-
 MATCH_COLS = (
     "event_id, team1_id, team2_id, team1_score, team2_score, match_time, bo_format, stage, status,"
     " map1, map1_t1, map1_t2, map2, map2_t1, map2_t2, map3, map3_t1, map3_t2, has_map3,"
@@ -1120,7 +1087,7 @@ def _create_prematch(conn, values):
         )
         match_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
         participants.bind(conn, match_id, *entrant_ids)
-        _generate_match_slug(conn, match_id)
+        update_match_slug(conn, match_id)
         _sync_prematch_maps(conn, match_id, values)
 
 
@@ -1211,7 +1178,7 @@ def _edit_prematch(conn, current_match):
             _sync_prematch_maps(conn, match_id, values)
         if request.form.get("freeze_rosters") == "1":
             participants.freeze_rosters(conn, match_id, session["admin_id"])
-        _generate_match_slug(conn, match_id)
+        update_match_slug(conn, match_id)
 
 
 # ---- 比赛管理 ----
@@ -1353,7 +1320,7 @@ def admin_matches_add():
                 _match_values(f, team1_id, team2_id, team1_players, team2_players),
             )
             match_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
-            _generate_match_slug(conn, match_id)
+            update_match_slug(conn, match_id)
             refresh_bracket_for_match(conn, match_id)
             conn.commit()
         except Exception as exc:
@@ -1601,7 +1568,7 @@ def admin_matches_edit(match_id):
                     raise ValueError(error)
             if existing["status"] == "completed" and f["status"] != "completed":
                 revoke_legacy_points(conn, match_id)
-            _generate_match_slug(conn, match_id)
+            update_match_slug(conn, match_id)
             refresh_bracket_for_match(conn, match_id)
             if f["status"] == "completed":
                 finished = conn.execute("SELECT * FROM matches WHERE id=?", (match_id,)).fetchone()

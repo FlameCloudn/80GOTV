@@ -52,7 +52,7 @@ test('折叠组里的格式错误会展开并定位到字段', async ({ page }, 
   await page.locator('#eventForm input[name="end_date"]').fill('2027-11-18T20:00');
   const details = page.locator('#eventForm details.form-group.optional');
   await details.locator('summary').click();
-  await page.locator('#eventForm input[name="slug"]').fill('invalid slug');
+  await page.locator('#eventForm input[name="stream_url"]').fill('not a URL');
   await details.locator('summary').click();
 
   let posted = false;
@@ -62,8 +62,8 @@ test('折叠组里的格式错误会展开并定位到字段', async ({ page }, 
   await page.getByRole('button', { name: '添加赛事' }).click();
 
   await expect(page.locator('#eventForm details.form-group.optional')).toHaveAttribute('open', '');
-  await expect(page.locator('#eventForm input[name="slug"]')).toBeFocused();
-  await expect(page.locator('#eventForm input[name="slug"]')).toHaveAttribute('aria-invalid', 'true');
+  await expect(page.locator('#eventForm input[name="stream_url"]')).toBeFocused();
+  await expect(page.locator('#eventForm input[name="stream_url"]')).toHaveAttribute('aria-invalid', 'true');
   // 右上角红色提示写明这一处的问题（和字段下方的说明一致）
   const summary = page.locator('.site-toast.toast-error [role="alert"]');
   await expect(summary).toBeVisible();

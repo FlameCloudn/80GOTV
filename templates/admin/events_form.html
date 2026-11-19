@@ -107,7 +107,7 @@
           <label class="field">
             <span class="field-label">赛事简称 <span class="field-required">*</span></span>
             <input type="text" name="short_name" value="{{ event.short_name if event and event.short_name else '' }}" required placeholder="例如：80CS_S1 或 新生杯">
-            <span class="field-hint">含英文字符时用作录像文件名。</span>
+            <span class="field-hint">用于赛事和比赛网址；修改简称后，旧链接仍可访问。</span>
           </label>
           <label class="field">
             <span class="field-label">赛制</span>
@@ -197,15 +197,9 @@
         {% endif %}
       </section>
 
-      <details class="form-group optional" {% if event and (event.slug or event.description or event.stream_url) %}open{% endif %}>
+      <details class="form-group optional" {% if event and (event.description or event.stream_url) %}open{% endif %}>
         <summary><span class="form-group-title">更多设置</span><span data-group-status></span></summary>
         <div class="details-body form-grid">
-          <label class="field">
-            <span class="field-label">网址名称</span>
-            <input type="text" name="slug" value="{{ event.slug if event and event.slug else '' }}" placeholder="例如：80cs-summer-major" pattern="[A-Za-z0-9\-]+"
-                   data-msg-pattern="网址名称只能用英文字母、数字和连字符">
-            <span class="field-hint">地址形如 /events/80cs-summer-major；留空按赛事名生成。</span>
-          </label>
           <label class="field">
             <span class="field-label">B站直播间地址</span>
             <input type="url" name="stream_url" value="{{ event.stream_url if event and event.stream_url else '' }}" placeholder="https://live.bilibili.com/ROOMID">

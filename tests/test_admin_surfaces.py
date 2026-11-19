@@ -962,15 +962,14 @@ class AdminSurfaceTests(unittest.TestCase):
     def test_event_and_match_use_readable_canonical_urls(self):
         event_values = {
             "name": "80CS Summer Major",
-            "short_name": "80CS_SUMMER_MAJOR",
-            "slug": "80cs-summer-major",
+            "short_name": "summer-s1",
             "start_date": "2026-05-01T10:00",
             "end_date": "2026-05-03T22:00",
         }
         self.assertEqual(self.post("/admin/events/add", event_values).status_code, 302)
         conn = get_db()
         event = conn.execute(
-            "SELECT id, slug FROM events WHERE name='80CS Summer Major'"
+            "SELECT id, short_name, slug FROM events WHERE name='80CS Summer Major'"
         ).fetchone()
         conn.execute("INSERT INTO teams(name, short_name) VALUES('Team One','TEAM1')")
         team1_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
@@ -979,10 +978,11 @@ class AdminSurfaceTests(unittest.TestCase):
         conn.commit()
         conn.close()
 
+        self.assertEqual((event["short_name"], event["slug"]), ("summer-s1", "summer-s1"))
         self.assertEqual(self.client.get(f"/events/{event['slug']}").status_code, 200)
         legacy = self.client.get(f"/events/{event['id']}")
         self.assertEqual(legacy.status_code, 301)
-        self.assertTrue(legacy.headers["Location"].endswith("/events/80cs-summer-major"))
+        self.assertTrue(legacy.headers["Location"].endswith("/events/summer-s1"))
 
         match_values = {
             "event_id": str(event["id"]),
@@ -999,11 +999,11 @@ class AdminSurfaceTests(unittest.TestCase):
         conn.close()
         self.assertEqual(
             match_slug,
-            "80cs-summer-major-team1-vs-team2-2026-5-2",
+            "summer-s1-team1-vs-team2-2026-5-2",
         )
         self.assertEqual(self.client.get(f"/matches/{match_slug}").status_code, 200)
 
-        edited_event = dict(event_values, slug="80cs-summer-major-2026", status="upcoming")
+        edited_event = dict(event_values, short_name="summer-s2", status="upcoming")
         self.assertEqual(
             self.post(f"/admin/events/edit/{event['id']}", edited_event).status_code,
             302,
@@ -1011,10 +1011,10 @@ class AdminSurfaceTests(unittest.TestCase):
         conn = get_db()
         new_match_slug = conn.execute("SELECT slug FROM matches").fetchone()["slug"]
         conn.close()
-        self.assertTrue(new_match_slug.startswith("80cs-summer-major-2026-team1-vs-team2"))
-        old_event = self.client.get("/events/80cs-summer-major")
+        self.assertEqual(new_match_slug, "summer-s2-team1-vs-team2-2026-5-2")
+        old_event = self.client.get("/events/summer-s1")
         self.assertEqual(old_event.status_code, 301)
-        self.assertTrue(old_event.headers["Location"].endswith("/events/80cs-summer-major-2026"))
+        self.assertTrue(old_event.headers["Location"].endswith("/events/summer-s2"))
         old_match = self.client.get(f"/matches/{match_slug}")
         self.assertEqual(old_match.status_code, 301)
         self.assertTrue(old_match.headers["Location"].endswith(f"/matches/{new_match_slug}"))
