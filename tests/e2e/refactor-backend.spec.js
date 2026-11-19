@@ -17,8 +17,7 @@ async function screenshot(page, testInfo, name) {
 }
 
 async function expectAdminFormFits(page) {
-  const dimensions = await page.evaluate(() => {
-    const form = document.querySelector('#matchForm');
+  const dimensions = await page.locator('#matchForm').evaluate(form => {
     const bounds = form.getBoundingClientRect();
     const controls = form.querySelectorAll(
       'input:not([type="hidden"]), select, textarea, .tab-pane.active .btn, .status-pills, .sticky-form-actions, .field-section'
@@ -136,9 +135,11 @@ for (const size of ['wide', 'narrow']) {
       await expect(page).toHaveURL(/\/admin$/);
       await page.locator('.admin-nav a[href="/admin/matches"]').click();
       await expect(page).toHaveURL(/\/admin\/matches$/);
+      const addMatch = page.locator('a[href="/admin/matches/add"]');
+      await expect(addMatch).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
       await screenshot(page, testInfo, `admin-navigation-${width}-${theme}`);
-      await page.locator('a[href="/admin/matches/add"]').click();
+      await addMatch.click();
       await expect(page).toHaveURL(/\/admin\/matches\/add$/);
       await expectAdminFormFits(page);
       if (theme === 'dark') await expectDarkMatchFormContrast(page);

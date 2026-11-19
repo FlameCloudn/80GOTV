@@ -392,7 +392,7 @@ test('English mode translates static UI without hiding user content', async ({ p
   ];
 
   async function untranslatedText(path, expectFeedback = false) {
-    const response = await page.goto(path);
+    const response = await page.goto(path, { waitUntil: 'domcontentloaded' });
     expect(response.ok(), path).toBeTruthy();
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
     await expect(page.locator('html')).not.toHaveClass(/i18n-pending/);
@@ -451,7 +451,7 @@ test('English mode translates static UI without hiding user content', async ({ p
     if (values.length) untranslated[path] = values;
   }
 
-  await page.goto('/__e2e__/user-session');
+  expect((await page.request.get('/__e2e__/user-session')).ok()).toBeTruthy();
   for (const path of [
     '/profile', '/notifications', '/guess-player', '/guess-player/practice',
     '/guess-player/multiplayer', '/map-quiz', '/map-quiz/practice',
@@ -461,7 +461,7 @@ test('English mode translates static UI without hiding user content', async ({ p
     if (values.length) untranslated[path] = values;
   }
 
-  await page.goto('/__e2e__/admin-session');
+  expect((await page.request.get('/__e2e__/admin-session')).ok()).toBeTruthy();
   for (const path of ['/admin', '/admin/registrations', '/admin/players', '/admin/events/add', '/admin/matches/add', '/admin/news/add']) {
     const values = await untranslatedText(path);
     if (values.length) untranslated[path] = values;

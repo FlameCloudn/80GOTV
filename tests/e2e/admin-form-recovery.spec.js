@@ -158,13 +158,17 @@ test('保存成功后清除这张表单的草稿', async ({ page }) => {
   const suffix = Date.now().toString(36).toUpperCase();
   await page.locator('#teamForm input[name="name"]').fill('E2E Guard Success ' + suffix);
   await page.locator('#teamForm input[name="short_name"]').fill('OK_' + suffix);
+  const draftKeys = () => page.evaluate(() => Object.keys(localStorage).filter(key =>
+    key.startsWith('80gotv:admin-draft:v1|') && key.includes('/admin/teams/add|teamForm')
+  ));
+  await expect.poll(draftKeys).toHaveLength(1);
   await page.getByRole('button', { name: '添加队伍' }).click();
   await expect(page).toHaveURL(/\/admin\/teams$/);
   await expect(page.locator('.admin-flashes .alert-success')).toContainText('队伍添加成功');
-  const draftKeys = await page.evaluate(() => Object.keys(localStorage).filter(key =>
-    key.startsWith('80gotv:admin-draft:v1|') && key.includes('/admin/teams/add|teamForm')
-  ));
-  expect(draftKeys).toEqual([]);
+  await page.waitForLoadState('domcontentloaded');
+  expect(await draftKeys()).toEqual([]);
+  await openForm(page, '/admin/teams/add', '#teamForm');
+  await expect(page.locator('#teamForm .form-notice-draft')).toHaveCount(0);
 });
 
 test('比赛连接字符串与 BP 口令不会进入自动草稿', async ({ page }) => {

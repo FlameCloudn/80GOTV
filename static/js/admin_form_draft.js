@@ -99,6 +99,7 @@
     };
     // 分组状态（还差几项必填 / 几处需修改）和“有改动”标记每次输入立即刷新；只有写草稿稍等一下再存
     function changed(event) {
+      if (state.submitting) return;
       var target = event && event.target;
       // 选完文件只查这个文件的大小和格式（不连带把别的空字段标红）；已标红的其他字段边改边复查
       if (target && target.type === 'file') {
@@ -141,6 +142,7 @@
       var state = form._adminState;
       if (!state || event.defaultPrevented) return;
       state.submitting = true;
+      clearTimeout(state.timer);
       if (form.hasAttribute('data-draft')) F.writeDraft(state.key, form);
       if (F.session) {
         F.session.setItem(F.PENDING_KEY, JSON.stringify({
@@ -165,8 +167,9 @@
       event.preventDefault();
       confirmBox('放弃未保存的修改吗？').then(function (yes) {
         if (!yes) return;
-        F.removeDraft(state.key);
         state.submitting = true;
+        clearTimeout(state.timer);
+        F.removeDraft(state.key);
         location.href = link.href;
       });
     });
@@ -219,12 +222,13 @@
     }, 0);
   });
 
-  // 先处理“刚保存成功”（清掉草稿），再登记表单，免得把刚保存的内容当成未保存
+  // 服务端提示在本脚本之前已输出；清草稿不必等编辑器、翻译等页面脚本初始化。
+  var pending = takePending();
+  var kind = flashKind();
+  if (pending && kind === 'success') F.removeDraft(pending.key);
+
   function init() {
     F.purgeExpired();
-    var pending = takePending();
-    var kind = flashKind();
-    if (pending && kind === 'success') F.removeDraft(pending.key);
     document.querySelectorAll('form[data-guard], form[data-draft]').forEach(setup);
     if (pending && kind === 'error' && location.pathname === pending.path) handleRejected(pending);
     if (!pending) guarded.forEach(function (form) { if (form.hasAttribute('data-draft')) offerDraft(form, form._adminState); });

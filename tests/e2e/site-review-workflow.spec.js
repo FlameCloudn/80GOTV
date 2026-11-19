@@ -170,8 +170,7 @@ test('navigation remains clickable in both languages at narrow and wide widths',
       await expect(page.locator('html')).toHaveAttribute('lang', lang === 'zh' ? 'zh-CN' : 'en');
       for (const width of widths) {
         await page.setViewportSize({ width, height: 900 });
-        await expect.poll(() => page.evaluate(() => {
-          const nav = document.querySelector('.navbar');
+        await expect.poll(() => page.locator('.navbar').evaluate(nav => {
           const bottom = nav.getBoundingClientRect().bottom;
           const blocked = [];
           for (const item of nav.querySelectorAll('a,button,select,input')) {
@@ -196,6 +195,7 @@ test('navigation remains clickable in both languages at narrow and wide widths',
           await page.locator('.nav-more-compact a[href="/events"]').click();
         }
         await expect(page).toHaveURL(/\/events$/);
+        await expect(page.locator('.event-list-row').first()).toBeVisible();
         expect(await page.locator('.event-list-row').evaluateAll(rows => rows.flatMap(row => {
           const date = row.querySelector('.event-list-date').getBoundingClientRect();
           const status = row.querySelector('.event-list-status').getBoundingClientRect();
