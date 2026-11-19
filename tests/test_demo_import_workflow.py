@@ -250,14 +250,15 @@ class DemoImportWorkflowTests(unittest.TestCase):
             patch("services.demo_service.run_analysis", return_value={}),
             patch("services.demo_service.parse_player_stats", return_value=payload["players"]),
             patch("services.demo_service.get_match_info", return_value=info),
-            patch("services.demo_service.build_demo_performance_payload", return_value={}),
+            patch("services.demo_service.BASE_DIR", self.temp_dir.name),
             patch("blueprints.admin_matches.DEMOS_DIR", self.temp_dir.name),
             patch(
                 "blueprints.admin_matches.shutil.copy2",
                 side_effect=OSError("test disk unavailable"),
-            ),
+            ) as copy_demo,
         ):
             response = self._post(step="analyze", demo_file_0=(BytesIO(b"test demo"), "test.dem"))
+        copy_demo.assert_called_once()
         self.assertEqual(response.status_code, 200)
         self.assertNotIn('name="step" value="import_all"', response.get_data(as_text=True))
         self.assertIsNone(self._snapshot()[1]["demo_file"])
@@ -307,7 +308,7 @@ class DemoImportWorkflowTests(unittest.TestCase):
             patch("services.demo_service.run_analysis", return_value={}),
             patch("services.demo_service.parse_player_stats", return_value=payload["players"]),
             patch("services.demo_service.get_match_info", return_value=info),
-            patch("services.demo_service.build_demo_performance_payload", return_value={}),
+            patch("services.demo_service.BASE_DIR", self.temp_dir.name),
             patch("blueprints.admin_matches.DEMOS_DIR", self.temp_dir.name),
             patch("blueprints.admin_matches.get_db", side_effect=FailedCommit),
         ):
@@ -316,6 +317,7 @@ class DemoImportWorkflowTests(unittest.TestCase):
             )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(original_file.read_bytes(), b"previous saved demo")
+        self.assertIn("test commit unavailable", response.get_data(as_text=True))
         self.assertEqual(json.loads(self._snapshot()[1]["demo_file"]), [filename])
         self.assertNotIn('name="step" value="import_all"', response.get_data(as_text=True))
 

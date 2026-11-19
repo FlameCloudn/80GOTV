@@ -2,6 +2,8 @@ import os
 import tempfile
 import unittest
 from io import BytesIO
+from pathlib import Path
+from unittest.mock import patch
 
 from app import app
 from config import Config
@@ -231,18 +233,20 @@ class AdminUxLogicOverhaulTests(unittest.TestCase):
         img.save(buf, format="PNG")
         buf.seek(0)
 
-        response = self.client.post(
-            "/admin/teams/add",
-            data={
-                "csrf_token": "test-token",
-                "name": "LogoTeam",
-                "short_name": "LT",
-                "description": "测试上传队标",
-                "logo": (buf, "team_logo.png"),
-            },
-            content_type="multipart/form-data",
-            follow_redirects=True,
-        )
+        root = self.enterContext(tempfile.TemporaryDirectory())
+        with patch("blueprints.admin_catalog.BASE_DIR", root):
+            response = self.client.post(
+                "/admin/teams/add",
+                data={
+                    "csrf_token": "test-token",
+                    "name": "LogoTeam",
+                    "short_name": "LT",
+                    "description": "测试上传队标",
+                    "logo": (buf, "team_logo.png"),
+                },
+                content_type="multipart/form-data",
+                follow_redirects=True,
+            )
         self.assertEqual(response.status_code, 200)
 
         conn = get_db()
@@ -250,15 +254,8 @@ class AdminUxLogicOverhaulTests(unittest.TestCase):
         conn.close()
         self.assertIsNotNone(row)
         self.assertTrue(row["logo"] and "team_logos/" in row["logo"])
-        # 清理上传的临时队标
-        from config import BASE_DIR
-
-        logo_path = os.path.join(BASE_DIR, "static", "uploads", row["logo"])
-        if os.path.exists(logo_path):
-            try:
-                os.remove(logo_path)
-            except OSError:
-                pass
+        self.assertTrue((Path(root) / "static/uploads" / row["logo"]).is_file())
+        self.assertTrue((Path(root) / "instance/team_logo_originals" / Path(row["logo"]).name).is_file())
 
     def test_admin_matches_filters_and_connect_copy(self):
         """测试比赛后台列表的筛选、搜索及一键进服指令功能"""
