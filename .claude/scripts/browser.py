@@ -14,7 +14,7 @@ import sys
 import time
 
 BASE_URL = "http://127.0.0.1:5000"
-SCREENSHOT_DIR = os.path.join(os.path.dirname(__file__), ".screenshots")
+SCREENSHOT_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "output", "agent-browser")
 
 
 def get_browser():

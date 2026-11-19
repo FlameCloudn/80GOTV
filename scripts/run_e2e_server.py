@@ -624,6 +624,7 @@ def main():
         conn.close()
         # 上传测试只写临时目录，不向项目原有的队标目录添加文件。
         with (
+            patch("services.steam_profile_service.fetch_steam_public_profile", return_value={}),
             patch(
                 "blueprints.admin_catalog.save_uploaded_team_logo",
                 side_effect=lambda file, _root: save_uploaded_team_logo(file, temp_dir),

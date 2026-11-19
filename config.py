@@ -7,21 +7,22 @@ from urllib.parse import urlsplit
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# 加载 .env 文件
-try:
-    from dotenv import load_dotenv
+# 测试入口显式关闭本机配置；仓库固定的 dotenv 版本不会自行识别这个开关。
+if os.environ.get("PYTHON_DOTENV_DISABLED") != "1":
+    try:
+        from dotenv import load_dotenv
 
-    load_dotenv(os.path.join(BASE_DIR, ".env"))
-except ImportError:
-    env_path = os.path.join(BASE_DIR, ".env")
-    if os.path.isfile(env_path):
-        with open(env_path, "r", encoding="utf-8") as env_file:
-            for line in env_file:
-                line = line.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                key, value = line.split("=", 1)
-                os.environ.setdefault(key.strip(), value.strip())
+        load_dotenv(os.path.join(BASE_DIR, ".env"))
+    except ImportError:
+        env_path = os.path.join(BASE_DIR, ".env")
+        if os.path.isfile(env_path):
+            with open(env_path, "r", encoding="utf-8") as env_file:
+                for line in env_file:
+                    line = line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    key, value = line.split("=", 1)
+                    os.environ.setdefault(key.strip(), value.strip())
 
 # 环境判断：读取 FLASK_ENV，如果=production 则为生产模式
 IS_PRODUCTION = os.environ.get("FLASK_ENV", "").strip().lower() == "production"

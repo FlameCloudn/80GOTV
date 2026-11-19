@@ -9,7 +9,6 @@ import sys
 import tempfile
 from contextlib import closing
 from pathlib import Path
-from unittest.mock import patch
 
 PACKAGE = Path(__file__).resolve().parent
 ROOT = PACKAGE.parent
@@ -88,11 +87,7 @@ def _load_config():
             SESSION_COOKIE_SECURE="false",
             SESSION_COOKIE_NAME="entrant_sandbox",
         )
-        # The repository's installed dotenv does not implement PYTHON_DOTENV_DISABLED.
-        import dotenv
-
-        with patch.object(dotenv, "load_dotenv", return_value=False):
-            from config import Config
+        from config import Config
         Config.DATABASE = ":memory:"
         _configured = True
     from config import Config

@@ -88,6 +88,11 @@ if __name__ == "__main__":
         try:
             r = subprocess.run(
                 [_sys.executable, ".claude/scripts/verify_changes.py"],
+                cwd=BASE_DIR,
+                env={
+                    **os.environ,
+                    "PUBLIC_BASE_URL": f"http://127.0.0.1:{_local_server_options()['port']}",
+                },
                 capture_output=True,
                 text=True,
                 timeout=30,

@@ -5,6 +5,7 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 # Test databases and credentials must not inherit a developer's .env file.
 os.environ["PYTHON_DOTENV_DISABLED"] = "1"
@@ -20,4 +21,8 @@ os.environ["TURSO_TOKEN"] = ""
 os.environ["SECRET_KEY"] = "automated-test-secret-not-for-production"
 os.environ["SESSION_COOKIE_SECURE"] = "false"
 
+# 测试选手编号也可能是真实 Steam 账号。不得用它们刷新本机缓存和头像。
+_steam_profiles = patch("services.steam_profile_service.fetch_steam_public_profile", return_value={})
+_steam_profiles.start()
+atexit.register(_steam_profiles.stop)
 atexit.register(shutil.rmtree, _TEST_DATA_DIR, True)
