@@ -2,6 +2,8 @@
 
 一个 CS2 赛事信息管理网站，包含前台展示、后台管理、数据直播和 Demo 导入。
 
+维护入口：[全站模块地图](architecture-modernization/MODULE_INVENTORY.md)说明每项功能在哪里改；[目标架构](architecture-modernization/TARGET_ARCHITECTURE.md)列出数据归属和接口，[本地验证记录](architecture-modernization/PROGRESS.md)区分已通过、未通过和未进行的检查。
+
 ## 主要功能
 
 ### 前台
@@ -44,6 +46,20 @@ python app.py
 ```
 
 打开 [http://127.0.0.1:5000](http://127.0.0.1:5000)。
+
+## 本地测试
+
+先安装 Python 3.12 和 Node.js 22，然后在项目目录运行：
+
+```bat
+python -m pip install -r requirements-test.txt
+npm ci
+npm test
+```
+
+这会运行网站的 Python 测试，包括赛务和导播数据对接检查。测试使用独立的临时数据，不会使用本地或云端的正式数据库。上面的测试工具不属于网站正式运行所需的依赖。
+
+浏览器测试另外运行 `npm run test:browser`；首次运行前需要执行 `npx playwright install chromium`。测试不代替真实导播、游戏服务器和 OBS 的联调。
 
 ## 环境变量
 

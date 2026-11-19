@@ -8,7 +8,7 @@ const vm = require("node:vm");
 const { DatabaseSync } = require("node:sqlite");
 
 const desktopRoot = path.resolve(__dirname, "../../../jts-hud-manager");
-const ts = require(path.join(desktopRoot, "node_modules/typescript"));
+const ts = require(require.resolve("typescript", { paths: [desktopRoot, __dirname] }));
 const sourcePath = path.join(desktopRoot, "src/main/server/integrations/80gotv.ts");
 const source = ts.createSourceFile(sourcePath, fs.readFileSync(sourcePath, "utf8"), ts.ScriptTarget.Latest, true);
 const names = new Set([
