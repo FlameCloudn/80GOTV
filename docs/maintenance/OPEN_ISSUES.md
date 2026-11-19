@@ -9,6 +9,6 @@
 | 生产历史与现场 | 本机合成比赛不能替代真实游戏服、OBS、安装版导播、正式资料盘和完整恢复演练；生产操作须站主另行授权。 |
 | 候选版本、Linux 和 GitHub | 根目录测试和 GitHub 的检查配置已统一。本地没有运行远端检查；发布脚本仍使用 unittest，不保证包含 pytest 函数用例。选择要发布的未跟踪文件、干净环境安装与发布脚本检查见[发布前清单](REFACTORING_ROADMAP.md)。 |
 
-已关闭的前端项：旧 `/awards` 已列出无俱乐部的本届冠军并链接回赛事；俱乐部冠军保留队伍链接。队伍「现役阵容」与托管赛事「当前名单」的英文文案已分开，原桌面和手机导航用例通过。赛务、直播和统计见 [Slice 3 前端验收](../phase3-implementation/slice-03-match-operations/FRONTEND_INTEGRATION.md)。现场导播、生产数据和特殊授奖规则仍在上表。
+已关闭的前端项：旧 `/awards` 已列出无俱乐部的本届冠军并链接回赛事；俱乐部冠军保留队伍链接。队伍「现役阵容」与托管赛事「当前名单」的英文文案已分开，原桌面和手机导航用例通过。赛务、直播和统计见 [Slice 3 前端验收](../../../documentation/phase3-implementation/slice-03-match-operations/FRONTEND_INTEGRATION.md)。现场导播、生产数据和特殊授奖规则仍在上表。
 
-常规冠军、MVP 和有序 EVP 已能直接在赛事编辑页核对并授予；改判后的例外改授不在这个入口内。报名队关联俱乐部、阶段快捷选择和批量实际出场的本地验证见[后台办赛前端收尾](../phase3-implementation/frontend-refinement/README.md)。
+常规冠军、MVP 和有序 EVP 已能直接在赛事编辑页核对并授予；改判后的例外改授不在这个入口内。报名队关联俱乐部、阶段快捷选择和批量实际出场的本地验证见[后台办赛前端收尾](../../../documentation/phase3-implementation/frontend-refinement/README.md)。

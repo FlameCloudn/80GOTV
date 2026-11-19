@@ -1,6 +1,6 @@
 # 全站模块地图
 
-范围是原 Flask 网站、后台、工作进程以及导播/HUD/中继与网站的交界。归档、演练源码和安装包不是第二套线上系统。入口由 [app.py](../app.py)、[后台注册](../blueprints/admin.py) 和 [web_app.py](../web_app.py) 确认。下表的“负责”指谁决定事实，不是建议把页面按表拆开。
+范围是原 Flask 网站、后台、工作进程以及导播/HUD/中继与网站的交界。归档、演练源码和安装包不是第二套线上系统。入口由 [app.py](../../app.py)、[后台注册](../../blueprints/admin.py) 和 [web_app.py](../../web_app.py) 确认。下表的“负责”指谁决定事实，不是建议把页面按表拆开。
 
 | 业务 | 实际入口 / 数据与下游 | 所有权与拆分判断 |
 |---|---|---|
@@ -26,12 +26,12 @@
 
 | 要改的事实 | 应找的实际源码 | 容易碰错的另一处 |
 |---|---|---|
-| 谁拥有这个 Steam 身份、哪些昵称能公开 | [账号写入与认领](../site_core/accounts.py)、[公开选手身份](../site_core/player_directory.py)、[搜索](../services/search_service.py) | 占位账号不能取代正式账号；私人备注不写回公共档案 |
-| 队员是否处于本场当前一侧 | [导播名单投影](../services/broadcast_roster_service.py)、[开局身份及 GSI 归队](../services/live_roster_service.py) | 当前长期队籍、画面当前 CT/T、冻结五人和开局实际出场不是同一张名单 |
-| 准备投票或给投票结分 | [竞猜](../site_core/predictions.py)，由[结果结算](../site_core/matches/results.py)传入同一连接 | 一票在 `match_votes` 中，托管赛还有结算依据；页面排序和最终得分不能由展示层写回 |
-| 发布奖项或查询榜单 | [赛事个人奖与年度榜](../services/player_awards_service.py)、[托管冠军](../site_core/awards/championship.py)、[新旧冠军共读](../services/champion_service.py) | `yearly_top_players` 是人工年榜，`player_medals` 要区分单场/赛事；`teams.id` 不是临时队编号 |
-| 手枪局、武器、分边排行榜 | [旧赛证据读取](../services/public_stat_evidence.py)、[托管统计](../site_core/matches/statistics.py)、[有效统计来源](../utils/stats_storage.py) | `match_kill_events` 和磁盘旧缓存没有托管开局身份，不能补进作废局或冒充正式证据 |
-| 评论与通知、游戏记录 | [社区](../site_core/community.py)、[每日游戏日与连胜](../site_core/games.py) | 新闻与论坛都写 `comments`，但论坛是平铺回帖；三种小游戏分别决定胜负，积分不进入比赛竞猜 |
-| 连接、截止任务、备份 | [连接与事务](../site_core/database.py)、[工作进程](../live_worker.py)、[备份](../services/backup_service.py)、[恢复](../scripts/restore_site.py) | 读取静态文件不等于允许下载 Demo；只恢复数据库不能冒充恢复了整站原件 |
+| 谁拥有这个 Steam 身份、哪些昵称能公开 | [账号写入与认领](../../site_core/accounts.py)、[公开选手身份](../../site_core/player_directory.py)、[搜索](../../services/search_service.py) | 占位账号不能取代正式账号；私人备注不写回公共档案 |
+| 队员是否处于本场当前一侧 | [导播名单投影](../../services/broadcast_roster_service.py)、[开局身份及 GSI 归队](../../services/live_roster_service.py) | 当前长期队籍、画面当前 CT/T、冻结五人和开局实际出场不是同一张名单 |
+| 准备投票或给投票结分 | [竞猜](../../site_core/predictions.py)，由[结果结算](../../site_core/matches/results.py)传入同一连接 | 一票在 `match_votes` 中，托管赛还有结算依据；页面排序和最终得分不能由展示层写回 |
+| 发布奖项或查询榜单 | [赛事个人奖与年度榜](../../services/player_awards_service.py)、[托管冠军](../../site_core/awards/championship.py)、[新旧冠军共读](../../services/champion_service.py) | `yearly_top_players` 是人工年榜，`player_medals` 要区分单场/赛事；`teams.id` 不是临时队编号 |
+| 手枪局、武器、分边排行榜 | [旧赛证据读取](../../services/public_stat_evidence.py)、[托管统计](../../site_core/matches/statistics.py)、[有效统计来源](../../utils/stats_storage.py) | `match_kill_events` 和磁盘旧缓存没有托管开局身份，不能补进作废局或冒充正式证据 |
+| 评论与通知、游戏记录 | [社区](../../site_core/community.py)、[每日游戏日与连胜](../../site_core/games.py) | 新闻与论坛都写 `comments`，但论坛是平铺回帖；三种小游戏分别决定胜负，积分不进入比赛竞猜 |
+| 连接、截止任务、备份 | [连接与事务](../../site_core/database.py)、[工作进程](../../live_worker.py)、[备份](../../services/backup_service.py)、[恢复](../../scripts/restore_site.py) | 读取静态文件不等于允许下载 Demo；只恢复数据库不能冒充恢复了整站原件 |
 
 **有意保留的旧实现。** 赛事报名、阵容和选图已经有真实宿主测试，不把 `entrant_slice` 的练习实现复制回站点；非托管历史届仍由旧赛务写。新闻编辑、引用和 SEO 各有实际消费者，保留现有链接，不改编辑器。地图题库、多人房间、CSDA 解析器和 Steam 对接继续使用现有实现；本轮整合它们输出数据的地方，而不重新实现外部协议。

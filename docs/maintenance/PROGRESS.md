@@ -1,6 +1,6 @@
 # 本地进度
 
-**后续前端接入（2026-11-19）：** 原管理员工作区现已使用上述赛务、签表及统计模块；旧荣誉总览已支持临时队冠军，队伍到选手的英文导航回归已通过。下文是第一轮后端交付时的记录；最新页面改动和验证见 [Slice 3 前端交接](../phase3-implementation/slice-03-match-operations/FRONTEND_INTEGRATION.md)。
+**后续前端接入（2026-11-19）：** 原管理员工作区现已使用上述赛务、签表及统计模块；旧荣誉总览已支持临时队冠军，队伍到选手的英文导航回归已通过。下文是第一轮后端交付时的记录；最新页面改动和验证见 [Slice 3 前端交接](../../../documentation/phase3-implementation/slice-03-match-operations/FRONTEND_INTEGRATION.md)。
 
 起点：2026-11-19，现有工作树，不是重新检出或部署。已核对历史设计、各 Slice 的实现入口、目前的运行代码和 Git 状态。已建立[全站模块地图](MODULE_INVENTORY.md)、[目标架构](TARGET_ARCHITECTURE.md)、[实施路线](REFACTORING_ROADMAP.md)。
 
@@ -25,9 +25,9 @@
 - **最终全量**：用根目录的 `npm test` 在本机 Windows 运行，**1,122 项通过、509 个子测试通过，0 失败**（396.58 秒）。包含未被旧命令收集的测试、两支临时队打满 BO3 的技术重赛及替补延续、个人奖、冠军和旧库一次升级。开工时的三条 HTML 断言在最终工作树也通过了，本轮未为它们改模板或放宽断言。改动范围 Python 的 Ruff 检查和 Git 空白检查通过。
 - **本地迁移**：真实临时 SQLite，从 3、4、仅有版本 5 的库及空库验证。故意阻断最后一次版本写入时，新表同事务撤销；再执行成功。旧赛事、旧冠军及成员不重发。迁移、备份恢复和后台定向组合 30 项通过。
 - **本机现存旧库**：把项目自带的 v3 `cs_site.db` 只读复制到内存，发现旧升级代码第一次报成功时仍少 21 个既有字段（包括缺整张表的情形）。用旧库形状复现了登录相关表缺失，修正后，第一次升到 v6 即可打开登录页、新闻页、赛事列表和赛事详情接口，均为 200；再启动时没有新增表、索引或字段。逐行核对 3 个赛事的编号和链接、2 场比赛、16 名选手、8 支队伍的编号及 8 笔旧勋章的归属，不变。此库原无冠军，新冠军仍为零；有旧冠军的情况在上面的独立用例覆盖。原文件和日志的大小、修改时间不变。原先 24 处无对应对象的旧关联在升级前后也完全相同，没有新增；详见[遗留项](OPEN_ISSUES.md)。
-- **浏览器**：Edge 在桌面和手机宽度实跑。管理员登录、错密码被拒、未知指标不变成零、未决系列赛不能完赛、访客竞猜、反馈写入与失败后重试、选手 CT/T 对比等，原套件 16 项通过。另 2 个队伍导航用例走通了搜索、队伍和选手链接，最后在英文断言失败：页面为 `Current Roster`，断言精确查 `Current roster`，在最终工作树复跑结果一致。未为变绿而修改译文或断言。[桌面截图](../output/ui-audit/architecture-modernization/team-detail-desktop.png) · [手机截图](../output/ui-audit/architecture-modernization/team-detail-mobile.png)
-- **临时队冠军在原页面的实跑**：隔离站上完成授奖和赛果改判，再从获奖选手的原档案用键盘打开「冠军」、进入赛事，核对接口返回无俱乐部号和五名获奖人。桌面 1280×800 和手机宽度 390 均通过，无横向溢出或页面脚本异常。[桌面截图](../output/ui-audit/architecture-modernization/championship-profile-desktop.png) · [手机截图](../output/ui-audit/architecture-modernization/championship-profile-mobile.png)
+- **浏览器**：Edge 在桌面和手机宽度实跑。管理员登录、错密码被拒、未知指标不变成零、未决系列赛不能完赛、访客竞猜、反馈写入与失败后重试、选手 CT/T 对比等，原套件 16 项通过。另 2 个队伍导航用例走通了搜索、队伍和选手链接，最后在英文断言失败：页面为 `Current Roster`，断言精确查 `Current roster`，在最终工作树复跑结果一致。未为变绿而修改译文或断言。[桌面截图](../../../artifacts/output/ui-audit/architecture-modernization/team-detail-desktop.png) · [手机截图](../../../artifacts/output/ui-audit/architecture-modernization/team-detail-mobile.png)
+- **临时队冠军在原页面的实跑**：隔离站上完成授奖和赛果改判，再从获奖选手的原档案用键盘打开「冠军」、进入赛事，核对接口返回无俱乐部号和五名获奖人。桌面 1280×800 和手机宽度 390 均通过，无横向溢出或页面脚本异常。[桌面截图](../../../artifacts/output/ui-audit/architecture-modernization/championship-profile-desktop.png) · [手机截图](../../../artifacts/output/ui-audit/architecture-modernization/championship-profile-mobile.png)
 
-本地复跑步骤见 [README](../README.md)。全量采用本机 Python，未在 GitHub 上触发检查；另用 Python 3.12.14 核对上述三个函数的收集及两个真实导播消费者。原安装目录没有为了这次验证强装测试工具。
+本地复跑步骤见 [README](../../README.md)。全量采用本机 Python，未在 GitHub 上触发检查；另用 Python 3.12.14 核对上述三个函数的收集及两个真实导播消费者。原安装目录没有为了这次验证强装测试工具。
 
 前端由站主另行处理；其它工作同时写入的模板和脚本不计为本次后端重构成果。未连接生产数据库，未使用真实备份；未做现场彩排、Git 提交、推送或部署。只保留本地验收截图及这套记录，本轮隔离测试库、临时依赖安装目录、调试日志和编辑前副本已清理。

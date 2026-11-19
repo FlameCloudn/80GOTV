@@ -16,10 +16,10 @@ import time
 import urllib.error
 import urllib.request
 
-logger = logging.getLogger("80gotv.gotv_relay")
-
 from config import Config
 from utils.demo_parser import find_csda, get_match_info, parse_player_stats
+
+logger = logging.getLogger("80gotv.gotv_relay")
 
 
 class GotvRelay:

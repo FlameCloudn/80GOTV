@@ -1,6 +1,6 @@
 # 全站目标架构
 
-技术选择：一个 Flask 网站、一个独立后台工作进程、本机 SQLite、参数化 SQL、Jinja 和现有 JavaScript。这里解决的是「谁能改哪份数据」，不是服务数量或流量。保留 [已验证的框架选择](../architecture-v2/10_TECHNOLOGY_DECISION.md)，不引入第二个 HTTP 后端、ORM、消息队列或新部署平台。
+技术选择：一个 Flask 网站、一个独立后台工作进程、本机 SQLite、参数化 SQL、Jinja 和现有 JavaScript。这里解决的是「谁能改哪份数据」，不是服务数量或流量。保留 [已验证的框架选择](../../../documentation/architecture-v2/10_TECHNOLOGY_DECISION.md)，不引入第二个 HTTP 后端、ORM、消息队列或新部署平台。
 
 | 层 | 对外承诺 | 不负责什么 |
 |---|---|---|
@@ -12,11 +12,11 @@
 
 **按什么找代码。** 赛前写入在 `site_core/events/`，托管比赛在 `site_core/matches/`；竞猜和社区拥有各自的业务入口。目录、荣誉、新闻、游戏已有清楚责任的服务保留。一个公开页面可读多个所有者；不要求所有模块先换文件夹，也不为一条 SQL 建一个类。具体归属见[模块地图](MODULE_INVENTORY.md)。
 
-**网页如何接入赛务。** 比赛编辑页链接到同一 Flask 站内的比赛运营工作区。工作区按实际局号取直播，按统计字段或正式赛果的当前版本提交；改判预览调用正式赛果的判断规则，不在浏览器另算晋级或积分。普通访客继续用原比赛和选手网址。入口与实跑记录见 [Slice 3 前端交接](../phase3-implementation/slice-03-match-operations/FRONTEND_INTEGRATION.md)。
+**网页如何接入赛务。** 比赛编辑页链接到同一 Flask 站内的比赛运营工作区。工作区按实际局号取直播，按统计字段或正式赛果的当前版本提交；改判预览调用正式赛果的判断规则，不在浏览器另算晋级或积分。普通访客继续用原比赛和选手网址。入口与实跑记录见 [Slice 3 前端交接](../../../documentation/phase3-implementation/slice-03-match-operations/FRONTEND_INTEGRATION.md)。
 
 **数据库约定。** 每次业务操作传同一个连接。普通读取不抢写锁；先读可变状态再决定是否写的操作才用显式写事务。组合已有事务的动作不能提交外层：出错退回该动作，最终由外层提交或撤销。外键/唯一约束、参数绑定及权限校验保留。既有迁移记录和 `models.init_tables()` 是升级入口，先在空库及历史版本副本上验，不把启动演练直接当生产迁移。不采用按全站某一日期统一切换，托管权属按赛事判断。
 
-**稳定合同。** 旧 ID/slug/别名、表单地址与跳转、`/api/front/*`、`/api/bp/*`、导播/GSI/GOTV、登录后下载仍可用。同一个“图二”，导播单图结算用 2，GOTV 回执和旧下载槽用 1；对手的主客/一二号、页面展示左右、游戏 CT/T 都不能互换。成功接收不等于已采纳。完整字段和消费者见[旧接口实测合同](../phase3-preparation/02_LEGACY_API_CONTRACTS.md)，新赛务见[宿主验收记录](../phase3-implementation/slice-03-match-operations/80GOTV_SLICE_03_FULL_REPORT.md)。
+**稳定合同。** 旧 ID/slug/别名、表单地址与跳转、`/api/front/*`、`/api/bp/*`、导播/GSI/GOTV、登录后下载仍可用。同一个“图二”，导播单图结算用 2，GOTV 回执和旧下载槽用 1；对手的主客/一二号、页面展示左右、游戏 CT/T 都不能互换。成功接收不等于已采纳。完整字段和消费者见[旧接口实测合同](../../../documentation/phase3-preparation/02_LEGACY_API_CONTRACTS.md)，新赛务见[宿主验收记录](../../../documentation/phase3-implementation/slice-03-match-operations/80GOTV_SLICE_03_FULL_REPORT.md)。
 
 **历史数据与文件。** 不伪造出场、分边、冠军成员或缺失的旧解析字段；数值未知不变成 0。新事实和兼容字段可共存，但同一届只能有一个正式写入者。公开图片、需鉴权的旧下载、私有录像原件、可重建缓存、备份分别管理。数据库快照仅在与它对应的原件齐备时才算完整恢复；小备份不假装包含录像。
 

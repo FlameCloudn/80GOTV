@@ -2,7 +2,7 @@
 
 一个 CS2 赛事信息管理网站，包含前台展示、后台管理、数据直播和 Demo 导入。
 
-维护入口：[全站模块地图](architecture-modernization/MODULE_INVENTORY.md)说明每项功能在哪里改；[目标架构](architecture-modernization/TARGET_ARCHITECTURE.md)列出数据归属和接口，[本地验证记录](architecture-modernization/PROGRESS.md)区分已通过、未通过和未进行的检查。
+第一次接手，先看[网站源码导航](docs/REPOSITORY_STRUCTURE.md)：按页面、API 和数据找到该改的位置。更细的[业务地图](docs/maintenance/MODULE_INVENTORY.md)、[数据归属](docs/maintenance/TARGET_ARCHITECTURE.md)和[历次本地验证](docs/maintenance/PROGRESS.md)也随网站版本保存。
 
 ## 主要功能
 
@@ -29,37 +29,36 @@
 
 ## Windows 启动
 
-第一次运行前，在项目目录打开 `cmd`：
+在这台电脑上，在网站目录打开 PowerShell。现有本地环境已经配置好：
 
-```bat
-cd E:\Code\Projects\80GOTV
-copy .env.example .env
-python -m pip install -r requirements.txt
-python app.py
+```powershell
+cd E:\Code\Projects\80GOTV\website
+.\.venv\Scripts\python.exe app.py
 ```
 
-以后启动只需要：
+全新检出的网站：用 Python 3.12 建立环境，首次才创建配置。不要覆盖已有的 `.env`。
 
-```bat
-cd E:\Code\Projects\80GOTV
-python app.py
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+if (!(Test-Path .env)) { Copy-Item .env.example .env }
 ```
 
-打开 [http://127.0.0.1:5000](http://127.0.0.1:5000)。
+在本机配置中填好管理员密码、登录密钥等，再用上面的启动命令。打开 [本地网站](http://127.0.0.1:5000)，关站在该窗口按 `Ctrl+C`。生产服务仍分别用 `wsgi:app` 和 `live_worker.py`。
 
 ## 本地测试
 
-先安装 Python 3.12 和 Node.js 22，然后在项目目录运行：
+先安装 Python 3.12 和 Node.js 22.13 或以上版本，然后在网站目录运行：
 
-```bat
-python -m pip install -r requirements-test.txt
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements-test.txt
 npm ci
-npm test
+.\.venv\Scripts\python.exe -m pytest tests -q -p no:cacheprovider
 ```
 
 这会运行网站的 Python 测试，包括赛务和导播数据对接检查。测试使用独立的临时数据，不会使用本地或云端的正式数据库。上面的测试工具不属于网站正式运行所需的依赖。
 
-浏览器测试另外运行 `npm run test:browser`；首次运行前需要执行 `npx playwright install chromium`。测试不代替真实导播、游戏服务器和 OBS 的联调。
+激活上述环境后，`npm test` 是同一个测试入口。浏览器测试首次运行 `npx playwright install chromium`，然后指定 `$env:E2E_PYTHON=(Resolve-Path .venv/Scripts/python.exe).Path` 再运行 `npm run test:browser`。已有 Edge 的 Windows 也可设置 `$env:PLAYWRIGHT_CHANNEL='msedge'`。图片生成入口是 `python scripts/build_frontend_images.py`。这些是测试依赖，不是网站运行依赖。
 
 ## 环境变量
 
@@ -75,13 +74,13 @@ npm test
 - `GSI_TOKEN`：观战账号数据密钥，必须与 `gamestate_integration_80gotv.cfg` 相同。
 - `TURSO_URL` / `TURSO_TOKEN`：可选。不填写时使用本地 `cs_site.db`。
 - 需要使用 Turso 云数据库时，再运行 `python -m pip install -r requirements-turso.txt`。Windows 目前还需要安装 Visual Studio C++ Build Tools；使用本地数据库时不需要运行。
-- `CSDA_PATH`：可选。不填写时自动查找项目根目录下的 `csda.exe`。
+- `CSDA_PATH`：可选。也可把解析器放进系统 PATH 或网站的 `resources/tools/`；仍兼容原网站根目录放置的可执行文件。
 
 ## 比赛数据直播
 
 网站只做数据直播，不需要视频直播。推荐使用一个单独的 Steam 观战账号采集数据。
 
-1. 打开 `gamestate_integration_80gotv.cfg`，填写网站地址和 `GSI_TOKEN`。
+1. 从[无密钥的 GSI 配置示例](integrations/gamestate_integration_80gotv.cfg.example)生成 `gamestate_integration_80gotv.cfg`，填入网站地址及自己的 `GSI_TOKEN`。已有的私有配置无需重建。
 2. 将文件放入 CS2 的 `game/csgo/cfg` 目录。
 3. 使用观战账号进入比赛观察席或 GOTV。
 4. 在后台创建比赛并填写开赛时间和地图。
@@ -126,9 +125,4 @@ Demo 导入只接受比赛赛程中已设置的地图，目前不支持同队超
 
 ## 导播与 HUD
 
-仓库还包含与网站配套的导播工具和 OBS / LHM 画面层：
-
-- [`jts-hud-manager/`](jts-hud-manager/)：基于 Electron、Vue 和 TypeScript 的导播与 HUD 管理器。它可以读取 CS2 的 GSI 数据，并从 80GOTV 获取比赛、队伍和选手资料。
-- [`broadcast_hud/`](broadcast_hud/)：运行在 LHM.gg HUD Manager 中的 80GOTV 广播 HUD，支持开发预览和打包导入。
-
-两个目录都保留各自的许可证和启动说明。依赖库、构建输出、安装包和本地备份不会提交到仓库；首次使用时在对应目录运行 `npm install`。
+网站负责[数据接入和 GOTV 中继](integrations/README.md)。工作区内的 `tools/jts-hud-manager`（导播桌面端）和 `tools/broadcast_hud`（画面层）是相邻的独立仓库；只有制作导播安装包时才需要两者。单独检出本网站就能启动和测试。测试所用的[导播原版样本](tests/fixtures/director/README.md)不参与网站运行。
