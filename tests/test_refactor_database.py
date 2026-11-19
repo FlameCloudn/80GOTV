@@ -1,3 +1,4 @@
+import os
 import runpy
 import tempfile
 import unittest
@@ -50,7 +51,7 @@ class DatabaseRegressionTests(unittest.TestCase):
 
     def test_config_only_loads_env_from_its_own_directory(self):
         config_path = Path(__file__).resolve().parents[1] / "config.py"
-        with patch("dotenv.load_dotenv") as load:
+        with patch.dict(os.environ, {"PYTHON_DOTENV_DISABLED": "0"}), patch("dotenv.load_dotenv") as load:
             runpy.run_path(str(config_path))
         load.assert_called_once_with(str(config_path.parent / ".env"))
 
