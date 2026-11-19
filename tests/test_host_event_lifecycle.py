@@ -373,7 +373,7 @@ class HostEventsTests(unittest.TestCase):
             400,
         )
         with closing(get_db()) as db:
-            self.assertFalse(db.execute("SELECT 1 FROM events WHERE slug='summer-cup'").fetchone())
+            self.assertFalse(db.execute("SELECT 1 FROM events WHERE name='Summer Cup'").fetchone())
         self.assertEqual(
             self.post(
                 self.admin,
@@ -383,7 +383,9 @@ class HostEventsTests(unittest.TestCase):
             302,
         )
         with closing(get_db()) as db:
-            event = db.execute("SELECT id FROM events WHERE slug='summer-cup'").fetchone()[0]
+            row = db.execute("SELECT id,slug FROM events WHERE name='Summer Cup'").fetchone()
+            self.assertEqual(row["slug"], "summer")
+            event = row["id"]
             self.assertEqual(
                 db.execute(
                     "SELECT registration_deadline FROM event_registration_control WHERE event_id=?",
