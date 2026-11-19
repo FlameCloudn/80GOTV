@@ -25,3 +25,5 @@
 - **配置与发布：** [config.py](../config.py)、[示例环境变量](../.env.example)、[Python 依赖](../requirements.txt)、[测试依赖](../requirements-test.txt)、[Node 锁文件](../package-lock.json)、[CI](../.github/workflows/ci.yml)、[Linux 部署](../deploy/README.md)。不更改服务器路径；不向服务器复制外层工作区。
 
 涉及跨业务写入时，看[全站业务地图](maintenance/MODULE_INVENTORY.md)与[数据归属和兼容约定](maintenance/TARGET_ARCHITECTURE.md)。这两份资料里标记的历史交付及截图链接需要配套工作区；启动、构建和标准测试不需要它。
+
+准备版本时先查本站的[正式环境示例](../deploy/env.production.example)和[更新脚本说明](../deploy/README.md)。在完整工作区内，另有[开发手册](../../documentation/DEVELOPMENT_HANDBOOK.md)、[候选文件清单](../../documentation/release/RELEASE_CANDIDATE_MANIFEST.md)和[真实资料恢复记录](../../documentation/release/MIGRATION_AND_RECOVERY.md)。

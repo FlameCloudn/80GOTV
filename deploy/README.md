@@ -11,7 +11,7 @@
 
 ## 第一次部署
 
-等云服务器和域名买好后再执行，推荐 Ubuntu 24.04。
+以下是新服务器的通用安装说明，不是现有正式站的更新命令。正式站使用 Nginx，备份定时器保持停用；不要为演练安装 Caddy 或改定时器。准备 Python 3.12、Node.js 22.13 或以上版本和 npm。只做本地演练时不要执行本节。
 
 1. 安装基础程序：
 
@@ -39,7 +39,7 @@ unzip linux-x64.zip
 sudo install -m 755 csda /usr/local/bin/csda
 ```
 
-5. 安装网站服务：
+5. 新服务器安装网站服务。以下不会启用备份定时器：
 
 ```bash
 sudo cp /srv/80gotv/app/deploy/80gotv-web.service /etc/systemd/system/
@@ -48,7 +48,6 @@ sudo cp /srv/80gotv/app/deploy/80gotv-backup-*.service /etc/systemd/system/
 sudo cp /srv/80gotv/app/deploy/80gotv-backup-*.timer /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now 80gotv-web 80gotv-live
-sudo systemctl enable --now 80gotv-backup-daily.timer 80gotv-backup-full.timer
 ```
 
 6. 把 `deploy/Caddyfile.example` 中的域名替换后复制到 `/etc/caddy/Caddyfile`，然后检查并启动 HTTPS：
@@ -66,12 +65,13 @@ sudo systemctl reload caddy
 - `static/avatars`
 - `static/demos`
 - `static/uploads`
+- `instance/match-demos`（或 `HOST_DEMO_ROOT` 指定的私有原件目录；不可放入静态目录）。
 
 迁移前先停止公网服务，资料复制完成后再启动。具体复制命令要根据购买的服务器地址生成，不提前写死。
 
 ## 日常更新
 
-固定顺序是：本地修改、本地测试、上传 GitHub、服务器更新。
+先验证固定提交和一份当前完整备份，获得明确上线许可后才推送、更新。下面命令默认取远程 `main`，不是本地候选分支；目标分支、提交和服务器工作树必须先核对。脚本停写后生成的是数据库回退用的日常快照，不含大型 Demo，不能代替完整备份。
 
 服务器执行：
 
@@ -123,4 +123,4 @@ cd /srv/80gotv/app
 
 确认新目录中的数据库和文件都正确后，再停止服务并人工切换资料目录。
 
-恢复备份会覆盖现有资料，因此这里不提供自动恢复命令。需要恢复时先检查备份内容，再由管理员确认执行。
+上面的整站恢复只接受不存在的目标路径。另一个 `--database-only` 模式会替换指定数据库，不是完整恢复；不要把它指向在用的数据库做演练。恢复后的库在 `database/cs_site.db`，图片和旧 Demo 在 `static/`，已登记的托管原件在 `instance/match-demos/`。旧包可能没有托管原件表，不能据此推断有新流程数据。

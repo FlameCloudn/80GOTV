@@ -4,6 +4,8 @@
 
 第一次接手，先看[网站源码导航](docs/REPOSITORY_STRUCTURE.md)：按页面、API 和数据找到该改的位置。更细的[业务地图](docs/maintenance/MODULE_INVENTORY.md)、[数据归属](docs/maintenance/TARGET_ARCHITECTURE.md)和[历次本地验证](docs/maintenance/PROGRESS.md)也随网站版本保存。
 
+在完整工作区中，[开发手册](../documentation/DEVELOPMENT_HANDBOOK.md)是跨仓库入口，[发布检查](../documentation/release/RELEASE_READINESS.md)记录候选版本与未完成事项。单独检出网站时，只需本站的[部署和恢复说明](deploy/README.md)及[迁移说明](MIGRATIONS.md)，不依赖外层资料运行。
+
 ## 主要功能
 
 ### 前台

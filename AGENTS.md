@@ -7,4 +7,4 @@
 - 本机资料、私有配置、原始 Demo、备份和截图不得提交。不要改归档副本的代码来修当前站点。有完整工作区时，手工修改前的备份放 `../backups/manual/`。
 - 用 `python -m pytest tests -q -p no:cacheprovider` 检查。涉及界面时再跑 Playwright，实际核对桌面、手机截图和控制台。示例操作见 [README](README.md)。
 - 这台机器的网站输出 `output/` 指向工作区的 `artifacts/output/`；单独检出时它是可生成的普通目录。关闭本轮启动的服务，不自动访问或更改公网。
-- 明确区分代码测试、合成现场数据、实际导播和 OBS 联调。未验证的不要说通过。仅本地 ARG 未获发布许可，不能随整合分支推送。
+- 明确区分代码测试、合成现场数据、实际导播和 OBS 联调。未验证的不要说通过。站主已批准现有 ARG 503 页和必要接入进入候选，不包含新玩法，也不等于授权推送或上线。完整工作区的发布入口是 `documentation/release/RELEASE_READINESS.md`。
