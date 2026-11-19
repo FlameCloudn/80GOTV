@@ -310,17 +310,17 @@
   function invalidMessage(field) {
     var v = field.validity;
     var en = isEnglish();
-    var label = fieldLabel(field);
-    if (v.customError) return field.validationMessage;
+    var label = tr(fieldLabel(field));
+    if (v.customError) return tr(field.validationMessage);
     if (v.valueMissing) {
       var choose = field.tagName === 'SELECT' || /^(radio|checkbox|file)$/.test(field.type);
-      return en ? (choose ? 'Please choose ' : 'Please fill in ') + label : (choose ? '请选择' : '请填写') + label;
+      return en ? label + ' is required' : (choose ? '请选择' : '请填写') + label;
     }
-    if (v.tooShort) return en ? label + ' needs at least ' + field.minLength + ' characters' : label + '至少 ' + field.minLength + ' 个字符';
-    if (v.tooLong) return en ? label + ' allows at most ' + field.maxLength + ' characters' : label + '不能超过 ' + field.maxLength + ' 个字符';
+    if (v.tooShort) return en ? label + ' must be at least ' + field.minLength + ' characters' : label + '至少 ' + field.minLength + ' 个字符';
+    if (v.tooLong) return en ? label + ' cannot exceed ' + field.maxLength + ' characters' : label + '不能超过 ' + field.maxLength + ' 个字符';
     if (v.rangeUnderflow) return en ? label + ' must be at least ' + field.min : label + '不能小于 ' + field.min;
     if (v.rangeOverflow) return en ? label + ' must be at most ' + field.max : label + '不能大于 ' + field.max;
-    return en ? label + ' is not valid' : label + '格式不正确';
+    return en ? label + ' is invalid' : label + '格式不正确';
   }
 
   // 定位到字段：展开所在折叠块；字段本身看不见（如美化过的文件框）就定位到它的标签
@@ -338,7 +338,7 @@
     focusInvalid(fields[0]);
     var many = fields.length > 1;
     var text = !many ? invalidMessage(fields[0])
-      : (isEnglish() ? fields.length + ' fields need fixing:' : fields.length + ' 处需要填写或修改：');
+      : (isEnglish() ? fields.length + ' fields need attention:' : fields.length + ' 处需要填写或修改：');
     var actions = !many ? [] : fields.slice(0, 5).map(function(field) {
       return { label: invalidMessage(field), run: function() { focusInvalid(field); } };
     });

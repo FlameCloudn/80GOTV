@@ -852,6 +852,14 @@ function closeBracketPopups() {
   });
 }
 
+document.addEventListener('keydown', function(e) {
+  if (e.key !== 'Escape') return;
+  closeBracketPopups();
+  document.querySelectorAll('.bracket-popup-overlay').forEach(function(overlay) {
+    overlay.remove();
+  });
+});
+
 function bracketScrolls(card) {
   var box = card.closest('.bracket-container');
   return !!box && box.scrollWidth > box.clientWidth + 1;
