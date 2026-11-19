@@ -38,6 +38,14 @@ class BackupRestoreTests(unittest.TestCase):
 
     def test_daily_and_full_backups_are_verified_and_restore_to_new_directory(self):
         output = self.root / "backups"
+        for path, content in (
+            ("instance/team_logo_originals/logo.png", b"original logo"),
+            ("instance/csda_cache/match_1_slot_0.json", b'{"rounds":[]}'),
+            ("instance/edge-profile/private.txt", b"not site data"),
+        ):
+            source = self.root / path
+            source.parent.mkdir(parents=True)
+            source.write_bytes(content)
         with patch("services.backup_service.BASE_DIR", str(self.root)):
             daily = create_backup_file(output, include_demos=False)
             full = create_backup_file(output, include_demos=True)
@@ -45,10 +53,15 @@ class BackupRestoreTests(unittest.TestCase):
         self.assertTrue(verify_backup(daily))
         with zipfile.ZipFile(daily) as archive:
             self.assertNotIn("static/demos/demos.txt", archive.namelist())
+            self.assertEqual(archive.read("instance/team_logo_originals/logo.png"), b"original logo")
+            self.assertNotIn("instance/csda_cache/match_1_slot_0.json", archive.namelist())
         with zipfile.ZipFile(full) as archive:
             self.assertIn("static/demos/demos.txt", archive.namelist())
 
         restored = restore_to_empty_directory(full, self.root / "restored")
+        self.assertEqual((restored / "instance/team_logo_originals/logo.png").read_bytes(), b"original logo")
+        self.assertEqual((restored / "instance/csda_cache/match_1_slot_0.json").read_bytes(), b'{"rounds":[]}')
+        self.assertFalse((restored / "instance/edge-profile").exists())
         conn = sqlite3.connect(restored / "database" / "cs_site.db")
         value = conn.execute("SELECT value FROM sample").fetchone()[0]
         conn.close()

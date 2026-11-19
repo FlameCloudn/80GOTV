@@ -66,6 +66,7 @@ sudo systemctl reload caddy
 - `static/demos`
 - `static/uploads`
 - `instance/match-demos`（或 `HOST_DEMO_ROOT` 指定的私有原件目录；不可放入静态目录）。
+- `instance/team_logo_originals`（队标原图），以及 `instance/csda_cache`（旧赛手枪局排行的解析依据）。不要整份复制 `instance`，其中可能有浏览器资料。
 
 迁移前先停止公网服务，资料复制完成后再启动。具体复制命令要根据购买的服务器地址生成，不提前写死。
 
@@ -106,6 +107,8 @@ cd /srv/80gotv/app
 cd /srv/80gotv/app
 /srv/80gotv/venv/bin/python scripts/backup_site.py --full
 ```
+
+本候选的日常包也带队标原图，完整包另含上述旧赛解析结果。旧版服务器的完整包没有这两个目录；从旧版恢复时要从同一来源另行取回，不能仅凭 ZIP 名称认定完整。
 
 手动运行且不填写 `--keep` 时，备份脚本不会删除旧备份；定时器保留最近 2 份日常备份和 1 份完整备份，只清理脚本自己生成的同类型旧文件。新备份通过 ZIP 和数据库完整性检查后，才清理旧备份；失败时保留原备份。备份不会包含带密钥的 `.env`。使用 `systemctl list-timers '80gotv-backup-*'` 可以确认下次执行时间。部署前下载并验证数据库备份即可，不需要在服务器保留重复下载副本；仍建议把一份已验证的数据库备份保存在另一台设备。
 

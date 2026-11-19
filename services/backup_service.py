@@ -57,7 +57,10 @@ def _snapshot_database(target):
 
 
 _DATABASE_MEMBER = "database/cs_site.db"
-_ALLOWED_PREFIXES = ("static/avatars/", "static/uploads/", "static/demos/", "instance/match-demos/")
+_ALLOWED_PREFIXES = (
+    "static/avatars/", "static/uploads/", "static/demos/", "instance/match-demos/",
+    "instance/team_logo_originals/", "instance/csda_cache/",
+)
 
 
 def _check_member_path(filename):
@@ -162,9 +165,16 @@ def create_backup_file(output_dir, include_demos=False, keep=None):
                 counts["uploads"] = _add_tree(
                     archive, Path(BASE_DIR) / "static" / "uploads", "static/uploads"
                 )
+                counts["team_logo_originals"] = _add_tree(
+                    archive, Path(BASE_DIR) / "instance/team_logo_originals", "instance/team_logo_originals"
+                )
                 if include_demos:
                     counts["demos"] = _add_tree(
                         archive, Path(BASE_DIR) / "static" / "demos", "static/demos"
+                    )
+                    # 旧赛手枪局排行仍读取这份解析结果，不能当成浏览器缓存丢弃。
+                    counts["csda_cache"] = _add_tree(
+                        archive, Path(BASE_DIR) / "instance/csda_cache", "instance/csda_cache"
                     )
                     # 只带走与这份数据库快照对应的永久原件，不复制正在上传或解析的临时文件。
                     with closing(sqlite3.connect(snapshot)) as copied_db:
