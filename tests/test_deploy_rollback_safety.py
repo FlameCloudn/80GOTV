@@ -80,6 +80,7 @@ fi
 """,
         )
         self._tool("sleep", "exit 0\n")
+        self._tool("npm", '[[ "$1" == ci && "$PWD" != "$APP_DIR" ]] || exit 1\necho test-dependencies >> "$EVENTS"\n')
         self._write(
             self.venv / "bin/python",
             """if [[ "$1" == -m && "$2" == venv ]]; then
@@ -110,7 +111,7 @@ if [[ "$1" == -m && "$2" == compileall ]]; then
   [[ "$FAIL_STAGE" != syntax ]]
   exit $?
 fi
-if [[ "$1" == -m && "$2" == unittest ]]; then
+if [[ "$1" == -m && "$2" == pytest ]]; then
   echo tests >> "$EVENTS"
   echo "tests-active-$(cat "$APP_DIR/code-revision")" >> "$EVENTS"
   [[ "$DATABASE_PATH" != "$DATA_FILE" ]] || echo unsafe-test-db >> "$EVENTS"
@@ -207,6 +208,7 @@ exec bash "$MOCK_SCRIPT"
         self.assertLess(events.index("tests"), events.index("merge"))
         self.assertLess(events.index("stop"), events.index("merge"))
         self.assertLess(events.index("pip-candidate"), events.index("tests"))
+        self.assertLess(events.index("test-dependencies"), events.index("tests"))
         self.assertLess(events.index("stop"), events.index("pip-live"))
         self.assertIn("tests-active-old", events)
         self.assertNotIn("tests-active-new", events)

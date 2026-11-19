@@ -13,7 +13,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-DIRECTOR = ROOT / "phase3-implementation/slice-01-event-entrant/checks/legacy_director_replay.cjs"
+DIRECTOR = ROOT / "tests/acceptance/slice-01-event-entrant/legacy_director_replay.cjs"
 AJAX = {"X-Requested-With": "XMLHttpRequest"}
 
 

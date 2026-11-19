@@ -20,12 +20,12 @@ def find_csda():
     for candidate in ["csda.exe", "csda"]:
         if shutil.which(candidate):
             return candidate
-    # 搜索项目根目录
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    for candidate in ["csda.exe", "csda"]:
-        full = os.path.join(root, candidate)
-        if os.path.isfile(full):
-            return full
+    for folder in [os.path.join(root, "resources", "tools"), root]:
+        for candidate in ["csda.exe", "csda"]:
+            full = os.path.join(folder, candidate)
+            if os.path.isfile(full):
+                return full
     return None
 
 

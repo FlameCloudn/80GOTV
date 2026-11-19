@@ -7,7 +7,7 @@
 # 用法：
 #   pip install -r requirements-dev.txt
 #   ruff check .
-#   pyright routes services blueprints utils models.py web_app.py app.py config.py wsgi.py init_db.py
+#   pyright routes services site_core blueprints integrations utils models.py web_app.py app.py config.py wsgi.py init_db.py live_worker.py
 
 -r requirements.txt
 

@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 PACKAGE = Path(__file__).resolve().parent
 ROOT = PACKAGE.parent
-DELIVERY = ROOT / "phase3-implementation" / "slice-01-event-entrant"
+DELIVERY = ROOT / "tests" / "acceptance" / "slice-01-event-entrant"
 DEFAULT_WORKSPACE = DELIVERY / ".sandbox"
 MARKER = ".entrant-sandbox"
 SIGNATURE = "80GOTV isolated event entrants\n"

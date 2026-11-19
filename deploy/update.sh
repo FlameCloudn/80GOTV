@@ -155,22 +155,15 @@ run_as_app_user "$CHECK_PYTHON" -m pip list --format=freeze \
 echo "第 3 步：检查 Python 文件。"
 run_as_app_user "$CHECK_PYTHON" -m compileall -q \
     "$CANDIDATE_DIR/app.py" "$CANDIDATE_DIR/web_app.py" "$CANDIDATE_DIR/wsgi.py" "$CANDIDATE_DIR/live_worker.py" \
-    "$CANDIDATE_DIR/blueprints" "$CANDIDATE_DIR/routes" "$CANDIDATE_DIR/services" "$CANDIDATE_DIR/utils"
+    "$CANDIDATE_DIR/blueprints" "$CANDIDATE_DIR/routes" "$CANDIDATE_DIR/services" "$CANDIDATE_DIR/utils" \
+    "$CANDIDATE_DIR/site_core" "$CANDIDATE_DIR/integrations"
 bash -n "$CANDIDATE_DIR/deploy/update.sh"
 
 echo "第 4 步：使用临时数据库运行全部测试。"
-TEST_MODULES=()
-while IFS= read -r -d '' TEST_FILE; do
-    TEST_MODULE="${TEST_FILE#"$CANDIDATE_DIR"/}"
-    TEST_MODULE="${TEST_MODULE%.py}"
-    TEST_MODULE="${TEST_MODULE//\//.}"
-    TEST_MODULES+=("$TEST_MODULE")
-done < <(find "$CANDIDATE_DIR/tests" -type f -name "test_*.py" -print0 | sort -z)
-if [[ "${#TEST_MODULES[@]}" -eq 0 ]]; then
-    echo "更新已停止：没有找到可运行的测试。"
-    false
-fi
 cd "$CANDIDATE_DIR"
+# 正式依赖清单已保存；pytest、TypeScript 只安装到本轮临时检查目录。
+run_as_app_user "$CHECK_PYTHON" -m pip install -r requirements-test.txt
+run_as_app_user npm ci --include=dev --no-audit --no-fund
 run_as_app_user env DATABASE_PATH="$TEST_DB" FLASK_ENV=testing \
     SMTP_HOST= SMTP_USERNAME= SMTP_PASSWORD= \
     SECRET_KEY=deployment-test-secret SESSION_COOKIE_SECURE=false \
@@ -180,7 +173,7 @@ run_as_app_user env DATABASE_PATH="$TEST_DB" FLASK_ENV=testing \
     SMTP_HOST= SMTP_USERNAME= SMTP_PASSWORD= \
     TRUSTED_HOSTS="localhost,127.0.0.1,80gotv.cn,www.80gotv.cn,8.222.223.38,192.168.1.20,gaming-pc,example.trycloudflare.com,demo.trycloudflare.com" \
     SESSION_COOKIE_DOMAIN= SESSION_COOKIE_NAME=80gotv_test_session \
-    "$CHECK_PYTHON" -m unittest "${TEST_MODULES[@]}"
+    "$CHECK_PYTHON" -m pytest tests -q -p no:cacheprovider
 cd "$APP_DIR"
 if [[ "$(run_as_app_user git -C "$APP_DIR" rev-parse HEAD)" != "$OLD_REV" \
       || "$(run_as_app_user git -C "$APP_DIR" rev-parse "origin/$BRANCH")" != "$TARGET_REV" \

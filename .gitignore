@@ -1,70 +1,55 @@
+# 本机配置、密钥、数据库和比赛原件。只发布两个配置示例。
 .env
-gamestate_integration_80gotv.cfg
-.venv/
-.backups/
-/backups/
-/output/
-/.playwright-cli/
-/test-results/
-/playwright-report/
-/blob-report/
+.env.*
+!.env.example
 *.db
-*.db-journal
-*.db-shm
-*.db-wal
-__pycache__/
-*.pyc
-/.pytest_cache/
-/.coverage
-/htmlcov/
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite-*
+*.dem
+gamestate_integration_80gotv.cfg
+/deploy/cloudflare-tunnel.local.ps1
+/deploy/cloudflare-config.yml
 /instance/
-/logs/
 /static/avatars/
-/static/images/map-quiz/mobile/
 /static/demos/
 /static/uploads/
-node_modules/
-/.agents/
-# .claude/ 下只有本机配置不入库；自检脚本与约定文档必须入库，
-# 否则换台电脑就既没有工具也没有约定，而 app.py 启动时还要调用它们。
-# 注意：.claude/settings.local.json 含真实 API Key，必须保持忽略。
-/.claude/*
-!/.claude/scripts/
-!/.claude/*.md
-/.vscode/
-/.ruff_cache/
-/AGENTS.md
-/.gitmessage
-/temp/
-/cs2demoview_src/
+
+# 本机目录有时是指向工作区的目录连接；不加尾部斜线，两种形式均忽略。
+/.backups
+/backups
+/output
+/logs
+/resources/tools
 /csda.exe
-/BP演示_BO1_BO3_BO5.mp4
-/BP演示预览.jpg
+/.playwright-cli
+/test-results
+/playwright-report
+/blob-report
+/temp
+/.agents
+/.vscode
+/.gitmessage
+/.codex*
+/.venv
+node_modules/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+/.coverage
+/htmlcov/
+/static/images/map-quiz/mobile/
 /resources/Sergey 'Ax1Le' Rykhtorov Counter-Strike Statistics _ HLTV.org.html
 /resources/Sergey 'Ax1Le' Rykhtorov Counter-Strike Statistics _ HLTV.org_files/
 tmp_visual*.png
 tmp_stats_*.png
-codex_flask_*.err.log
-codex_flask_*.out.log
+codex_flask_*.log
 screenshot_*.png
-resources/tools/cloudflared.exe
-/deploy/.env
-/deploy/cloudflare-tunnel.local.ps1
-/deploy/cloudflare-config.yml
 
-# Local director app checkout and generated runtime output
-/jts-hud-manager/.git/
-/jts-hud-manager/.git.local-backup/
-/jts-hud-manager/node_modules/
-/jts-hud-manager/dist/
-/jts-hud-manager/out/
-/jts-hud-manager/test-results/
-/jts-hud-manager/playwright-report/
-/jts-hud-manager/resources/default-hud/build/
-
-# Generated broadcast HUD packages and local backups
-/broadcast_hud/node_modules/
-/broadcast_hud/build/
-/broadcast_hud/.codex-backups/
-/broadcast_hud/*.zip
-/broadcast_hud/*.log
+# 只有共享说明与自检脚本进库，不跟踪私人 Agent 设置及其输出。
+/.claude/*
+!/.claude/scripts/
+!/.claude/*.md
+/.claude/scripts/.screenshots

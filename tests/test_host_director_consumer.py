@@ -109,7 +109,7 @@ class HostDirectorConsumerTests(unittest.TestCase):
             for roster in chain.lineups
         ]
         root = Path(__file__).resolve().parents[1]
-        script = "phase3-implementation/slice-02-host-integration/checks/director_consumer.cjs"
+        script = "tests/acceptance/slice-02-host-integration/director_consumer.cjs"
         process = subprocess.run(
             ["node", "--permission", "--allow-fs-read=.", script],
             cwd=root,

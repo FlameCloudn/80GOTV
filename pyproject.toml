@@ -1,8 +1,6 @@
 [tool.pyright]
 include = ["."]
-# 注意：裸写的 "node_modules" 匹配不到 jts-hud-manager/node_modules 这类
-# 嵌套目录，而 "backups"（不带点）此前根本没有被排除——两者叠加让 886 条
-# 报错里的 792 条来自第三方与历史死副本，把真实的技术债（97 条）淹没了。
+# 独立工具和工程归档不在网站仓库内；本机产物目录可能是目录连接。
 exclude = [
     "**/__pycache__",
     ".venv",
@@ -13,11 +11,7 @@ exclude = [
     "temp",
     "output",
     "logs",
-    "cs2demoview_src",
-    "jts-hud-manager",
-    "broadcast_hud",
-    "gotv_relay",
-    ".agents",
+    ".claude",
 ]
 typeCheckingMode = "basic"
 reportMissingImports = false
@@ -26,8 +20,7 @@ reportMissingTypeStubs = false
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-# 与 pyright 保持同一套排除口径：第三方、内置子项目、开发期脚本与
-# 历史产物都不参与应用代码的质量门禁。
+# 本机运行文件和独立开发脚本不参与应用代码检查。
 exclude = [
     ".venv",
     "**/node_modules",
@@ -37,11 +30,6 @@ exclude = [
     "temp",
     "output",
     "logs",
-    "cs2demoview_src",
-    "jts-hud-manager",
-    "broadcast_hud",
-    "gotv_relay",
-    ".agents",
     ".claude/scripts",
 ]
 

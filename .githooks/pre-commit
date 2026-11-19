@@ -35,7 +35,7 @@ elif [ -n "$STAGED_PY" ]; then
 fi
 
 echo "== 类型检查（应用代码）=="
-APP_PY="routes services blueprints utils models.py web_app.py app.py config.py wsgi.py init_db.py"
+APP_PY="routes services site_core blueprints integrations utils models.py web_app.py app.py config.py wsgi.py init_db.py live_worker.py"
 if command -v pyright >/dev/null 2>&1; then
     # 检查整个应用代码而非仅暂存文件：一处改动可能让别处的类型失效。
     # tests/ 仍有约 24 条 Optional 取值相关的噪声，属独立待办，故暂不纳入。

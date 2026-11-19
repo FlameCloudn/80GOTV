@@ -1171,7 +1171,7 @@ def _save_gsi_payload(conn, data, map_name, forced_match_id=None):
 def gotv_stats_receiver():
     """
     GOTV 实时数据接收端点
-    gotv_relay/relay.py 定时解析 demo 并 POST 选手统计数据到此端点
+    integrations/gotv_relay/relay.py 定时解析 demo 并 POST 选手统计数据到此端点
     请求头: X-GOTV-Secret: Config.GOTV_SECRET
     """
     if not rate_limit("gotv_public", 300, 60, by_ip=True):

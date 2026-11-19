@@ -24,7 +24,7 @@ jobs:
           FLASK_ENV: testing
           DATABASE_PATH: ${{ runner.temp }}/80gotv-test.db
           SECRET_KEY: test-only-secret-not-for-production
-      - run: bash -n deploy/*.sh
+      - run: for script in deploy/*.sh; do bash -n "$script"; done
       - run: python scripts/build_frontend_images.py
       - run: npx playwright install --with-deps chromium
       - run: npm run test:browser
