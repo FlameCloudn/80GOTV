@@ -1,0 +1,192 @@
+/* ---------- 比赛表单 ---------- */
+.match-status-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-lg) var(--space-xl);
+  background: var(--surface-soft);
+  border-bottom: 1px solid var(--border-color);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.match-form-notes { display: grid; gap: var(--space-sm); padding: var(--space-lg) var(--space-xl) 0; }
+.match-status-bar .page-head-kicker { margin-bottom: 2px; }
+.match-status-title { font-size: var(--font-xl); }
+
+.status-pills, .mode-tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface-soft);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.status-pill, .mode-tab {
+  height: 30px;
+  padding: 0 12px;
+  color: var(--text-secondary);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-sm);
+  white-space: nowrap;
+}
+
+.status-pill:hover, .mode-tab:hover { color: var(--text-primary); }
+.status-pill.active, .mode-tab.active { color: var(--text-primary); background: var(--bg-card); box-shadow: 0 1px 2px var(--shadow); font-weight: 600; }
+
+.score-callout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-lg);
+  background: var(--surface-soft);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: var(--font-sm);
+}
+
+.score-callout b { color: var(--accent); }
+
+.match-tabs { display: flex; gap: 2px; overflow-x: auto; padding: 0 var(--space-md); border-bottom: 1px solid var(--border-color); scrollbar-width: none; }
+.match-tab {
+  flex: 0 0 auto;
+  height: 44px;
+  padding: 0 var(--space-md);
+  color: var(--text-secondary);
+  background: none;
+  border: 0;
+  font-size: var(--font-sm);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.match-tab:hover { color: var(--text-primary); }
+.match-tab.active { color: var(--text-primary); box-shadow: inset 0 -2px 0 var(--accent); }
+/* 标签页里有出错字段：标签变红并显示数量 */
+.match-tab.has-error { color: var(--color-red); }
+.match-tab[data-error-count]::after { content: attr(data-error-count); display: inline-grid; place-items: center; min-width: 18px; height: 18px; margin-left: 6px; padding: 0 5px; color: var(--color-white); background: var(--color-red); border-radius: 9px; font-size: 11px; font-weight: 700; }
+.tab-pane { display: none; }
+.tab-pane.active { display: grid; gap: var(--space-lg); }
+
+.time-picker-card {
+  display: grid;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg);
+  background: var(--surface-soft);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.time-picker-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm); }
+.time-picker-head .field-label { color: var(--text-primary); font-weight: 600; }
+.time-preview { color: var(--text-muted); font-size: var(--font-xs); font-variant-numeric: tabular-nums; }
+.time-picker-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
+.time-picker-row input[type='date'] { width: 180px; }
+.time-picker-row input[type='time'] { width: 120px; text-align: center; font-variant-numeric: tabular-nums; }
+.time-picker-row input[type='datetime-local'] { width: 230px; }
+.time-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.time-chips-label { color: var(--text-muted); font-size: var(--font-xs); }
+
+.time-chip {
+  height: 28px;
+  padding: 0 10px;
+  color: var(--text-secondary);
+  background: var(--surface-soft);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.time-chip:hover, .time-chip.active { color: var(--accent); border-color: var(--accent); }
+.time-chip.active { background: var(--accent-soft); }
+
+.test-mode-control { display: grid; gap: 4px; }
+
+.vs-matchup-card { display: grid; gap: var(--space-md); padding: var(--space-lg); background: var(--surface-soft); border: 1px solid var(--border-color); border-radius: var(--radius-md); }
+.vs-matchup-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm); }
+.vs-matchup-heading strong { display: block; font-size: var(--font-md); }
+.vs-grid { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: var(--space-lg); align-items: start; }
+.vs-divider { align-self: center; color: var(--text-muted); font-size: var(--font-lg); font-weight: 800; }
+.field-section { display: grid; gap: var(--space-sm); min-width: 0; }
+.field-section > h3 { font-size: var(--font-md); }
+.side-type-row { display: flex; flex-wrap: wrap; gap: var(--space-md); }
+.side-players { display: grid; gap: 6px; }
+.readonly-teams { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.player-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px;
+  color: var(--text-primary);
+  background: var(--surface-soft);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-sm);
+}
+
+.map-rows { display: grid; gap: var(--space-sm); }
+.map-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-md); align-items: end; }
+.map-row.with-results { grid-template-columns: minmax(0, 1fr) minmax(0, 240px); }
+.match-roster-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-lg); }
+.roster-slots { display: grid; gap: 8px; }
+.roster-slot { display: grid; grid-template-columns: 56px minmax(0, 1fr); align-items: center; gap: var(--space-sm); }
+.roster-slot > span { color: var(--text-muted); font-size: var(--font-xs); }
+.watch-url-list { display: grid; gap: 8px; }
+.watch-url-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto; gap: var(--space-sm); align-items: center; }
+.watch-url-remove { width: var(--control-h); padding: 0; color: var(--text-muted); font-size: var(--font-lg); }
+.watch-url-remove:hover { color: var(--color-red); }
+
+/* ---------- 比赛数据录入 ---------- */
+.match-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.match-facts > div { display: grid; gap: 2px; padding: var(--space-md) var(--space-lg); border-left: 1px solid var(--border-color); }
+.match-facts > div:first-child { border-left: 0; }
+.match-facts dt { color: var(--text-muted); font-size: var(--font-xs); }
+.match-facts dd { font-weight: 600; }
+.download-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); padding: var(--space-md) var(--space-lg); border-top: 1px solid var(--border-color); font-size: var(--font-sm); }
+
+.tab-btn .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--color-green); }
+.tab-btn.disabled, .tab-btn:disabled { opacity: .5; cursor: not-allowed; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+.tba-message { padding: var(--space-3xl) var(--space-lg); color: var(--text-muted); text-align: center; }
+.stats-team-title { padding: var(--space-md) var(--space-lg) var(--space-sm); font-size: var(--font-md); }
+/* 两队各一张表：固定列宽（选手名一列定宽，其余平均分），上下两张表的每一列对齐 */
+.stats-entry-table { table-layout: fixed; }
+.stats-entry-table th:first-child, .stats-entry-table td:first-child { width: 160px; text-align: left; }
+.stats-entry-table td:first-child { overflow: hidden; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.stats-entry-table input { width: 76px; height: 30px; padding: 0 6px; text-align: center; font-variant-numeric: tabular-nums; }
+.stats-entry-table input[readonly] { color: var(--text-muted); background: var(--surface-soft); }
+
+/* ---------- Demo 导入 ---------- */
+.demo-maps { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
+.demo-slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--space-sm); }
+
+.file-slot {
+  display: grid;
+  gap: 8px;
+  padding: var(--space-md);
+  background: var(--surface-soft);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+}
+
+.file-slot.has-file { background: var(--green-soft); border-color: var(--color-green); }
+.file-slot-label { font-size: var(--font-sm); font-weight: 600; }
+.preview-info { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--space-sm); padding: var(--space-lg); }
+.preview-item { display: grid; gap: 2px; padding: var(--space-sm) var(--space-md); background: var(--surface-soft); border: 1px solid var(--border-color); border-radius: var(--radius-md); }
+.preview-item .label { color: var(--text-muted); font-size: var(--font-xs); }
+.preview-item .value { font-size: var(--font-lg); font-weight: 700; font-variant-numeric: tabular-nums; }
+.preview-item .value.small { font-size: var(--font-sm); }
+.value.ok, .match-found { color: var(--color-green); }
+.value.bad, .match-none { color: var(--color-red); }
+.match-partial { color: var(--color-gold); }
+.match-found small, .match-partial small, .match-none small { display: block; color: var(--text-muted); }

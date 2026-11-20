@@ -8,7 +8,7 @@ from statistics import median
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from config import Config
+from src.website.runtime.config import Config
 
 CS2_APP_ID = 730
 STEAM_OWNED_GAMES_URL = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/"

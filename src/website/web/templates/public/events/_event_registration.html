@@ -1,0 +1,76 @@
+{% if not entrant_registration_closed|default(false) and (event.registration_open or entrant_reserve_signup_open|default(false) or (event.effective_event_status == 'upcoming' and (registrations or individual_registration.count))) %}
+<section class="panel event-registration">
+  {% if event.registration_open %}
+  {% set event_login_next = event_path(event) %}
+  <div class="event-reg-banner"><strong>{{ msg('public.events.event_detail.registration_open') }}</strong>
+    {% if session.user_id and current_user and current_user.steam_id64 %}
+    <button id="regOpenButton" type="button" class="btn btn-primary"
+            aria-haspopup="dialog" aria-controls="regOverlay" aria-expanded="false">{{ msg('public.events.event_detail.create_team_registration') }}</button>
+    {% if individual_registration_open %}<span class="event-reg-hint">{{ msg('public.events.event_detail.you_can_also_register_individually_below') }}</span>{% endif %}
+    {% elif session.user_id %}
+    <span class="event-reg-hint">{{ msg('public.events.event_detail.link_steam_before_registering') }}</span>
+    <a href="/profile" class="btn btn-primary">{{ msg('public.events.event_detail.link_steam') }}</a>
+    {% elif session.admin_id %}
+    <span class="event-reg-hint">{{ msg('public.events.event_detail.admin_accounts_cannot_register_use_a') }}</span>
+    <a href="/admin/logout" class="btn">{{ msg('public.events.event_detail.log_out_admin') }}</a>
+    {% else %}
+    <a href="{{ url_for('user_login', next=event_login_next) }}" class="btn btn-primary">{{ msg('public.events.event_detail.log_in_to_register') }}</a>
+    {% endif %}
+  </div>
+  {% elif registrations or individual_registration.count or entrant_reserve_signup_open|default(false) %}
+  <div class="event-reg-banner event-reg-closed">{{ msg('public.events.event_detail.registration_is_closed_substitute_registration_remains') }}</div>
+  {% endif %}
+
+  {% if event.registration_open or registrations or individual_registration.count or entrant_reserve_signup_open|default(false) %}
+  <section id="eventRegistrationSection" aria-live="polite">
+    {% include 'public/events/_event_registration_list.html' %}
+  </section>
+  {% endif %}
+</section>
+{% endif %}
+
+{% if event.registration_open and session.user_id and current_user and current_user.steam_id64 %}
+<!-- 报名表单（弹窗） -->
+<dialog id="regOverlay" class="event-overlay" aria-labelledby="regModalTitle">
+  <div class="event-modal">
+    <h3 class="event-modal-title" id="regModalTitle">{{ msg('public.events.event_detail.team_registration_name', name=event.name) }}</h3>
+    <p class="event-modal-desc">{{ msg('public.events.event_detail.create_a_team_and_choose_your') }}</p>
+    <form method="POST" action="/events/{{ event.id }}/register" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label class="event-modal-label" for="regTeamName">{{ msg('public.events.event_detail.team_name') }}</label>
+      <input id="regTeamName" name="team_name" placeholder="{{ msg('public.events.event_detail.team_name') }}" required class="event-modal-input">
+      <label class="event-modal-label" for="regTeamLogo">{{ msg('public.events.event_detail.team_logo_optional') }}</label>
+      <input id="regTeamLogo" name="team_logo" type="file" aria-describedby="regTeamLogoHelp"
+             accept="image/png,image/jpeg,image/gif,.png,.jpg,.jpeg,.gif" class="event-modal-input event-modal-file-input"
+             data-max-bytes="10485760" data-size-error="{{ msg('common.team_logo.file_too_large') }}" data-type-error="{{ msg('common.team_logo.unsupported_type') }}">
+      <p class="event-modal-file-help" id="regTeamLogoHelp">{{ msg('public.events.event_detail.png_jpg_jpeg_or_gif_up') }}</p>
+      <p class="event-modal-label">{{ msg('public.events.event_detail.choose_your_slot') }}</p>
+      <div class="event-modal-slot-selector" id="slotSelector">
+        {% for i in range(5) %}
+        <label class="event-modal-slot-opt">
+          <input type="radio" name="my_slot" value="{{ i }}" data-registration-slot required>
+          <span>{{ msg('public.events.event_detail.slot_value1', value1=i+1) }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      <p class="event-modal-desc">{{ msg('public.events.event_detail.teammate_info_fill_your_slot_others') }}</p>
+      {% for i in range(5) %}
+      <div class="event-modal-form-row" id="slotRow{{ i }}">
+        <span class="event-modal-slot-num">#{{ i+1 }}</span>
+        <input name="pname_{{ i }}" aria-label="{{ msg('public.events.event_detail.slot_value1_player_nickname', value1=i+1) }}" placeholder="{{ msg('public.events.event_detail.player_value1_nickname_optional', value1=i+1) }}" class="event-modal-input-sm">
+        <input name="psteam_{{ i }}" aria-label="{{ msg('public.events.event_detail.slot_value1_steam_id', value1=i+1) }}" placeholder="Steam ID" class="event-modal-input-sm">
+        <span class="event-modal-slot-tag slot-label"></span>
+      </div>
+      {% endfor %}
+      <div class="event-modal-actions">
+        <button type="submit" class="btn btn-primary">{{ msg('public.events.event_detail.submit_registration') }}</button>
+        <button type="button" class="btn" data-registration-close>{{ msg('public.events.event_detail.cancel') }}</button>
+      </div>
+    </form>
+  </div>
+</dialog>
+<script type="application/json" data-site-messages>{{ client_messages('registration')|tojson }}</script>
+{{ frontend_entry('event-detail') }}
+<script type="application/json" data-site-messages>{{ client_messages('inline_event_detail')|tojson }}</script>
+{{ frontend_entry('event-registration-dialog') }}
+{% endif %}

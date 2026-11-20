@@ -1,6 +1,5 @@
 from pathlib import Path
 
-from config import BASE_DIR
 from src.website.runtime.database import database_path, get_db, using_turso
 from src.website.runtime.initial_schema import execute_sql_script as _execute_sql_script
 from src.website.runtime.initial_schema import install_base_schema
@@ -24,6 +23,7 @@ from src.website.runtime.legacy_upgrade import (
     _ensure_security_state_tables,
     _ensure_yearly_top10_table,
 )
+from src.website.runtime.storage import SOURCE_ROOT
 
 CURRENT_SCHEMA_VERSION = 6
 
@@ -33,7 +33,7 @@ def supported_schema_version(*, remote: bool) -> int:
 
 
 def _add_prematch_schema(conn):
-    root = Path(BASE_DIR) / "migrations" / "v4"
+    root = SOURCE_ROOT / "migrations/v4"
     for relative in (
         "structure.sql",
         "participant_schema.sql",
@@ -45,7 +45,7 @@ def _add_prematch_schema(conn):
 
 
 def _add_operations_schema(conn):
-    root = Path(BASE_DIR) / "migrations" / "v5"
+    root = SOURCE_ROOT / "migrations/v5"
     for filename in (
         "operation_schema.sql",
         "result_schema.sql",
@@ -57,7 +57,7 @@ def _add_operations_schema(conn):
 
 
 def _add_championship_schema(conn):
-    schema = Path(BASE_DIR) / "migrations" / "v6" / "championship_schema.sql"
+    schema = SOURCE_ROOT / "migrations/v6/championship_schema.sql"
     _execute_sql_script(conn, schema.read_text(encoding="utf-8"))
 
 

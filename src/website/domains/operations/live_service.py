@@ -5,15 +5,14 @@ import math
 import time
 from collections.abc import Mapping
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Literal, overload
 
-from config import BASE_DIR
 from src.website.domains.statistics.stats_calc import (
     calculate_rating,
     estimate_hltv2_impact,
     non_negative_impact,
 )
+from src.website.runtime.storage import SOURCE_ROOT
 
 
 class IngestValidationError(ValueError):
@@ -249,7 +248,7 @@ def parse_director_player_stat(payload):
 # 与网页雷达图使用同一套坐标换算。包点中心来自 resources/radars/*.svg
 # 中的红色斜线区域，只用于游戏没有直接返回 A / B 时的兜底判断。
 _RADAR_SIZE = 708
-_RADAR_META_PATH = Path(BASE_DIR) / "resources" / "radars" / "map-metadata.json"
+_RADAR_META_PATH = SOURCE_ROOT / "resources/radars/map-metadata.json"
 try:
     _RADAR_METADATA = json.loads(_RADAR_META_PATH.read_text(encoding="utf-8"))
 except (OSError, ValueError, TypeError):

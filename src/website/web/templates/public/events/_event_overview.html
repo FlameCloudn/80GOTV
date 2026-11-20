@@ -1,0 +1,50 @@
+{# 参赛队伍 + 赛事图池：照 HLTV 赛事页，图池放在右边一个窄框里，一张地图一条（原图比例，地图名在正中间） #}
+<div class="event-overview-row">
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">{{ msg('public.events.event_detail.teams_2') }} <span class="panel-count">{{ teams|length }}</span></h2></div>
+  <div class="teams-grid">
+    {% for t in teams %}
+    <div class="team-badge" data-tooltip tabindex="0">
+      {% if t.logo %}
+      <img class="event-team-logo" src="{{ t.logo|team_logo_url }}"
+           alt="{{ t.name }}" loading="lazy">
+      {% else %}
+      <div class="logo-fallback lg event-team-logo-fallback" data-i18n-ignore>{{ t.name|team_abbr(t.short_name) }}</div>
+      {% endif %}
+      <span class="team-badge-name" data-i18n-ignore>{{ t.name }}</span>
+      {% if t.players %}
+      <div class="team-players-popup" data-i18n-ignore>
+        {% for p in t.players %}
+        {% set display_name = private_name_for_player(p.id, p.nickname) if private_name_for_player is defined else p.nickname %}
+        {% if p.id %}<a href="/players/{{ p.id }}" class="team-player-link">{% else %}<span class="team-player-link">{% endif %}
+          {% if p.avatar %}
+          <img class="team-player-avatar" src="{{ avatar_thumbnail_url(p.avatar) or '/static/avatars/default.png' }}" alt="{{ display_name }}"
+               loading="lazy" data-fallback-src="/static/avatars/default.png">
+          {% else %}
+          <span class="team-player-avatar team-player-avatar-fallback" aria-hidden="true">{{ display_name[:1]|upper }}</span>
+          {% endif %}
+          <span{% if p.slot is defined %} data-player-slot="{{ p.slot }}"{% endif %}>{{ display_name }}</span>
+        {% if p.id %}</a>{% else %}</span>{% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% if not teams %}<div class="empty-state">{{ msg('public.events.event_detail.no_teams_yet') }}</div>{% endif %}
+</section>
+
+{% if event_map_pool %}
+<section class="panel event-map-pool-panel">
+  <div class="panel-head"><h2 class="panel-title">{{ msg('public.events.event_detail.map_pool') }} <span class="panel-count">{{ event_map_pool|length }}</span></h2></div>
+  <div class="event-map-pool">
+    {% for map_name in event_map_pool %}
+    <div class="event-map-strip">
+      <img src="{{ map_name|map_image }}" alt="" loading="lazy">
+      <span>{{ map_name|map_display }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+</div>

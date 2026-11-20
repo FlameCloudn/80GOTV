@@ -7,7 +7,7 @@ from contextlib import contextmanager
 
 from flask import current_app, g, has_app_context, has_request_context
 
-from config import Config
+from src.website.runtime.config import Config
 
 logger = logging.getLogger("80gotv")
 TURSO_URL = os.environ.get("TURSO_URL", "")

@@ -1,0 +1,251 @@
+/* 后台外壳、导航、工作台和列表。与前台共享设计变量和基础组件。 */
+
+/* ---------- 外壳 ---------- */
+.admin-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--nav-bg);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.admin-topbar-inner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  width: 100%;
+  max-width: 1520px;
+  height: var(--header-h);
+  margin: 0 auto;
+  padding: 0 var(--space-xl);
+}
+
+.admin-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-primary);
+  font-size: var(--font-lg);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.admin-brand:hover { color: var(--text-primary); }
+
+.admin-brand-tag {
+  padding: 2px 8px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  letter-spacing: .02em;
+}
+
+.admin-topbar-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-left: auto;
+  min-width: 0;
+}
+
+.admin-account {
+  max-width: 220px;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-account-handle { margin-left: 4px; color: var(--text-muted); font-weight: 400; }
+
+.admin-shell {
+  flex: 1 0 auto;
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: var(--space-xl);
+  align-items: start;
+  width: 100%;
+  max-width: 1520px;
+  margin: 0 auto;
+  padding: var(--space-xl) var(--space-xl) var(--space-3xl);
+}
+
+.admin-sidenav {
+  position: sticky;
+  top: calc(var(--header-h) + var(--space-xl));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  max-height: calc(100vh - var(--header-h) - 2 * var(--space-xl));
+  overflow-y: auto;
+}
+
+.admin-nav-group { display: flex; flex-direction: column; gap: 2px; }
+
+.admin-nav-label {
+  padding: 0 var(--space-md) 4px;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  font-weight: 600;
+}
+
+.admin-sidenav a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 34px;
+  padding: 0 var(--space-md);
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  font-size: var(--font-sm);
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.admin-sidenav a:hover { color: var(--text-primary); background: var(--bg-hover); }
+.admin-sidenav a[aria-current='page'] { color: var(--accent); background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); font-weight: 600; }
+
+.admin-main { min-width: 0; display: flex; flex-direction: column; gap: var(--site-gap); }
+
+/* 自绘线条图标（components/_icons.html）：16px、1.8 线宽、圆角端点，颜色跟随文字 */
+.admin-icon { width: 16px; height: 16px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.btn .admin-icon { margin-left: -2px; }
+/* 纯图标按钮：方形，悬停说明来自 title，读屏名称来自 aria-label */
+.btn-icon { width: 28px; padding: 0; }
+.btn-icon .admin-icon { margin: 0; }
+.btn-icon-spacer { display: inline-block; flex: 0 0 auto; width: 28px; height: 28px; }
+.btn.btn-icon.btn-danger:hover { color: var(--color-red); }
+.admin-sidenav a .admin-icon { color: var(--text-muted); }
+.admin-sidenav a:hover .admin-icon, .admin-sidenav a[aria-current='page'] .admin-icon { color: inherit; }
+/* 导航上的待办数量（待审核账号、待处理反馈） */
+.nav-count { display: inline-grid; place-items: center; min-width: 20px; height: 18px; margin-left: auto; padding: 0 6px; color: var(--color-gold); background: var(--gold-soft); border-radius: 9px; font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.site-modal-ok.is-danger { background: var(--color-red); border-color: var(--color-red); }
+
+/* ---------- 页头、工具条、筛选 ---------- */
+.admin-main > .page-head { align-items: center; }
+.page-head-sub { margin-top: 4px; color: var(--text-muted); font-size: var(--font-sm); }
+
+.admin-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm) var(--space-md);
+  padding: var(--space-sm) var(--space-lg);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.admin-filter-form { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
+.admin-filter-form select { width: auto; min-width: 180px; max-width: 280px; }
+.admin-filter-form input[type='search'], .admin-filter-form input[type='text'] { width: 220px; }
+.segmented .count { margin-left: 4px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.segmented .dot { width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: currentColor; }
+.segmented .dot.live { color: var(--live); }
+.segmented .dot.upcoming { color: var(--accent); }
+.segmented .dot.completed { color: var(--text-muted); }
+
+.callout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  font-size: var(--font-sm);
+}
+
+a.callout:hover { color: var(--text-primary); border-color: var(--border-strong); }
+.callout strong { color: var(--accent); white-space: nowrap; }
+
+/* ---------- 工作台（后台首页） ---------- */
+/* 总数一行：数字 + 名称，点进对应管理页 */
+.admin-stats { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
+
+.admin-stat-box {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px var(--space-md);
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: var(--font-sm);
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.admin-stat-box:hover { color: var(--text-primary); border-color: var(--accent); background: var(--bg-hover); }
+.admin-stat-value { color: var(--text-primary); font-size: var(--font-lg); font-weight: 700; font-variant-numeric: tabular-nums; }
+.admin-stat-value.has-pending { color: var(--color-gold); }
+
+/* 左：进行中 / 即将开始的比赛；右：待审核账号、待处理反馈 */
+.workbench { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: var(--site-gap); align-items: start; }
+.workbench-side { display: grid; gap: var(--site-gap); }
+.work-list { margin: 0; padding: 0; list-style: none; }
+.work-list li { display: flex; align-items: center; gap: var(--space-sm); padding: 8px var(--space-lg); border-top: 1px solid var(--border-color); font-size: var(--font-sm); }
+.work-list li:first-child { border-top: 0; }
+.work-list a { display: flex; align-items: center; gap: var(--space-sm); min-width: 0; flex: 1; color: var(--text-primary); }
+.work-list a:hover { color: var(--accent); }
+.work-list-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.work-list time { flex: 0 0 auto; font-size: var(--font-xs); white-space: nowrap; }
+/* 从工作台点进来时，目标那一行短暂高亮 */
+.admin-table tr:target > td { background: var(--accent-soft); }
+
+/* ---------- 表格与行内操作 ---------- */
+.admin-table td { padding-top: 8px; padding-bottom: 8px; }
+.admin-table .col-id { width: 64px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.admin-table .col-actions { width: 1%; }
+.admin-table .nowrap { white-space: nowrap; }
+.cell-title { font-weight: 600; }
+.cell-sub { display: block; margin-top: 2px; color: var(--text-muted); font-size: var(--font-xs); }
+.cell-entity .team-logo, .cell-entity .logo-fallback, .cell-entity .avatar { flex: 0 0 auto; }
+.muted { color: var(--text-muted); }
+.text-sm { font-size: var(--font-sm); }
+
+.row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.row-actions form { display: inline-flex; margin: 0; }
+.row-actions .muted { font-size: var(--font-xs); white-space: nowrap; }
+/* 普通列表的操作按钮排成一行；比赛列表按钮多，允许折成两行（.actions-cell 给足最小宽度） */
+.admin-table .col-actions .row-actions { flex-wrap: nowrap; }
+.admin-table .actions-cell { min-width: 300px; }
+
+/* 列表上方的即时筛选：搜索框（带放大镜）+ 几个下拉 */
+.list-filters { justify-content: flex-start; }
+.list-filters select { width: auto; min-width: 140px; max-width: 220px; height: 32px; font-size: var(--font-sm); }
+.filter-search-box { position: relative; display: inline-flex; align-items: center; flex: 0 1 300px; min-width: 200px; }
+.filter-search-box .admin-icon { position: absolute; left: 10px; color: var(--text-muted); pointer-events: none; }
+.filter-search-box input { width: 100%; height: 32px; padding-left: 32px; font-size: var(--font-sm); }
+/* 名字旁边的账号小字（选手列表） */
+.account-chip { display: inline-block; margin-left: 6px; color: var(--text-secondary); font-size: var(--font-xs); }
+.account-chip.muted { color: var(--text-muted); }
+a.cell-title { color: var(--text-primary); }
+.cell-clamp { max-width: 320px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+a.cell-title:hover { color: var(--accent); }
+
+/* 表格里的小号表单（结束比赛、审核拒绝、反馈处理） */
+.inline-form { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; }
+.inline-form input[type='text'], .inline-form input:not([type]) { width: 180px; height: 28px; font-size: var(--font-xs); }
+.inline-form select { width: auto; height: 28px; font-size: var(--font-xs); }
+.inline-form .check-row { font-size: var(--font-xs); }
+.row-forms { display: grid; gap: 6px; margin-top: 6px; }
+
+.btn-success { color: var(--color-green); }
+.btn-success:hover { color: var(--color-green); border-color: var(--color-green); background: var(--green-soft); }
+.btn-warning { color: var(--color-gold); }
+.btn-warning:hover { color: var(--color-gold); border-color: var(--color-gold); background: var(--gold-soft); }
+
+.copy-connect-btn { font-variant-numeric: tabular-nums; }
+.copy-connect-btn.copied { color: var(--color-green); border-color: var(--color-green); background: var(--green-soft); }
+
+.empty-row td { height: auto; padding: var(--space-2xl) var(--space-lg); color: var(--text-muted); text-align: center; }
+
+/* 选手游戏时长（选手列表、注册审核） */
+.admin-playtime { display: grid; gap: 1px; min-width: 110px; line-height: 1.3; }
+.admin-playtime strong { color: var(--text-primary); font-weight: 600; }
+.admin-playtime small { color: var(--text-muted); font-size: var(--font-xs); word-break: keep-all; }

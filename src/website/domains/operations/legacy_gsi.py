@@ -296,17 +296,12 @@ def store_gsi_frame(conn, data, map_name, forced_match_id=None):
     overtime = merged["overtime_history"]
     if not isinstance(overtime, list):
         overtime = []
+    current_history = rh if completed_round <= 24 else overtime
     if (
         (not app_round_events)
         and 1 <= completed_round <= 48
         and prev_winner
-        and (
-            (completed_round <= 24 and (not rh or rh[-1].get("round") != completed_round))
-            or (
-                completed_round > 24
-                and (not overtime or overtime[-1].get("round") != completed_round)
-            )
-        )
+        and not any(event.get("round") == completed_round for event in current_history)
     ):
         current_map = data.get("map", {}) or {}
         captured_at = datetime.now(timezone.utc)

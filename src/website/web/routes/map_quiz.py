@@ -1,6 +1,18 @@
 """Daily and unlimited CS2 map-location quiz routes."""
 
-from flask import abort, flash, redirect, render_template, request, send_file, session, url_for
+from flask import (
+    abort,
+    current_app,
+    flash,
+    redirect,
+    render_template,
+    request,
+    send_file,
+    send_from_directory,
+    session,
+    url_for,
+)
+from werkzeug.exceptions import NotFound
 
 from src.website.domains.games.map_quiz_service import (
     MAPS,
@@ -10,6 +22,7 @@ from src.website.domains.games.map_quiz_service import (
     get_daily_game_row,
     get_practice_game_row,
     load_game,
+    mobile_images_root,
     public_spot_options,
     question_image_path,
     submit_guess,
@@ -135,3 +148,13 @@ def map_quiz_image(question_key):
         max_age=86400,
         mimetype=mimetype,
     )
+
+
+@site_routes.route("/static/images/map-quiz/mobile/<filename>.webp", methods=["GET"])
+def public_quiz_thumbnail(filename):
+    # These named thumbnails were public static assets before they moved to the cache.
+    name = f"{filename}.webp"
+    try:
+        return send_from_directory(mobile_images_root(), name)
+    except NotFound:
+        return current_app.send_static_file(f"images/map-quiz/mobile/{name}")

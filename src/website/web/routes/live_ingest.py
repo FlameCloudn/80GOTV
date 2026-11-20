@@ -6,7 +6,6 @@ from datetime import datetime, timezone
 
 from flask import jsonify, request
 
-from config import Config
 from src.website.domains.matches.bracket_service import BracketDependencyError
 from src.website.domains.matches.match_roster_service import resolve_match_roster
 from src.website.domains.matches.opponents import supplement_temp_teams
@@ -19,6 +18,7 @@ from src.website.domains.operations.projection import (
     live_schema_ready,
     start_projection,
 )
+from src.website.runtime.config import Config
 from src.website.runtime.database import get_db
 from src.website.runtime.host import HostError, is_managed_match
 from src.website.runtime.rate_limiter import rate_limit

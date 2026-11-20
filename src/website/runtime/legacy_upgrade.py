@@ -2,7 +2,7 @@
 
 import logging
 
-from config import Config
+from src.website.runtime.config import Config
 
 logger = logging.getLogger("80gotv")
 

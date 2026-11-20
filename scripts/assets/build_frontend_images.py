@@ -1,19 +1,13 @@
 """为列表头像和手机地图题图生成较小的 WebP 副本。"""
 
 import os
-import sys
 import uuid
-from pathlib import Path
 
 from PIL import Image, ImageOps, UnidentifiedImageError
 
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
-from src.website.domains.games.map_quiz_service import ASSET_ROOT, QUESTIONS  # noqa: E402
-from src.website.runtime.storage import site_paths  # noqa: E402
-from src.website.runtime.uploads import create_avatar_thumbnail  # noqa: E402
+from src.website.domains.games.map_quiz_service import ASSET_ROOT, QUESTIONS, mobile_images_root
+from src.website.runtime.storage import site_paths
+from src.website.runtime.uploads import create_avatar_thumbnail
 
 MAP_MOBILE_WIDTH = 960
 
@@ -33,7 +27,7 @@ def build_avatar_thumbnails():
 
 def build_map_mobile_images():
     count = 0
-    output_dir = ASSET_ROOT / "mobile"
+    output_dir = mobile_images_root()
     for question in QUESTIONS:
         source_path = ASSET_ROOT / question["image"]
         if not source_path.is_file():

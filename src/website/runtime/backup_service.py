@@ -13,10 +13,10 @@ from pathlib import Path, PurePosixPath
 
 from flask import current_app, has_app_context
 
-from config import BASE_DIR, Config
 from src.website.domains.demos.demo_storage import original_path, private_root
+from src.website.runtime.config import Config
 from src.website.runtime.database import database_path
-from src.website.runtime.storage import site_paths
+from src.website.runtime.storage import SOURCE_ROOT, site_paths
 
 
 def _originals_in_snapshot(conn):
@@ -197,7 +197,7 @@ def create_backup_file(output_dir, include_demos=False, keep=None):
                         else Config.HOST_DEMO_ROOT
                     )
                     root = private_root(
-                        paths.root, Path(BASE_DIR) / "static", configured or paths.managed_demos
+                        paths.root, SOURCE_ROOT / "static", configured or paths.managed_demos
                     )
                     for original in originals:
                         archive.write(

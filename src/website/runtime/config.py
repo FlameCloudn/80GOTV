@@ -5,9 +5,7 @@ import secrets
 from datetime import timedelta
 from urllib.parse import urlsplit
 
-from src.website.runtime.storage import site_paths
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+from .storage import site_paths
 
 # 测试入口显式关闭本机配置；仓库固定的 dotenv 版本不会自行识别这个开关。
 if os.environ.get("PYTHON_DOTENV_DISABLED") != "1":

@@ -6,15 +6,15 @@ import re
 import secrets
 import uuid
 from datetime import date
-from pathlib import Path
 
-from config import BASE_DIR, Config
 from src.website.domains.games.scoring import daily_streaks
 from src.website.domains.games.scoring import game_date as _as_date
+from src.website.runtime.config import Config
 from src.website.runtime.database import write_transaction
+from src.website.runtime.storage import SOURCE_ROOT, site_paths
 
 MAX_ATTEMPTS = 3
-ASSET_ROOT = Path(BASE_DIR) / "static" / "images" / "map-quiz"
+ASSET_ROOT = SOURCE_ROOT / "static/images/map-quiz"
 SOURCE_COLLECTION = "https://prosettings.net/blog/cs2-maps/"
 
 MAPS = (
@@ -175,6 +175,10 @@ def question_for_key(question_key):
     return QUESTION_BY_KEY.get((question_key or "").strip())
 
 
+def mobile_images_root():
+    return site_paths().cache / "map-quiz-mobile"
+
+
 def question_image_path(question_key, variant=None):
     question = question_for_key(question_key)
     if not question:
@@ -186,9 +190,10 @@ def question_image_path(question_key, variant=None):
     except ValueError:
         return None
     if variant == "mobile":
-        mobile_path = (asset_root / "mobile" / f"{path.stem}.webp").resolve()
-        if mobile_path.is_file():
-            path = mobile_path
+        for directory in (mobile_images_root(), asset_root / "mobile"):
+            mobile_path = directory / f"{path.stem}.webp"
+            if mobile_path.is_file():
+                return mobile_path
     return path if path.is_file() else None
 
 

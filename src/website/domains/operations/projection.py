@@ -240,8 +240,7 @@ def project_director_match(conn, match_id, maps, roster, snapshot):
             if player["id"] == member["player_id"]:
                 continue
             replacement = conn.execute(
-                """SELECT id,nickname,avatar,group_username_override,is_bashizhong_student
-                   FROM players WHERE id=?""",
+                "SELECT id,nickname,avatar FROM players WHERE id=?",
                 (member["player_id"],),
             ).fetchone()
             player.update(dict(replacement), steam_id=member["steam_id"], is_substitute=True)

@@ -1,0 +1,103 @@
+/* ---------- 直播、反馈、TOP 10、数据图、审核、昵称 ---------- */
+.live-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--site-gap); }
+.live-card { display: grid; gap: 6px; padding: var(--space-lg); font-size: var(--font-sm); }
+.live-card-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); }
+.live-card-head b { font-size: var(--font-md); letter-spacing: .04em; }
+.live-card .muted { font-size: var(--font-xs); }
+
+.fb-tag-bug { color: var(--color-red); background: var(--red-soft); border-color: transparent; }
+.fb-tag-suggestion { color: var(--accent); background: var(--accent-soft); border-color: transparent; }
+.fb-tag-question { color: var(--color-gold); background: var(--gold-soft); border-color: transparent; }
+.fb-content { max-width: 560px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.fb-reply { margin-top: 6px; padding: 6px 10px; color: var(--text-secondary); background: var(--surface-soft); border-left: 2px solid var(--accent); border-radius: var(--radius-sm); font-size: var(--font-xs); }
+.fb-page { display: inline-block; max-width: 200px; overflow: hidden; color: var(--text-muted); font-size: var(--font-xs); text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
+tr.fb-status-closed .fb-content { color: var(--text-secondary); }
+
+.top10-year-form { display: flex; align-items: center; gap: var(--space-sm); }
+.top10-year-form select { width: 120px; }
+.top10-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-sm) var(--space-xl); }
+.top10-rank { display: grid; grid-template-columns: 64px minmax(0, 1fr); align-items: center; gap: var(--space-sm); }
+.top10-rank label { color: var(--text-secondary); font-size: var(--font-sm); font-weight: 600; font-variant-numeric: tabular-nums; }
+.top10-years { color: var(--text-muted); font-size: var(--font-xs); }
+
+.poster-form { display: grid; grid-template-columns: 140px minmax(0, 1fr) minmax(0, 1fr) auto; gap: var(--space-md); align-items: end; padding: var(--space-lg); }
+.poster-preview { display: grid; justify-items: start; gap: var(--space-md); padding: var(--space-lg); }
+.poster-preview img { max-width: 100%; border: 1px solid var(--border-color); border-radius: var(--radius-md); }
+
+.review-actions {
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-areas: "approve reject" "note note";
+  justify-content: start;
+  gap: 6px;
+  min-width: 180px;
+}
+
+.review-approve { grid-area: approve; }
+.review-reject { display: contents; }
+.review-reject .reject { grid-area: reject; }
+.review-reject input[type='text'] { grid-area: note; width: 100%; height: 28px; font-size: var(--font-xs); }
+.cell-break { overflow-wrap: anywhere; }
+/* 日期时间只在“日期”和“钟点”之间折行，不把“2026年10月26日”从中间断开 */
+.cell-datetime { min-width: 96px; word-break: keep-all; }
+.review-note { display: block; margin-top: 2px; color: var(--text-muted); font-size: var(--font-xs); }
+
+.merge-form { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); padding: var(--space-lg); }
+.merge-form select { width: auto; min-width: 220px; max-width: 320px; }
+.alias-list { display: flex; flex-wrap: wrap; gap: 4px; }
+.alias-chip { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; color: var(--text-secondary); background: var(--surface-soft); border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: var(--font-xs); }
+
+/* ---------- 后台登录 ---------- */
+.admin-login-body { display: grid; place-items: center; min-height: 100vh; padding: var(--space-xl); }
+.admin-login-card { display: grid; gap: var(--space-lg); width: min(100%, 400px); padding: var(--space-2xl); background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); box-shadow: var(--shadow-raised); }
+.admin-login-brand { display: flex; align-items: center; gap: 10px; font-size: var(--font-lg); font-weight: 700; }
+.admin-login-card h1 { font-size: var(--font-xl); }
+.admin-login-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); font-size: var(--font-sm); }
+
+/* ---------- 窄窗口 ---------- */
+@media (max-width: 1280px) {
+  .workbench { grid-template-columns: minmax(0, 1fr); }
+  .workbench-side { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* 平板、窄窗口：左侧导航移到正文上方并换行；正文占满宽度 */
+@media (max-width: 1100px) {
+  .admin-shell { grid-template-columns: minmax(0, 1fr); gap: var(--space-lg); padding: var(--space-lg) var(--space-lg) var(--space-2xl); }
+  .admin-topbar-inner { padding: 0 var(--space-lg); }
+  /* 横排导航放不下就换到第二行，所有入口都直接看得到（不藏在横向滚动里） */
+  .admin-sidenav { position: static; flex-direction: row; flex-wrap: wrap; gap: var(--space-xs) var(--space-sm); max-height: none; padding-bottom: var(--space-sm); border-bottom: 1px solid var(--border-color); }
+  .admin-nav-group { flex: 0 1 auto; flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .admin-nav-group + .admin-nav-group { padding-left: var(--space-sm); border-left: 1px solid var(--border-color); }
+  .admin-nav-label { display: none; }
+  .admin-sidenav a { white-space: nowrap; }
+  .admin-sidenav a[aria-current='page'] { box-shadow: inset 0 -2px 0 var(--accent); }
+  .editor-layout { grid-template-columns: 200px minmax(0, 1fr); }
+  .poster-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* 窗口不宽时保存栏不再吸在屏幕底部，排在表单最后，免得盖住正在填的内容 */
+  .sticky-form-actions { position: static; }
+}
+
+/* 竖屏平板（761–960）：操作按钮允许折行、操作列让出宽度，比赛 / 选手 / 注册审核表格不用在表里左右拖。
+   数据录入表列多（十几个数字格），仍在表里横向滚动 */
+@media (max-width: 960px) {
+  .admin-table .col-actions .row-actions { flex-wrap: wrap; }
+  .admin-table .actions-cell { min-width: 200px; }
+  .review-actions { min-width: 0; }
+  .admin-table .cell-datetime { white-space: normal; }
+}
+
+@media (max-width: 760px) {
+  .admin-topbar-inner { flex-wrap: wrap; height: auto; min-height: var(--header-h); padding: var(--space-sm) var(--space-md); }
+  .admin-account { display: none; }
+  .admin-shell { padding: var(--space-md) var(--space-md) var(--space-2xl); }
+  .workbench-side { grid-template-columns: minmax(0, 1fr); }
+  .form-grid, .form-grid.cols-3, .match-roster-grid, .top10-grid, .poster-form { grid-template-columns: minmax(0, 1fr); }
+  .vs-grid { grid-template-columns: minmax(0, 1fr); }
+  .vs-divider { justify-self: center; }
+  .map-row.with-results { grid-template-columns: minmax(0, 1fr); }
+  .admin-form { padding: var(--space-lg); }
+  .editor-layout { grid-template-columns: minmax(0, 1fr); }
+  .team-pool-panel { position: static; max-height: 260px; }
+  .watch-url-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .watch-url-row input[type='url'] { grid-column: 1; }
+}

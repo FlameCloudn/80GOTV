@@ -13,7 +13,6 @@ from flask import (
     session,
 )
 
-from config import BASE_DIR
 from src.website.domains.awards.player_awards_service import find_event_award_player
 from src.website.domains.events import reads as event_reads
 from src.website.domains.events.arg_event_service import (
@@ -44,6 +43,7 @@ from src.website.domains.statistics.stats_storage import (
 )
 from src.website.runtime.database import get_db
 from src.website.runtime.rate_limiter import rate_limit
+from src.website.runtime.storage import SOURCE_ROOT
 from src.website.web.presentation.event_awards import build_event_award_poster
 from src.website.web.routes import event_registration
 from src.website.web.routing import site_routes
@@ -159,7 +159,7 @@ def event_mvp_poster(event_id):
     if not mvp_player:
         conn.close()
         return "该赛事还没有设置 MVP", 404
-    buffer = build_event_award_poster(conn, BASE_DIR, event_id, mvp_player["id"], "MVP")
+    buffer = build_event_award_poster(conn, SOURCE_ROOT, event_id, mvp_player["id"], "MVP")
     conn.close()
     if not buffer:
         return "赛事或选手不存在", 404
@@ -176,7 +176,7 @@ def event_award_poster(event_id, award_type, player_id):
     if not find_event_award_player(conn, event_id, award_type, player_id=player_id):
         conn.close()
         return "该赛事没有这张数据图", 404
-    buffer = build_event_award_poster(conn, BASE_DIR, event_id, player_id, award_type)
+    buffer = build_event_award_poster(conn, SOURCE_ROOT, event_id, player_id, award_type)
     conn.close()
     if not buffer:
         return "赛事或选手不存在", 404

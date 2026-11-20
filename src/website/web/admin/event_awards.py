@@ -17,7 +17,6 @@ from flask import (
     url_for,
 )
 
-from config import BASE_DIR
 from src.website.domains.awards.championship import award_championship, championship_status
 from src.website.domains.awards.player_awards_service import (
     FIRST_AWARD_YEAR,
@@ -30,6 +29,7 @@ from src.website.domains.awards.player_awards_service import (
 )
 from src.website.runtime.database import db, get_db
 from src.website.runtime.host import HostError, write
+from src.website.runtime.storage import SOURCE_ROOT
 from src.website.web.access import admin_required as login_required
 from src.website.web.access import csrf_required
 from src.website.web.admin.admin import admin_bp
@@ -242,7 +242,7 @@ def admin_award_poster_image():
     if not event_id or not player_id:
         return "请选择赛事和选手", 400
     conn = get_db()
-    buffer = build_event_award_poster(conn, BASE_DIR, event_id, player_id, award_type)
+    buffer = build_event_award_poster(conn, SOURCE_ROOT, event_id, player_id, award_type)
     conn.close()
     if not buffer:
         return "赛事或选手不存在", 404

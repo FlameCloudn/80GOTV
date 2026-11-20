@@ -1,10 +1,9 @@
 """Resolve a map's reusable image and landscape URLs."""
 
-import os
 from functools import lru_cache
 
-from config import BASE_DIR
 from src.website.domains.matches.map_names import MAP_NAME_MAPPING, normalize_map_key
+from src.website.runtime.storage import SOURCE_ROOT
 
 
 def map_image_url(name):
@@ -19,18 +18,13 @@ def map_image_url(name):
     return f"/resources/maps/{fn_str}.webp"
 
 
-_LANDSCAPE_SMALL_DIR = os.path.join(
-    BASE_DIR,
-    "resources",
-    "map_landscapes",
-    "small",
-)
+_LANDSCAPE_SMALL_DIR = SOURCE_ROOT / "resources/map_landscapes/small"
 
 
 @lru_cache(maxsize=64)
 def _has_small_landscape(file_stem):
     """有没有压缩过的小景观图（800 宽、几十 KB，网页背景用它就够了）。"""
-    return os.path.isfile(os.path.join(_LANDSCAPE_SMALL_DIR, f"{file_stem}.webp"))
+    return (_LANDSCAPE_SMALL_DIR / f"{file_stem}.webp").is_file()
 
 
 def map_background_url(name):

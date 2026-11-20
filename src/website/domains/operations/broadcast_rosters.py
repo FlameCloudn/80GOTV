@@ -18,8 +18,8 @@ def event_substitutes(conn, event_id):
         return []
     if is_managed_event(conn, event_id):
         rows = conn.execute(
-            """SELECT player_id AS id,player_name AS nickname,group_username,steam_id,avatar,
-                      is_bashizhong_student,preferred_registration_id,preferred_team_name
+            """SELECT player_id AS id,player_name AS nickname,steam_id,avatar,
+                      preferred_registration_id,preferred_team_name
                FROM host_individual_entries_read WHERE event_id=? AND assignment_status='reserve'
                ORDER BY created_at,id""",
             (event_id,),
@@ -30,11 +30,8 @@ def event_substitutes(conn, event_id):
         SELECT COALESCE(p.id, -ir.id) AS id,
                COALESCE(NULLIF(ir.player_name, ''), NULLIF(p.nickname, ''),
                         NULLIF(u.username, '')) AS nickname,
-               COALESCE(NULLIF(p.group_username_override, ''),
-                        NULLIF(u.group_username, ''), '') AS group_username,
                COALESCE(NULLIF(p.steam_id, ''), NULLIF(u.steam_id64, ''), ir.steam_id) AS steam_id,
                COALESCE(NULLIF(p.avatar, ''), NULLIF(u.avatar, ''), '') AS avatar,
-               COALESCE(p.is_bashizhong_student, u.is_bashizhong_student) AS is_bashizhong_student,
                ir.preferred_registration_id,
                preferred.team_name AS preferred_team_name
         FROM event_individual_registrations ir
@@ -57,10 +54,8 @@ def event_substitutes(conn, event_id):
         {
             "id": row["id"],
             "nickname": row["nickname"] or "",
-            "group_username": row["group_username"] or "",
             "steam_id": row["steam_id"] or "",
             "avatar": asset_path("avatars", row["avatar"]),
-            "is_bashizhong_student": row["is_bashizhong_student"],
             "role": "substitute",
             "preferred_registration_id": row["preferred_registration_id"],
             "preferred_team_name": row["preferred_team_name"] or "",
@@ -83,10 +78,8 @@ def display_rosters(players_by_side, substitutes):
                 "id": row["id"],
                 "slot": row["slot"],
                 "nickname": row.get("nickname") or "",
-                "group_username": row.get("group_username_override") or "",
                 "steam_id": row.get("steam_id") or "",
                 "avatar": asset_path("avatars", row.get("avatar")),
-                "is_bashizhong_student": row.get("is_bashizhong_student"),
                 **(
                     {"role": "substitute"}
                     if (

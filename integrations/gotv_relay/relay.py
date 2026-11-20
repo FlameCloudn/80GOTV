@@ -16,9 +16,9 @@ import time
 import urllib.error
 import urllib.request
 
-from config import Config
 from src.website.domains.demos.demo_parser import get_match_info, parse_player_stats
 from src.website.domains.demos.demo_runner import find_csda
+from src.website.runtime.config import Config
 
 logger = logging.getLogger("80gotv.gotv_relay")
 

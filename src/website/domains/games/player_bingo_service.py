@@ -8,10 +8,10 @@ import secrets
 import uuid
 from datetime import date
 
-from config import Config
 from src.website.domains.games.guess_player_service import COUNTRY_REGIONS, country_flag, player_age
 from src.website.domains.games.scoring import daily_streaks
 from src.website.domains.games.scoring import game_date as _as_date
+from src.website.runtime.config import Config
 from src.website.runtime.database import write_transaction
 
 

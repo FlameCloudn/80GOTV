@@ -10,7 +10,7 @@ import uuid
 
 from flask import flash, redirect, request, session, url_for
 
-from config import Config
+from src.website.runtime.config import Config
 from src.website.web.routing import site_routes
 
 logger = logging.getLogger("80gotv")

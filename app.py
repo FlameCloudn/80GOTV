@@ -3,8 +3,8 @@
 import logging
 import os
 
-from config import validate_production_config
 from src.website.app import create_app
+from src.website.runtime.config import validate_production_config
 from src.website.runtime.schema import init_tables
 
 validate_production_config()
@@ -55,7 +55,7 @@ if __name__ == "__main__":
     app.config["TEMPLATES_AUTO_RELOAD"] = True
     app.jinja_env.auto_reload = True
 
-    from live_worker import run_background
+    from src.website.runtime.worker import run_background
 
     shutdown = threading.Event()
     worker = threading.Thread(

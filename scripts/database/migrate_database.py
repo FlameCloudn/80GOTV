@@ -2,18 +2,12 @@
 
 import argparse
 import sqlite3
-import sys
 from contextlib import closing
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
-# 必须先完成上面的 sys.path 处理，项目模块才可导入，故此处豁免 E402。
-from config import Config  # noqa: E402
-from src.website.runtime.database import get_db, using_turso  # noqa: E402
-from src.website.runtime.schema import init_tables, supported_schema_version  # noqa: E402
+from src.website.runtime.config import Config
+from src.website.runtime.database import get_db, using_turso
+from src.website.runtime.schema import init_tables, supported_schema_version
 
 
 def current_version():

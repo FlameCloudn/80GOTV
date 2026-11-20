@@ -1,0 +1,88 @@
+{# ── Position lookup macro (canvas 920×580) ── #}
+{% macro card_pos(fk, mid) -%}
+  {%- if fk == '4de' -%}
+    {%- if mid == 'UB_R1_M1' %}left:4%;top:4%;width:20%{% elif mid == 'UB_R1_M2' %}left:4%;top:28%;width:20%{% elif mid == 'UB_R2_M1' %}left:30%;top:14%;width:20%{% elif mid == 'LB_R1_M1' %}left:4%;top:56%;width:20%{% elif mid == 'LB_R2_M1' %}left:30%;top:62%;width:20%{% elif mid == 'GF_R1_M1' %}left:58%;top:38%;width:28%{% endif -%}
+  {%- elif fk == '8de' -%}
+    {%- if mid == 'UB_R1_M1' %}left:2%;top:2%;width:17%{% elif mid == 'UB_R1_M2' %}left:2%;top:18%;width:17%{% elif mid == 'UB_R1_M3' %}left:2%;top:54%;width:17%{% elif mid == 'UB_R1_M4' %}left:2%;top:70%;width:17%{% elif mid == 'UB_R2_M1' %}left:24%;top:10%;width:17%{% elif mid == 'UB_R2_M2' %}left:24%;top:62%;width:17%{% elif mid == 'UB_F_M1' %}left:46%;top:32%;width:17%{% elif mid == 'LB_R1_M1' %}left:24%;top:28%;width:17%{% elif mid == 'LB_R1_M2' %}left:24%;top:44%;width:17%{% elif mid == 'LB_R2_M1' %}left:46%;top:10%;width:17%{% elif mid == 'LB_R2_M2' %}left:46%;top:54%;width:17%{% elif mid == 'LB_R3_M1' %}left:46%;top:68%;width:17%{% elif mid == 'LB_F_M1' %}left:68%;top:54%;width:17%{% elif mid == 'GF_R1_M1' %}left:68%;top:34%;width:26%{% endif -%}
+  {%- elif fk == '4se' -%}
+    {%- if mid == 'SF_M1' %}left:4%;top:10%;width:24%{% elif mid == 'SF_M2' %}left:4%;top:56%;width:24%{% elif mid == 'F_M1' %}left:52%;top:30%;width:32%{% endif -%}
+  {%- elif fk == '8se' -%}
+    {%- if mid == 'QF_M1' %}left:3%;top:2%;width:18%{% elif mid == 'QF_M2' %}left:3%;top:23%;width:18%{% elif mid == 'QF_M3' %}left:3%;top:52%;width:18%{% elif mid == 'QF_M4' %}left:3%;top:73%;width:18%{% elif mid == 'SF_M1' %}left:28%;top:12%;width:18%{% elif mid == 'SF_M2' %}left:28%;top:62%;width:18%{% elif mid == 'F_M1' %}left:56%;top:34%;width:26%{% endif -%}
+  {%- endif -%}
+{%- endmacro %}
+
+{# ── SVG connectors macro (viewBox 0 0 920 580) ── #}
+{% macro svg_connectors(fk) %}
+  {% if fk == '4de' %}
+    {# Every route leaves and enters at the vertical centre of the full match card. #}
+    <path d="M 221 75 C 248 75 248 133 276 133" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-dasharray="8,5" opacity="0.55"/>
+    <path d="M 221 215 C 248 215 248 133 276 133" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-dasharray="8,5" opacity="0.55"/>
+    {# UB_R1 losers → LB_R1 #}
+    <path d="M 221 75 C 245 75 245 377 221 377" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="6,5" opacity="0.45"/>
+    <path d="M 221 215 C 250 215 250 377 221 377" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="6,5" opacity="0.45"/>
+    {# LB_R1 winner + UB final loser → LB final #}
+    <path d="M 221 377 C 248 377 248 412 276 412" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-dasharray="8,5" opacity="0.55"/>
+    <path d="M 460 133 C 486 133 486 412 460 412" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="6,5" opacity="0.45"/>
+    {# UB_R2_M1 winner → GF seed1: rightward to grand final #}
+    <path d="M 460 133 C 497 133 497 273 534 273" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-dasharray="8,5" opacity="0.55"/>
+    {# LB_R2_M1 winner → GF seed2: rightward to grand final #}
+    <path d="M 460 412 C 497 412 497 273 534 273" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-dasharray="8,5" opacity="0.55"/>
+  {% elif fk == '8de' %}
+    {# ── UB_R1 winners → UB_R2 (col1→col2) ── #}
+    <path d="M 175 64 C 198 64 198 110 221 110" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="7,4" opacity="0.5"/>
+    <path d="M 175 157 C 198 157 198 110 221 110" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="7,4" opacity="0.5"/>
+    <path d="M 175 365 C 198 365 198 412 221 412" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="7,4" opacity="0.5"/>
+    <path d="M 175 458 C 198 458 198 412 221 412" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="7,4" opacity="0.5"/>
+    {# ── UB_R1 losers → LB_R1 (col1→col2, drop zone) ── #}
+    <path d="M 175 64 C 198 64 198 215 221 215" fill="none" stroke="var(--text-muted)" stroke-width="1.2" stroke-dasharray="5,5" opacity="0.4"/>
+    <path d="M 175 157 C 198 157 198 215 221 215" fill="none" stroke="var(--text-muted)" stroke-width="1.2" stroke-dasharray="5,5" opacity="0.4"/>
+    <path d="M 175 365 C 198 365 198 307 221 307" fill="none" stroke="var(--text-muted)" stroke-width="1.2" stroke-dasharray="5,5" opacity="0.4"/>
+    <path d="M 175 458 C 198 458 198 307 221 307" fill="none" stroke="var(--text-muted)" stroke-width="1.2" stroke-dasharray="5,5" opacity="0.4"/>
+    {# ── UB_R2 winners → UB_F (col2→col3) ── #}
+    <path d="M 377 110 C 400 110 400 238 423 238" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="7,4" opacity="0.5"/>
+    <path d="M 377 412 C 400 412 400 238 423 238" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="7,4" opacity="0.5"/>
+    {# ── UB_R2 losers → LB_R2 (col2→col3) ── #}
+    <path d="M 377 110 C 400 110 400 110 423 110" fill="none" stroke="var(--text-muted)" stroke-width="1.2" stroke-dasharray="5,5" opacity="0.4"/>
+    <path d="M 377 412 C 400 412 400 365 423 365" fill="none" stroke="var(--text-muted)" stroke-width="1.2" stroke-dasharray="5,5" opacity="0.4"/>
+    {# ── LB_R1 winners → LB_R2 (col2→col3) ── #}
+    <path d="M 377 215 C 400 215 400 110 423 110" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="7,4" opacity="0.5"/>
+    <path d="M 377 307 C 400 307 400 365 423 365" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="7,4" opacity="0.5"/>
+    {# ── LB_R2 winners → LB_R3 (col3 same-col, wrap right) ── #}
+    <path d="M 580 110 C 600 110 600 447 580 447" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="7,4" opacity="0.5"/>
+    <path d="M 580 365 C 600 365 600 447 580 447" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="7,4" opacity="0.5"/>
+    {# ── UB_F → GF + LB_F ── #}
+    <path d="M 580 238 C 603 238 603 249 626 249" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="8,5" opacity="0.7"/>
+    <path d="M 580 238 C 603 238 603 365 626 365" fill="none" stroke="var(--text-muted)" stroke-width="1.2" stroke-dasharray="5,5" opacity="0.4"/>
+    {# ── LB_R3 → LB_F ── #}
+    <path d="M 580 447 C 603 447 603 365 626 365" fill="none" stroke="var(--text-muted)" stroke-width="1.2" stroke-dasharray="5,5" opacity="0.4"/>
+    {# ── LB_F → GF ── #}
+    <path d="M 782 365 C 804 365 804 249 626 249" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="8,5" opacity="0.7"/>
+  {% elif fk == '4se' %}
+    <path d="M 258 110 C 368 110 368 226 478 226" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-dasharray="8,5" opacity="0.55"/>
+    <path d="M 258 377 C 368 377 368 226 478 226" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-dasharray="8,5" opacity="0.55"/>
+  {% elif fk == '8se' %}
+    <path d="M 193 64 C 225 64 225 122 258 122" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-dasharray="8,5" opacity="0.55"/>
+    <path d="M 193 186 C 225 186 225 122 258 122" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-dasharray="8,5" opacity="0.55"/>
+    <path d="M 193 354 C 225 354 225 412 258 412" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-dasharray="8,5" opacity="0.55"/>
+    <path d="M 193 476 C 225 476 225 412 258 412" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-dasharray="8,5" opacity="0.55"/>
+    <path d="M 423 122 C 469 122 469 249 515 249" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-dasharray="8,5" opacity="0.55"/>
+    <path d="M 423 412 C 469 412 469 249 515 249" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-dasharray="8,5" opacity="0.55"/>
+  {% endif %}
+{% endmacro %}
+
+{# ── Zone labels macro (canvas 920×580) ── #}
+{% macro zone_labels(fk) %}
+  {% if fk == '4de' %}
+    <div class="bracket-zone-label" style="left:1%;top:0.5%">{{ msg('public.events.event_detail.upper_bracket') }}</div>
+    <div class="bracket-zone-label" style="left:1%;top:47%">{{ msg('public.events.event_detail.lower_bracket') }}</div>
+    <div class="bracket-zone-label" style="left:58%;top:27%">{{ msg('public.events.event_detail.grand_final') }}</div>
+  {% elif fk == '8de' %}
+    <div class="bracket-zone-label" style="left:1%;top:0.5%">{{ msg('public.events.event_detail.upper_bracket') }}</div>
+    <div class="bracket-zone-label" style="left:1%;top:47%">{{ msg('public.events.event_detail.lower_bracket') }}</div>
+    <div class="bracket-zone-label" style="left:68%;top:31%">{{ msg('public.events.event_detail.grand_final') }}</div>
+  {% elif fk == '4se' %}
+    <div class="bracket-zone-label" style="left:3%;top:1%">{{ msg('public.events.event_detail.playoffs') }}</div>
+  {% elif fk == '8se' %}
+    <div class="bracket-zone-label" style="left:3%;top:1%">{{ msg('public.events.event_detail.playoffs') }}</div>
+  {% endif %}
+{% endmacro %}

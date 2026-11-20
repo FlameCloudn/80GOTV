@@ -5,9 +5,9 @@ import hmac
 import secrets
 from datetime import date, timedelta
 
-from config import Config
 from src.website.domains.games.guess_player_pool import BLAST_GUESS_PLAYERS, SOURCE_DATE
 from src.website.domains.games.scoring import daily_streaks, game_date
+from src.website.runtime.config import Config
 from src.website.runtime.database import write_transaction
 
 MAX_GUESSES = 8

@@ -1,22 +1,18 @@
 """Assemble independent Flask application instances without opening the database."""
 
-from pathlib import Path
-
 from flask import Flask
 
-from config import BASE_DIR, Config
-
-from .runtime.storage import default_data_root, site_paths
+from .runtime.config import Config
+from .runtime.storage import SOURCE_ROOT, default_data_root, site_paths
 from .web.assets import register_frontend_assets
 from .web.routing import site_routes
 
 
 def create_app(config=None):
-    root = Path(BASE_DIR)
     paths = site_paths((config or {}).get("SITE_DATA_ROOT") or default_data_root())
     app = Flask(
         __name__,
-        root_path=str(root),
+        root_path=str(SOURCE_ROOT),
         template_folder="src/website/web/templates",
         instance_path=str(paths.root),
     )

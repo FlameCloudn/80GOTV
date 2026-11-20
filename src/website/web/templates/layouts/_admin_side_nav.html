@@ -2,7 +2,7 @@
   后台左侧导航：按管理员的日常任务分组，每项一个自绘图标；“注册审核”“用户反馈”旁直接显示待处理数量
   （数量来自 blueprints/admin.py 的 admin_nav_counts，只读）。
   当前页面按网址第二段判断（/admin/teams/... → teams），给对应入口加 aria-current。
-  电脑上是左侧一列；窗口窄时（≤1100px）变成正文上方的横排，放不下就换行（样式见 admin.css）。
+  电脑上是左侧一列；窗口窄时（≤1100px）变成正文上方的横排，放不下就换行（样式见 frontend/features/admin/management-pages.css）。
 -#}
 {%- import "components/_icons.html" as ui -%}
 {%- set _admin_parts = request.path.strip('/').split('/') -%}

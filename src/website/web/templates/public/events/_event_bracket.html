@@ -1,0 +1,185 @@
+{% from 'public/events/_bracket_layout.html' import card_pos, svg_connectors, zone_labels -%}
+{% set bracket = event.bracket_data and event.bracket_data.strip() %}
+{% if bracket %}
+{% set bd = bracket|json_loads %}
+{% set tour = bd.tournament if bd and bd.tournament else bd %}
+{% if tour and (tour.rounds or tour.sections) %}
+{% set current_team_map = {} %}
+{% for current_team in teams %}
+  {% if current_team.id %}
+    {% set _ = current_team_map.update({current_team.id|string: current_team}) %}
+  {% endif %}
+{% endfor %}
+{% set team_map = {} %}
+{% if tour.teams %}
+{% for t in tour.teams %}
+{% set live_team = current_team_map.get(t.db_id|string) if t.db_id else None %}
+{% set _ = team_map.update({t.id: {
+  'name': live_team.name if live_team else t.name,
+  'short': live_team.short_name if live_team else (t.get('short_name') or t.name),
+  'logo': live_team.logo if live_team else None,
+  'db_id': t.db_id
+}}) %}
+{% endfor %}
+{% endif %}
+
+<section class="panel event-bracket-panel">
+<div class="panel-head"><h2 class="panel-title">{{ msg('public.events.event_detail.bracket') }}</h2><a href="{{ event_path(event) }}/stats" class="panel-link">{{ msg('public.events.event_detail.event_stats') }}</a></div>
+{% if tour.name or tour.type or tour.total_teams %}
+<div class="bracket-subtitle">
+  {% if tour.name %}{{ tour.name }}{% endif %}
+  {% if tour.type %}
+  <span class="badge badge-accent bracket-type-tag">
+    {% if tour.type in ('double_elim','double_elimination','double') %}{{ msg('public.events.event_detail.double_elimination') }}
+    {% elif tour.type in ('single_elim','single_elimination','single') %}{{ msg('public.events.event_detail.single_elimination') }}
+    {% elif tour.type == 'swiss' %}{{ msg('public.events.event_detail.swiss') }}
+    {% else %}{{ tour.type }}{% endif %}
+  </span>
+  {% endif %}
+  {% if tour.total_teams %}<span>{{ msg('public.events.event_detail.total_teams_teams', total_teams=tour.total_teams) }}</span>{% endif %}
+</div>
+{% endif %}
+
+{% set is_swiss = tour.type == 'swiss' %}
+
+{# ── All matches flat list ── #}
+{% set all_matches = [] %}
+{% if tour.sections %}
+  {% for sec in tour.sections %}
+    {% for rd in sec.rounds %}
+      {% for m in rd.matches %}
+        {% set _ = all_matches.append(m) %}
+      {% endfor %}
+    {% endfor %}
+  {% endfor %}
+{% else %}
+  {% for rd in tour.rounds %}
+    {% for m in rd.matches %}
+      {% set _ = all_matches.append(m) %}
+    {% endfor %}
+  {% endfor %}
+{% endif %}
+
+{# ── Format detection ── #}
+{% set tt = tour.total_teams|int if tour.total_teams else 8 %}
+{% set fmt_key = None %}
+{% if tour.type in ('double_elim','double_elimination','double') %}
+  {% set fmt_key = '4de' if tt <= 4 else '8de' %}
+{% elif tour.type in ('single_elim','single_elimination','single') %}
+  {% set fmt_key = '4se' if tt <= 4 else '8se' %}
+{% else %}
+  {# 从 match IDs 推断格式（兼容旧数据） #}
+  {% set mid_ids = all_matches|map(attribute='id')|join(',') %}
+  {% if ('UB_' in mid_ids) and ('LB_' in mid_ids) and ('GF_' in mid_ids) %}
+    {% set fmt_key = '4de' if tt <= 4 else '8de' %}
+  {% elif 'QF_' in mid_ids %}
+    {% set fmt_key = '8se' %}
+  {% elif 'SF_' in mid_ids and all_matches|length <= 3 %}
+    {% set fmt_key = '4se' %}
+  {% endif %}
+{% endif %}
+
+{% set positioned_cards = [] %}
+{% if fmt_key and not is_swiss %}
+  {% for match in all_matches %}
+    {% set card_id = match.get('id') or match.get('match_id') or '' %}
+    {% set position = card_pos(fmt_key, card_id) %}
+    {% if position %}
+      {% set _ = positioned_cards.append((match, card_id, position)) %}
+    {% endif %}
+  {% endfor %}
+{% endif %}
+
+<div class="bracket-scroll-wrapper">
+  <div class="bracket-mobile-hint">
+    <span>&harr; {{ msg('public.events.event_detail.scroll_horizontally_to_view_the_full') }}</span>
+  </div>
+  <div class="bracket-container">
+{% if is_swiss %}
+  {# ── Swiss: text-based layout ── #}
+  <div class="bracket-swiss">
+  {% if tour.sections %}
+    {% for section in tour.sections %}
+      <div class="bracket-swiss-round">
+        <div class="bracket-swiss-round-label">{{ section.label }}</div>
+        <div class="bracket-swiss-groups">
+        {% for round in section.rounds %}
+          <div class="bracket-swiss-group">
+            <div class="bracket-swiss-group-title">{{ round.name }}</div>
+            <div class="bracket-swiss-matches">
+            {% for m in round.matches %}
+              {% set round_name = round.name %}
+              {% include 'public/events/event_detail_card.html' %}
+            {% endfor %}
+            </div>
+          </div>
+        {% endfor %}
+        </div>
+      </div>
+    {% endfor %}
+  {% else %}
+    {% for round in tour.rounds %}
+      <div class="bracket-swiss-round">
+        <div class="bracket-swiss-round-label">{{ round.name }}</div>
+        <div class="bracket-swiss-matches">
+        {% for m in round.matches %}
+          {% set round_name = round.name %}
+          {% include 'public/events/event_detail_card.html' %}
+        {% endfor %}
+        </div>
+      </div>
+    {% endfor %}
+  {% endif %}
+  </div>
+
+{% elif positioned_cards %}
+  {# ── Build round name lookup for card headers ── #}
+  {% set rn_map = {} %}
+  {% if tour.sections %}
+    {% for sec in tour.sections %}
+      {% for rd in sec.rounds %}
+        {% for m in rd.matches %}
+          {% set display_round_name = msg('public.events.event_detail.grand_final') if rd.name == 'Grand Final' else rd.name %}
+          {% set _ = rn_map.update({m.get('id') or m.get('match_id') or '': display_round_name}) %}
+        {% endfor %}
+      {% endfor %}
+    {% endfor %}
+  {% else %}
+    {% for rd in tour.rounds %}
+      {% for m in rd.matches %}
+        {% set display_round_name = msg('public.events.event_detail.grand_final') if rd.name == 'Grand Final' else rd.name %}
+        {% set _ = rn_map.update({m.get('id') or m.get('match_id') or '': display_round_name}) %}
+      {% endfor %}
+    {% endfor %}
+  {% endif %}
+  {# ── Elimination: canvas with SVG connectors ── #}
+  <div class="bracket-canvas" data-format="{{ fmt_key }}">
+    <svg class="bracket-connectors" viewBox="0 0 920 580" preserveAspectRatio="xMidYMid meet">
+      {{ svg_connectors(fmt_key) }}
+    </svg>
+    {{ zone_labels(fmt_key) }}
+    {% for m, mid, pos_style in positioned_cards %}
+      {% set round_name = rn_map.get(mid, '') %}
+      {% include 'public/events/event_detail_card.html' %}
+    {% endfor %}
+  </div>
+{% else %}
+  {# 不认识赛制或匹配不到卡片坐标时，沿用旧轮次列表。 #}
+  <div class="bracket-dynamic">
+    {% for round in tour.rounds %}
+    <div class="bracket-round-col">
+      <div class="bracket-round-title">{{ round.name }}</div>
+      {% for m in round.matches %}
+        {% set round_name = round.name %}
+        {% include 'public/events/event_detail_card.html' %}
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+{% endif %}
+</div>
+</div>
+</section>
+
+{% endif %}
+{% endif %}

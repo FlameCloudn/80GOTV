@@ -1,9 +1,7 @@
 """新库和早于 v3 的旧库：安装领域表、补齐旧字段和业务种子数据。"""
 
 import sqlite3
-from pathlib import Path
 
-from config import BASE_DIR
 from src.website.runtime.legacy_upgrade import (
     _ensure_default_admin,
     _ensure_event_champion_snapshot_tables,
@@ -19,6 +17,7 @@ from src.website.runtime.legacy_upgrade import (
     _ensure_security_state_tables,
     _ensure_yearly_top10_table,
 )
+from src.website.runtime.storage import SOURCE_ROOT
 
 
 def _statements(script):
@@ -147,7 +146,7 @@ def _upgrade_references(conn, c):
 
 def install_base_schema(conn):
     c = conn.cursor()
-    bootstrap = Path(BASE_DIR) / "migrations" / "bootstrap"
+    bootstrap = SOURCE_ROOT / "migrations/bootstrap"
     for owner in (
         "directory",
         "events",

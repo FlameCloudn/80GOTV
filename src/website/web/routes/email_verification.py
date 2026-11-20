@@ -8,8 +8,8 @@ import time
 
 from flask import current_app, jsonify, request, session
 
-from config import Config
 from src.website.domains.identity import email_challenges
+from src.website.runtime.config import Config
 from src.website.runtime.database import db
 from src.website.runtime.mail import send_registration_email
 from src.website.runtime.rate_limiter import rate_limit

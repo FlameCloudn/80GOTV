@@ -10,7 +10,7 @@ import time
 from flask import Response, current_app, session
 from PIL import Image, ImageDraw, ImageFont
 
-from config import Config
+from src.website.runtime.config import Config
 from src.website.web.routing import site_routes
 
 CAPTCHA_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"

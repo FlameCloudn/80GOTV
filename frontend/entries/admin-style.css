@@ -1,1 +1,7 @@
-@import "../features/admin/admin.css" layer(pages);
+@import "../features/admin/workspace.css" layer(pages);
+@import "../features/admin/forms.css" layer(pages);
+@import "../features/admin/match-editing.css" layer(pages);
+@import "../features/admin/bracket-editor.css" layer(pages);
+@import "../features/admin/management-pages.css" layer(pages);
+@import "../features/admin/registration.css" layer(pages);
+@import "../features/admin/managed-operations.css" layer(pages);

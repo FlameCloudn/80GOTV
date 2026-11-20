@@ -4,10 +4,7 @@ import json
 from datetime import date
 from pathlib import Path
 
-from config import BASE_DIR
-
-ROOT = Path(BASE_DIR)
-SNAPSHOT_PATH = ROOT / "data" / "guess_player_profiles.json"
+SNAPSHOT_PATH = Path(__file__).with_name("data") / "guess_player_profiles.json"
 BLAST_PLAYER_SOURCE_URL = "https://data.blast.tv/minigames/counterstrikle/players.json"
 
 

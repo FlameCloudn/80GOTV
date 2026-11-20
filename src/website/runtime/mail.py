@@ -3,7 +3,7 @@
 import smtplib
 from email.message import EmailMessage
 
-from config import Config
+from src.website.runtime.config import Config
 
 
 def send_registration_email(email, code):

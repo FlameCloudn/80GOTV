@@ -3,7 +3,6 @@
 import re
 
 from src.website.domains.directory.team_logo_service import team_logo_static_path
-from src.website.domains.events.reads import registration_groups
 from src.website.domains.operations.broadcast_rosters import asset_path, event_substitutes
 
 
@@ -20,17 +19,13 @@ def _registration_short_name(name):
 def _registration_players(conn, registration_id, creator_user_id):
     rows = conn.execute(
         """
-        SELECT s.id AS slot_id, s.slot_index, s.user_id, s.player_name,
-               s.steam_id AS slot_steam_id, s.filled_by_creator,
+        SELECT s.slot_index, s.user_id, s.filled_by_creator,
                COALESCE(p.id, -1000000-s.id) AS id,
                COALESCE(NULLIF(s.player_name, ''), NULLIF(p.nickname, ''),
                         NULLIF(u.username, '')) AS nickname,
-               COALESCE(NULLIF(p.group_username_override, ''),
-                        NULLIF(u.group_username, ''), '') AS group_username,
                COALESCE(NULLIF(p.steam_id, ''), NULLIF(s.steam_id, ''),
                         NULLIF(u.steam_id64, ''), '') AS steam_id,
-               COALESCE(NULLIF(p.avatar, ''), NULLIF(u.avatar, ''), '') AS avatar,
-               COALESCE(p.is_bashizhong_student, u.is_bashizhong_student) AS is_bashizhong_student
+               COALESCE(NULLIF(p.avatar, ''), NULLIF(u.avatar, ''), '') AS avatar
         FROM event_registration_slots s
         LEFT JOIN users u ON u.id=s.user_id
         LEFT JOIN players p ON p.id=(
@@ -52,37 +47,13 @@ def _registration_players(conn, registration_id, creator_user_id):
             {
                 "id": row["id"],
                 "nickname": row["nickname"] or "",
-                "group_username": row["group_username"] or "",
                 "steam_id": row["steam_id"] or "",
                 "avatar": asset_path("avatars", row["avatar"]),
-                "is_bashizhong_student": row["is_bashizhong_student"],
                 "role": role,
                 "slot": row["slot_index"] + 1,
             }
         )
     return players
-
-
-def _managed_registration_players(slots, creator_user_id):
-    return [
-        {
-            "id": slot["player_id"] or slot["id"],
-            "nickname": slot["player_name"],
-            "group_username": slot["group_username"] or "",
-            "steam_id": slot["steam_id"],
-            "avatar": asset_path("avatars", slot["avatar"]),
-            "is_bashizhong_student": slot["is_bashizhong_student"],
-            "role": (
-                "reserved"
-                if slot["filled_by_creator"]
-                else "captain"
-                if slot["user_id"] == creator_user_id
-                else "member"
-            ),
-            "slot": slot["slot_index"] + 1,
-        }
-        for slot in slots
-    ]
 
 
 def _registration_team(registration, players):
@@ -99,6 +70,38 @@ def _registration_team(registration, players):
     }
 
 
+def _managed_registration_teams(conn, event_id):
+    teams = {}
+    # The view supplies all five slots, including seats not yet filled by a player.
+    for row in conn.execute(
+        """SELECT r.id,r.team_name,r.team_logo,r.creator_user_id,
+                  s.slot_index,s.player_id,s.player_name,s.steam_id,s.avatar,
+                  s.user_id,s.filled_by_creator
+           FROM host_registration_slots_read s
+           JOIN event_registrations r ON r.id=s.registration_id
+           WHERE s.event_id=? ORDER BY r.created_at,r.id,s.slot_index""",
+        (event_id,),
+    ):
+        registration_id, slot = row["id"], row["slot_index"]
+        if registration_id not in teams:
+            teams[registration_id] = _registration_team(row, [])
+        role = "captain" if row["user_id"] == row["creator_user_id"] else "member"
+        if row["filled_by_creator"]:
+            role = "reserved"
+        teams[registration_id]["players"].append(
+            {
+                # Keep the desktop client's existing placeholder ID for empty/reserved seats.
+                "id": row["player_id"] or -(1000000 + registration_id * 5 + slot),
+                "nickname": row["player_name"],
+                "steam_id": row["steam_id"],
+                "avatar": asset_path("avatars", row["avatar"]),
+                "role": role,
+                "slot": slot + 1,
+            }
+        )
+    return list(teams.values())
+
+
 def _legacy_registrations(conn, event_id):
     return conn.execute(
         """
@@ -113,24 +116,16 @@ def _legacy_registrations(conn, event_id):
 
 def read_event_payload(conn, event, *, hosted):
     event_id = event["id"]
-    groups = registration_groups(conn, event_id) if hosted else []
-    registrations = [] if hosted else _legacy_registrations(conn, event_id)
     substitutes = event_substitutes(conn, event_id)
     if hosted:
-        teams = [
-            _registration_team(
-                group["info"],
-                _managed_registration_players(group["slots"], group["info"]["creator_user_id"]),
-            )
-            for group in reversed(groups)
-        ]
+        teams = _managed_registration_teams(conn, event_id)
     else:
         teams = [
             _registration_team(
                 registration,
                 _registration_players(conn, registration["id"], registration["creator_user_id"]),
             )
-            for registration in registrations
+            for registration in _legacy_registrations(conn, event_id)
         ]
     return {
         "source_type": "event",
