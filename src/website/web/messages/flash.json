@@ -1,0 +1,690 @@
+{
+  "flash.admin_catalog.deletion_failed_value1": {
+    "zh": "删除失败：{value1}",
+    "en": "Deletion failed: {value1}"
+  },
+  "flash.admin_catalog.invalid_avatar_file_upload_jpg_png": {
+    "zh": "头像文件无效，请上传 jpg、png 或 gif 图片",
+    "en": "Invalid avatar file; upload JPG, PNG, or GIF"
+  },
+  "flash.admin_catalog.new_password_cannot_exceed_128_characters": {
+    "zh": "新密码不能超过 128 位",
+    "en": "New password cannot exceed 128 characters"
+  },
+  "flash.admin_catalog.no_players_with_a_steam_id": {
+    "zh": "暂无填写 Steam ID 的选手可更新",
+    "en": "No players with a Steam ID to refresh"
+  },
+  "flash.admin_catalog.passwords_do_not_match": {
+    "zh": "两次输入的密码不一致",
+    "en": "Passwords do not match"
+  },
+  "flash.admin_catalog.player_deleted": {
+    "zh": "选手删除成功",
+    "en": "Player deleted"
+  },
+  "flash.admin_catalog.player_has_no_linked_website_account": {
+    "zh": "该选手尚未关联可登录的网站账号，无法修改密码",
+    "en": "Player has no linked website account; password cannot be set"
+  },
+  "flash.admin_catalog.player_not_found": {
+    "zh": "选手不存在",
+    "en": "Player not found"
+  },
+  "flash.admin_catalog.player_updated": {
+    "zh": "选手更新成功",
+    "en": "Player updated"
+  },
+  "flash.admin_catalog.steam_api_is_not_configured_cannot": {
+    "zh": "Steam 接口尚未配置，暂时无法获取游戏时长",
+    "en": "Steam API is not configured; cannot fetch playtime"
+  },
+  "flash.admin_catalog.team_added": {
+    "zh": "队伍添加成功",
+    "en": "Team added"
+  },
+  "flash.admin_catalog.team_deleted": {
+    "zh": "队伍删除成功",
+    "en": "Team deleted"
+  },
+  "flash.admin_catalog.team_not_found": {
+    "zh": "队伍不存在",
+    "en": "Team not found"
+  },
+  "flash.admin_catalog.team_updated": {
+    "zh": "队伍更新成功",
+    "en": "Team updated"
+  },
+  "flash.admin_catalog.the_new_password_needs_at_least": {
+    "zh": "新密码至少 8 位",
+    "en": "The new password needs at least 8 characters"
+  },
+  "flash.admin_catalog.this_player_is_still_used_by": {
+    "zh": "该选手仍被账号、比赛或荣誉数据使用，不能直接删除",
+    "en": "This player is still used by account, match or award records and cannot be deleted"
+  },
+  "flash.admin_catalog.this_steam_id_is_linked_to": {
+    "zh": "该 Steam ID 已关联其他网站账号",
+    "en": "This Steam ID is linked to another website account"
+  },
+  "flash.admin_catalog.this_team_is_still_used_by": {
+    "zh": "该队伍仍被选手、比赛或赛事数据使用，不能直接删除",
+    "en": "This team is still used by player, match or event records and cannot be deleted"
+  },
+  "flash.admin_catalog.updated_the_website_password_for_player": {
+    "zh": "已修改选手【{value1}】的网站账号密码",
+    "en": "Updated the website password for player “{value1}”"
+  },
+  "flash.admin_core.account_creation_is_integrated_into_player": {
+    "zh": "创建账号已合并到选手管理，请在同一张表单中添加",
+    "en": "Account creation is integrated into Player Management"
+  },
+  "flash.admin_core.application_not_found": {
+    "zh": "申请不存在",
+    "en": "Application not found"
+  },
+  "flash.admin_core.logged_in": {
+    "zh": "登录成功",
+    "en": "Logged in"
+  },
+  "flash.admin_core.logged_out": {
+    "zh": "已退出登录",
+    "en": "Logged out"
+  },
+  "flash.admin_core.too_many_login_attempts_try_again": {
+    "zh": "登录尝试次数过多，请 5 分钟后再试",
+    "en": "Too many login attempts. Try again in 5 minutes."
+  },
+  "flash.admin_core.wrong_username_or_password": {
+    "zh": "用户名或密码错误",
+    "en": "Wrong username or password"
+  },
+  "flash.admin_events.bracket_save_failed_exc": {
+    "zh": "对阵图保存失败：{exc}",
+    "en": "Bracket save failed: {exc}"
+  },
+  "flash.admin_events.bracket_saved": {
+    "zh": "对阵图保存成功",
+    "en": "Bracket saved"
+  },
+  "flash.admin_events.deletion_failed_value1": {
+    "zh": "删除失败：{value1}",
+    "en": "Deletion failed: {value1}"
+  },
+  "flash.admin_events.event_added": {
+    "zh": "赛事添加成功",
+    "en": "Event added"
+  },
+  "flash.admin_events.event_deleted": {
+    "zh": "赛事删除成功",
+    "en": "Event deleted"
+  },
+  "flash.admin_events.event_not_found": {
+    "zh": "赛事不存在",
+    "en": "Event not found"
+  },
+  "flash.admin_events.event_registrations_and_rosters_must_be": {
+    "zh": "本届报名与阵容需要保留，请使用赛事归档。",
+    "en": "Event registrations and rosters must be preserved; archive the event instead."
+  },
+  "flash.admin_events.event_updated": {
+    "zh": "赛事更新成功",
+    "en": "Event updated"
+  },
+  "flash.admin_events.managed_registration_is_not_enabled_for": {
+    "zh": "本届赛事尚未启用新报名管理",
+    "en": "Managed registration is not enabled for this event"
+  },
+  "flash.admin_events.prematch_management_is_not_enabled_on": {
+    "zh": "此数据库尚未开放赛前托管",
+    "en": "Prematch management is not enabled on this database"
+  },
+  "flash.admin_events.this_event_still_has_matches_or": {
+    "zh": "该赛事仍有比赛或报名数据，不能直接删除",
+    "en": "This event still has matches or registrations and cannot be deleted"
+  },
+  "flash.admin_matches.a_match_with_the_same_event": {
+    "zh": "相同赛事、时间和参赛方的比赛已存在",
+    "en": "A match with the same event, time and participants already exists"
+  },
+  "flash.admin_matches.deletion_failed_value1": {
+    "zh": "删除失败：{value1}",
+    "en": "Deletion failed: {value1}"
+  },
+  "flash.admin_matches.legacy_matches_cannot_be_moved_into": {
+    "zh": "旧比赛不能移动到托管赛事",
+    "en": "Legacy matches cannot be moved into a managed event"
+  },
+  "flash.admin_matches.map_veto_has_started_format_and": {
+    "zh": "BP 已开始，不能更改赛制或地图等比赛设置",
+    "en": "Map veto has started. Format and map settings are locked."
+  },
+  "flash.admin_matches.match_added": {
+    "zh": "比赛添加成功",
+    "en": "Match added"
+  },
+  "flash.admin_matches.match_added_lock_the_match_roster": {
+    "zh": "比赛添加成功，请确认本场名单后进行 BP",
+    "en": "Match added; lock the Match Roster before Map Veto"
+  },
+  "flash.admin_matches.match_completed_saved_new_game_log": {
+    "zh": "比赛已结束，新增保存 {saved} 条 Game Log",
+    "en": "Match completed; {saved} new Game Log entries saved"
+  },
+  "flash.admin_matches.match_deleted": {
+    "zh": "比赛删除成功",
+    "en": "Match deleted"
+  },
+  "flash.admin_matches.match_not_found": {
+    "zh": "比赛不存在",
+    "en": "Match not found"
+  },
+  "flash.admin_matches.match_rosters_locked": {
+    "zh": "本场双方名单已冻结",
+    "en": "Match rosters locked"
+  },
+  "flash.admin_matches.match_save_failed_exc": {
+    "zh": "比赛保存失败：{exc}",
+    "en": "Match save failed: {exc}"
+  },
+  "flash.admin_matches.match_updated": {
+    "zh": "比赛更新成功",
+    "en": "Match updated"
+  },
+  "flash.admin_matches.the_match_could_not_be_completed": {
+    "zh": "比赛结束失败，所有变更均未保存，请稍后重试",
+    "en": "The match could not be completed. No changes were saved. Please try again later."
+  },
+  "flash.admin_matches.the_match_could_not_be_reopened": {
+    "zh": "重新开启失败，所有变更均未保存，请稍后重试",
+    "en": "The match could not be reopened. No changes were saved. Please try again later."
+  },
+  "flash.admin_matches.the_match_could_not_be_saved": {
+    "zh": "比赛保存失败，请稍后重试",
+    "en": "The match could not be saved. Please try again later."
+  },
+  "flash.admin_matches.the_same_player_cannot_play_on": {
+    "zh": "两边不能选择同一名选手",
+    "en": "The same player cannot play on both sides"
+  },
+  "flash.admin_matches.the_two_teams_must_be_different": {
+    "zh": "两支队伍不能相同",
+    "en": "The two teams must be different"
+  },
+  "flash.admin_news.deletion_failed_value1": {
+    "zh": "删除失败：{value1}",
+    "en": "Deletion failed: {value1}"
+  },
+  "flash.admin_news.news_added": {
+    "zh": "新闻添加成功",
+    "en": "News added"
+  },
+  "flash.admin_news.news_deleted": {
+    "zh": "新闻删除成功",
+    "en": "News deleted"
+  },
+  "flash.admin_news.news_not_found": {
+    "zh": "新闻不存在",
+    "en": "News not found"
+  },
+  "flash.admin_news.news_updated": {
+    "zh": "新闻更新成功",
+    "en": "News updated"
+  },
+  "flash.admin_operations.could_not_save_please_try_again": {
+    "zh": "保存失败，请稍后重试",
+    "en": "Could not save; please try again"
+  },
+  "flash.admin_operations.feedback_entry_not_found": {
+    "zh": "反馈不存在",
+    "en": "Feedback entry not found"
+  },
+  "flash.admin_operations.invalid_feedback_status": {
+    "zh": "反馈状态无效",
+    "en": "Invalid feedback status"
+  },
+  "flash.admin_operations.invalid_year": {
+    "zh": "年份无效",
+    "en": "Invalid year"
+  },
+  "flash.admin_operations.merge_failed_exc": {
+    "zh": "合并失败：{exc}",
+    "en": "Merge failed: {exc}"
+  },
+  "flash.admin_operations.merged_duplicate_profile_value1_into_value2": {
+    "zh": "已将重复档案“{value1}”合并到“{value2}”",
+    "en": "Merged duplicate profile “{value1}” into “{value2}”"
+  },
+  "flash.admin_operations.rankings_can_only_be_managed_from": {
+    "zh": "只能管理 {FIRST_AWARD_YEAR} 年至今年的榜单",
+    "en": "Rankings can only be managed from {FIRST_AWARD_YEAR} through the current year"
+  },
+  "flash.admin_operations.select_two_players_to_merge": {
+    "zh": "请选择要合并的两个选手",
+    "en": "Select two players to merge"
+  },
+  "flash.admin_operations.updated": {
+    "zh": "已更新",
+    "en": "Updated"
+  },
+  "flash.auth.a_player_already_uses_this_nickname": {
+    "zh": "该昵称已被选手使用，请更换用户名",
+    "en": "A player already uses this nickname. Choose another username."
+  },
+  "flash.auth.application_submitted_you_can_log_in": {
+    "zh": "申请已提交，等待管理员审核；审核通过后才能登录",
+    "en": "Application submitted. You can log in after an admin approves it."
+  },
+  "flash.auth.avatar_updated": {
+    "zh": "头像已更新",
+    "en": "Avatar updated"
+  },
+  "flash.auth.choose_an_image": {
+    "zh": "请选择图片",
+    "en": "Choose an image"
+  },
+  "flash.auth.choose_whether_you_are_or_were": {
+    "zh": "请选择你是否是或曾经是八十中学生",
+    "en": "Choose whether you are or were a No. 80 High School student"
+  },
+  "flash.auth.could_not_save_please_try_again": {
+    "zh": "保存失败，请稍后重试",
+    "en": "Could not save; please try again"
+  },
+  "flash.auth.details_saved": {
+    "zh": "资料已保存",
+    "en": "Details saved"
+  },
+  "flash.auth.enter_a_valid_email_address": {
+    "zh": "请输入有效的邮箱地址",
+    "en": "Enter a valid email address"
+  },
+  "flash.auth.external_players_do_not_need_a": {
+    "zh": "外校选手不需要填写群内用户名",
+    "en": "External players do not need a group nickname"
+  },
+  "flash.auth.finish_your_account_details_first": {
+    "zh": "请先完成账号资料设置",
+    "en": "Finish your account details first"
+  },
+  "flash.auth.group_nickname_updated": {
+    "zh": "群内用户名已更新",
+    "en": "Group nickname updated"
+  },
+  "flash.auth.invalid_avatar_upload_a_png_jpg": {
+    "zh": "头像文件无效，请上传 png/jpg/jpeg/gif 图片",
+    "en": "Invalid avatar. Upload a png, jpg, jpeg or gif image."
+  },
+  "flash.auth.invalid_file_upload_a_png_jpg": {
+    "zh": "文件内容无效，请上传 png/jpg/jpeg/gif 图片",
+    "en": "Invalid file. Upload a png, jpg, jpeg or gif image."
+  },
+  "flash.auth.logged_in": {
+    "zh": "登录成功",
+    "en": "Logged in"
+  },
+  "flash.auth.logged_out": {
+    "zh": "已退出登录",
+    "en": "Logged out"
+  },
+  "flash.auth.nickname_updated": {
+    "zh": "昵称已更新",
+    "en": "Nickname updated"
+  },
+  "flash.auth.nicknames_must_be_2_20_characters": {
+    "zh": "昵称长度 2-20 个字符",
+    "en": "Nicknames must be 2–20 characters"
+  },
+  "flash.auth.no_account_is_linked_to_this": {
+    "zh": "未找到该 Steam ID 对应的账号",
+    "en": "No account is linked to this Steam ID"
+  },
+  "flash.auth.password_changed_your_account_is_waiting": {
+    "zh": "密码修改成功，账号等待管理员审核",
+    "en": "Password changed. Your account is waiting for admin approval."
+  },
+  "flash.auth.password_updated": {
+    "zh": "密码已更新",
+    "en": "Password updated"
+  },
+  "flash.auth.passwords_need_at_least_10_characters": {
+    "zh": "密码至少 10 位，并且同时包含字母和数字",
+    "en": "Passwords need at least 10 characters with both letters and numbers"
+  },
+  "flash.auth.passwords_need_at_least_8_characters": {
+    "zh": "密码至少 8 位",
+    "en": "Passwords need at least 8 characters"
+  },
+  "flash.auth.the_application_did_not_pass_the": {
+    "zh": "注册申请未通过安全检查",
+    "en": "The application did not pass the security check"
+  },
+  "flash.auth.the_new_password_needs_at_least": {
+    "zh": "新密码至少 8 位",
+    "en": "The new password needs at least 8 characters"
+  },
+  "flash.auth.the_new_passwords_do_not_match": {
+    "zh": "两次新密码不一致",
+    "en": "The new passwords do not match"
+  },
+  "flash.auth.the_passwords_do_not_match": {
+    "zh": "两次密码不一致",
+    "en": "The passwords do not match"
+  },
+  "flash.auth.this_email_is_already_registered": {
+    "zh": "该邮箱已经注册",
+    "en": "This email is already registered"
+  },
+  "flash.auth.this_nickname_is_taken": {
+    "zh": "该昵称已被使用",
+    "en": "This nickname is taken"
+  },
+  "flash.auth.this_steam_account_is_already_registered": {
+    "zh": "该 Steam 账号已注册，请使用忘记密码找回账号",
+    "en": "This Steam account is already registered. Use “Forgot password” to recover it."
+  },
+  "flash.auth.this_username_is_taken": {
+    "zh": "用户名已存在",
+    "en": "This username is taken"
+  },
+  "flash.auth.too_fast_wait_two_seconds_and": {
+    "zh": "提交过快，请稍等两秒后再试",
+    "en": "Too fast. Wait two seconds and try again."
+  },
+  "flash.auth.too_many_login_attempts_try_again": {
+    "zh": "登录尝试次数过多，请 5 分钟后再试",
+    "en": "Too many login attempts. Try again in 5 minutes."
+  },
+  "flash.auth.too_many_sign_up_attempts_please": {
+    "zh": "注册尝试次数过多，请稍后再试",
+    "en": "Too many sign-up attempts. Please try again later."
+  },
+  "flash.auth.username_and_password_are_required": {
+    "zh": "用户名和密码不能为空",
+    "en": "Username and password are required"
+  },
+  "flash.auth.usernames_may_only_contain_chinese_characters": {
+    "zh": "用户名只能包含中文、字母、数字、下划线或短横线",
+    "en": "Usernames may only contain Chinese characters, letters, numbers, underscores or hyphens"
+  },
+  "flash.auth.usernames_must_be_2_20_characters": {
+    "zh": "用户名长度 2-20 个字符",
+    "en": "Usernames must be 2–20 characters"
+  },
+  "flash.auth.verify_with_steam_before_submitting": {
+    "zh": "提交申请前请先通过 Steam 验证",
+    "en": "Verify with Steam before submitting"
+  },
+  "flash.auth.verify_with_steam_first": {
+    "zh": "请先通过 Steam 验证身份",
+    "en": "Verify with Steam first"
+  },
+  "flash.auth.verify_your_email_code_first": {
+    "zh": "请先完成邮箱验证码验证",
+    "en": "Verify your email code first"
+  },
+  "flash.auth.wrong_captcha": {
+    "zh": "验证码错误",
+    "en": "Wrong captcha"
+  },
+  "flash.auth.wrong_current_password": {
+    "zh": "当前密码错误",
+    "en": "Wrong current password"
+  },
+  "flash.auth.wrong_username_or_password": {
+    "zh": "用户名或密码错误",
+    "en": "Wrong username or password"
+  },
+  "flash.auth.your_email_verification_is_no_longer": {
+    "zh": "邮箱验证已失效，请重新验证",
+    "en": "Your email verification is no longer valid. Verify it again."
+  },
+  "flash.bp.match_not_found": {
+    "zh": "比赛不存在",
+    "en": "Match not found"
+  },
+  "flash.bp.please_log_in_first": {
+    "zh": "请先登录",
+    "en": "Please log in first"
+  },
+  "flash.bp.you_are_not_a_participant_in": {
+    "zh": "你未参加该比赛",
+    "en": "You are not a participant in this match"
+  },
+  "flash.comments.comment_and_value1_replies_deleted": {
+    "zh": "评论及 {value1} 条回复已删除",
+    "en": "Comment and {value1} replies deleted"
+  },
+  "flash.comments.comment_posted": {
+    "zh": "评论发表成功",
+    "en": "Comment posted"
+  },
+  "flash.event_registration.a_team_with_this_name_is": {
+    "zh": "该队伍名已经提交过报名",
+    "en": "A team with this name is already registered"
+  },
+  "flash.event_registration.choose_a_valid_slot": {
+    "zh": "请选择有效的位置",
+    "en": "Choose a valid slot"
+  },
+  "flash.event_registration.enter_a_team_name": {
+    "zh": "请输入队伍名",
+    "en": "Enter a team name"
+  },
+  "flash.event_registration.invalid_logo_upload_a_png_jpg": {
+    "zh": "队标无效，请上传不超过 10MB 的 PNG、JPG 或 GIF 图片",
+    "en": "Invalid logo. Upload a PNG, JPG or GIF up to 10MB."
+  },
+  "flash.event_registration.invalid_steam_id_in_slot_value1": {
+    "zh": "位置 {value1} 的 SteamID 格式不正确",
+    "en": "Invalid Steam ID in slot {value1}"
+  },
+  "flash.event_registration.link_your_steam_account_before_registering": {
+    "zh": "报名赛事前请先绑定 Steam 账号",
+    "en": "Link your Steam account before registering"
+  },
+  "flash.event_registration.log_in_before_registering": {
+    "zh": "请先登录后再报名",
+    "en": "Log in before registering"
+  },
+  "flash.event_registration.registration_is_not_open_for_this": {
+    "zh": "该赛事未开放报名",
+    "en": "Registration is not open for this event"
+  },
+  "flash.event_registration.team_team_name_created_you_are": {
+    "zh": "队伍“{team_name}”创建成功，你现在是队长",
+    "en": "Team “{team_name}” created. You are now the captain."
+  },
+  "flash.event_registration.too_many_registration_actions_please_try": {
+    "zh": "报名操作过于频繁，请稍后再试",
+    "en": "Too many registration actions. Please try again later."
+  },
+  "flash.event_registration.you_are_already_on_a_registered": {
+    "zh": "你已经加入该赛事的一支报名队伍",
+    "en": "You are already on a registered team for this event"
+  },
+  "flash.event_registration.you_are_registered_individually_cancel_that": {
+    "zh": "你已经选择个人报名，请先取消个人报名",
+    "en": "You are registered individually. Cancel that first."
+  },
+  "flash.forum.reply_posted": {
+    "zh": "回复成功",
+    "en": "Reply posted"
+  },
+  "flash.forum.thread_posted": {
+    "zh": "帖子发布成功",
+    "en": "Thread posted"
+  },
+  "flash.forum.thread_updated": {
+    "zh": "帖子已更新",
+    "en": "Thread updated"
+  },
+  "flash.forum.you_are_posting_too_fast_try": {
+    "zh": "发帖过于频繁，请 5 分钟后再试",
+    "en": "You are posting too fast. Try again in 5 minutes."
+  },
+  "flash.guess_player.correct_guessed_in_attempt_number_tries": {
+    "zh": "猜对了！你用了 {attempt_number} 次",
+    "en": "Correct! Guessed in {attempt_number} tries"
+  },
+  "flash.guess_player.join_with_a_room_code_first": {
+    "zh": "请先通过房间码加入比赛",
+    "en": "Join with a room code first"
+  },
+  "flash.guess_player.no_daily_guesses_left_today": {
+    "zh": "今天的 8 次机会已经用完",
+    "en": "No daily guesses left today"
+  },
+  "flash.guess_player.out_of_guesses_for_this_round": {
+    "zh": "本局 8 次机会已经用完",
+    "en": "Out of guesses for this round"
+  },
+  "flash.guess_player.select_a_player_from_the_suggestions": {
+    "zh": "请从候选列表中选择一名选手",
+    "en": "Select a player from the suggestions"
+  },
+  "flash.guess_player.this_round_is_over_start_a": {
+    "zh": "本局已经结束，可以再开一局",
+    "en": "This round is over. Start a new one."
+  },
+  "flash.guess_player.today_s_challenge_is_over_come": {
+    "zh": "今天的猜选手已经结束，明天再来吧",
+    "en": "Today’s challenge is over. Come back tomorrow."
+  },
+  "flash.guess_player.too_fast_wait_a_few_seconds": {
+    "zh": "操作太快了，稍等几秒再试",
+    "en": "Too fast. Wait a few seconds and try again."
+  },
+  "flash.guess_player.too_fast_wait_a_few_seconds_2": {
+    "zh": "换题太快了，稍等几秒再试",
+    "en": "Too fast. Wait a few seconds before the next one."
+  },
+  "flash.guess_player.too_fast_wait_a_moment_before": {
+    "zh": "创建房间太快了，稍等一会再试",
+    "en": "Too fast. Wait a moment before creating another room."
+  },
+  "flash.guess_player.too_fast_wait_a_moment_before_2": {
+    "zh": "加入房间太快了，稍等一会再试",
+    "en": "Too fast. Wait a moment before joining again."
+  },
+  "flash.guess_player.you_already_guessed_this_player_this": {
+    "zh": "这名选手本局已经猜过了",
+    "en": "You already guessed this player this round"
+  },
+  "flash.guess_player.you_already_guessed_this_player_today": {
+    "zh": "这名选手今天已经猜过了",
+    "en": "You already guessed this player today"
+  },
+  "flash.map_quiz.too_fast_wait_a_few_seconds": {
+    "zh": "操作太快了，稍等几秒再试",
+    "en": "Too fast. Wait a few seconds and try again."
+  },
+  "flash.map_quiz.too_fast_wait_a_few_seconds_2": {
+    "zh": "换题太快了，稍等几秒再试",
+    "en": "Too fast. Wait a few seconds before the next one."
+  },
+  "flash.match_demo_import.bulk_import_complete_imported_count_demos": {
+    "zh": "批量导入完成：{imported_count} 个 Demo 已导入",
+    "en": "Bulk import complete: {imported_count} demos imported"
+  },
+  "flash.match_demo_import.demo_value1_analysis_failed_value2": {
+    "zh": "Demo #{value1} 分析失败：{value2}",
+    "en": "Demo #{value1} analysis failed: {value2}"
+  },
+  "flash.match_demo_import.import_failed_value1": {
+    "zh": "导入失败：{value1}",
+    "en": "Import failed: {value1}"
+  },
+  "flash.match_demo_import.select_at_least_one_dem_file": {
+    "zh": "请至少选择一个 .dem 文件",
+    "en": "Select at least one .dem file"
+  },
+  "flash.match_demo_import.this_match_allows_up_to_demo": {
+    "zh": "当前比赛最多只能上传 {demo_slot_count} 个 Demo",
+    "en": "This match allows up to {demo_slot_count} demo uploads"
+  },
+  "flash.match_operations.this_match_uses_the_legacy_process": {
+    "zh": "该比赛属于往届流程，请使用比赛编辑、上传 Demo 和录入数据页面。",
+    "en": "This match uses the legacy process. Use the match edit, Demo upload, and stats entry pages."
+  },
+  "flash.match_statistics.demo_stats_cannot_be_changed_after": {
+    "zh": "已结束比赛的 Demo 数据不可修改",
+    "en": "Demo stats cannot be changed after the match has finished"
+  },
+  "flash.match_statistics.stats_save_failed_value1": {
+    "zh": "数据保存失败：{value1}",
+    "en": "Stats save failed: {value1}"
+  },
+  "flash.match_statistics.value1_stats_saved": {
+    "zh": "{value1} 数据已保存",
+    "en": "{value1} stats saved"
+  },
+  "flash.player_bingo.already_finished": {
+    "zh": "本局已经完成",
+    "en": "This board is already complete."
+  },
+  "flash.player_bingo.cell_already_filled": {
+    "zh": "这个格子已经填过了",
+    "en": "This cell is already filled."
+  },
+  "flash.player_bingo.choose_a_player": {
+    "zh": "请从候选列表中选择一名选手",
+    "en": "Choose a player from the suggestions."
+  },
+  "flash.player_bingo.click_an_empty_cell_first_then": {
+    "zh": "请先点一个空格，再从候选列表中选择选手",
+    "en": "Click an empty cell first, then choose a player from the list"
+  },
+  "flash.player_bingo.game_not_found": {
+    "zh": "本局不存在",
+    "en": "This board does not exist."
+  },
+  "flash.player_bingo.invalid_cell": {
+    "zh": "格子位置无效",
+    "en": "This cell is not valid."
+  },
+  "flash.player_bingo.player_already_used": {
+    "zh": "同一名选手不能重复使用",
+    "en": "You can use each player only once."
+  },
+  "flash.player_bingo.player_does_not_match": {
+    "zh": "这名选手不同时符合两个条件",
+    "en": "This player does not meet both criteria."
+  },
+  "flash.player_bingo.too_fast_wait_a_few_seconds": {
+    "zh": "操作太快了，稍等几秒再试",
+    "en": "Too fast. Wait a few seconds and try again."
+  },
+  "flash.player_bingo.too_fast_wait_a_few_seconds_2": {
+    "zh": "换题太快了，稍等几秒再试",
+    "en": "Too fast. Wait a few seconds before the next one."
+  },
+  "flash.players.note_deleted": {
+    "zh": "私人备注已删除",
+    "en": "Private note removed."
+  },
+  "flash.players.note_invalid_characters": {
+    "zh": "备注不能包含换行或控制字符",
+    "en": "Notes cannot contain line breaks or control characters."
+  },
+  "flash.players.note_saved": {
+    "zh": "已将“{player}”备注为“{remark}”",
+    "en": "Saved the note “{remark}” for “{player}”."
+  },
+  "flash.players.note_too_long": {
+    "zh": "备注最多 {limit} 个字符",
+    "en": "Notes can be up to {limit} characters long."
+  },
+  "flash.players.this_player_has_no_site_account": {
+    "zh": "该选手尚未关联网站账号，暂时不能设置备注",
+    "en": "This player has no site account yet, so a note cannot be set"
+  },
+  "flash.players.too_many_note_changes_please_try": {
+    "zh": "备注修改过于频繁，请稍后再试",
+    "en": "Too many note changes. Please try again later."
+  },
+  "flash.players.you_cannot_set_a_private_note": {
+    "zh": "不能给自己设置私人备注",
+    "en": "You cannot set a private note for yourself"
+  }
+}

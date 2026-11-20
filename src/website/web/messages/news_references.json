@@ -1,0 +1,15 @@
+{
+  "news_reference.type.page": {"zh": "页面", "en": "Page"},
+  "news_reference.type.stats": {"zh": "数据", "en": "Stats"},
+  "news_reference.type.game": {"zh": "游戏", "en": "Game"},
+  "news_reference.type.match": {"zh": "比赛", "en": "Match"},
+  "news_reference.type.report": {"zh": "战报", "en": "Match report"},
+  "news_reference.type.match_stats": {"zh": "比赛数据", "en": "Match stats"},
+  "news_reference.type.event": {"zh": "赛事", "en": "Event"},
+  "news_reference.type.event_stats": {"zh": "赛事数据", "en": "Event stats"},
+  "news_reference.type.player": {"zh": "选手", "en": "Player"},
+  "news_reference.type.player_stats": {"zh": "选手数据", "en": "Player stats"},
+  "news_reference.type.team": {"zh": "队伍", "en": "Team"},
+  "news_reference.type.news": {"zh": "新闻", "en": "News"},
+  "news_reference.type.forum_thread": {"zh": "帖子", "en": "Thread"}
+}

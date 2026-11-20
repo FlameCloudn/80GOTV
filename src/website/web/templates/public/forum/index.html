@@ -1,0 +1,107 @@
+{% extends "layouts/public.html" %}
+{% from 'components/_forum_labels.html' import forum_category %}
+{% from "components/_user_badges.html" import cheater_badge %}
+{% block title %}{{ msg('public.forum.index.forum') }}{% endblock %}
+{% block head %}{{ frontend_entry('forum-style') }}{% endblock %}
+{% block layout_class %}no-side-layout{% endblock %}
+{% block main %}
+{% set qs_parts = [] %}
+{% if search_query %}{% set _ = qs_parts.append('q=' + search_query|urlencode) %}{% endif %}
+{% if category_filter %}{% set _ = qs_parts.append('category=' + category_filter|urlencode) %}{% endif %}
+{% if sort_by != 'latest' %}{% set _ = qs_parts.append('sort=' + sort_by) %}{% endif %}
+{% if mine_only %}{% set _ = qs_parts.append('mine=1') %}{% endif %}
+{% set qs = qs_parts|join('&') %}
+
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>FORUM</span><h1>{{ msg('public.forum.index.forum') }}</h1></div>
+  <div class="page-actions">
+    {% if session.user_id %}
+    <a href="{{ url_for('forum_index', mine=None if mine_only else 1, q=search_query or None, category=category_filter or None, sort=sort_by if sort_by != 'latest' else None) }}" class="btn{% if mine_only %} active{% endif %}">{{ msg('public.forum.index.all_threads') if mine_only else msg('public.forum.index.my_threads') }}</a>
+    <a href="{{ url_for('forum_new_thread') }}" class="btn btn-primary">{{ msg('public.forum.index.new_thread') }}</a>
+    {% else %}
+    <a href="{{ url_for('user_login') }}" class="btn btn-primary">{{ msg('public.forum.index.log_in_to_post') }}</a>
+    {% endif %}
+  </div>
+</header>
+
+<section class="panel forum-panel">
+  {#- 版块：一排标签，后面是帖子数 -#}
+  <nav class="tabs forum-tabs" aria-label="{{ msg('public.forum.index.forum_sections') }}">
+    <a href="{{ url_for('forum_index', q=search_query or None, sort=sort_by if sort_by != 'latest' else None, mine=1 if mine_only else None) }}" class="tab{% if not category_filter %} active{% endif %}">{{ msg('public.forum.index.all_sections') }}</a>
+    {% for category in categories %}
+    <a href="{{ url_for('forum_index', category=category.slug, q=search_query or None, sort=sort_by if sort_by != 'latest' else None, mine=1 if mine_only else None) }}" class="tab{% if category_filter == category.slug %} active{% endif %}">{{ forum_category(category.slug, category.name) }}<span class="forum-tab-count">{{ category.thread_count }}</span></a>
+    {% endfor %}
+  </nav>
+
+  <div class="forum-toolbar">
+    <form class="forum-search" method="get" action="{{ url_for('forum_index') }}">
+      {% if category_filter %}<input type="hidden" name="category" value="{{ category_filter }}">{% endif %}
+      {% if sort_by != 'latest' %}<input type="hidden" name="sort" value="{{ sort_by }}">{% endif %}
+      {% if mine_only %}<input type="hidden" name="mine" value="1">{% endif %}
+      <input type="search" name="q" placeholder="{{ msg('public.forum.index.search_titles_and_content') }}" value="{{ search_query or '' }}" aria-label="{{ msg('public.forum.index.search_titles_and_posts') }}">
+      <button type="submit" class="btn btn-primary">{{ msg('public.forum.index.search') }}</button>
+      {% if search_query %}<a href="{{ url_for('forum_index', category=category_filter or None, sort=sort_by if sort_by != 'latest' else None, mine=1 if mine_only else None) }}" class="btn">{{ msg('public.forum.index.clear') }}</a>{% endif %}
+    </form>
+    <div class="segmented forum-sort" aria-label="{{ msg('public.forum.index.thread_sorting') }}">
+      <a href="{{ url_for('forum_index', q=search_query or None, category=category_filter or None, mine=1 if mine_only else None) }}" class="{% if sort_by == 'latest' %}active{% endif %}">{{ msg('public.forum.index.latest_activity') }}</a>
+      <a href="{{ url_for('forum_index', q=search_query or None, category=category_filter or None, sort='newest', mine=1 if mine_only else None) }}" class="{% if sort_by == 'newest' %}active{% endif %}">{{ msg('public.forum.index.newest') }}</a>
+      <a href="{{ url_for('forum_index', q=search_query or None, category=category_filter or None, sort='popular', mine=1 if mine_only else None) }}" class="{% if sort_by == 'popular' %}active{% endif %}">{{ msg('public.forum.index.popular') }}</a>
+    </div>
+  </div>
+
+  {% if threads %}
+  {#- 帖子列表（照 HLTV 论坛）：标题和作者 | 回复数 | 最后回复 -#}
+  <div class="forum-list-head" aria-hidden="true"><span>{{ msg('public.forum.index.thread') }}</span><span>{{ msg('public.forum.index.reply') }}</span><span>{{ msg('public.forum.index.last_post') }}</span></div>
+  <div class="forum-threads">
+    {% for t in threads %}
+    {% set thread_private_remark = private_remark_for_user(t.user_id) %}
+    {% set thread_display_name = thread_private_remark or t.username or t.group_username %}
+    {% set last_reply_private_remark = private_remark_for_user(t.last_reply_user_id) %}
+    {% set last_reply_display_name = last_reply_private_remark or t.last_reply_username %}
+    <div class="forum-thread{% if t.is_pinned %} pinned{% endif %}">
+      <div class="forum-thread-main">
+        <div class="forum-thread-title">
+          {% if t.is_pinned %}<span class="badge badge-square forum-pin">{{ msg('public.forum.index.pin') }}</span>{% endif %}
+          <a class="badge badge-square forum-category" href="{{ url_for('forum_index', category=t.category_slug) }}">{{ forum_category(t.category_slug, t.category_name) }}</a>
+          {% if t.is_locked %}<span class="forum-locked">{{ msg('public.forum.index.locked') }}</span>{% endif %}
+          <a class="forum-thread-link" href="{{ url_for('forum_thread', thread_id=t.id) }}" data-i18n-ignore>{{ t.title }}</a>
+        </div>
+        <div class="forum-thread-meta">
+          <span data-i18n-ignore>{{ thread_display_name }}</span>{% if not thread_private_remark and t.group_username %} <span class="forum-handle" data-i18n-ignore>@{{ t.group_username }}</span>{% endif %}{{ cheater_badge(t.is_cheater) }}
+          <span class="forum-dot">·</span>{{ t.created_at|datetime_display }}<span class="forum-dot">·</span>{{ msg('public.forum.index.view_count_views', view_count=t.view_count) }}
+        </div>
+      </div>
+      <div class="forum-thread-replies"><b>{{ t.reply_count }}</b><span>{{ msg('public.forum.index.reply') }}</span></div>
+      <div class="forum-thread-last">
+        {% if t.last_reply_username %}
+        <span data-i18n-ignore>{{ last_reply_display_name }}{% if not last_reply_private_remark and t.last_reply_group_username %} <span class="forum-handle">@{{ t.last_reply_group_username }}</span>{% endif %}</span>{{ cheater_badge(t.last_reply_is_cheater) }}
+        <small>{{ t.last_reply_at|datetime_display if t.last_reply_at else '' }}</small>
+        {% else %}
+        <span class="forum-none">—</span>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state">
+    {% if search_query %}{{ msg('public.forum.index.no_threads_contain_search_query', search_query=search_query) }}
+    {% elif mine_only %}{{ msg('public.forum.index.you_have_not_posted_any_threads') }}
+    {% elif category_filter %}{{ msg('public.forum.index.no_threads_in_this_section_yet') }}
+    {% else %}{{ msg('public.forum.index.no_posts_yet_be_the_first') }}{% endif %}
+  </div>
+  {% endif %}
+</section>
+
+{% if total_pages > 1 %}
+<nav class="pagination" aria-label="{{ msg('public.forum.index.pagination') }}">
+  {% if page > 1 %}<a href="?page={{ page - 1 }}{% if qs %}&{{ qs }}{% endif %}">{{ msg('public.forum.index.previous') }}</a>{% endif %}
+  {% for p in range(1, total_pages + 1) %}
+    {% if p == page %}<span class="current">{{ p }}</span>
+    {% else %}<a href="?page={{ p }}{% if qs %}&{{ qs }}{% endif %}">{{ p }}</a>{% endif %}
+  {% endfor %}
+  {% if page < total_pages %}<a href="?page={{ page + 1 }}{% if qs %}&{{ qs }}{% endif %}">{{ msg('public.forum.index.next') }}</a>{% endif %}
+</nav>
+{% endif %}
+{% endblock %}
+{% block side %}{% endblock %}

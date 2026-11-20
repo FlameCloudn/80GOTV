@@ -1,0 +1,115 @@
+{% extends "layouts/admin.html" %}
+{% import "components/_icons.html" as ui %}
+{% block title %}{% if is_new_match %}{{ msg('admin.operations.matches_form.add_match') }}{% else %}{{ msg('admin.operations.matches_form.edit_match') }}{% endif %}{% endblock %}
+{% block main %}
+<a href="{{ url_for('admin.admin_matches') }}" class="back-link">{{ msg('admin.operations.matches_form.back_to_match_management') }}</a>
+{% set current_status = match.status if not is_new_match and match else 'upcoming' %}
+{% set setup_editable = is_new_match or match_setup_editable %}
+{% set managed_info = managed_match_info or none %}
+{% macro side_name(side) -%}
+  {% if side in custom_side_labels %}<span data-i18n-translate>{{ custom_side_labels[side] }}</span>{% else %}<span data-i18n-ignore>{{ match['team' ~ side ~ '_name'] or 'TBD' }}</span>{% endif %}
+{%- endmacro %}
+{% set map_choices = [
+  ('de_mirage', 'Mirage (荒漠迷城)'), ('de_dust2', 'Dust2 (炙热沙城 II)'), ('de_inferno', 'Inferno (炼狱小镇)'),
+  ('de_nuke', 'Nuke (核子危机)'), ('de_ancient', 'Ancient (远古遗迹)'), ('de_anubis', 'Anubis (阿努比斯)'),
+  ('de_overpass', 'Overpass (死亡游乐园)'), ('de_vertigo', 'Vertigo (殒命大厦)'), ('de_train', 'Train (列车停放站)'),
+  ('de_cache', 'Cache (死城之谜)')
+] %}
+
+<section class="panel match-form-panel">
+  {#- data-guard / data-draft：未保存离开提醒、草稿。服务器地址（可能带口令）和 BP 口令不进草稿 -#}
+  <form method="post" id="matchForm" data-guard data-draft>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+    {# 1. 标题栏：添加 / 编辑、所属赛事、比赛状态（四个状态按钮，实际提交的是隐藏的下拉框） #}
+    <div class="match-status-bar">
+      <div>
+        <span class="page-head-kicker">{% if is_new_match %}{{ msg('admin.operations.matches_form.add_a_match') }}{% else %}{{ msg('admin.operations.matches_form.edit_match_id_id', id=match.id) }}{% endif %}</span>
+        <h2 class="match-status-title">{% if match and match.event_name %}<span data-i18n-ignore>{{ match.event_name }}</span>{% else %}{{ msg('admin.operations.matches_form.match_settings') }}{% endif %}</h2>
+      </div>
+      {% if not is_new_match %}
+      <div class="status-pills" id="statusPills" role="radiogroup" aria-label="{{ msg('admin.operations.matches_form.match_status') }}">
+        <button type="button" class="status-pill {% if current_status == 'upcoming' %}active{% endif %}" data-status="upcoming">{{ msg('admin.operations.matches_form.upcoming') }}</button>
+        <button type="button" class="status-pill {% if current_status in ('live', 'ongoing') %}active{% endif %}" data-status="live" {% if managed_info %}disabled title="{{ msg('admin.operations.matches_form.managed_match_open_match_operations_to') }}"{% endif %}>{{ msg('admin.operations.matches_form.ongoing') }}</button>
+        <button type="button" class="status-pill {% if current_status == 'completed' %}active{% endif %}" data-status="completed" {% if managed_info %}disabled title="{{ msg('admin.operations.matches_form.managed_match_open_match_operations_to_2') }}"{% endif %}>{{ msg('admin.operations.matches_form.completed') }}</button>
+        <button type="button" class="status-pill {% if current_status == 'cancelled' %}active{% endif %}" data-status="cancelled" {% if managed_info %}disabled title="{{ msg('admin.operations.matches_form.managed_match_status_is_controlled_in') }}"{% endif %}>{{ msg('admin.operations.matches_form.cancelled') }}</button>
+      </div>
+      <select name="status" id="statusSelect" hidden>
+        <option value="upcoming" {% if current_status == 'upcoming' %}selected{% endif %}>{{ msg('admin.operations.matches_form.upcoming') }}</option>
+        <option value="live" {% if current_status in ('live', 'ongoing') %}selected{% endif %}>{{ msg('admin.operations.matches_form.ongoing') }}</option>
+        <option value="completed" {% if current_status == 'completed' %}selected{% endif %}>{{ msg('admin.operations.matches_form.completed') }}</option>
+        <option value="cancelled" {% if current_status == 'cancelled' %}selected{% endif %}>{{ msg('admin.operations.matches_form.cancelled') }}</option>
+      </select>
+      {% endif %}
+    </div>
+
+    {% if not is_new_match %}
+    <div class="match-form-notes">
+      {% if managed_info %}
+      <div class="ops-entry-bar">
+        <p class="lock-note">{{ ui.icon('lock') }}{{ msg('admin.operations.matches_form.managed_match_use_this_page_for') }}</p>
+        <a class="btn btn-sm btn-primary" href="{{ url_for('admin.managed_match_operate', match_id=match.id) }}">{{ ui.icon('stats') }}{{ msg('admin.operations.matches_form.open_match_operations') }}</a>
+      </div>
+      {% elif current_status == 'upcoming' %}
+      <p class="lock-note">{{ msg('admin.operations.matches_form.pre_match_settings_can_be_edited') }}</p>
+      {% elif current_status in ('live', 'ongoing') %}
+      <p class="lock-note">{{ ui.icon('lock') }}{{ msg('admin.operations.matches_form.match_in_progress_event_time_format') }}</p>
+      {% elif current_status == 'completed' %}
+      <p class="lock-note">{{ ui.icon('lock') }}{{ msg('admin.operations.matches_form.match_finished_the_score_comes_from') }}</p>
+      {% else %}
+      <p class="lock-note">{{ ui.icon('lock') }}{{ msg('admin.operations.matches_form.this_match_was_cancelled_only_its') }}</p>
+      {% endif %}
+      {% if current_status in ('live', 'ongoing', 'completed') %}
+      {% set score_left, score_right = match_opponents(match) %}
+      <div class="score-callout">
+        <span>{{ msg('admin.operations.matches_form.recorded_score') }} <b>{{ side_name(score_left.number) }} {{ score_left.score if score_left.score is not none else '-' }} : {{ score_right.score if score_right.score is not none else '-' }} {{ side_name(score_right.number) }}</b></span>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {# 2. 分类标签 #}
+    <div class="match-tabs" role="tablist">
+      <button type="button" class="match-tab active" data-tab="matchup" disabled>{{ msg('admin.operations.matches_form.basics_and_teams') }}</button>
+      <button type="button" class="match-tab" data-tab="maps" disabled>{{ msg('admin.operations.matches_form.maps_and_format') }}</button>
+      {% if managed_info %}
+      <button type="button" class="match-tab" data-tab="roster" disabled>{{ msg('admin.operations.matches_form.match_roster') }} <span class="badge {{ 'badge-accent' if managed_info.rosters_frozen else 'badge-gold' }}">{{ msg('admin.operations.matches_form.roster_locked') if managed_info.rosters_frozen else msg('admin.operations.matches_form.unlocked') }}</span></button>
+      {% elif setup_editable %}
+      <button type="button" class="match-tab" data-tab="roster" disabled>{{ msg('admin.operations.matches_form.roster_and_substitutes') }}</button>
+      {% endif %}
+      <button type="button" class="match-tab" data-tab="broadcast" disabled>{{ msg('admin.operations.matches_form.live_and_room_settings') }}</button>
+    </div>
+
+    <div class="admin-form match-form-body">
+      {% include 'admin/operations/_match_setup_fields.html' %}
+
+      {% include 'admin/operations/_match_map_fields.html' %}
+
+      {% include 'admin/operations/_match_roster_fields.html' %}
+
+      {% include 'admin/operations/_match_watch_fields.html' %}
+    </div>
+
+    {# 3. 吸底保存栏 #}
+    <div class="sticky-form-actions">
+      <div class="form-actions">
+        <a href="{{ url_for('admin.admin_matches') }}" class="btn" data-discard>{{ msg('admin.operations.matches_form.cancel') }}</a>
+        <button type="submit" class="btn btn-primary" id="submitBtn">{{ ui.icon('check') }}<span class="btn-label">{% if is_new_match %}{{ msg('admin.operations.matches_form.add_match') }}{% else %}{{ msg('admin.operations.matches_form.save_changes') }}{% endif %}</span></button>
+      </div>
+      <p id="saveStatus" class="save-status" role="status" aria-live="polite" hidden>{{ msg('admin.operations.matches_form.saving_please_wait') }}</p>
+    </div>
+  </form>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script type="application/json" data-site-messages>{{ client_messages('inline_matches_form', keys=('match.clock.setting', 'match.clock.unset'))|tojson }}</script>
+<script type="application/json" id="matchFormData">{{ {
+  'managedEvents': managed_events_data or {},
+  'submittedSides': selected_sides or {},
+  'managedEdit': managed_match_info is not none,
+  'isNew': is_new_match,
+  'watchUrls': (match.watch_urls|json_loads if match and match.watch_urls else None) or []
+}|tojson }}</script>
+{{ frontend_entry('admin-match-form') }}
+{% endblock %}

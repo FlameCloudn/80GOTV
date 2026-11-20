@@ -1,0 +1,209 @@
+{% extends 'layouts/public.html' %}
+{% from 'components/_icons.html' import site_icon %}
+{% block title %}{% if filter_type=='mvps' %}{{ msg('public.players.players.mvp_players') }}{% elif filter_type=='evps' %}{{ msg('public.players.players.evp_players') }}{% elif filter_type=='top10' %}{{ msg('public.players.players.top_10_players') }}{% else %}{{ msg('public.players.players.players') }}{% endif %} - 80GOTV{% endblock %}
+{% block head %}{{ frontend_entry('players-style') }}{% endblock %}
+{% block layout_class %}no-side-layout{% endblock %}
+
+{% macro award_avatar(p) %}
+  {% if p.avatar %}
+  <img class="avatar sm award-player-avatar" src="{{ avatar_thumbnail_url(p.avatar) }}" alt="" loading="lazy">
+  {% else %}
+  <span class="avatar sm award-player-avatar award-player-avatar-fallback" aria-hidden="true" data-i18n-ignore>{{ private_name_for_player(p.id, p.nickname)[:1] }}</span>
+  {% endif %}
+{% endmacro %}
+
+{#- 荣誉页小面板：一行一个“名字 · 数字” -#}
+{% macro summary_panel(title, rows, value_key) %}
+<article class="panel award-summary-panel">
+  <div class="panel-head"><h2 class="panel-title">{{ title }}</h2></div>
+  {% if rows %}
+  <div class="list award-summary-list">
+    {% for p in rows %}
+    <a class="list-row award-summary-row" href="{{ url_for('player_detail', player_id=p.id) }}">
+      <span class="grow truncate" data-i18n-ignore>{{ private_name_for_player(p.id, p.nickname) }}</span><b>{{ p[value_key] }}</b>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="empty-state award-empty-small">{{ msg('public.players.players.no_data') }}</p>
+  {% endif %}
+</article>
+{% endmacro %}
+
+{% block main %}
+{% if award_page %}
+<div class="player-awards-page">
+  <header class="page-head player-directory-heading">
+    <div><span class="page-head-kicker" data-i18n-ignore>PLAYERS</span><h1>{{ msg('public.players.players.80gotv_kind_player', kind=award_page.kind) }}</h1></div>
+  </header>
+
+  <section class="award-summary-grid" aria-label="{{ msg('public.players.players.kind_summary', kind=award_page.kind) }}">
+    {{ summary_panel('Major ' ~ award_page.kind ~ msg('public.players.players.count'), award_page.major_leaders, 'major') }}
+    {{ summary_panel(award_page.kind ~ msg('public.players.players.total_2'), award_page.total_leaders, 'total') }}
+    <article class="panel award-summary-panel">
+      <div class="panel-head"><h2 class="panel-title">{{ msg('public.players.players.recent_kind', kind=award_page.kind) }}</h2></div>
+      {% if award_page.latest %}
+      <div class="list award-summary-list">
+        {% for medal in award_page.latest %}
+        <a class="list-row award-summary-row award-summary-row-latest" href="{{ url_for('event_detail', event_id=medal.event_id) }}">
+          <span class="grow truncate" data-i18n-ignore>{{ medal.event_short_name or medal.event_name }}</span>
+          <b data-i18n-ignore>{{ private_name_for_player(medal.player_id, medal.nickname) }}</b>
+        </a>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="empty-state award-empty-small">{{ msg('public.players.players.no_data') }}</p>
+      {% endif %}
+    </article>
+  </section>
+
+  <section class="panel award-ranking-panel">
+    <header class="panel-head award-ranking-heading">
+      <h2 class="panel-title">{{ msg('public.players.players.all_80gotv_kind', kind=award_page.kind) }}</h2>
+      <span class="panel-count">{{ msg('public.players.players.counted_by_year_starting_in_2026') }}</span>
+    </header>
+    {% if award_page.ranking %}
+    <div class="table-wrap award-table-scroll">
+      <table class="table award-year-table">
+        <thead>
+          <tr>
+            <th scope="col">{{ msg('public.players.players.players_2') }}</th>
+            {% for year in award_page.years %}<th class="center" scope="col">{{ year }}</th>{% endfor %}
+            <th class="center" scope="col">{{ msg('public.players.players.total') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in award_page.ranking %}
+          <tr>
+            <td>
+              <a class="cell-entity award-player-link" href="{{ url_for('player_detail', player_id=p.id) }}">
+                {{ award_avatar(p) }}
+                <span data-i18n-ignore>{{ private_name_for_player(p.id, p.nickname) }}</span>
+              </a>
+            </td>
+            {% for count in p.year_counts %}
+            <td class="center num{% if not count %} award-zero{% endif %}">{{ count if count else '—' }}</td>
+            {% endfor %}
+            <td class="center num award-total">{{ p.total }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">{{ msg('public.players.players.no_data') }}</div>
+    {% endif %}
+  </section>
+</div>
+
+{% elif top10_page %}
+<div class="player-awards-page">
+  <header class="page-head player-directory-heading">
+    <div><span class="page-head-kicker" data-i18n-ignore>PLAYERS</span><h1>{{ msg('public.players.players.all_80gotv_top_10_players') }}</h1></div>
+    <p class="page-head-meta top10-basis">{{ msg('public.players.players.confirmed_and_published_by_administrators_after') }}</p>
+  </header>
+
+  <div class="top10-page-grid">
+    <section class="panel top10-ranking-panel">
+      {% if top10_page.ranking %}
+      <div class="table-wrap award-table-scroll">
+        <table class="table top10-table">
+          <thead>
+            <tr>
+              <th scope="col">{{ msg('public.players.players.players_2') }}</th>
+              <th class="center top10-first-column" scope="col">{{ msg('public.players.players.1st') }}</th>
+              <th class="center" scope="col">{{ msg('public.players.players.2nd') }}</th>
+              <th class="center top10-third-column" scope="col">{{ msg('public.players.players.3rd') }}</th>
+              <th class="center" scope="col">{{ msg('public.players.players.4th_5th') }}</th>
+              <th class="center" scope="col">{{ msg('public.players.players.6th_10th') }}</th>
+              <th class="center" scope="col">{{ msg('public.players.players.total') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in top10_page.ranking %}
+            <tr>
+              <td>
+                <a class="cell-entity award-player-link" href="{{ url_for('player_detail', player_id=p.id) }}">
+                  {{ award_avatar(p) }}
+                  <span data-i18n-ignore>{{ private_name_for_player(p.id, p.nickname) }}</span>
+                </a>
+              </td>
+              <td class="center num top10-first-column">{{ p.first }}</td>
+              <td class="center num">{{ p.second }}</td>
+              <td class="center num top10-third-column">{{ p.third }}</td>
+              <td class="center num">{{ p.fourth_fifth }}</td>
+              <td class="center num">{{ p.sixth_tenth }}</td>
+              <td class="center num award-total">{{ p.total }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state">{{ msg('public.players.players.the_yearly_top_10_has_not') }}</div>
+      {% endif %}
+    </section>
+
+    <aside class="top10-side-stack" aria-label="{{ msg('public.players.players.top_10_summary') }}">
+      {{ summary_panel('MOST TOP1', top10_page.most_top1, 'first') }}
+      {{ summary_panel('MOST TOP5', top10_page.most_top5, 'top5') }}
+    </aside>
+  </div>
+</div>
+
+{% else %}
+{% set alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' %}
+<header class="page-head player-directory-heading">
+  <div><span class="page-head-kicker" data-i18n-ignore>PLAYERS</span><h1>{% if filter_type=='mvps' %}{{ msg('public.players.players.mvp_players') }}{% elif filter_type=='evps' %}{{ msg('public.players.players.evp_players') }}{% elif filter_type=='top10' %}{{ msg('public.players.players.top_10_players') }}{% else %}{{ msg('public.players.players.counter_strike_2_players') }}{% endif %}</h1></div>
+  <form method="get" class="player-team-filter">
+    {% if filter_type %}<input type="hidden" name="filter" value="{{ filter_type }}">{% endif %}
+    <input type="hidden" name="initial" value="{{ initial_filter }}">
+    <label for="team-filter">{{ msg('public.players.players.teams') }}</label>
+    <select name="team" id="team-filter" data-auto-submit>
+      <option value="">{{ msg('public.players.players.all_teams') }}</option>
+      {% for t in teams %}
+      <option value="{{ t.id }}" {% if team_filter==t.id|string %}selected{% endif %} data-i18n-ignore>{{ t.name }}</option>
+      {% endfor %}
+    </select>
+  </form>
+</header>
+
+<nav class="player-initial-filter" aria-label="{{ msg('public.players.players.filter_by_nickname_initial') }}">
+  <a href="{{ url_for('players_list', initial='all', team=team_filter, filter=filter_type) }}" class="{% if initial_filter == 'all' %}active{% endif %}">All</a>
+  {% for letter in alphabet %}
+  <a href="{{ url_for('players_list', initial=letter|lower, team=team_filter, filter=filter_type) }}" class="{% if initial_filter == letter|lower %}active{% endif %}">{{ letter }}</a>
+  {% endfor %}
+  <a href="{{ url_for('players_list', initial='123', team=team_filter, filter=filter_type) }}" class="{% if initial_filter == '123' %}active{% endif %}">123</a>
+  <a href="{{ url_for('players_list', initial='other', team=team_filter, filter=filter_type) }}" class="{% if initial_filter == 'other' %}active{% endif %}">!@#</a>
+</nav>
+
+<div class="player-directory-grid">
+  {% for p in players %}
+  {% set player_private_remark = private_remark_for_player(p.id) %}
+  {% set player_display_name = player_private_remark or p.nickname %}
+  <a href="{{ url_for('player_detail', player_id=p.id) }}" class="player-directory-card{% if p.is_cheater %} is-cheater{% endif %}">
+    <span class="player-directory-photo">
+      {% if p.avatar and p.nickname|lower == 'zirc0n' %}
+      <span class="player-directory-avatar player-directory-avatar-zirc" style="background-image:url('{{ avatar_thumbnail_url(p.avatar) }}')" role="img" aria-label="{{ player_display_name }}"></span>
+      {% elif p.avatar %}
+      <img src="{{ avatar_thumbnail_url(p.avatar) }}" class="player-directory-avatar" alt="{{ player_display_name }}" loading="lazy">
+      {% else %}
+      <span class="player-directory-avatar player-directory-avatar-fallback" aria-hidden="true">{{ player_display_name[0] }}</span>
+      {% endif %}
+      {% if p.is_cheater %}
+      <img src="{{ url_for('static', filename='images/pac_cheating_overlay.png') }}" class="pac-avatar-overlay player-directory-pac-overlay" alt="{{ msg('public.players.players.banned_for_cheating') }}" loading="lazy">
+      {% endif %}
+    </span>
+    <span class="player-directory-copy">
+      <strong data-i18n-ignore>{{ player_display_name }}{% if not player_private_remark and p.is_bashizhong_student != 0 and p.group_username %}<span class="player-group-username"> @{{ p.group_username }}</span>{% endif %}</strong>
+      <span class="player-registered-date">{% if p.created_at %}{{ p.created_at|date_display }}{% endif %}</span>
+    </span>
+    <span class="player-country-slot" {% if p.is_bashizhong_student == 0 %}aria-label="{{ msg('public.players.players.external_player') }}" title="{{ msg('public.players.players.external_player') }}"{% else %}aria-hidden="true"{% endif %}>{% if p.is_bashizhong_student == 0 %}{{ site_icon('globe') }}{% endif %}</span>
+  </a>
+  {% endfor %}
+</div>
+{% if not players %}<div class="panel empty-state">{{ msg('public.players.players.no_players') }}</div>{% endif %}
+{% endif %}
+{% endblock %}
+
+{% block side %}{% endblock %}

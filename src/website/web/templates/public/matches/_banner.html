@@ -1,0 +1,48 @@
+{% macro banner_team(opponent, other, position, roster, has_score) %}
+  <div class="mh-team mh-team-{{ position }}" data-match-side="{{ opponent.side }}">
+    <div class="match-team-pop {{ position }}" tabindex="0">
+      {% if opponent.logo %}<img class="team-logo xl mh-logo" src="{{ opponent.logo|team_logo_url }}" alt="{{ opponent.name }}" loading="lazy">{% else %}<span class="logo-fallback xl mh-logo mh-logo-fallback" data-i18n-ignore>{{ opponent.name|team_abbr(opponent.short) }}</span>{% endif %}
+      {% if roster %}
+      <div class="match-team-players-popup">
+        <div class="match-pop-team-name" data-i18n-ignore>{{ opponent.name }}</div>
+        {% for p in roster %}
+        {% set pname = private_name_for_player(p.id, p.nickname) if p.id else p.nickname %}
+        <a class="match-player-link"{% if p.id %} href="/players/{{ p.id }}"{% endif %}>
+          {% if p.avatar %}<img class="match-player-avatar" src="{{ p.avatar }}" alt="" loading="lazy">{% else %}<span class="match-player-avatar match-player-avatar-fallback" aria-hidden="true">{{ pname[:1]|upper }}</span>{% endif %}
+          <span><span data-i18n-ignore>{{ pname }}</span>{% if p.role == 'substitute' %}{{ msg('public.matches.banner.substitute') }}{% endif %}</span>
+        </a>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    <div class="mh-team-name" data-i18n-ignore>{{ opponent.name }}</div>
+    {% if has_score %}<div class="mh-team-score {% if opponent.score > other.score %}won{% elif opponent.score < other.score %}lost{% endif %}">{{ opponent.score }}</div>{% endif %}
+  </div>
+{% endmacro %}
+{% set has_score = match.effective_status in ('live', 'completed') and match.team1_score is not none and match.team2_score is not none %}
+<section class="panel mh-banner{% if match.effective_status == 'live' %} is-live{% endif %}">
+  {{ banner_team(left_team, right_team, 'left', team1_roster if left_team.side == 't1' else team2_roster, has_score) }}
+  <div class="mh-mid">
+    <a class="mh-event" href="{{ event_path(match) }}" data-i18n-ignore>{{ match.event_name or '80GOTV' }}</a>
+    <div class="mh-time">{{ match.match_time|time_display if match.match_time else 'TBD' }}</div>
+    {% if match.match_time %}<div class="mh-date">{{ match.match_time|date_display }}</div>{% endif %}
+    <div class="mh-status">
+      {% if match.effective_status == 'live' %}
+      <span class="badge badge-live match-live-label">{{ msg('public.matches.banner.live') }}</span>
+      {% elif match.effective_status == 'completed' %}
+      {{ msg('public.matches.banner.bo_label_match_over', bo_label=bo_label) }}
+      {% elif match.effective_status == 'cancelled' %}
+      {{ msg('public.matches.banner.bo_label_cancelled', bo_label=bo_label) }}
+      {% else %}
+      {{ msg('public.matches.banner.bo_label_upcoming', bo_label=bo_label) }}
+      {% endif %}
+    </div>
+  </div>
+  {{ banner_team(right_team, left_team, 'right', team1_roster if right_team.side == 't1' else team2_roster, has_score) }}
+  {% if match.effective_status == 'completed' %}
+  <div class="mh-actions">
+    <a class="btn btn-sm" href="/matches/{{ match.id }}/report">{{ msg('public.matches.banner.match_report') }}</a>
+    <a class="btn btn-sm" href="/matches/{{ match.slug or match.id }}/poster">{{ msg('public.matches.banner.download_result_poster') }}</a>
+  </div>
+  {% endif %}
+</section>

@@ -1,0 +1,78 @@
+{
+  "public.news.news.news": {
+    "zh": "新闻",
+    "en": "News"
+  },
+  "public.news.news.news_80gotv": {
+    "zh": "新闻 - 80GOTV",
+    "en": "News - 80GOTV"
+  },
+  "public.news.news.next": {
+    "zh": "下一页",
+    "en": "Next"
+  },
+  "public.news.news.no_news": {
+    "zh": "暂无新闻",
+    "en": "No news"
+  },
+  "public.news.news.page_page_of_total_pages": {
+    "zh": "第 {page} / {total_pages} 页",
+    "en": "Page {page} of {total_pages}"
+  },
+  "public.news.news.pagination": {
+    "zh": "分页",
+    "en": "Pagination"
+  },
+  "public.news.news.previous": {
+    "zh": "上一页",
+    "en": "Previous"
+  },
+  "public.news.news.publish_time_comments_comment_count": {
+    "zh": "· {publish_time} · 评论 {comment_count}",
+    "en": "· {publish_time} · Comments {comment_count}"
+  },
+  "public.news.news_detail.back_to_news": {
+    "zh": "返回新闻列表",
+    "en": "Back to news"
+  },
+  "public.news.news_detail.comments_comment_count": {
+    "zh": "评论 {comment_count}",
+    "en": "Comments {comment_count}"
+  },
+  "public.news.news_detail.comments_comment_count_2": {
+    "zh": "评论 ({comment_count})",
+    "en": "Comments ({comment_count})"
+  },
+  "public.news.news_detail.linked_match": {
+    "zh": "关联比赛",
+    "en": "Linked match"
+  },
+  "public.news.news_detail.log_in": {
+    "zh": "登录",
+    "en": "Log in"
+  },
+  "public.news.news_detail.no_comments": {
+    "zh": "暂无评论",
+    "en": "No comments"
+  },
+  "public.news.news_detail.open_event_registration": {
+    "zh": "进入赛事并报名",
+    "en": "Open event registration"
+  },
+  "public.news.news_detail.open_page": {
+    "zh": "打开页面",
+    "en": "Open page"
+  },
+  "public.news.news_detail.post_comment": {
+    "zh": "发表评论",
+    "en": "Post comment"
+  },
+  "public.news.news_detail.to_comment": {
+    "zh": "后即可发表评论",
+    "en": "to comment"
+  },
+  "public.news.news_detail.write_a_comment": {
+    "zh": "写下你的评论...",
+    "en": "Write a comment..."
+  }
+}

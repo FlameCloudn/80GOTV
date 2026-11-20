@@ -1,0 +1,10 @@
+{#
+  独立页面（登录、改密码这类不带顶部导航的页面）共用的 <head> 开头部分。
+  作用：先定好明暗主题和语言，再提供全站设计变量，保证和其他页面是同一套配色。
+#}
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+{% include 'layouts/_theme_bootstrap.html' %}
+{% include "layouts/_i18n_bootstrap.html" %}
+{% include "layouts/_design_tokens.html" %}

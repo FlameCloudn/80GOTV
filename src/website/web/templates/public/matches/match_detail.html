@@ -1,0 +1,84 @@
+{% extends 'layouts/public.html' %}
+{% from 'components/_icons.html' import site_icon %}
+{% set opponents = match_opponents(match) %}
+{% set left_team, right_team = opponents %}
+{% block title %}{{ left_team.name }} vs {{ right_team.name }} - 80GOTV{% endblock %}
+{% block meta_description %}{{ msg('public.matches.match_detail.name_vs_value2_value3_match_information', name=left_team.name, value2=right_team.name, value3=match.bo_format or 'BO1') }}{% endblock %}
+{% block head %}{{ frontend_entry('match-style') }}{% if match.effective_status == 'live' %}{{ frontend_entry('live-scoreboard-style') }}{% endif %}{% endblock %}
+{% block layout_class %}match-detail-layout{% endblock %}
+
+{% block main %}
+<h1 class="match-detail-title" data-i18n-ignore>{{ left_team.name }} vs {{ right_team.name }}</h1>
+{% set shown_map_scores = map_scores|selectattr('display')|list %}
+{% set bo_upper = (match.bo_format or 'BO1')|upper %}
+{% set bo_label = bo_upper %}
+{% set bp = match.bp_process and match.bp_process.strip() %}
+{% set demo_list = match.demo_file|json_loads if match.demo_file else None %}
+{% set embed_url = (match.stream_url or match.event_stream_url)|bilibili_embed %}
+{% set team1_overall = (overall_t1, match.t1_logo, match.t1s, match.team1_name) %}
+{% set team2_overall = (overall_t2, match.t2_logo, match.t2s, match.team2_name) %}
+{% set overall_teams = [team1_overall, team2_overall] if left_team.side == 't1' else [team2_overall, team1_overall] %}
+
+{% from 'public/matches/_stats_tables.html' import metric, match_stats_block with context %}
+{% if show_match_stats %}
+{# ======================= 比赛数据页 ======================= #}
+{% include 'public/matches/_stats_overview.html' %}
+
+{% else %}
+{# ======================= 比赛页 ======================= #}
+{% include 'public/matches/_banner.html' %}
+
+{# -- 左“地图” / 右“直播与回放” -- #}
+<div class="mh-columns">
+  {% include 'public/matches/_map_scores.html' %}
+
+  <div class="mh-side-stack">
+  {% include 'public/matches/_watch_links.html' %}
+  {% include 'public/matches/_veto_log.html' %}
+  </div>
+</div>
+
+{% include 'public/matches/_stream.html' %}
+
+{% if match.effective_status == 'live' %}
+  {% include 'public/matches/match_data_live.html' %}
+{% endif %}
+
+{# -- 历史交锋：只在未结束的比赛中显示 -- #}
+{% if h2h_matches and match.effective_status not in ('completed', 'cancelled') %}
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title mh-sec-head standalone">{{ msg('public.matches.match_detail.head_to_head') }} <span class="panel-count">{{ msg('public.matches.match_detail.h2h_matches_matches', h2h_matches=h2h_matches|length) }}</span></h2></div>
+  <div class="list mh-h2h">
+    {% for hm in h2h_matches %}
+    <a class="list-row mh-h2h-row" href="/matches/{{ hm.slug or hm.id }}">
+      <span class="mh-h2h-date">{{ hm.match_time|date_display }}</span>
+      {% set hm_left, hm_right = match_opponents(hm) %}
+      <span class="mh-h2h-score" data-i18n-ignore>{{ hm_left.short }} <b>{{ hm_left.score }}:{{ hm_right.score }}</b> {{ hm_right.short }}</span>
+      <span class="mh-h2h-event" data-i18n-ignore>{{ hm.event_name or '' }}</span>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% set any_played = map_scores|selectattr('played')|list|length > 0 %}
+{% if any_played %}
+{{ match_stats_block(shown_map_scores, overall_teams, [msg('public.matches.match_detail.both_sides'), 'T', 'CT'], 'Rating') }}
+{% endif %}
+
+{% include 'public/matches/_prediction.html' %}
+{% endif %}
+
+<a href="{{ event_path(match) }}" class="back-link btn-back">{{ site_icon('back') }} {{ msg('public.matches.match_detail.back_to_event') }}</a>
+
+{% include 'public/matches/_comments.html' %}
+
+<script type="application/json" data-site-messages>{{ client_messages('prediction')|tojson }}</script>
+{{ frontend_entry('match-detail') }}
+{% endblock %}
+
+{% block side %}
+{% include 'public/matches/_match_sidebar.html' %}
+{% endblock %}
+
+{% block extra_js %}{% include 'components/_comment_assets.html' %}{% endblock %}

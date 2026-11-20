@@ -1,0 +1,86 @@
+{% extends "layouts/admin.html" %}
+{% import "components/_icons.html" as ui %}
+{% from "components/_playtime_macros.html" import playtime_cell %}
+{% block title %}{{ msg('admin.catalog.players.player_management') }}{% endblock %}
+{% block main %}
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>PLAYERS</span><h1>{{ msg('admin.catalog.players.player_management') }}</h1></div>
+  <div class="page-actions">
+    <form method="post" action="{{ url_for('admin.admin_players_refresh_playtime') }}" data-confirm="{{ msg('admin.catalog.players.refresh_public_cs2_playtime_for_all') }}" data-busy-text="更新中……">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="btn">{{ ui.icon('reopen') }}{{ msg('admin.catalog.players.refresh_player_playtime') }}</button>
+    </form>
+    <a href="{{ url_for('admin.admin_players_add') }}" class="btn btn-primary">{{ ui.icon('plus') }}{{ msg('admin.catalog.players.add_player_account') }}</a>
+  </div>
+</header>
+
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">{{ msg('admin.catalog.players.all_players') }} <span class="panel-count" data-list-count="#playersTable">{{ players|length }}</span></h2></div>
+  {% if players %}
+  {#- 即时筛选（只在本页过滤，不改数据）：名字 / 账号 / 群昵称 / Steam ID，队伍，有无账号，来源 -#}
+  <div class="admin-toolbar list-filters">
+    <label class="filter-search-box">{{ ui.icon('search') }}<input type="search" data-list-search="#playersTable" placeholder="{{ msg('admin.catalog.players.search_nickname_account_group_nickname_or') }}" aria-label="{{ msg('admin.catalog.players.search_players') }}"></label>
+    <select data-list-filter="#playersTable" data-filter-key="team" aria-label="{{ msg('admin.catalog.players.filter_by_team') }}">
+      <option value="">{{ msg('admin.catalog.players.all_teams') }}</option>
+      {% for name in players|map(attribute='team_name')|select|unique|sort %}<option value="{{ name }}" data-i18n-ignore>{{ name }}</option>{% endfor %}
+      <option value="-">{{ msg('admin.catalog.players.no_team') }}</option>
+    </select>
+    <select data-list-filter="#playersTable" data-filter-key="account" aria-label="{{ msg('admin.catalog.players.filter_by_account') }}">
+      <option value="">{{ msg('admin.catalog.players.account_all') }}</option>
+      <option value="yes">{{ msg('admin.catalog.players.linked_account') }}</option>
+      <option value="no">{{ msg('admin.catalog.players.no_linked_account') }}</option>
+    </select>
+    <select data-list-filter="#playersTable" data-filter-key="source" aria-label="{{ msg('admin.catalog.players.filter_by_source') }}">
+      <option value="">{{ msg('admin.catalog.players.source_all') }}</option>
+      <option value="1">{{ msg('admin.catalog.players.no_80_high_school') }}</option>
+      <option value="0">{{ msg('admin.catalog.players.other_school') }}</option>
+      <option value="unset">{{ msg('admin.catalog.players.school_not_set') }}</option>
+    </select>
+  </div>
+  <div class="table-wrap">
+    <table class="table admin-table" id="playersTable">
+      <thead>
+        <tr><th class="col-id">ID</th><th>{{ msg('admin.catalog.players.player_account') }}</th><th>{{ msg('admin.catalog.players.teams') }}</th><th>Steam ID</th><th>{{ msg('admin.catalog.players.cs2_playtime') }}</th><th class="col-actions">{{ msg('admin.catalog.players.actions') }}</th></tr>
+      </thead>
+      <tbody>
+        {% for p in players %}
+        {% set source = '1' if p.managed_is_bashizhong_student == 1 else ('0' if p.managed_is_bashizhong_student == 0 else 'unset') %}
+        <tr id="player-{{ p.id }}" data-team="{{ p.team_name or '-' }}" data-account="{{ 'yes' if p.user_id else 'no' }}" data-source="{{ source }}"
+            data-search="{{ p.nickname }} {{ p.account_username or '' }} {{ p.managed_group_username or '' }} {{ p.steam_id or '' }} #{{ p.id }}">
+          <td class="col-id">{{ p.id }}</td>
+          <td>
+            <span class="cell-entity">
+              {% if p.avatar %}<img class="avatar sm" src="{{ avatar_thumbnail_url(p.avatar) }}" alt="" loading="lazy">{% else %}<span class="avatar sm" aria-hidden="true" data-i18n-ignore>{{ p.nickname[:1] }}</span>{% endif %}
+              <span>
+                <a class="cell-title" href="{{ url_for('admin.admin_players_edit', player_id=p.id) }}" data-i18n-ignore>{{ p.nickname }}</a>
+                {% if p.account_username %}<small class="account-chip account-name">{{ msg('admin.catalog.players.account_account_username', account_username=p.account_username) }}</small>{% else %}<small class="account-chip muted unlinked-account">{{ msg('admin.catalog.players.no_linked_account') }}</small>{% endif %}
+                <small class="cell-sub">
+                  <span>{%- if source == '1' %}{{ msg('admin.catalog.players.no_80_high_school') }}{% elif source == '0' %}{{ msg('admin.catalog.players.other_school') }}{% else %}{{ msg('admin.catalog.players.school_not_set') }}{% endif -%}</span>
+                  {%- if source != '0' %} · {% if p.managed_group_username %}<span data-i18n-ignore>{{ p.managed_group_username }}</span>{% else %}<span>{{ msg('admin.catalog.players.group_nickname_not_set') }}</span>{% endif %}{% endif -%}
+                </small>
+              </span>
+            </span>
+          </td>
+          <td data-i18n-ignore>{{ p.team_name or msg('admin.catalog.players.no_team') }}</td>
+          <td class="nowrap">{{ p.steam_id or '-' }}</td>
+          <td>{{ playtime_cell(p.cs2_playtime_minutes, p.playtime_status, p.playtime_checked_at) }}</td>
+          <td class="col-actions">
+            <div class="row-actions">
+              <a href="{{ url_for('admin.admin_players_edit', player_id=p.id) }}" class="btn btn-sm">{{ ui.icon('edit') }}{{ msg('admin.catalog.players.edit') }}</a>
+              {% if p.user_id %}{{ ui.icon_link('key', url_for('admin.admin_player_password', player_id=p.id), msg('admin.catalog.players.change_website_account_password')) }}{% else %}<span class="btn-icon-spacer" aria-hidden="true"></span>{% endif %}
+              <form method="post" action="{{ url_for('admin.admin_players_delete', player_id=p.id) }}" data-confirm="{{ msg('admin.catalog.players.delete_player_nickname', nickname=p.nickname) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit" class="btn btn-sm btn-icon btn-danger" title="{{ msg('admin.catalog.players.delete_player') }}" aria-label="{{ msg('admin.catalog.players.delete_player_nickname_2', nickname=p.nickname) }}">{{ ui.icon('trash') }}</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">{{ msg('admin.catalog.players.no_players_yet') }}</div>
+  {% endif %}
+</section>
+{% endblock %}

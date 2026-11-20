@@ -1,0 +1,65 @@
+{% extends 'layouts/public.html' %}
+{% block title %}{{ msg('public.games.games.games_80gotv') }}{% endblock %}
+{% block head %}
+{{ frontend_entry('games-style') }}
+{% endblock %}
+{% block layout_class %}no-side-layout games-layout{% endblock %}
+{% block main %}
+<div class="games-hub">
+  <header class="page-head">
+    <div><span class="page-head-kicker" data-i18n-ignore>80GO GAMES</span><h1>{{ msg('public.games.games.games') }}</h1></div>
+    <p class="page-head-meta">{{ msg('public.games.games.3_playable_games') }}</p>
+  </header>
+
+  <section class="games-list" aria-label="{{ msg('public.games.games.games_2') }}">
+    <article class="game-card game-card-player">
+      <div class="game-card-visual">
+        <img src="{{ url_for('static', filename='logos/80gotv-mark.png') }}" alt="" width="80" height="80">
+        <div><b>?</b><b>↑</b><b>?</b></div>
+      </div>
+      <div class="game-card-body">
+        <span>PLAYER</span>
+        <h2>{{ msg('public.games.games.guess_the_player') }}</h2>
+        <p>{{ msg('public.games.games.find_the_player_from_team_nationality') }}</p>
+        <nav aria-label="{{ msg('public.games.games.guess_the_player_mode') }}">
+          <a href="{{ url_for('guess_player_page') }}">{{ msg('public.games.games.daily') }}</a>
+          <a href="{{ url_for('guess_player_practice_page') }}">{{ msg('public.games.games.free_play') }}</a>
+          <a href="{{ url_for('guess_player_multiplayer_page') }}">{{ msg('public.games.games.battle') }}</a>
+        </nav>
+      </div>
+    </article>
+
+    <article class="game-card game-card-map">
+      <div class="game-card-visual">
+        <img src="{{ url_for('static', filename='images/map-quiz/anubis.webp') }}" alt="{{ msg('public.games.games.anubis_map_screenshot') }}" width="1920" height="1080" loading="lazy">
+        <strong>WHERE?</strong>
+      </div>
+      <div class="game-card-body">
+        <span>MAP</span>
+        <h2>{{ msg('public.games.games.map_locations') }}</h2>
+        <p>{{ msg('public.games.games.identify_the_map_and_location_from') }}</p>
+        <nav aria-label="{{ msg('public.games.games.map_location_modes') }}">
+          <a href="{{ url_for('map_quiz_page') }}">{{ msg('public.games.games.daily') }}</a>
+          <a href="{{ url_for('map_quiz_practice_page') }}">{{ msg('public.games.games.free_play') }}</a>
+        </nav>
+      </div>
+    </article>
+
+    <article class="game-card game-card-bingo">
+      <div class="game-card-visual bingo-preview" aria-hidden="true">
+        <i>X</i><i>?</i><i>X</i><i>?</i><i>X</i><i>?</i><i>X</i><i>?</i><i>X</i>
+      </div>
+      <div class="game-card-body">
+        <span>BINGO</span>
+        <h2>{{ msg('public.games.games.player_bingo') }}</h2>
+        <p>{{ msg('public.games.games.complete_a_row_and_column_condition') }}</p>
+        <nav aria-label="{{ msg('public.games.games.player_bingo_modes') }}">
+          <a href="{{ url_for('player_bingo_page') }}">{{ msg('public.games.games.daily') }}</a>
+          <a href="{{ url_for('player_bingo_practice_page') }}">{{ msg('public.games.games.free_play') }}</a>
+        </nav>
+      </div>
+    </article>
+  </section>
+</div>
+{% endblock %}
+{% block side %}{% endblock %}

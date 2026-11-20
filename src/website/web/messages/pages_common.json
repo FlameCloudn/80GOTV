@@ -1,0 +1,518 @@
+{
+  "site.error.invalid_csrf": {
+    "zh": "CSRF token 无效，请刷新页面后重试",
+    "en": "The session token is invalid. Refresh the page and try again."
+  },
+  "common.team_logo.file_too_large": {
+    "zh": "队标图片不能超过 10MB",
+    "en": "The team logo must be 10 MB or smaller."
+  },
+  "common.team_logo.unsupported_type": {
+    "zh": "队标只支持 PNG、JPG、JPEG、GIF 格式",
+    "en": "Team logos must be PNG, JPG, JPEG, or GIF files."
+  },
+  "components.comment_macros.cancel": {
+    "zh": "取消",
+    "en": "Cancel"
+  },
+  "components.comment_macros.delete": {
+    "zh": "删除",
+    "en": "Delete"
+  },
+  "components.comment_macros.like": {
+    "zh": "点赞",
+    "en": "Like"
+  },
+  "components.comment_macros.please_log_in_first": {
+    "zh": "请先登录",
+    "en": "Please log in first"
+  },
+  "components.comment_macros.reply": {
+    "zh": "回复",
+    "en": "Reply"
+  },
+  "components.comment_macros.reply_comment_display_name": {
+    "zh": "回复 @{comment_display_name}",
+    "en": "Reply @{comment_display_name}"
+  },
+  "components.comment_macros.view_all_replies_replies": {
+    "zh": "查看全部回复 ({replies})",
+    "en": "View all replies ({replies})"
+  },
+  "components.playtime_macros.can_be_refreshed_later": {
+    "zh": "可稍后重新获取",
+    "en": "Can be refreshed later"
+  },
+  "components.playtime_macros.invalid_steam_id": {
+    "zh": "Steam ID 无效",
+    "en": "Invalid Steam ID"
+  },
+  "components.playtime_macros.no_cached_data": {
+    "zh": "尚无缓存",
+    "en": "No cached data"
+  },
+  "components.playtime_macros.pending": {
+    "zh": "待获取",
+    "en": "Pending"
+  },
+  "components.playtime_macros.private_steam_profile": {
+    "zh": "Steam 资料私密",
+    "en": "Private Steam profile"
+  },
+  "components.playtime_macros.public_data": {
+    "zh": "公开数据",
+    "en": "Public data"
+  },
+  "components.playtime_macros.read_failed": {
+    "zh": "读取失败",
+    "en": "Read failed"
+  },
+  "components.playtime_macros.unable_to_read": {
+    "zh": "无法读取",
+    "en": "Unable to read"
+  },
+  "components.playtime_macros.unavailable": {
+    "zh": "不可见",
+    "en": "Unavailable"
+  },
+  "components.playtime_macros.updated_checked_at": {
+    "zh": "更新于 {checked_at}",
+    "en": "Updated {checked_at}"
+  },
+  "components.playtime_macros.value1_h": {
+    "zh": "{value1} 小时",
+    "en": "{value1} h"
+  },
+  "components.user_badges.cheater": {
+    "zh": "作弊者",
+    "en": "Cheater"
+  },
+  "components.user_badges.this_user_has_been_marked_as": {
+    "zh": "该用户已被标记为作弊者",
+    "en": "This user has been marked as a cheater"
+  },
+  "layouts.admin.80gotv_admin": {
+    "zh": "- 80GOTV 后台",
+    "en": "- 80GOTV admin"
+  },
+  "layouts.admin.admin": {
+    "zh": "后台管理",
+    "en": "Admin"
+  },
+  "layouts.admin_side_nav.admin_navigation": {
+    "zh": "后台导航",
+    "en": "Admin navigation"
+  },
+  "layouts.admin_side_nav.content": {
+    "zh": "内容",
+    "en": "Content"
+  },
+  "layouts.admin_side_nav.download_backup": {
+    "zh": "下载备份",
+    "en": "Download backup"
+  },
+  "layouts.admin_side_nav.events": {
+    "zh": "赛事",
+    "en": "Events"
+  },
+  "layouts.admin_side_nav.live_status": {
+    "zh": "直播状态",
+    "en": "Live status"
+  },
+  "layouts.admin_side_nav.matches": {
+    "zh": "比赛",
+    "en": "Matches"
+  },
+  "layouts.admin_side_nav.mvp_evp_stats_image": {
+    "zh": "MVP / EVP 数据图",
+    "en": "MVP / EVP stats image"
+  },
+  "layouts.admin_side_nav.news": {
+    "zh": "新闻",
+    "en": "News"
+  },
+  "layouts.admin_side_nav.nicknames": {
+    "zh": "昵称管理",
+    "en": "Nicknames"
+  },
+  "layouts.admin_side_nav.overview": {
+    "zh": "工作台",
+    "en": "Overview"
+  },
+  "layouts.admin_side_nav.pending_items": {
+    "zh": " 条待处理",
+    "en": " pending items"
+  },
+  "layouts.admin_side_nav.pending_reviews": {
+    "zh": " 个待审核",
+    "en": " pending reviews"
+  },
+  "layouts.admin_side_nav.people": {
+    "zh": "人员",
+    "en": "People"
+  },
+  "layouts.admin_side_nav.players": {
+    "zh": "选手",
+    "en": "Players"
+  },
+  "layouts.admin_side_nav.registration_reviews": {
+    "zh": "注册审核",
+    "en": "Registration reviews"
+  },
+  "layouts.admin_side_nav.teams": {
+    "zh": "队伍",
+    "en": "Teams"
+  },
+  "layouts.admin_side_nav.tool": {
+    "zh": "工具",
+    "en": "Tool"
+  },
+  "layouts.admin_side_nav.tournament_operations": {
+    "zh": "赛事运营",
+    "en": "Tournament operations"
+  },
+  "layouts.admin_side_nav.user_feedback": {
+    "zh": "用户反馈",
+    "en": "User feedback"
+  },
+  "layouts.admin_side_nav.yearly_top_10": {
+    "zh": "年度 TOP 10",
+    "en": "Yearly Top 10"
+  },
+  "layouts.admin_top_nav.admin": {
+    "zh": "后台管理",
+    "en": "Admin"
+  },
+  "layouts.admin_top_nav.auto": {
+    "zh": "跟随系统",
+    "en": "Auto"
+  },
+  "layouts.admin_top_nav.chinese": {
+    "zh": "中文",
+    "en": "Chinese"
+  },
+  "layouts.admin_top_nav.language": {
+    "zh": "语言",
+    "en": "Language"
+  },
+  "layouts.admin_top_nav.log_out": {
+    "zh": "退出",
+    "en": "Log out"
+  },
+  "layouts.admin_top_nav.toggle_dark_light_mode": {
+    "zh": "切换深色/浅色模式",
+    "en": "Toggle dark/light mode"
+  },
+  "layouts.admin_top_nav.toggle_theme": {
+    "zh": "切换主题",
+    "en": "Toggle theme"
+  },
+  "layouts.admin_top_nav.view_site": {
+    "zh": "查看前台",
+    "en": "View site"
+  },
+  "layouts.public.80gotv_cs2_events_match_results_player": {
+    "zh": "80GOTV CS2 赛事、比赛赛果、选手数据与社区资讯。",
+    "en": "80GOTV CS2 events, match results, player stats, and community news."
+  },
+  "layouts.public.a_group_nickname_is_required": {
+    "zh": "需要填写群内昵称",
+    "en": "A group nickname is required"
+  },
+  "layouts.public.account_details": {
+    "zh": "账号资料",
+    "en": "Account details"
+  },
+  "layouts.public.admin": {
+    "zh": "后台管理",
+    "en": "Admin"
+  },
+  "layouts.public.all_events": {
+    "zh": "全部赛事",
+    "en": "All events"
+  },
+  "layouts.public.all_players": {
+    "zh": "全部选手",
+    "en": "All players"
+  },
+  "layouts.public.archived": {
+    "zh": "历史赛事",
+    "en": "Archived"
+  },
+  "layouts.public.are_you_or_were_you_a": {
+    "zh": "你是否是或曾经是八十中学生？",
+    "en": "Are you, or were you, a No. 80 High School student?"
+  },
+  "layouts.public.auto": {
+    "zh": "跟随系统",
+    "en": "Auto"
+  },
+  "layouts.public.awards": {
+    "zh": "荣誉堂",
+    "en": "Awards"
+  },
+  "layouts.public.bashizhong_80go_cs_group_for_learning": {
+    "zh": "© 八十中 80GO CS交流群 · 仅供学习交流使用 · QQ群号：668460739",
+    "en": "© Bashizhong 80GO CS group · For learning only · QQ group: 668460739"
+  },
+  "layouts.public.bug_report": {
+    "zh": "Bug 报告",
+    "en": "Bug report"
+  },
+  "layouts.public.calendar": {
+    "zh": "日历",
+    "en": "Calendar"
+  },
+  "layouts.public.chinese": {
+    "zh": "中文",
+    "en": "Chinese"
+  },
+  "layouts.public.close_feedback": {
+    "zh": "关闭反馈",
+    "en": "Close feedback"
+  },
+  "layouts.public.close_notifications": {
+    "zh": "关闭通知",
+    "en": "Close notifications"
+  },
+  "layouts.public.contact_optional": {
+    "zh": "联系方式（选填）",
+    "en": "Contact (optional)"
+  },
+  "layouts.public.dashboard": {
+    "zh": "数据看板",
+    "en": "Dashboard"
+  },
+  "layouts.public.email_qq_or_another_contact_method": {
+    "zh": "邮箱、QQ 或其他联系方式",
+    "en": "Email, QQ, or another contact method"
+  },
+  "layouts.public.events": {
+    "zh": "赛事",
+    "en": "Events"
+  },
+  "layouts.public.evp_players": {
+    "zh": "EVP 选手",
+    "en": "EVP players"
+  },
+  "layouts.public.feedback": {
+    "zh": "意见反馈",
+    "en": "Feedback"
+  },
+  "layouts.public.feedback_details": {
+    "zh": "反馈内容",
+    "en": "Feedback details"
+  },
+  "layouts.public.feedback_type": {
+    "zh": "反馈类型",
+    "en": "Feedback type"
+  },
+  "layouts.public.forum": {
+    "zh": "论坛",
+    "en": "Forum"
+  },
+  "layouts.public.games": {
+    "zh": "游戏",
+    "en": "Games"
+  },
+  "layouts.public.group_nickname": {
+    "zh": "群内昵称",
+    "en": "Group nickname"
+  },
+  "layouts.public.guess_the_player": {
+    "zh": "猜选手",
+    "en": "Guess the player"
+  },
+  "layouts.public.guest": {
+    "zh": "访客",
+    "en": "Guest"
+  },
+  "layouts.public.language": {
+    "zh": "语言",
+    "en": "Language"
+  },
+  "layouts.public.loading": {
+    "zh": "加载中...",
+    "en": "Loading..."
+  },
+  "layouts.public.log_in": {
+    "zh": "登录",
+    "en": "Log in"
+  },
+  "layouts.public.log_out": {
+    "zh": "退出",
+    "en": "Log out"
+  },
+  "layouts.public.main_navigation": {
+    "zh": "主导航",
+    "en": "Main navigation"
+  },
+  "layouts.public.map_locations": {
+    "zh": "地图点位",
+    "en": "Map locations"
+  },
+  "layouts.public.maps": {
+    "zh": "地图",
+    "en": "Maps"
+  },
+  "layouts.public.mark_all_as_read": {
+    "zh": "全部标为已读",
+    "en": "Mark all as read"
+  },
+  "layouts.public.matches": {
+    "zh": "比赛",
+    "en": "Matches"
+  },
+  "layouts.public.more": {
+    "zh": "更多",
+    "en": "More"
+  },
+  "layouts.public.mvp_players": {
+    "zh": "MVP 选手",
+    "en": "MVP players"
+  },
+  "layouts.public.news": {
+    "zh": "新闻",
+    "en": "News"
+  },
+  "layouts.public.no": {
+    "zh": "不是",
+    "en": "No"
+  },
+  "layouts.public.notification_panel": {
+    "zh": "通知面板",
+    "en": "Notification panel"
+  },
+  "layouts.public.notifications": {
+    "zh": "通知",
+    "en": "Notifications"
+  },
+  "layouts.public.one_more_detail_before_you_continue": {
+    "zh": "登录前请补充一项资料",
+    "en": "One more detail before you continue"
+  },
+  "layouts.public.ongoing": {
+    "zh": "进行中",
+    "en": "Ongoing"
+  },
+  "layouts.public.open_menu": {
+    "zh": "打开菜单",
+    "en": "Open menu"
+  },
+  "layouts.public.open_search": {
+    "zh": "打开搜索",
+    "en": "Open search"
+  },
+  "layouts.public.other": {
+    "zh": "其他",
+    "en": "Other"
+  },
+  "layouts.public.overview": {
+    "zh": "总览",
+    "en": "Overview"
+  },
+  "layouts.public.player_bingo": {
+    "zh": "选手 Bingo",
+    "en": "Player Bingo"
+  },
+  "layouts.public.players": {
+    "zh": "选手",
+    "en": "Players"
+  },
+  "layouts.public.predictions": {
+    "zh": "预测",
+    "en": "Predictions"
+  },
+  "layouts.public.profile": {
+    "zh": "个人主页",
+    "en": "Profile"
+  },
+  "layouts.public.question": {
+    "zh": "问题",
+    "en": "Question"
+  },
+  "layouts.public.quick_navigation": {
+    "zh": "快捷导航",
+    "en": "Quick navigation"
+  },
+  "layouts.public.ranking": {
+    "zh": "排行",
+    "en": "Ranking"
+  },
+  "layouts.public.results": {
+    "zh": "赛果",
+    "en": "Results"
+  },
+  "layouts.public.save_and_continue": {
+    "zh": "保存并继续",
+    "en": "Save and continue"
+  },
+  "layouts.public.search": {
+    "zh": "搜索",
+    "en": "Search"
+  },
+  "layouts.public.search_players_teams_events": {
+    "zh": "搜索选手、战队、赛事...",
+    "en": "Search players, teams, events..."
+  },
+  "layouts.public.site_search": {
+    "zh": "站内搜索",
+    "en": "Site search"
+  },
+  "layouts.public.stats": {
+    "zh": "数据",
+    "en": "Stats"
+  },
+  "layouts.public.submit": {
+    "zh": "提交",
+    "en": "Submit"
+  },
+  "layouts.public.submit_search": {
+    "zh": "提交搜索",
+    "en": "Submit search"
+  },
+  "layouts.public.suggestion": {
+    "zh": "建议",
+    "en": "Suggestion"
+  },
+  "layouts.public.the_name_you_use_in_the": {
+    "zh": "填写群聊中使用的名字",
+    "en": "The name you use in the group chat"
+  },
+  "layouts.public.this_decides_the_region_badge_on": {
+    "zh": "这会决定选手页面的地区标识。八十中学生还需要填写群内昵称。",
+    "en": "This decides the region badge on your player page. No. 80 High School students also need a group nickname."
+  },
+  "layouts.public.toggle_dark_light_mode": {
+    "zh": "切换深色/浅色模式",
+    "en": "Toggle dark/light mode"
+  },
+  "layouts.public.toggle_theme": {
+    "zh": "切换主题",
+    "en": "Toggle theme"
+  },
+  "layouts.public.top_players": {
+    "zh": "选手排行",
+    "en": "Top players"
+  },
+  "layouts.public.user_menu": {
+    "zh": "用户菜单",
+    "en": "User menu"
+  },
+  "layouts.public.view_all_notifications": {
+    "zh": "查看全部通知",
+    "en": "View all notifications"
+  },
+  "layouts.public.write_your_feedback": {
+    "zh": "写下你的反馈...",
+    "en": "Write your feedback..."
+  },
+  "layouts.public.yes": {
+    "zh": "是",
+    "en": "Yes"
+  },
+  "layouts.public.your_profile_will_show_the_globe": {
+    "zh": "选手资料会显示世界标识",
+    "en": "Your profile will show the globe badge"
+  }
+}

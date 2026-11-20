@@ -1,0 +1,24 @@
+{# 8. 正式完赛 / 撤销完赛 #}
+<dialog class="roster-dialog ops-dialog-wide" id="seriesActionDialog" aria-labelledby="seriesActionDialogTitle">
+  <form method="dialog" id="seriesActionForm">
+    <div class="roster-dialog-head">
+      <h3 id="seriesActionDialogTitle">{{ msg('admin.operations.series_result_dialog.series_settlement_action') }}</h3>
+      <button type="button" class="btn btn-sm" data-close-dialog="seriesActionDialog">{{ msg('admin.operations.series_result_dialog.close') }}</button>
+    </div>
+    <div class="roster-dialog-body">
+      <p id="seriesActionContext" class="ops-dialog-meta"></p>
+      <div id="seriesActionWarn" class="ops-callout-warn"></div>
+      <label class="field">
+        <span class="field-label" id="seriesActionReasonLabel">{{ msg('admin.operations.series_result_dialog.note_reason') }}</span>
+        <textarea id="seriesActionReason" rows="3" maxlength="2000" placeholder="{{ msg('admin.operations.series_result_dialog.enter_the_reason_for_settling_or') }}"></textarea>
+      </label>
+      <div id="seriesRetentionBox" class="ops-retention-box" hidden></div>
+      <div id="seriesActionError" class="roster-inline-error" role="alert" hidden></div>
+      <button type="button" class="btn btn-sm" id="seriesActionReload" hidden>{{ msg('admin.operations.series_result_dialog.review_latest_result_without_discarding_edits') }}</button>
+    </div>
+    <div class="roster-dialog-foot">
+      <button type="button" class="btn" data-close-dialog="seriesActionDialog">{{ msg('admin.operations.series_result_dialog.cancel') }}</button>
+      <button type="submit" class="btn btn-primary" id="seriesActionSubmitBtn">{{ msg('admin.operations.series_result_dialog.confirm') }}</button>
+    </div>
+  </form>
+</dialog>

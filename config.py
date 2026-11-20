@@ -5,16 +5,18 @@ import secrets
 from datetime import timedelta
 from urllib.parse import urlsplit
 
+from src.website.runtime.storage import site_paths
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # 测试入口显式关闭本机配置；仓库固定的 dotenv 版本不会自行识别这个开关。
 if os.environ.get("PYTHON_DOTENV_DISABLED") != "1":
+    env_path = os.environ.get("SITE_ENV_FILE") or site_paths().root / ".env"
     try:
         from dotenv import load_dotenv
 
-        load_dotenv(os.path.join(BASE_DIR, ".env"))
+        load_dotenv(env_path)
     except ImportError:
-        env_path = os.path.join(BASE_DIR, ".env")
         if os.path.isfile(env_path):
             with open(env_path, "r", encoding="utf-8") as env_file:
                 for line in env_file:
@@ -55,10 +57,9 @@ else:
 class Config:
     IS_PRODUCTION = IS_PRODUCTION
     SECRET_KEY = _SECRET_KEY
-    # 本地默认仍使用项目目录中的数据库；公网可把数据库放到独立资料盘。
-    DATABASE = os.path.abspath(_DATABASE_PATH or os.path.join(BASE_DIR, "cs_site.db"))
-    HOST_DEMO_ROOT = os.environ.get("HOST_DEMO_ROOT") or None
-    UPLOAD_FOLDER = os.path.join(BASE_DIR, "static")
+    DATABASE = os.path.abspath(_DATABASE_PATH or site_paths().database)
+    HOST_DEMO_ROOT = os.environ.get("HOST_DEMO_ROOT") or str(site_paths().managed_demos)
+    UPLOAD_FOLDER = str(site_paths().uploads)
     ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "dem"}
     MAX_CONTENT_LENGTH = 3 * 1024 * 1024 * 1024  # 3GB 上传限制（支持多个大型 Demo）
     GOTV_SECRET = os.environ.get("GOTV_SECRET", "").strip()

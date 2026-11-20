@@ -1,0 +1,118 @@
+<section class="event-individual-registration" data-registration-kind="individual">
+  <div class="event-individual-head">
+    <div>
+      <h3 class="section-title">{{ msg('public.events.event_registration_list.solo_signup') }}</h3>
+      <p>{{ msg('public.events.event_registration_list.players_without_a_fixed_team_may') }}</p>
+    </div>
+    <span class="event-individual-count">{{ msg('public.events.event_registration_list.individual_count_players', individual_count=individual_registration.individual_count) }}</span>
+  </div>
+
+  <div class="event-individual-actions">
+    {% if event.registration_open and session.user_id and current_user and current_user.steam_id64 %}
+      {% if individual_registration.current_entry %}
+        {% if individual_registration.current_entry.assignment_status == 'pending' %}
+        <form class="event-reg-ajax-form"
+              action="/events/{{ event.id }}/individual-registration/withdraw"
+              method="POST"
+              data-confirm="{{ msg('public.events.event_registration_list.cancel_your_solo_registration') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit" class="event-reg-control-btn is-danger">{{ msg('public.events.event_registration_list.cancel_individual_registration') }}</button>
+        </form>
+        {% elif individual_registration.current_entry.assignment_status == 'reserve' %}
+        <span class="event-individual-state">{{ msg('public.events.event_registration_list.you_are_registered_as_an_event') }}</span>
+        {% elif individual_registration.current_entry.is_formal_member %}
+        <span class="event-individual-state">{{ msg('public.events.event_registration_list.you_are_on_an_official_roster') }}</span>
+        {% else %}
+        <span class="event-individual-state">{{ msg('public.events.event_registration_list.balanced_teams_have_been_created') }}</span>
+        {% endif %}
+      {% elif not individual_registration.has_formal_members and not individual_registration.has_assignment %}
+      <form class="event-reg-ajax-form"
+            action="/events/{{ event.id }}/register-individual"
+            method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="event-reg-control-btn">{{ msg('public.events.event_registration_list.register_individually') }}</button>
+      </form>
+      {% else %}
+      <span class="event-individual-state">{{ msg('public.events.event_registration_list.individual_registrations_have_already_been_assigned') }}</span>
+      {% endif %}
+    {% elif event.registration_open and not individual_registration.has_formal_members and session.user_id %}
+      <a href="/profile" class="event-reg-action-link">{{ msg('public.events.event_registration_list.link_steam_to_register_individually') }}</a>
+    {% elif event.registration_open and not individual_registration.has_formal_members and not session.admin_id %}
+      <a href="{{ url_for('user_login', next=event_login_next) }}" class="event-reg-action-link">{{ msg('public.events.event_registration_list.log_in_to_register_individually') }}</a>
+    {% endif %}
+
+    {% if not entrant_event and session.admin_id and individual_registration.count > 0 and individual_registration.can_randomize %}
+    <form class="event-reg-ajax-form"
+          action="/events/{{ event.id }}/individual-registration/finalize"
+          method="POST"
+          data-confirm="{{ msg('public.events.event_registration_list.existing_teams_will_be_filled_and') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="event-reg-control-btn">{{ msg('public.events.event_registration_list.finalize_teams') }}</button>
+    </form>
+    {% endif %}
+  </div>
+
+  {% if individual_registration.teams %}
+  <div class="event-random-team-grid">
+    {% for team in individual_registration.teams %}
+    <article class="event-random-team">
+      <div class="event-random-team-title">{{ msg('public.events.event_registration_list.balanced_team_number', number=team.number) }}</div>
+      <div class="event-random-team-players">
+        {% for entry in team.players %}
+        {% set entry_private_remark = private_remark_for_user(entry.user_id) if private_remark_for_user is defined else None %}
+        {% set entry_display_name = entry_private_remark or entry.website_name %}
+        <div class="event-individual-player">
+          {% if entry.avatar %}
+          <img src="{{ avatar_thumbnail_url(entry.avatar) or '/static/avatars/default.png' }}" alt="" loading="lazy" data-fallback-src="/static/avatars/default.png">
+          {% else %}
+          <span class="event-individual-avatar-fallback" aria-hidden="true">{{ entry_display_name[:1]|upper }}</span>
+          {% endif %}
+          <span>{{ entry_display_name }}{% if not entry_private_remark and entry.group_username %} <b>@{{ entry.group_username }}</b>{% endif %}</span>
+          <small>{{ msg('public.events.event_registration_list.slot_index', index=loop.index) }}</small>
+          {% if not entrant_event and session.admin_id %}
+          <form class="event-reg-ajax-form"
+                action="/events/{{ event.id }}/individual-registration/{{ entry.id }}/remove"
+                method="POST"
+                data-confirm="{{ msg('public.events.event_registration_list.remove_player_name_this_will_clear', player_name=entry.player_name) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="event-individual-remove">{{ msg('public.events.event_registration_list.remove') }}</button>
+          </form>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if individual_registration.pending %}
+  <div class="event-individual-subhead">{{ msg('public.events.event_registration_list.waiting_for_team_assignment') }}</div>
+  <div class="event-individual-player-grid">
+    {% for entry in individual_registration.pending %}
+    {% set entry_private_remark = private_remark_for_user(entry.user_id) if private_remark_for_user is defined else None %}
+    {% set entry_display_name = entry_private_remark or entry.website_name %}
+    <div class="event-individual-player">
+      {% if entry.avatar %}
+      <img src="{{ avatar_thumbnail_url(entry.avatar) or '/static/avatars/default.png' }}" alt="" loading="lazy" data-fallback-src="/static/avatars/default.png">
+      {% else %}
+      <span class="event-individual-avatar-fallback" aria-hidden="true">{{ entry_display_name[:1]|upper }}</span>
+      {% endif %}
+      <span>{{ entry_display_name }}{% if not entry_private_remark and entry.group_username %} <b>@{{ entry.group_username }}</b>{% endif %}</span>
+      <small>{{ msg('public.events.event_registration_list.registered') }}</small>
+      {% if not entrant_event and session.admin_id %}
+      <form class="event-reg-ajax-form"
+            action="/events/{{ event.id }}/individual-registration/{{ entry.id }}/remove"
+            method="POST"
+            data-confirm="{{ msg('public.events.event_registration_list.remove_player_name_s_individual_registration', player_name=entry.player_name) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="event-individual-remove">{{ msg('public.events.event_registration_list.remove') }}</button>
+      </form>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% elif individual_registration.individual_count == 0 %}
+  <div class="event-reg-empty">{{ msg('public.events.event_registration_list.no_individual_registrations_yet') }}</div>
+  {% endif %}
+</section>

@@ -1,0 +1,63 @@
+  <section class="panel mh-col mh-maps">
+    <div class="panel-head"><h2 class="panel-title mh-sec-head">{{ msg('public.matches.map_scores.maps') }}</h2><span class="badge mh-note">{{ bo_label }}</span></div>
+    {% if not map_scores %}
+    <div class="map-strips map-strips-tbd">
+      <div class="map-strip map-strip-tbd">
+        <div class="ms-top" style="background-image:url('{{ ''|map_image }}')">
+          <span class="ms-map-name" data-i18n-ignore>TBD</span>
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <div class="map-strips">
+      {% for ms in map_scores %}
+      {% set t1_won_map = ms.played and ms.t1 > ms.t2 %}
+      {% set t2_won_map = ms.played and ms.t2 > ms.t1 %}
+      <div class="map-strip{% if not ms.played %} is-pending{% endif %}">
+        <div class="ms-top" style="background-image:url('{{ ms.name|map_image }}')">
+          <span class="ms-map-name">{{ ms.name|map_display }}</span>
+        </div>
+        {# 和 HLTV 一样分两行对齐：队标 · 队名 · 数据 · 队名 · 队标 / 选图 · 比分 · 半场比分 · 比分 · 选图 #}
+        <div class="ms-bottom">
+          {% for opponent in opponents %}
+          {% set side = opponent.side %}
+          {% set is_t1 = side == 't1' %}
+          {% set pos = 'left' if loop.first else 'right' %}
+          {% set won = t1_won_map if is_t1 else t2_won_map %}
+          {% set lost = t2_won_map if is_t1 else t1_won_map %}
+          {% set logo = match.t1_logo if is_t1 else match.t2_logo %}
+          {% set short = match.t1s if is_t1 else match.t2s %}
+          <span class="ms-logo ms-logo-{{ pos }}">
+            {% if logo %}<img class="ms-icon" src="{{ logo|team_logo_url }}" alt="{{ short }}" loading="lazy">{% else %}<span class="ms-icon logo-fallback md" data-i18n-ignore>{{ (match.team1_name if is_t1 else match.team2_name)|team_abbr(short) }}</span>{% endif %}
+          </span>
+          <span class="ms-name ms-name-{{ pos }}{% if won %} won{% elif lost %} lost{% endif %}" data-i18n-ignore><span class="ms-full">{{ match.team1_name if is_t1 else match.team2_name }}</span><span class="ms-short">{{ short }}</span></span>
+          <span class="ms-pick-cell ms-pick-{{ pos }}">{% if ms.picked_by == side %}<span class="ms-pick">{{ msg('public.matches.map_scores.pick') }}</span>{% endif %}</span>
+          <span class="ms-score ms-score-{{ pos }}{% if won %} win{% elif lost %} lose{% endif %}">{% if ms.played %}{{ ms.t1 if is_t1 else ms.t2 }}{% else %}-{% endif %}</span>
+          {% endfor %}
+          <span class="ms-stats-cell">
+            {% if ms.has_stats %}
+            <a href="/matches/{{ match.slug or match.id }}/detailed?map={{ ms.index }}" class="ms-stats-btn">{{ msg('public.matches.map_scores.stats') }}</a>
+            {% else %}
+            <span class="ms-stats-placeholder" aria-hidden="true"></span>
+            {% endif %}
+          </span>
+          <span class="ms-half-cell">
+            {% if ms.played and ms.halves %}
+            {% set t1_h1_side = 'CT' if ms.halves.opening_ct_team == 't1' else ('T' if ms.halves.opening_ct_team == 't2' else '?') %}
+            {% set t2_h1_side = 'CT' if ms.halves.opening_ct_team == 't2' else ('T' if ms.halves.opening_ct_team == 't1' else '?') %}
+            {% set t1_h2_side = 'T' if t1_h1_side == 'CT' else ('CT' if t1_h1_side == 'T' else '?') %}
+            {% set t2_h2_side = 'T' if t2_h1_side == 'CT' else ('CT' if t2_h1_side == 'T' else '?') %}
+            <span class="ms-half-detail" title="{{ msg('public.matches.map_scores.first_half_second_half_blue_ct') }}">({% for half, sides in [('h1', [t1_h1_side, t2_h1_side]), ('h2', [t1_h2_side, t2_h2_side])] %}{% for opponent in opponents %}{% set side_label = sides[0 if opponent.side == 't1' else 1] %}{% set points = ms.halves[half ~ '_' ~ opponent.side] %}<span class="{{ 'ct-side' if side_label == 'CT' else 't-side' if side_label == 'T' else '' }}">{{ points if points is not none else '-' }}</span>{{ ':' if not loop.last else '' }}{% endfor %}{{ '; ' if not loop.last else '' }}{% endfor %})</span>
+            {% if none not in (ms.t1, ms.t2, ms.halves.h1_t1, ms.halves.h2_t1, ms.halves.h1_t2, ms.halves.h2_t2) %}
+            {% set ot1 = ms.t1|int - ms.halves.h1_t1|int - ms.halves.h2_t1|int %}
+            {% set ot2 = ms.t2|int - ms.halves.h1_t2|int - ms.halves.h2_t2|int %}
+            {% if ot1 >= 0 and ot2 >= 0 and (ot1 + ot2) > 0 %}<span class="ms-ot-detail" title="{{ msg('public.matches.map_scores.overtime') }}">({{ ot1 if left_team.side == 't1' else ot2 }}:{{ ot2 if right_team.side == 't2' else ot1 }})</span>{% endif %}
+            {% endif %}
+            {% endif %}
+          </span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </section>

@@ -1,0 +1,156 @@
+{% set unconfirmed_active = entrants|rejectattr('is_frozen')|rejectattr('team_archived')|list %}
+{% set unassigned_reserves = reserve_candidates|selectattr('assigned_entrant_id', 'none')|list %}
+<section class="panel" id="sectionEntrants">
+  <div class="panel-head">
+    <h2 class="panel-title">{{ msg('admin.events.event_roster.c_event_entrants') }} <span class="panel-count">{{ entrants|length }}</span></h2>
+    <span class="muted">{{ msg('admin.events.event_roster.confirmed_entrants_active_entrants_active_teams', confirmed_entrants=control.confirmed_entrants, active_entrants=control.active_entrants) }}</span>
+  </div>
+
+  {% if unconfirmed_active and not control.archived_at %}
+  <div class="admin-toolbar roster-confirm-toolbar">
+    <label class="check-row">
+      <input type="checkbox" id="selectAllUnconfirmed">
+      <span>{{ msg('admin.events.event_roster.select_all_unconfirmed_teams_unconfirmed_active', unconfirmed_active=unconfirmed_active|length) }}</span>
+    </label>
+    <button type="button" class="btn btn-primary" id="confirmSelectedInitialBtn" data-roster-mutator disabled>{{ ui.icon('check') }}{{ msg('admin.events.event_roster.confirm_initial_roster_for_selected') }}</button>
+  </div>
+  {% endif %}
+
+  {% if not entrants %}
+  <div class="empty-state">{{ msg('admin.events.event_roster.no_five_player_teams_could_be') }}</div>
+  {% else %}
+  <div class="roster-team-grid">
+    {% for t in entrants %}
+    <article class="roster-team-card {{ 'is-archived' if t.team_archived else '' }}" id="entrant-{{ t.event_entrant_id }}" data-entrant-id="{{ t.event_entrant_id }}">
+      <header class="roster-team-head">
+        <div class="roster-team-title-wrap">
+          {% if not t.is_frozen and not t.team_archived and not control.archived_at %}
+          <input type="checkbox" class="confirm-entrant-check" value="{{ t.event_entrant_id }}" aria-label="{{ msg('admin.events.event_roster.select_team_name_to_confirm_initial', team_name=t.team_name) }}">
+          {% endif %}
+          <div class="roster-team-titles">
+            <h3 class="roster-team-name" data-i18n-ignore>{{ t.team_name }}</h3>
+            <span class="cell-sub">{{ t.origin_label }} · {% if t.club_name %}{{ msg('admin.events.event_roster.club_2') }}<span data-i18n-ignore>{{ t.club_name }}</span>{% else %}{{ msg('admin.events.event_roster.temp_team') }}{% endif %} {{ msg('admin.events.event_roster.event_entrant_event_entrant_id', event_entrant_id=t.event_entrant_id) }}</span>
+          </div>
+        </div>
+        {% if t.team_archived %}
+        <span class="badge badge-done">{{ msg('admin.events.event_roster.archived') }}</span>
+        {% elif t.is_frozen %}
+        <span class="badge badge-green">{{ msg('admin.events.event_roster.initial_confirmed') }}</span>
+        {% else %}
+        <span class="badge badge-gold">{{ msg('admin.events.event_roster.initial_pending') }}</span>
+        {% endif %}
+      </header>
+
+      <div class="roster-team-body">
+        {% if not t.is_frozen %}
+        <div class="roster-subbox">
+          <div class="roster-subbox-head">
+            <span class="roster-subbox-title">{{ msg('admin.events.event_roster.formed_roster') }}</span>
+            <span class="muted">{{ msg('admin.events.event_roster.initial_pending_adjustable') }}</span>
+          </div>
+          <ol class="roster-player-list" data-i18n-ignore>
+            {% for p in t.current_players %}
+            <li>
+              <span class="roster-slot-num">{{ loop.index }}</span>
+              <span class="roster-player-name">{{ p.nickname }}</span>
+            </li>
+            {% endfor %}
+          </ol>
+        </div>
+        {% else %}
+        <div class="roster-compare-grid">
+          <div class="roster-subbox is-initial">
+            <div class="roster-subbox-head">
+              <span class="roster-subbox-title">{{ ui.icon('lock') }}{{ msg('admin.events.event_roster.initial_roster') }}</span>
+              <span class="muted">{{ msg('admin.events.event_roster.read_only') }}</span>
+            </div>
+            <span class="field-hint">{{ msg('admin.events.event_roster.confirmed_confirmed_at_iso', confirmed_at_iso=t.confirmed_at_iso|datetime_display) }}{% if t.confirmed_by_name %}（{{ t.confirmed_by_name }}）{% endif %}</span>
+            <ol class="roster-player-list" data-i18n-ignore>
+              {% for p in t.initial_players %}
+              <li class="{% if p.swapped_out %}is-out{% endif %}">
+                <span class="roster-slot-num">{{ loop.index }}</span>
+                <span class="roster-player-name">{{ p.nickname }}</span>
+                {% if p.swapped_out %}<span class="badge badge-done" data-i18n-translate>{{ msg('admin.events.event_roster.subbed_out') }}</span>{% endif %}
+              </li>
+              {% endfor %}
+            </ol>
+          </div>
+          <div class="roster-subbox is-current">
+            <div class="roster-subbox-head">
+              <span class="roster-subbox-title">{{ msg('admin.events.event_roster.current_roster') }}</span>
+              <span class="roster-keep-count {% if t.kept_initial_count < 3 %}is-invalid{% endif %}">{{ msg('admin.events.event_roster.retains_kept_initial_count_5_initial', kept_initial_count=t.kept_initial_count) }}</span>
+            </div>
+            <span class="field-hint">{{ msg('admin.events.event_roster.pre_match_changes_must_keep_at') }}</span>
+            <ol class="roster-player-list" data-i18n-ignore>
+              {% for p in t.current_players %}
+              <li>
+                <span class="roster-slot-num">{{ loop.index }}</span>
+                <span class="roster-player-name">{{ p.nickname }}</span>
+                {% if p.is_added_sub %}<span class="badge badge-accent" data-i18n-translate>{{ msg('admin.events.event_roster.subbed_in') }}</span>{% endif %}
+              </li>
+              {% endfor %}
+            </ol>
+          </div>
+        </div>
+        {% endif %}
+
+        <div class="roster-bench-row">
+          <span class="roster-bench-label">{{ msg('admin.events.event_roster.team_substitutes') }}</span>
+          {% if t.assigned_reserves %}
+          <div class="readonly-teams">
+            {% for r in t.assigned_reserves %}
+            <span class="player-tag">{{ msg('roster.reserve.player_label', nickname=r.nickname, origin=r.origin_label) }}</span>
+            {% endfor %}
+          </div>
+          {% else %}
+          <span class="muted">{{ msg('admin.events.event_roster.no_assigned_substitutes') }}</span>
+          {% endif %}
+        </div>
+        {% if t.is_frozen and t.assigned_reserves and not t.team_archived %}
+        <p class="field-hint">{{ msg('admin.events.event_roster.assigned_substitutes_are_on_the_bench') }}</p>
+        {% endif %}
+
+        {% if t.changes %}
+        <div class="roster-history-box">
+          <span class="roster-history-title">{{ msg('admin.events.event_roster.pre_match_roster_changes') }}</span>
+          <ul class="roster-history-list">
+            {% for ch in t.changes %}
+            <li>
+              <span class="muted">{{ ch.changed_at_iso|datetime_display }}</span>
+              <span data-i18n-ignore>{{ ch.outgoing_nickname }} → {{ ch.incoming_nickname }}</span>
+              <span>{{ msg('admin.events.event_roster.reason') }}<span data-i18n-ignore>{{ ch.reason }}</span></span>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+
+        {% if t.team_archived %}
+        <div class="roster-archive-note">
+          {{ msg('admin.events.event_roster.archived_at_team_archived_iso_reason', team_archived_iso=t.team_archived_iso|datetime_display) }}<span data-i18n-ignore>{{ t.archive_reason }}</span>
+        </div>
+        {% endif %}
+      </div>
+
+      {% if not t.team_archived and not control.archived_at %}
+      <footer class="roster-team-actions">
+        {% if not t.is_frozen %}
+        <button type="button" class="btn btn-sm" data-roster-mutator data-open-adjust="{{ t.event_entrant_id }}">{{ msg('admin.events.event_roster.adjust_formation') }}</button>
+        {% endif %}
+        {% if unassigned_reserves %}
+        <button type="button" class="btn btn-sm" data-roster-mutator data-open-assign-team="{{ t.event_entrant_id }}">{{ msg('admin.events.event_roster.assign_reserve') }}</button>
+        {% endif %}
+        {% if t.is_frozen and t.assigned_reserves %}
+        <button type="button" class="btn btn-sm btn-primary" data-roster-mutator data-open-replace="{{ t.event_entrant_id }}">{{ msg('admin.events.event_roster.pre_match_change') }}</button>
+        {% endif %}
+        <button type="button" class="btn btn-sm btn-danger" data-roster-mutator
+                data-open-archive="{{ t.event_entrant_id }}"
+                data-team-name="{{ t.team_name }}"
+                {% if t.has_unfinished_match %}title="本队仍有未结束的已绑定比赛，归档会被拒绝"{% endif %}>{{ msg('admin.events.event_roster.archive') }}</button>
+      </footer>
+      {% endif %}
+    </article>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>

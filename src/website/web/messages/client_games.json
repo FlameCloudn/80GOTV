@@ -1,0 +1,21 @@
+{
+  "client.guess_player.80go_guess_the_player": {"zh": "80GO 猜选手", "en": "80GO Guess the Player"},
+  "client.guess_player.80go_guess_the_player_challenge_score": {"zh": "80GO 猜选手 #{challenge} {score}/8", "en": "80GO Guess the player #{challenge} {score}/8"},
+  "client.guess_player.result_copied": {"zh": "结果已复制", "en": "Result copied"},
+  "client.guess_player.select_a_player_from_the_suggestions": {"zh": "请从候选列表中选择一名选手", "en": "Select a player from the suggestions"},
+  "client.guess_player.share_menu_opened": {"zh": "已打开分享", "en": "Share menu opened"},
+  "client.guess_player_room.copied": {"zh": "已复制", "en": "Copied"},
+  "client.guess_player_room.copy_room_code": {"zh": "复制房间码", "en": "Copy room code"},
+  "client.guess_player_room.draw": {"zh": "本局平局", "en": "Draw"},
+  "client.guess_player_room.match_in_progress": {"zh": "比赛进行中", "en": "Match in progress"},
+  "client.guess_player_room.match_over": {"zh": "比赛结束", "en": "Match over"},
+  "client.guess_player_room.remaining_guesses_left": {"zh": "{remaining} 次机会", "en": "{remaining} guesses left"},
+  "client.guess_player_room.room_expired": {"zh": "房间已失效", "en": "Room expired"},
+  "client.guess_player_room.select_a_player_from_the_suggestions": {"zh": "请从候选列表中选择一名选手", "en": "Select a player from the suggestions"},
+  "client.guess_player_room.submission_failed": {"zh": "提交失败", "en": "Submission failed"},
+  "client.guess_player_room.unknown": {"zh": "未知", "en": "Unknown"},
+  "client.guess_player_room.you_won": {"zh": "你赢了", "en": "You won"},
+  "client.guess_player_room.your_opponent_guessed_first": {"zh": "对手先猜中了", "en": "Your opponent guessed first"},
+  "client.player_bingo.pick_an_empty_cell_first": {"zh": "请先选择一个空格", "en": "Pick an empty cell first"},
+  "client.player_bingo.select_a_player_from_the_suggestions": {"zh": "请从候选列表中选择一名选手", "en": "Select a player from the suggestions"}
+}

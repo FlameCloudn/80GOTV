@@ -1,44 +1,14 @@
-"""80GOTV 启动入口。具体页面按功能放在 routes/ 目录。"""
+"""80GOTV 本地开发启动入口。"""
 
 import logging
 import os
 
-from blueprints.admin import admin_bp
-from blueprints.match_operation_demos import match_operation_demos_bp
 from config import validate_production_config
-from models import init_tables
-
-# 导入后，各模块会把自己的页面地址注册到 app。
-from routes import (  # noqa: F401,E402
-    auth,
-    bp,
-    broadcast,
-    comments,
-    events,
-    feedback,
-    forum,
-    front_api,
-    games,
-    guess_player,
-    home,
-    live,
-    live_ingest,
-    map_quiz,
-    match_assets,
-    matches,
-    news,
-    notifications,
-    player_bingo,
-    players,
-    search,
-    sitemap,
-    stats,
-)
-from web_app import app
+from src.website.app import create_app
+from src.website.runtime.schema import init_tables
 
 validate_production_config()
-app.register_blueprint(admin_bp)
-app.register_blueprint(match_operation_demos_bp)
+app = create_app()
 
 
 def _local_server_options():
@@ -52,12 +22,13 @@ def _local_server_options():
 
 
 if __name__ == "__main__":
+    import threading
     from logging.handlers import RotatingFileHandler
 
-    from config import BASE_DIR
+    from src.website.runtime.storage import site_paths
 
     # 日志写到文件，方便调试 — 最多 5MB，保留 3 个历史文件
-    log_dir = os.path.join(BASE_DIR, "logs")
+    log_dir = site_paths().root / "logs"
     os.makedirs(log_dir, exist_ok=True)
     file_handler = RotatingFileHandler(
         os.path.join(log_dir, "flask.log"),
@@ -79,33 +50,6 @@ if __name__ == "__main__":
     )
     init_tables()
 
-    # 启动快速自检（不阻塞，错误只警告）
-    import subprocess
-    import sys as _sys
-    import threading
-
-    def _startup_check():
-        try:
-            r = subprocess.run(
-                [_sys.executable, ".claude/scripts/verify_changes.py"],
-                cwd=BASE_DIR,
-                env={
-                    **os.environ,
-                    "PUBLIC_BASE_URL": f"http://127.0.0.1:{_local_server_options()['port']}",
-                },
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-            if r.returncode != 0:
-                logging.warning("启动自检未通过: %s", r.stdout.strip()[-200:])
-            else:
-                logging.info("启动自检通过")
-        except Exception as e:
-            logging.warning("启动自检失败: %s", e)
-
-    threading.Thread(target=_startup_check, daemon=True).start()
-
     # 本地开发：改完模板后刷新页面就能看到效果，不用重启。
     # 公网由 wsgi.py 启动，不会走到这里，所以不影响线上性能。
     app.config["TEMPLATES_AUTO_RELOAD"] = True
@@ -114,7 +58,9 @@ if __name__ == "__main__":
     from live_worker import run_background
 
     shutdown = threading.Event()
-    worker = threading.Thread(target=run_background, args=(shutdown,), name="site-worker", daemon=True)
+    worker = threading.Thread(
+        target=run_background, args=(shutdown,), name="site-worker", daemon=True
+    )
     worker.start()
     try:
         app.run(**_local_server_options())

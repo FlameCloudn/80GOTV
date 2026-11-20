@@ -1,0 +1,7 @@
+<p class="meta player-coverage">
+  <span>{{ msg('public.players.player_coverage.maps_played') }}</span> {{ overall.maps }} ·
+  <span>{{ msg('public.players.player_coverage.recorded_kills') }}</span> {{ overall.total_kills if overall.total_kills is not none else '-' }}
+  (<span>{{ msg('public.players.player_coverage.maps_with_data') }}</span> {{ overall.kills_maps }}) ·
+  ADR {{ '%.1f'|format(overall.avg_adr) if overall.avg_adr is not none else '-' }}
+  (<span>{{ msg('public.players.player_coverage.maps_with_data') }}</span> {{ overall.adr_maps }}{% if overall.adr_rounds is not none %} / <span>{{ msg('public.players.player_coverage.recorded_rounds') }}</span> {{ overall.adr_rounds }}{% endif %})
+</p>

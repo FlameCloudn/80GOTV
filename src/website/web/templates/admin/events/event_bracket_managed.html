@@ -1,0 +1,164 @@
+{% extends "layouts/admin.html" %}
+{% import "components/_icons.html" as ui %}
+{% block title %}{{ msg('admin.events.event_bracket_managed.bracket_name', name=event.name) }}{% endblock %}
+{% block main %}
+<a href="{{ url_for('admin.admin_events') }}" class="back-link">{{ msg('admin.events.event_bracket_managed.back_to_event_management') }}</a>
+
+<header class="page-head">
+  <div>
+    <span class="page-head-kicker" data-i18n-ignore>MANAGED BRACKET · EVENT {{ event.id }}</span>
+    <h1><span data-i18n-ignore>{{ event.name }}</span> <span data-i18n-ignore>—</span> <span>{{ msg('admin.events.event_bracket_managed.managed_event_bracket') }}</span></h1>
+    <p class="page-sub">{{ msg('admin.events.event_bracket_managed.configure_downstream_matches_and_winner_loser') }}</p>
+  </div>
+  <div class="page-actions">
+    <a class="btn btn-sm" href="{{ url_for('admin.admin_events_edit', event_id=event.id) }}">{{ ui.icon('edit') }}{{ msg('admin.events.event_bracket_managed.edit_event') }}</a>
+    <a class="btn btn-sm" href="{{ url_for('admin.admin_event_roster', event_id=event.id) }}">{{ ui.icon('player') }}{{ msg('admin.events.event_bracket_managed.event_roster') }}</a>
+    <a class="btn btn-sm" href="{{ url_for('admin.admin_matches', event=event.id) }}">{{ ui.icon('match') }}{{ msg('admin.events.event_bracket_managed.matches_in_this_event') }}</a>
+    <a class="btn btn-sm" href="{{ event_path(event) }}" target="_blank" rel="noopener">{{ ui.icon('external') }}{{ msg('admin.events.event_bracket_managed.event_page') }}</a>
+  </div>
+</header>
+
+<div id="bracketFeedback" class="ops-feedback" role="status" hidden></div>
+
+<div class="ops-section-stack">
+  {# 1. 本届参赛队伍 #}
+  <section class="panel">
+    <div class="panel-head">
+      <h2 class="panel-title">{{ msg('admin.events.event_bracket_managed.event_entrants') }}</h2>
+      <span class="badge">{{ msg('admin.events.event_bracket_managed.entrants_teams', entrants=entrants|length) }}</span>
+    </div>
+    <div class="ops-panel-body">
+      {% if entrants %}
+      <div class="ops-entrants-chips">
+        {% for e in entrants %}
+        <div class="ops-entrant-chip">
+          <strong data-i18n-ignore>{{ e.team_name }}</strong>
+          <span class="muted" data-i18n-ignore>#{{ e.event_entrant_id }}</span>
+          {% if e.club_name %}
+          <span class="badge">{{ msg('admin.events.event_bracket_managed.club') }}<span data-i18n-ignore>{{ e.club_name }}</span></span>
+          {% else %}
+          <span class="badge">{{ msg('admin.events.event_bracket_managed.temp_team') }}</span>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="empty-state">{{ msg('admin.events.event_bracket_managed.event_entrants_are_not_confirmed_yet') }}</p>
+      {% endif %}
+    </div>
+  </section>
+
+  {# 2. 新增下游比赛 & 配置晋级联动 #}
+  <div class="ops-two-col">
+    <section class="panel">
+      <div class="panel-head">
+        <h2 class="panel-title">{{ msg('admin.events.event_bracket_managed.create_downstream_match') }}</h2>
+      </div>
+      <div class="ops-panel-body">
+        <form id="createDownstreamForm" class="admin-form">
+          <div class="field">
+            <label for="newMatchStage" class="field-label">{{ msg('admin.events.event_bracket_managed.match_stage') }} <span class="field-required">*</span></label>
+            <input type="text" id="newMatchStage" maxlength="80" placeholder="{{ msg('admin.events.event_bracket_managed.e_g_semifinal_upper_final_grand') }}" required>
+            <div class="time-chips" role="group" aria-label="{{ msg('admin.events.event_bracket_managed.stage_presets') }}">
+              <button type="button" class="time-chip" data-stage-chip="八强赛">{{ msg('admin.events.event_bracket_managed.quarterfinal') }}</button>
+              <button type="button" class="time-chip" data-stage-chip="半决赛">{{ msg('admin.events.event_bracket_managed.semifinal') }}</button>
+              <button type="button" class="time-chip" data-stage-chip="胜者组决赛">{{ msg('admin.events.event_bracket_managed.upper_bracket_final') }}</button>
+              <button type="button" class="time-chip" data-stage-chip="败者组决赛">{{ msg('admin.events.event_bracket_managed.lower_bracket_final') }}</button>
+              <button type="button" class="time-chip" data-stage-chip="季军赛">{{ msg('admin.events.event_bracket_managed.third_place_match') }}</button>
+              <button type="button" class="time-chip" data-stage-chip="总决赛">{{ msg('admin.events.event_bracket_managed.grand_final') }}</button>
+            </div>
+            <span class="field-hint">{{ msg('admin.events.event_bracket_managed.use_one_grand_final_with_no') }}</span>
+          </div>
+          <div class="ops-two-col">
+            <label class="field">
+              <span class="field-label">{{ msg('admin.events.event_bracket_managed.format_bo') }}</span>
+              <select id="newMatchBo">
+                <option value="BO1">BO1</option>
+                <option value="BO3" selected>BO3</option>
+                <option value="BO5">BO5</option>
+              </select>
+            </label>
+            <label class="field">
+              <span class="field-label">{{ msg('admin.events.event_bracket_managed.scheduled_time_optional') }}</span>
+              <input type="datetime-local" id="newMatchTime">
+            </label>
+          </div>
+          <div id="createDownstreamError" class="roster-inline-error" role="alert" hidden></div>
+          <div>
+            <button type="submit" class="btn btn-primary" id="createDownstreamBtn">{{ ui.icon('plus') }}{{ msg('admin.events.event_bracket_managed.create_downstream_match_2') }}</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2 class="panel-title">{{ msg('admin.events.event_bracket_managed.configure_advancement_link') }}</h2>
+      </div>
+      <div class="ops-panel-body">
+        <form id="configBracketLinkForm" class="admin-form">
+          <div class="ops-two-col">
+            <label class="field">
+              <span class="field-label">{{ msg('admin.events.event_bracket_managed.source_match') }}</span>
+              <select id="linkSourceMatch" required></select>
+            </label>
+            <label class="field">
+              <span class="field-label">{{ msg('admin.events.event_bracket_managed.source_outcome') }}</span>
+              <select id="linkOutcome" required>
+                <option value="winner">{{ msg('admin.events.event_bracket_managed.winner_advances') }}</option>
+                <option value="loser">{{ msg('admin.events.event_bracket_managed.loser_drops') }}</option>
+              </select>
+            </label>
+          </div>
+          <div class="ops-two-col">
+            <label class="field">
+              <span class="field-label">{{ msg('admin.events.event_bracket_managed.target_match') }}</span>
+              <select id="linkTargetMatch" required></select>
+            </label>
+            <label class="field">
+              <span class="field-label">{{ msg('admin.events.event_bracket_managed.target_side') }}</span>
+              <select id="linkTargetSide" required>
+                <option value="home">{{ msg('admin.events.event_bracket_managed.home_side') }}</option>
+                <option value="away">{{ msg('admin.events.event_bracket_managed.away_side') }}</option>
+              </select>
+            </label>
+          </div>
+          <div id="configLinkError" class="roster-inline-error" role="alert" hidden></div>
+          <div>
+            <button type="submit" class="btn btn-primary" id="configLinkBtn">{{ ui.icon('check') }}{{ msg('admin.events.event_bracket_managed.save_advancement_link') }}</button>
+          </div>
+        </form>
+      </div>
+    </section>
+  </div>
+
+  {# 3. 已配置晋级联动表 #}
+  <section class="panel">
+    <div class="panel-head">
+      <h2 class="panel-title">{{ msg('admin.events.event_bracket_managed.configured_advancement_links') }}</h2>
+      <button type="button" class="btn btn-sm" id="bracketRefreshBtn">{{ ui.icon('reopen') }}{{ msg('admin.events.event_bracket_managed.refresh_links') }}</button>
+    </div>
+    <div class="ops-panel-body" id="managedLinksContainer"></div>
+  </section>
+
+  {# 4. 本赛事比赛列表 #}
+  <section class="panel">
+    <div class="panel-head">
+      <h2 class="panel-title">{{ msg('admin.events.event_bracket_managed.event_matches') }}</h2>
+      <span class="badge" id="managedMatchesCount">{{ msg('admin.events.event_bracket_managed.event_matches_matches', event_matches=event_matches|length) }}</span>
+    </div>
+    <div class="ops-panel-body" id="managedMatchesContainer"></div>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="application/json" id="managedBracketData">{{ {
+  'eventId': event.id,
+  'eventMatches': event_matches,
+  'managedLinks': managed_links,
+  'entrants': entrants
+}|tojson }}</script>
+<script type="application/json" data-site-messages>{{ client_messages('admin_bracket_managed')|tojson }}</script>
+{{ frontend_entry('admin-bracket-managed') }}
+{% endblock %}

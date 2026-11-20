@@ -1,0 +1,116 @@
+{% extends "layouts/admin.html" %}
+{% import "components/_icons.html" as ui %}
+{% import "admin/operations/_match_actions.html" as match_ui %}
+{% block title %}{{ msg('admin.operations.matches.manage_matches') }}{% endblock %}
+{#- 筛选链接：只改自己那一项，其他已选条件（赛事、搜索词）带上 -#}
+{%- macro status_url(status) -%}
+?status={{ status }}{% if current_event %}&event={{ current_event|urlencode }}{% endif %}{% if search_query %}&q={{ search_query|urlencode }}{% endif %}
+{%- endmacro -%}
+{% block main %}
+<header class="page-head">
+  <div>
+    <span class="page-head-kicker" data-i18n-ignore>MATCHES</span><h1>{{ msg('admin.operations.matches.manage_matches') }}</h1>
+    <p class="page-head-sub">{{ msg('admin.operations.matches.matches_matches_in_total', matches=matches|length) }}</p>
+  </div>
+  <div class="page-actions"><a href="{{ url_for('admin.admin_matches_add', event=current_event) if current_event else url_for('admin.admin_matches_add') }}" class="btn btn-primary">{{ ui.icon('plus') }}{{ msg('admin.operations.matches.add_match') }}</a></div>
+</header>
+
+<section class="panel">
+  {# 筛选与搜索工具栏（服务器端筛选，换赛事立即生效） #}
+  <div class="admin-toolbar matches-filter-toolbar">
+    <nav class="segmented status-pills-nav" aria-label="{{ msg('admin.operations.matches.match_status') }}">
+      <a href="{{ status_url('all') }}" class="pill {% if current_status == 'all' %}active{% endif %}">{{ msg('admin.operations.matches.all_value1', value1=counts.all if counts else matches|length) }}</a>
+      <a href="{{ status_url('live') }}" class="pill live-pill {% if current_status == 'live' %}active{% endif %}"><span class="dot live"></span>{{ msg('admin.operations.matches.ongoing_value1', value1=counts.live if counts else 0) }}</a>
+      <a href="{{ status_url('upcoming') }}" class="pill {% if current_status == 'upcoming' %}active{% endif %}"><span class="dot upcoming"></span>{{ msg('admin.operations.matches.upcoming_value1', value1=counts.upcoming if counts else 0) }}</a>
+      <a href="{{ status_url('completed') }}" class="pill {% if current_status == 'completed' %}active{% endif %}"><span class="dot completed"></span>{{ msg('admin.operations.matches.completed_value1', value1=counts.completed if counts else 0) }}</a>
+    </nav>
+    <form method="get" class="admin-filter-form filter-controls" role="search">
+      <input type="hidden" name="status" value="{{ current_status }}">
+      <select name="event" class="filter-select" aria-label="{{ msg('admin.operations.matches.events') }}" data-auto-submit>
+        <option value="">{{ msg('admin.operations.matches.all_events') }}</option>
+        {% for e in events %}
+        <option value="{{ e.id }}" data-i18n-ignore {% if current_event == e.id|string %}selected{% endif %}>{{ e.name }}</option>
+        {% endfor %}
+      </select>
+      <input type="search" name="q" value="{{ search_query }}" placeholder="{{ msg('admin.operations.matches.search_teams_events_or_id') }}" class="filter-search" aria-label="{{ msg('admin.operations.matches.search_teams_events_or_id') }}">
+      <button type="submit" class="btn">{{ ui.icon('search') }}{{ msg('admin.operations.matches.search') }}</button>
+      {% if search_query %}<a href="?status={{ current_status }}{% if current_event %}&event={{ current_event|urlencode }}{% endif %}" class="btn btn-subtle clear-search">{{ msg('admin.operations.matches.clear_search') }}</a>{% endif %}
+    </form>
+  </div>
+
+  <div class="table-wrap">
+    <table class="table admin-table">
+      <thead>
+        <tr><th class="col-id">ID</th><th>{{ msg('admin.operations.matches.matchup_event') }}</th><th class="num">{{ msg('admin.operations.matches.score') }}</th><th>{{ msg('admin.operations.matches.start_time') }}</th><th>{{ msg('admin.operations.matches.status') }}</th><th class="actions-cell">{{ msg('admin.operations.matches.actions') }}</th></tr>
+      </thead>
+      <tbody>
+        {% for m in matches %}
+        <tr id="match-{{ m.id }}">
+          <td class="col-id">#{{ m.id }}</td>
+          <td>
+            {% set left_team, right_team = match_opponents(m) %}
+            <a class="cell-title" href="{{ url_for('admin.admin_matches_edit', match_id=m.id) }}" data-i18n-ignore>{{ left_team.name }} VS {{ right_team.name }}</a>
+            {% if m.is_test_mode %}<span class="test-badge">{{ msg('match.mode.test') }}</span>{% endif %}
+            <span class="cell-sub" data-i18n-ignore>{{ m.event_name or '-' }}{% if m.bo_format %} · {{ m.bo_format }}{% endif %}</span>
+          </td>
+          <td class="num nowrap"><b>{{ left_team.score if left_team.score is not none else '-' }} : {{ right_team.score if right_team.score is not none else '-' }}</b></td>
+          <td class="nowrap cell-datetime">{{ m.match_time|datetime_display }}</td>
+          <td>
+            <div class="status-stack">
+              {% if m.effective_status == 'upcoming' %}<span class="badge badge-upcoming">{{ msg('admin.operations.matches.upcoming') }}</span>
+              {% elif m.effective_status == 'live' %}<span class="badge badge-live live-badge">{{ msg('admin.operations.matches.live') }}</span>
+              {% elif m.effective_status == 'cancelled' %}<span class="badge badge-red">{{ msg('admin.operations.matches.cancelled') }}</span>
+              {% else %}<span class="badge badge-done">{{ msg('admin.operations.matches.completed') }}</span>{% endif %}
+              {% if m.is_managed %}
+                {% if m.rosters_frozen %}
+                <span class="badge badge-accent">{{ ui.icon('lock') }}{{ msg('admin.operations.matches.match_roster_locked') }}</span>
+                {% else %}
+                <span class="badge badge-gold">{{ msg('admin.operations.matches.match_roster_unlocked') }}</span>
+                {% endif %}
+              {% endif %}
+            </div>
+          </td>
+          <td class="actions-cell">
+            <div class="row-actions action-group">
+              {{ match_ui.quick_actions(m) }}
+              {% if not m.is_managed %}
+              <form method="post" action="{{ url_for('admin.admin_matches_delete', match_id=m.id) }}" data-confirm="{{ msg('admin.operations.matches.delete_this_match_its_statistics_live') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit" class="btn btn-sm btn-icon btn-danger action-delete-btn" title="{{ msg('admin.operations.matches.delete_match') }}" aria-label="{{ msg('admin.operations.matches.delete_match_id', id=m.id) }}">{{ ui.icon('trash') }}</button>
+              </form>
+              {% endif %}
+            </div>
+            {% if not m.is_managed %}
+            {% if m.effective_status == 'live' %}
+            <div class="row-forms">
+              <form class="inline-form match-action-form" method="post" action="/admin/matches/{{ m.id }}/complete" data-confirm="{{ msg('admin.operations.matches.mark_this_match_as_complete') }}" data-confirm-danger>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <label class="check-row save-log"><input type="checkbox" name="save_game_log" value="1" checked>{{ msg('admin.operations.matches.save_game_log') }}</label>
+                <button class="btn btn-sm btn-danger match-action-btn complete-btn" type="submit">{{ ui.icon('stop') }}{{ msg('admin.operations.matches.finish_match') }}</button>
+              </form>
+            </div>
+            {% elif m.effective_status == 'completed' %}
+            <div class="row-forms">
+              <form class="inline-form match-action-form" method="post" action="/admin/matches/{{ m.id }}/reopen" data-confirm="{{ msg('admin.operations.matches.reopen_this_match') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button class="btn btn-sm btn-success match-action-btn reopen-btn" type="submit">{{ ui.icon('reopen') }}{{ msg('admin.operations.matches.reopen') }}</button>
+              </form>
+            </div>
+            {% endif %}
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr class="empty-row">
+          <td colspan="6">{{ msg('admin.operations.matches.no_matches_found') }}{% if search_query or current_event or (current_status and current_status != 'all') %}{{ msg('admin.operations.matches.try_clearing_the_filters') }}{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+{{ frontend_entry('admin-auto-submit') }}
+{% endblock %}

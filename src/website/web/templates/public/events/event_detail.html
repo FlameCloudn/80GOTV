@@ -1,0 +1,503 @@
+{% extends 'layouts/public.html' %}
+{% from 'components/_icons.html' import site_icon %}
+{% block layout_class %}event-detail-layout no-side-layout{% endblock %}
+{% block title %}{{ event.name }} - 80GOTV{% endblock %}
+{% block meta_description %}{{ (event.description or msg('event.description_default', name=event.name))|striptags|truncate(160, true, '...') }}{% endblock %}
+{% block head %}{{ frontend_entry('event-style') }}{% endblock %}
+{% block main %}
+<a href="/events" class="back-link btn-back">{{ site_icon('back') }} {{ msg('public.events.event_detail.back_to_events') }}</a>
+
+<section class="panel event-header">
+  <div class="event-header-main">
+    <div class="event-meta">
+      <span class="badge {% if event.effective_event_status == 'ongoing' %}badge-live{% elif event.effective_event_status == 'upcoming' %}badge-upcoming{% else %}badge-done{% endif %} status-badge status-{{ event.effective_event_status }}">
+        {% if event.effective_event_status == 'upcoming' %}{{ msg('public.events.event_detail.upcoming') }}
+        {% elif event.effective_event_status == 'ongoing' %}{{ msg('public.events.event_detail.ongoing') }}
+        {% else %}{{ msg('public.events.event_detail.completed') }}{% endif %}
+      </span>
+      <span>{{ event.start_date|date_range_display(event.end_date) }}</span>
+      <span>{{ event_format_label(event) }}</span>
+    </div>
+    <h1 data-i18n-ignore>{{ event.name }}</h1>
+    {% if event.description %}<p class="event-description" data-i18n-ignore>{{ event.description }}</p>{% endif %}
+    <div class="event-header-actions">
+      <a href="{{ event_path(event) }}/stats" class="btn">{{ msg('public.events.event_detail.event_stats') }}</a>
+    </div>
+  </div>
+  <dl class="event-facts" aria-label="{{ msg('public.events.event_detail.event_information') }}">
+    <div><dt>{{ msg('public.events.event_detail.format') }}</dt><dd>{{ event_format_label(event) }}</dd></div>
+    <div><dt>{{ msg('public.events.event_detail.teams') }}</dt><dd>{{ teams|length }}</dd></div>
+    <div><dt>{{ msg('public.events.event_detail.matches') }}</dt><dd>{{ matches|length }}</dd></div>
+  </dl>
+  <span class="event-header-mark" aria-hidden="true"></span>
+</section>
+
+{% if not entrant_registration_closed|default(false) and (event.registration_open or entrant_reserve_signup_open|default(false) or (event.effective_event_status == 'upcoming' and (registrations or individual_registration.count))) %}
+<section class="panel event-registration">
+  {% if event.registration_open %}
+  {% set event_login_next = event_path(event) %}
+  <div class="event-reg-banner"><strong>{{ msg('public.events.event_detail.registration_open') }}</strong>
+    {% if session.user_id and current_user and current_user.steam_id64 %}
+    <button id="regOpenButton" type="button" class="btn btn-primary"
+            aria-haspopup="dialog" aria-controls="regOverlay" aria-expanded="false">{{ msg('public.events.event_detail.create_team_registration') }}</button>
+    {% if individual_registration_open %}<span class="event-reg-hint">{{ msg('public.events.event_detail.you_can_also_register_individually_below') }}</span>{% endif %}
+    {% elif session.user_id %}
+    <span class="event-reg-hint">{{ msg('public.events.event_detail.link_steam_before_registering') }}</span>
+    <a href="/profile" class="btn btn-primary">{{ msg('public.events.event_detail.link_steam') }}</a>
+    {% elif session.admin_id %}
+    <span class="event-reg-hint">{{ msg('public.events.event_detail.admin_accounts_cannot_register_use_a') }}</span>
+    <a href="/admin/logout" class="btn">{{ msg('public.events.event_detail.log_out_admin') }}</a>
+    {% else %}
+    <a href="{{ url_for('user_login', next=event_login_next) }}" class="btn btn-primary">{{ msg('public.events.event_detail.log_in_to_register') }}</a>
+    {% endif %}
+  </div>
+  {% elif registrations or individual_registration.count or entrant_reserve_signup_open|default(false) %}
+  <div class="event-reg-banner event-reg-closed">{{ msg('public.events.event_detail.registration_is_closed_substitute_registration_remains') }}</div>
+  {% endif %}
+
+  {% if event.registration_open or registrations or individual_registration.count or entrant_reserve_signup_open|default(false) %}
+  <section id="eventRegistrationSection" aria-live="polite">
+    {% include 'public/events/_event_registration_list.html' %}
+  </section>
+  {% endif %}
+</section>
+{% endif %}
+
+{% if event.registration_open and session.user_id and current_user and current_user.steam_id64 %}
+<!-- 报名表单（弹窗） -->
+<dialog id="regOverlay" class="event-overlay" aria-labelledby="regModalTitle">
+  <div class="event-modal">
+    <h3 class="event-modal-title" id="regModalTitle">{{ msg('public.events.event_detail.team_registration_name', name=event.name) }}</h3>
+    <p class="event-modal-desc">{{ msg('public.events.event_detail.create_a_team_and_choose_your') }}</p>
+    <form method="POST" action="/events/{{ event.id }}/register" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label class="event-modal-label" for="regTeamName">{{ msg('public.events.event_detail.team_name') }}</label>
+      <input id="regTeamName" name="team_name" placeholder="{{ msg('public.events.event_detail.team_name') }}" required class="event-modal-input">
+      <label class="event-modal-label" for="regTeamLogo">{{ msg('public.events.event_detail.team_logo_optional') }}</label>
+      <input id="regTeamLogo" name="team_logo" type="file" aria-describedby="regTeamLogoHelp"
+             accept="image/png,image/jpeg,image/gif,.png,.jpg,.jpeg,.gif" class="event-modal-input event-modal-file-input"
+             data-max-bytes="10485760" data-size-error="{{ msg('common.team_logo.file_too_large') }}" data-type-error="{{ msg('common.team_logo.unsupported_type') }}">
+      <p class="event-modal-file-help" id="regTeamLogoHelp">{{ msg('public.events.event_detail.png_jpg_jpeg_or_gif_up') }}</p>
+      <p class="event-modal-label">{{ msg('public.events.event_detail.choose_your_slot') }}</p>
+      <div class="event-modal-slot-selector" id="slotSelector">
+        {% for i in range(5) %}
+        <label class="event-modal-slot-opt">
+          <input type="radio" name="my_slot" value="{{ i }}" data-registration-slot required>
+          <span>{{ msg('public.events.event_detail.slot_value1', value1=i+1) }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      <p class="event-modal-desc">{{ msg('public.events.event_detail.teammate_info_fill_your_slot_others') }}</p>
+      {% for i in range(5) %}
+      <div class="event-modal-form-row" id="slotRow{{ i }}">
+        <span class="event-modal-slot-num">#{{ i+1 }}</span>
+        <input name="pname_{{ i }}" aria-label="{{ msg('public.events.event_detail.slot_value1_player_nickname', value1=i+1) }}" placeholder="{{ msg('public.events.event_detail.player_value1_nickname_optional', value1=i+1) }}" class="event-modal-input-sm">
+        <input name="psteam_{{ i }}" aria-label="{{ msg('public.events.event_detail.slot_value1_steam_id', value1=i+1) }}" placeholder="Steam ID" class="event-modal-input-sm">
+        <span class="event-modal-slot-tag slot-label"></span>
+      </div>
+      {% endfor %}
+      <div class="event-modal-actions">
+        <button type="submit" class="btn btn-primary">{{ msg('public.events.event_detail.submit_registration') }}</button>
+        <button type="button" class="btn" data-registration-close>{{ msg('public.events.event_detail.cancel') }}</button>
+      </div>
+    </form>
+  </div>
+</dialog>
+<script type="application/json" data-site-messages>{{ client_messages('registration')|tojson }}</script>
+{{ frontend_entry('event-detail') }}
+<script type="application/json" data-site-messages>{{ client_messages('inline_event_detail')|tojson }}</script>
+{{ frontend_entry('event-registration-dialog') }}
+{% endif %}
+
+{# 参赛队伍 + 赛事图池：照 HLTV 赛事页，图池放在右边一个窄框里，一张地图一条（原图比例，地图名在正中间） #}
+<div class="event-overview-row">
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">{{ msg('public.events.event_detail.teams_2') }} <span class="panel-count">{{ teams|length }}</span></h2></div>
+  <div class="teams-grid">
+    {% for t in teams %}
+    <div class="team-badge" data-tooltip tabindex="0">
+      {% if t.logo %}
+      <img class="event-team-logo" src="{{ t.logo|team_logo_url }}"
+           alt="{{ t.name }}" loading="lazy">
+      {% else %}
+      <div class="logo-fallback lg event-team-logo-fallback" data-i18n-ignore>{{ t.name|team_abbr(t.short_name) }}</div>
+      {% endif %}
+      <span class="team-badge-name" data-i18n-ignore>{{ t.name }}</span>
+      {% if t.players %}
+      <div class="team-players-popup" data-i18n-ignore>
+        {% for p in t.players %}
+        {% set display_name = private_name_for_player(p.id, p.nickname) if private_name_for_player is defined else p.nickname %}
+        {% if p.id %}<a href="/players/{{ p.id }}" class="team-player-link">{% else %}<span class="team-player-link">{% endif %}
+          {% if p.avatar %}
+          <img class="team-player-avatar" src="{{ avatar_thumbnail_url(p.avatar) or '/static/avatars/default.png' }}" alt="{{ display_name }}"
+               loading="lazy" data-fallback-src="/static/avatars/default.png">
+          {% else %}
+          <span class="team-player-avatar team-player-avatar-fallback" aria-hidden="true">{{ display_name[:1]|upper }}</span>
+          {% endif %}
+          <span{% if p.slot is defined %} data-player-slot="{{ p.slot }}"{% endif %}>{{ display_name }}</span>
+        {% if p.id %}</a>{% else %}</span>{% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% if not teams %}<div class="empty-state">{{ msg('public.events.event_detail.no_teams_yet') }}</div>{% endif %}
+</section>
+
+{% if event_map_pool %}
+<section class="panel event-map-pool-panel">
+  <div class="panel-head"><h2 class="panel-title">{{ msg('public.events.event_detail.map_pool') }} <span class="panel-count">{{ event_map_pool|length }}</span></h2></div>
+  <div class="event-map-pool">
+    {% for map_name in event_map_pool %}
+    <div class="event-map-strip">
+      <img src="{{ map_name|map_image }}" alt="" loading="lazy">
+      <span>{{ map_name|map_display }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+</div>
+
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">{{ msg('public.events.event_detail.matches_2') }} <span class="panel-count">{{ matches|length }}</span></h2></div>
+  <div class="card-list event-match-list">
+    {% for m in matches %}
+    {% set team1_is_assigned = m.team1_id or m.team1_players %}
+    {% set team2_is_assigned = m.team2_id or m.team2_players %}
+    {% set left, right = match_opponents(m) %}
+    {% set done = m.effective_status == 'completed' %}
+    {% set scored = done and m.team1_score is not none and m.team2_score is not none %}
+    {% set t1_won = scored and m.team1_score > m.team2_score %}
+    {% set t2_won = scored and m.team2_score > m.team1_score %}
+    {# 一行：时间 | 队名 比分 队名 | 赛制 + BP。左右两列等宽，比分在每行正中间；整行都能点进比赛 #}
+    <div class="event-match-row">
+      <span class="event-match-time">{{ m.match_time|datetime_display if m.match_time else 'TBD' }}</span>
+      <a class="event-match-main" href="/matches/{{ m.slug or m.id }}">
+        <span class="team{% if scored and left.score > right.score %} won{% elif scored and left.score < right.score %} lost{% endif %}" data-match-side="{{ left.side }}" data-i18n-ignore>{{ left.name }}</span>
+        <span class="vs">{% if done %}<b>{{ left.score if left.score is not none else '-' }} : {{ right.score if right.score is not none else '-' }}</b>{% else %}{{ msg('public.events.event_detail.matchup') }}{% endif %}</span>
+        <span class="team right{% if scored and right.score > left.score %} won{% elif scored and right.score < left.score %} lost{% endif %}" data-match-side="{{ right.side }}" data-i18n-ignore>{{ right.name }}</span>
+      </a>
+      <span class="event-match-side">
+        <span data-i18n-ignore>{{ m.bo_format or 'BO1' }}</span>
+        {% if m.effective_status not in ('completed', 'cancelled') %}
+          {% if session.get('user_id') %}
+          <a href="/bp/{{ m.id }}" class="btn btn-sm event-bp-link">{{ msg('public.events.event_detail.open_veto') }}</a>
+          {% else %}
+          <span class="event-bp-state">{{ msg('public.events.event_detail.log_in_for_veto') }}</span>
+          {% endif %}
+        {% endif %}
+      </span>
+    </div>
+    {% endfor %}
+  </div>
+  {% if not matches %}<div class="empty-state">{{ msg('public.events.event_detail.no_matches') }}</div>{% endif %}
+</section>
+
+{% set bracket = event.bracket_data and event.bracket_data.strip() %}
+{% if bracket %}
+{% set bd = bracket|json_loads %}
+{% set tour = bd.tournament if bd and bd.tournament else bd %}
+{% if tour and (tour.rounds or tour.sections) %}
+{% set current_team_map = {} %}
+{% for current_team in teams %}
+  {% if current_team.id %}
+    {% set _ = current_team_map.update({current_team.id|string: current_team}) %}
+  {% endif %}
+{% endfor %}
+{% set team_map = {} %}
+{% if tour.teams %}
+{% for t in tour.teams %}
+{% set live_team = current_team_map.get(t.db_id|string) if t.db_id else None %}
+{% set _ = team_map.update({t.id: {
+  'name': live_team.name if live_team else t.name,
+  'short': live_team.short_name if live_team else (t.get('short_name') or t.name),
+  'logo': live_team.logo if live_team else None,
+  'db_id': t.db_id
+}}) %}
+{% endfor %}
+{% endif %}
+
+<section class="panel event-bracket-panel">
+<div class="panel-head"><h2 class="panel-title">{{ msg('public.events.event_detail.bracket') }}</h2><a href="{{ event_path(event) }}/stats" class="panel-link">{{ msg('public.events.event_detail.event_stats') }}</a></div>
+{% if tour.name or tour.type or tour.total_teams %}
+<div class="bracket-subtitle">
+  {% if tour.name %}{{ tour.name }}{% endif %}
+  {% if tour.type %}
+  <span class="badge badge-accent bracket-type-tag">
+    {% if tour.type in ('double_elim','double_elimination','double') %}{{ msg('public.events.event_detail.double_elimination') }}
+    {% elif tour.type in ('single_elim','single_elimination','single') %}{{ msg('public.events.event_detail.single_elimination') }}
+    {% elif tour.type == 'swiss' %}{{ msg('public.events.event_detail.swiss') }}
+    {% else %}{{ tour.type }}{% endif %}
+  </span>
+  {% endif %}
+  {% if tour.total_teams %}<span>{{ msg('public.events.event_detail.total_teams_teams', total_teams=tour.total_teams) }}</span>{% endif %}
+</div>
+{% endif %}
+
+{% set is_swiss = tour.type == 'swiss' %}
+
+{# ── All matches flat list ── #}
+{% set all_matches = [] %}
+{% if tour.sections %}
+  {% for sec in tour.sections %}
+    {% for rd in sec.rounds %}
+      {% for m in rd.matches %}
+        {% set _ = all_matches.append(m) %}
+      {% endfor %}
+    {% endfor %}
+  {% endfor %}
+{% else %}
+  {% for rd in tour.rounds %}
+    {% for m in rd.matches %}
+      {% set _ = all_matches.append(m) %}
+    {% endfor %}
+  {% endfor %}
+{% endif %}
+
+{# ── Format detection ── #}
+{% set tt = tour.total_teams|int if tour.total_teams else 8 %}
+{% set fmt_key = None %}
+{% if tour.type in ('double_elim','double_elimination','double') %}
+  {% set fmt_key = '4de' if tt <= 4 else '8de' %}
+{% elif tour.type in ('single_elim','single_elimination','single') %}
+  {% set fmt_key = '4se' if tt <= 4 else '8se' %}
+{% else %}
+  {# 从 match IDs 推断格式（兼容旧数据） #}
+  {% set mid_ids = all_matches|map(attribute='id')|join(',') %}
+  {% if ('UB_' in mid_ids) and ('LB_' in mid_ids) and ('GF_' in mid_ids) %}
+    {% set fmt_key = '4de' if tt <= 4 else '8de' %}
+  {% elif 'QF_' in mid_ids %}
+    {% set fmt_key = '8se' %}
+  {% elif 'SF_' in mid_ids and all_matches|length <= 3 %}
+    {% set fmt_key = '4se' %}
+  {% endif %}
+{% endif %}
+
+{# ── Position lookup macro (canvas 920×580) ── #}
+{% macro card_pos(fk, mid) -%}
+  {%- if fk == '4de' -%}
+    {%- if mid == 'UB_R1_M1' %}left:4%;top:4%;width:20%{% elif mid == 'UB_R1_M2' %}left:4%;top:28%;width:20%{% elif mid == 'UB_R2_M1' %}left:30%;top:14%;width:20%{% elif mid == 'LB_R1_M1' %}left:4%;top:56%;width:20%{% elif mid == 'LB_R2_M1' %}left:30%;top:62%;width:20%{% elif mid == 'GF_R1_M1' %}left:58%;top:38%;width:28%{% endif -%}
+  {%- elif fk == '8de' -%}
+    {%- if mid == 'UB_R1_M1' %}left:2%;top:2%;width:17%{% elif mid == 'UB_R1_M2' %}left:2%;top:18%;width:17%{% elif mid == 'UB_R1_M3' %}left:2%;top:54%;width:17%{% elif mid == 'UB_R1_M4' %}left:2%;top:70%;width:17%{% elif mid == 'UB_R2_M1' %}left:24%;top:10%;width:17%{% elif mid == 'UB_R2_M2' %}left:24%;top:62%;width:17%{% elif mid == 'UB_F_M1' %}left:46%;top:32%;width:17%{% elif mid == 'LB_R1_M1' %}left:24%;top:28%;width:17%{% elif mid == 'LB_R1_M2' %}left:24%;top:44%;width:17%{% elif mid == 'LB_R2_M1' %}left:46%;top:10%;width:17%{% elif mid == 'LB_R2_M2' %}left:46%;top:54%;width:17%{% elif mid == 'LB_R3_M1' %}left:46%;top:68%;width:17%{% elif mid == 'LB_F_M1' %}left:68%;top:54%;width:17%{% elif mid == 'GF_R1_M1' %}left:68%;top:34%;width:26%{% endif -%}
+  {%- elif fk == '4se' -%}
+    {%- if mid == 'SF_M1' %}left:4%;top:10%;width:24%{% elif mid == 'SF_M2' %}left:4%;top:56%;width:24%{% elif mid == 'F_M1' %}left:52%;top:30%;width:32%{% endif -%}
+  {%- elif fk == '8se' -%}
+    {%- if mid == 'QF_M1' %}left:3%;top:2%;width:18%{% elif mid == 'QF_M2' %}left:3%;top:23%;width:18%{% elif mid == 'QF_M3' %}left:3%;top:52%;width:18%{% elif mid == 'QF_M4' %}left:3%;top:73%;width:18%{% elif mid == 'SF_M1' %}left:28%;top:12%;width:18%{% elif mid == 'SF_M2' %}left:28%;top:62%;width:18%{% elif mid == 'F_M1' %}left:56%;top:34%;width:26%{% endif -%}
+  {%- endif -%}
+{%- endmacro %}
+
+{# ── SVG connectors macro (viewBox 0 0 920 580) ── #}
+{% macro svg_connectors(fk) %}
+  {% if fk == '4de' %}
+    {# Every route leaves and enters at the vertical centre of the full match card. #}
+    <path d="M 221 75 C 248 75 248 133 276 133" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-dasharray="8,5" opacity="0.55"/>
+    <path d="M 221 215 C 248 215 248 133 276 133" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-dasharray="8,5" opacity="0.55"/>
+    {# UB_R1 losers → LB_R1 #}
+    <path d="M 221 75 C 245 75 245 377 221 377" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="6,5" opacity="0.45"/>
+    <path d="M 221 215 C 250 215 250 377 221 377" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="6,5" opacity="0.45"/>
+    {# LB_R1 winner + UB final loser → LB final #}
+    <path d="M 221 377 C 248 377 248 412 276 412" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-dasharray="8,5" opacity="0.55"/>
+    <path d="M 460 133 C 486 133 486 412 460 412" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="6,5" opacity="0.45"/>
+    {# UB_R2_M1 winner → GF seed1: rightward to grand final #}
+    <path d="M 460 133 C 497 133 497 273 534 273" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-dasharray="8,5" opacity="0.55"/>
+    {# LB_R2_M1 winner → GF seed2: rightward to grand final #}
+    <path d="M 460 412 C 497 412 497 273 534 273" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-dasharray="8,5" opacity="0.55"/>
+  {% elif fk == '8de' %}
+    {# ── UB_R1 winners → UB_R2 (col1→col2) ── #}
+    <path d="M 175 64 C 198 64 198 110 221 110" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="7,4" opacity="0.5"/>
+    <path d="M 175 157 C 198 157 198 110 221 110" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="7,4" opacity="0.5"/>
+    <path d="M 175 365 C 198 365 198 412 221 412" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="7,4" opacity="0.5"/>
+    <path d="M 175 458 C 198 458 198 412 221 412" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="7,4" opacity="0.5"/>
+    {# ── UB_R1 losers → LB_R1 (col1→col2, drop zone) ── #}
+    <path d="M 175 64 C 198 64 198 215 221 215" fill="none" stroke="var(--text-muted)" stroke-width="1.2" stroke-dasharray="5,5" opacity="0.4"/>
+    <path d="M 175 157 C 198 157 198 215 221 215" fill="none" stroke="var(--text-muted)" stroke-width="1.2" stroke-dasharray="5,5" opacity="0.4"/>
+    <path d="M 175 365 C 198 365 198 307 221 307" fill="none" stroke="var(--text-muted)" stroke-width="1.2" stroke-dasharray="5,5" opacity="0.4"/>
+    <path d="M 175 458 C 198 458 198 307 221 307" fill="none" stroke="var(--text-muted)" stroke-width="1.2" stroke-dasharray="5,5" opacity="0.4"/>
+    {# ── UB_R2 winners → UB_F (col2→col3) ── #}
+    <path d="M 377 110 C 400 110 400 238 423 238" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="7,4" opacity="0.5"/>
+    <path d="M 377 412 C 400 412 400 238 423 238" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="7,4" opacity="0.5"/>
+    {# ── UB_R2 losers → LB_R2 (col2→col3) ── #}
+    <path d="M 377 110 C 400 110 400 110 423 110" fill="none" stroke="var(--text-muted)" stroke-width="1.2" stroke-dasharray="5,5" opacity="0.4"/>
+    <path d="M 377 412 C 400 412 400 365 423 365" fill="none" stroke="var(--text-muted)" stroke-width="1.2" stroke-dasharray="5,5" opacity="0.4"/>
+    {# ── LB_R1 winners → LB_R2 (col2→col3) ── #}
+    <path d="M 377 215 C 400 215 400 110 423 110" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="7,4" opacity="0.5"/>
+    <path d="M 377 307 C 400 307 400 365 423 365" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="7,4" opacity="0.5"/>
+    {# ── LB_R2 winners → LB_R3 (col3 same-col, wrap right) ── #}
+    <path d="M 580 110 C 600 110 600 447 580 447" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="7,4" opacity="0.5"/>
+    <path d="M 580 365 C 600 365 600 447 580 447" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="7,4" opacity="0.5"/>
+    {# ── UB_F → GF + LB_F ── #}
+    <path d="M 580 238 C 603 238 603 249 626 249" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="8,5" opacity="0.7"/>
+    <path d="M 580 238 C 603 238 603 365 626 365" fill="none" stroke="var(--text-muted)" stroke-width="1.2" stroke-dasharray="5,5" opacity="0.4"/>
+    {# ── LB_R3 → LB_F ── #}
+    <path d="M 580 447 C 603 447 603 365 626 365" fill="none" stroke="var(--text-muted)" stroke-width="1.2" stroke-dasharray="5,5" opacity="0.4"/>
+    {# ── LB_F → GF ── #}
+    <path d="M 782 365 C 804 365 804 249 626 249" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="8,5" opacity="0.7"/>
+  {% elif fk == '4se' %}
+    <path d="M 258 110 C 368 110 368 226 478 226" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-dasharray="8,5" opacity="0.55"/>
+    <path d="M 258 377 C 368 377 368 226 478 226" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-dasharray="8,5" opacity="0.55"/>
+  {% elif fk == '8se' %}
+    <path d="M 193 64 C 225 64 225 122 258 122" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-dasharray="8,5" opacity="0.55"/>
+    <path d="M 193 186 C 225 186 225 122 258 122" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-dasharray="8,5" opacity="0.55"/>
+    <path d="M 193 354 C 225 354 225 412 258 412" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-dasharray="8,5" opacity="0.55"/>
+    <path d="M 193 476 C 225 476 225 412 258 412" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-dasharray="8,5" opacity="0.55"/>
+    <path d="M 423 122 C 469 122 469 249 515 249" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-dasharray="8,5" opacity="0.55"/>
+    <path d="M 423 412 C 469 412 469 249 515 249" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-dasharray="8,5" opacity="0.55"/>
+  {% endif %}
+{% endmacro %}
+
+{# ── Zone labels macro (canvas 920×580) ── #}
+{% macro zone_labels(fk) %}
+  {% if fk == '4de' %}
+    <div class="bracket-zone-label" style="left:1%;top:0.5%">{{ msg('public.events.event_detail.upper_bracket') }}</div>
+    <div class="bracket-zone-label" style="left:1%;top:47%">{{ msg('public.events.event_detail.lower_bracket') }}</div>
+    <div class="bracket-zone-label" style="left:58%;top:27%">{{ msg('public.events.event_detail.grand_final') }}</div>
+  {% elif fk == '8de' %}
+    <div class="bracket-zone-label" style="left:1%;top:0.5%">{{ msg('public.events.event_detail.upper_bracket') }}</div>
+    <div class="bracket-zone-label" style="left:1%;top:47%">{{ msg('public.events.event_detail.lower_bracket') }}</div>
+    <div class="bracket-zone-label" style="left:68%;top:31%">{{ msg('public.events.event_detail.grand_final') }}</div>
+  {% elif fk == '4se' %}
+    <div class="bracket-zone-label" style="left:3%;top:1%">{{ msg('public.events.event_detail.playoffs') }}</div>
+  {% elif fk == '8se' %}
+    <div class="bracket-zone-label" style="left:3%;top:1%">{{ msg('public.events.event_detail.playoffs') }}</div>
+  {% endif %}
+{% endmacro %}
+
+<div class="bracket-scroll-wrapper">
+  <div class="bracket-mobile-hint">
+    <span>&harr; {{ msg('public.events.event_detail.scroll_horizontally_to_view_the_full') }}</span>
+  </div>
+  <div class="bracket-container">
+{% if is_swiss %}
+  {# ── Swiss: text-based layout ── #}
+  <div class="bracket-swiss">
+  {% if tour.sections %}
+    {% for section in tour.sections %}
+      <div class="bracket-swiss-round">
+        <div class="bracket-swiss-round-label">{{ section.label }}</div>
+        <div class="bracket-swiss-groups">
+        {% for round in section.rounds %}
+          <div class="bracket-swiss-group">
+            <div class="bracket-swiss-group-title">{{ round.name }}</div>
+            <div class="bracket-swiss-matches">
+            {% for m in round.matches %}
+              {% set round_name = round.name %}
+              {% include 'public/events/event_detail_card.html' %}
+            {% endfor %}
+            </div>
+          </div>
+        {% endfor %}
+        </div>
+      </div>
+    {% endfor %}
+  {% else %}
+    {% for round in tour.rounds %}
+      <div class="bracket-swiss-round">
+        <div class="bracket-swiss-round-label">{{ round.name }}</div>
+        <div class="bracket-swiss-matches">
+        {% for m in round.matches %}
+          {% set round_name = round.name %}
+          {% include 'public/events/event_detail_card.html' %}
+        {% endfor %}
+        </div>
+      </div>
+    {% endfor %}
+  {% endif %}
+  </div>
+
+{% elif fmt_key %}
+  {% set ns = namespace(valid_count=0) %}
+  {% for m in all_matches %}
+    {% if card_pos(fmt_key, m.get('id') or m.get('match_id') or '') %}
+      {% set ns.valid_count = ns.valid_count + 1 %}
+    {% endif %}
+  {% endfor %}
+  {% if ns.valid_count > 0 %}
+  {# ── Build round name lookup for card headers ── #}
+  {% set rn_map = {} %}
+  {% if tour.sections %}
+    {% for sec in tour.sections %}
+      {% for rd in sec.rounds %}
+        {% for m in rd.matches %}
+          {% set display_round_name = msg('public.events.event_detail.grand_final') if rd.name == 'Grand Final' else rd.name %}
+          {% set _ = rn_map.update({m.get('id') or m.get('match_id') or '': display_round_name}) %}
+        {% endfor %}
+      {% endfor %}
+    {% endfor %}
+  {% else %}
+    {% for rd in tour.rounds %}
+      {% for m in rd.matches %}
+        {% set display_round_name = msg('public.events.event_detail.grand_final') if rd.name == 'Grand Final' else rd.name %}
+        {% set _ = rn_map.update({m.get('id') or m.get('match_id') or '': display_round_name}) %}
+      {% endfor %}
+    {% endfor %}
+  {% endif %}
+  {# ── Elimination: canvas with SVG connectors ── #}
+  <div class="bracket-canvas" data-format="{{ fmt_key }}">
+    <svg class="bracket-connectors" viewBox="0 0 920 580" preserveAspectRatio="xMidYMid meet">
+      {{ svg_connectors(fmt_key) }}
+    </svg>
+    {{ zone_labels(fmt_key) }}
+    {% for m in all_matches %}
+      {% set mid = m.get('id') or m.get('match_id') or '' %}
+{% set pos_style = card_pos(fmt_key, mid) %}
+{% if pos_style %}
+  {% set round_name = rn_map.get(mid, '') %}
+  {% include 'public/events/event_detail_card.html' %}
+{% endif %}
+    {% endfor %}
+  </div>
+  {% else %}
+  {# ── Fallback: match IDs don't match any known position #}
+  <div class="bracket-dynamic">
+    {% for round in tour.rounds %}
+    <div class="bracket-round-col">
+      <div class="bracket-round-title">{{ round.name }}</div>
+      {% for m in round.matches %}
+        {% set round_name = round.name %}
+        {% include 'public/events/event_detail_card.html' %}
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+{% else %}
+  {# ── Fallback: simple flex row ── #}
+  <div class="bracket-dynamic">
+    {% for round in tour.rounds %}
+    <div class="bracket-round-col">
+      <div class="bracket-round-title">{{ round.name }}</div>
+      {% for m in round.matches %}
+        {% set round_name = round.name %}
+        {% include 'public/events/event_detail_card.html' %}
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+{% endif %}
+</div>
+</div>
+</section>
+
+{% endif %}
+{% endif %}
+
+{% if award_players %}
+<section class="panel event-award-poster-section">
+  <div class="panel-head"><h2 class="panel-title">{{ msg('public.events.event_detail.mvp_evp_chart') }}</h2></div>
+  <div class="event-award-poster-grid">
+    {% for player in award_players %}
+    <figure class="event-award-poster-wrap">
+      {% set award_display_name = private_name_for_player(player.id, player.nickname) if private_name_for_player is defined else player.nickname %}
+      <img src="/events/{{ event.id }}/award-poster/{{ player.type }}/{{ player.id }}.png" alt="{{ msg('public.events.event_detail.award_display_name_type_stats_image', award_display_name=award_display_name, type=player.type) }}" loading="lazy">
+      <figcaption data-i18n-ignore><span class="badge {% if player.type == 'MVP' %}badge-gold{% else %}badge-green{% endif %}">{{ player.type }}{% if player.type == 'EVP' and player.evp_rank %} #{{ player.evp_rank }}{% endif %}</span> {{ award_display_name }}</figcaption>
+    </figure>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block side %}{% endblock %}

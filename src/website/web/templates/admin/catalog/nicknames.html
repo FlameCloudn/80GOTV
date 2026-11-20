@@ -1,0 +1,52 @@
+{% extends "layouts/admin.html" %}
+{% import "components/_icons.html" as ui %}
+{% block title %}{{ msg('admin.catalog.nicknames.player_nickname_management') }}{% endblock %}
+{% block main %}
+<header class="page-head">
+  <div>
+    <span class="page-head-kicker" data-i18n-ignore>NICKNAMES</span><h1>{{ msg('admin.catalog.nicknames.player_nickname_management') }}</h1>
+    <p class="page-head-sub">{{ msg('admin.catalog.nicknames.the_official_nickname_is_shown_on') }}</p>
+  </div>
+</header>
+
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">{{ msg('admin.catalog.nicknames.merge_duplicate_players') }}</h2></div>
+  <p class="field-hint panel-body-hint">{{ msg('admin.catalog.nicknames.merge_the_incorrectly_created_duplicate_profile') }}</p>
+  <form method="post" action="{{ url_for('admin.admin_nicknames_merge') }}" class="merge-form" data-confirm="{{ msg('admin.catalog.nicknames.merge_these_two_player_profiles_the') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <select name="source_id" required aria-label="{{ msg('admin.catalog.nicknames.duplicate_profile_to_remove') }}"><option value="">{{ msg('admin.catalog.nicknames.duplicate_profile_to_remove') }}</option>{% for p in players %}<option value="{{ p.id }}" data-i18n-ignore>#{{ p.id }} {{ p.nickname }}</option>{% endfor %}</select>
+    <span class="muted">{{ msg('admin.catalog.nicknames.merge_into') }}</span>
+    <select name="target_id" required aria-label="{{ msg('admin.catalog.nicknames.official_profile_to_keep') }}"><option value="">{{ msg('admin.catalog.nicknames.official_profile_to_keep') }}</option>{% for p in players %}<option value="{{ p.id }}" data-i18n-ignore>#{{ p.id }} {{ p.nickname }}</option>{% endfor %}</select>
+    <button class="btn btn-primary" type="submit">{{ ui.icon('merge') }}{{ msg('admin.catalog.nicknames.merge_profiles') }}</button>
+  </form>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">{{ msg('admin.catalog.nicknames.players_and_past_nicknames') }} <span class="panel-count">{{ players|length }}</span></h2></div>
+  {% if players %}
+  <div class="table-wrap">
+    <table class="table admin-table">
+      <thead><tr><th class="col-id">ID</th><th>{{ msg('admin.catalog.nicknames.official_nickname') }}</th><th>SteamID</th><th>{{ msg('admin.catalog.nicknames.teams') }}</th><th>{{ msg('admin.catalog.nicknames.previous_nicknames') }}</th><th class="col-actions">{{ msg('admin.catalog.nicknames.actions') }}</th></tr></thead>
+      <tbody>
+        {% for p in players %}
+        <tr>
+          <td class="col-id">#{{ p.id }}</td>
+          <td><b data-i18n-ignore>{{ p.nickname }}</b></td>
+          <td class="nowrap">{{ p.steam_id or '-' }}</td>
+          <td data-i18n-ignore>{{ p.team_name or '-' }}</td>
+          <td>
+            <div class="alias-list" data-i18n-ignore>
+              {% for item in alias_map.get(p.id, []) %}<span class="alias-chip alias" title="{{ item.source }}">{{ item.nickname }}</span>{% else %}<span class="muted">-</span>{% endfor %}
+            </div>
+          </td>
+          <td class="col-actions"><a href="{{ url_for('admin.admin_players_edit', player_id=p.id) }}" class="btn btn-sm">{{ ui.icon('edit') }}{{ msg('admin.catalog.nicknames.edit') }}</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">{{ msg('admin.catalog.nicknames.no_players_yet') }}</div>
+  {% endif %}
+</section>
+{% endblock %}

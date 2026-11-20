@@ -1,0 +1,109 @@
+{% extends "layouts/admin.html" %}
+{% import "components/_icons.html" as ui %}
+{% import "admin/operations/_match_actions.html" as match_ui %}
+{% block title %}{{ msg('admin.home.dashboard.overview') }}{% endblock %}
+{% block main %}
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>ADMIN</span><h1>{{ msg('admin.home.dashboard.overview') }}</h1></div>
+  <div class="page-actions">
+    <a class="btn" href="{{ url_for('admin.admin_matches_add') }}">{{ ui.icon('plus') }}{{ msg('admin.home.dashboard.add_match') }}</a>
+    <a class="btn btn-primary" href="{{ url_for('admin.admin_news_add') }}">{{ ui.icon('plus') }}{{ msg('admin.home.dashboard.publish_news') }}</a>
+  </div>
+</header>
+
+{#- 总数一行：每个数字点进去就是对应的管理页 -#}
+<nav class="admin-stats" aria-label="{{ msg('admin.home.dashboard.statistics') }}">
+  <a href="{{ url_for('admin.admin_teams') }}" class="admin-stat-box" aria-label="{{ msg('admin.home.dashboard.open_team_management_teams_teams', teams=stats.teams) }}"><b class="admin-stat-value">{{ stats.teams }}</b><span class="admin-stat-label">{{ msg('admin.home.dashboard.teams') }}</span></a>
+  <a href="{{ url_for('admin.admin_players') }}" class="admin-stat-box" aria-label="{{ msg('admin.home.dashboard.open_player_management_players_players', players=stats.players) }}"><b class="admin-stat-value">{{ stats.players }}</b><span class="admin-stat-label">{{ msg('admin.home.dashboard.players') }}</span></a>
+  <a href="{{ url_for('admin.admin_events') }}" class="admin-stat-box" aria-label="{{ msg('admin.home.dashboard.open_event_management_events_events', events=stats.events) }}"><b class="admin-stat-value">{{ stats.events }}</b><span class="admin-stat-label">{{ msg('admin.home.dashboard.events') }}</span></a>
+  <a href="{{ url_for('admin.admin_matches') }}" class="admin-stat-box" aria-label="{{ msg('admin.home.dashboard.open_match_management_matches_matches', matches=stats.matches) }}"><b class="admin-stat-value">{{ stats.matches }}</b><span class="admin-stat-label">{{ msg('admin.home.dashboard.matches') }}</span></a>
+  <a href="{{ url_for('admin.admin_news') }}" class="admin-stat-box" aria-label="{{ msg('admin.home.dashboard.open_news_management_news_articles', news=stats.news) }}"><b class="admin-stat-value">{{ stats.news }}</b><span class="admin-stat-label">{{ msg('admin.home.dashboard.news') }}</span></a>
+  <a href="{{ url_for('admin.registration_reviews') }}" class="admin-stat-box" aria-label="{{ msg('admin.home.dashboard.open_account_reviews_pending_users_pending', pending_users=stats.pending_users) }}"><b class="admin-stat-value{% if stats.pending_users %} has-pending{% endif %}">{{ stats.pending_users }}</b><span class="admin-stat-label">{{ msg('admin.home.dashboard.pending_accounts') }}</span></a>
+</nav>
+
+<div class="workbench">
+  {#- 进行中与即将开始的比赛：最常用的比赛操作直接在这里点 -#}
+  <section class="panel workbench-matches">
+    <div class="panel-head">
+      <h2 class="panel-title">{{ msg('admin.home.dashboard.live_and_upcoming') }} <span class="panel-count">{{ active_matches|length }}</span></h2>
+      <a class="panel-link" href="{{ url_for('admin.admin_matches') }}">{{ msg('admin.home.dashboard.all_matches') }}</a>
+    </div>
+    {% if active_matches %}
+    <div class="table-wrap">
+      <table class="table admin-table">
+        <thead><tr><th>{{ msg('admin.home.dashboard.status') }}</th><th>{{ msg('admin.home.dashboard.start_time') }}</th><th>{{ msg('admin.home.dashboard.matchup_event') }}</th><th class="col-actions">{{ msg('admin.home.dashboard.actions') }}</th></tr></thead>
+        <tbody>
+          {% for m in active_matches %}
+          <tr>
+            <td>
+              <div class="status-stack">
+                {% if m.effective_status == 'live' %}<span class="badge badge-live live-badge">{{ msg('admin.home.dashboard.live') }}</span>{% else %}<span class="badge badge-upcoming">{{ msg('admin.home.dashboard.upcoming') }}</span>{% endif %}
+                {% if m.get('is_managed') %}
+                  {% if m.get('rosters_frozen') %}<span class="badge badge-accent">{{ ui.icon('lock') }}{{ msg('admin.home.dashboard.roster_locked') }}</span>{% else %}<span class="badge badge-gold">{{ msg('admin.home.dashboard.roster_unlocked') }}</span>{% endif %}
+                {% endif %}
+              </div>
+            </td>
+            <td class="nowrap cell-datetime">{{ m.match_time|datetime_display if m.match_time else '-' }}</td>
+            <td>
+              {% set left_team, right_team = match_opponents(m) %}
+              <b class="cell-title" data-i18n-ignore>{{ left_team.name }} VS {{ right_team.name }}</b>{% if m.is_test_mode %}<span class="test-badge">{{ msg('match.mode.test') }}</span>{% endif %}
+              <span class="cell-sub" data-i18n-ignore>{{ m.event_name or '-' }}</span>
+            </td>
+            <td class="col-actions"><div class="row-actions">{{ match_ui.quick_actions(m) }}</div></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">{{ msg('admin.home.dashboard.no_live_or_upcoming_matches') }}</div>
+    {% endif %}
+  </section>
+
+  <div class="workbench-side">
+    <section class="panel">
+      <div class="panel-head">
+        <h2 class="panel-title">{{ msg('admin.home.dashboard.account_reviews') }}{% if stats.pending_users %} ({{ stats.pending_users }}){% endif %}</h2>
+        <a class="panel-link" href="{{ url_for('admin.registration_reviews') }}">{{ msg('admin.home.dashboard.review_accounts') }}</a>
+      </div>
+      {% if pending_users %}
+      <ul class="work-list">
+        {% for u in pending_users %}
+        <li>
+          <a href="{{ url_for('admin.registration_reviews') }}#user-{{ u.id }}">
+            <b data-i18n-ignore>{{ u.username }}</b>
+            {% if u.group_username %}<span class="muted" data-i18n-ignore>{{ u.group_username }}</span>{% endif %}
+          </a>
+          <time class="muted">{{ u.created_at|datetime_display if u.created_at else '' }}</time>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="empty-state">{{ msg('admin.home.dashboard.no_accounts_awaiting_review') }}</div>
+      {% endif %}
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2 class="panel-title">{{ msg('admin.home.dashboard.feedback_to_review') }}{% if open_feedback_count %} ({{ open_feedback_count }}){% endif %}</h2>
+        <a class="panel-link" href="{{ url_for('admin.admin_feedback') }}">{{ msg('admin.home.dashboard.view_feedback') }}</a>
+      </div>
+      {% if open_feedback %}
+      <ul class="work-list">
+        {% for f in open_feedback %}
+        <li>
+          <a href="{{ url_for('admin.admin_feedback') }}#feedback-{{ f.id }}">
+            <span class="badge fb-tag fb-tag-{{ f.type }}">{{ {'bug':'Bug','suggestion':msg('admin.home.dashboard.suggestion'),'question':msg('admin.home.dashboard.question')}.get(f.type, msg('admin.home.dashboard.other')) }}</span>
+            <span class="work-list-text" data-i18n-ignore>{{ f.content[:60] }}</span>
+          </a>
+          <time class="muted">{{ f.created_at|cn_time if f.created_at else '' }}</time>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="empty-state">{{ msg('admin.home.dashboard.no_feedback_awaiting_review') }}</div>
+      {% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}

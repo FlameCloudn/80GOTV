@@ -1,0 +1,107 @@
+"""Public news list and article pages."""
+
+from flask import redirect, render_template, request, session
+
+from src.website.domains.community.interactions import build_comment_tree, list_comments
+from src.website.domains.matches.opponents import supplement_temp_teams
+from src.website.runtime.database import get_db
+from src.website.runtime.urls import normalize_internal_path
+from src.website.web.read_models.news_references import display_news_reference_labels
+from src.website.web.routing import site_routes
+
+
+@site_routes.route("/news")
+def news_list():
+    """新闻列表"""
+    requested_page = request.args.get("page", 1, type=int)
+    per_page = 20
+
+    conn = get_db()
+    total = conn.execute("SELECT COUNT(*) as cnt FROM news").fetchone()["cnt"]
+    total_pages = (total + per_page - 1) // per_page
+    page = min(max(1, requested_page), max(1, total_pages))
+    offset = (page - 1) * per_page
+    news_rows = conn.execute(
+        """SELECT n.*,
+                  (SELECT COUNT(*) FROM comments c
+                   WHERE c.target_type='news' AND c.target_id=n.id) AS actual_comment_count
+           FROM news n ORDER BY n.publish_time DESC LIMIT ? OFFSET ?""",
+        (per_page, offset),
+    ).fetchall()
+    conn.close()
+    news = []
+    for row in news_rows:
+        item = dict(row)
+        item["comment_count"] = item.pop("actual_comment_count", 0)
+        news.append(item)
+
+    return render_template(
+        "public/news/news.html",
+        news=news,
+        page=page,
+        total_pages=total_pages,
+    )
+
+
+@site_routes.route("/news/<int:news_id>")
+def news_detail(news_id):
+    """新闻详情"""
+    conn = get_db()
+    news = conn.execute(
+        """SELECT n.*,
+                  (SELECT COUNT(*) FROM comments c
+                   WHERE c.target_type='news' AND c.target_id=n.id) AS actual_comment_count
+           FROM news n WHERE n.id=?""",
+        (news_id,),
+    ).fetchone()
+
+    if not news:
+        conn.close()
+        return "新闻不存在", 404
+    news = dict(news)
+    news["comment_count"] = news.pop("actual_comment_count", 0)
+    news["internal_link_url"] = normalize_internal_path(news.get("internal_link_url"))
+    if news["redirect_url"]:
+        target = news["redirect_url"]
+        conn.close()
+        return redirect(target)
+
+    # 关联比赛
+    related_match = None
+    if news["related_match_id"]:
+        related_match = conn.execute(
+            """
+            SELECT m.*, t1.short_name as t1s, t2.short_name as t2s,
+                   COALESCE(t1.name, 'TBD') as t1n, COALESCE(t2.name, 'TBD') as t2n,
+                   e.name as event_name
+            FROM matches m
+            LEFT JOIN teams t1 ON m.team1_id = t1.id
+            LEFT JOIN teams t2 ON m.team2_id = t2.id
+            LEFT JOIN events e ON m.event_id = e.id
+            WHERE m.id=?
+        """,
+            (news["related_match_id"],),
+        ).fetchone()
+        if related_match:
+            related_match = supplement_temp_teams(
+                {
+                    **dict(related_match),
+                    "team1_name": related_match["t1n"],
+                    "team2_name": related_match["t2n"],
+                },
+                conn,
+            )
+
+    raw_comments = list_comments(conn, "news", news_id, session.get("user_id"))
+
+    conn.close()
+
+    comments = build_comment_tree(raw_comments)
+
+    return render_template(
+        "public/news/news_detail.html",
+        news=news,
+        article_content=display_news_reference_labels(news["content"] or ""),
+        comments=comments,
+        related_match=related_match,
+    )

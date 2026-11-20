@@ -1,0 +1,181 @@
+      {# ---------- 标签 1：基础与对阵 ---------- #}
+      <div id="pane-matchup" class="tab-pane active">
+        <div class="form-grid">
+          <label class="field">
+            <span class="field-label">{{ msg('admin.operations.matches_form.event') }} <span class="field-required">*</span></span>
+            <select id="eventIdSelect" name="event_id" {% if setup_editable and not managed_info %}required{% else %}disabled{% endif %}>
+              <option value="">{{ msg('admin.operations.matches_form.select_event') }}</option>
+              {% for e in events %}
+              <option value="{{ e.id }}" data-i18n-ignore {% if (match and match.event_id|string == e.id|string) or (not match and request.args.get('event') == e.id|string) %}selected{% endif %}>{{ e.name }}</option>
+              {% endfor %}
+            </select>
+            {% if managed_info %}<span class="field-hint lock-hint">{{ ui.icon('lock') }}{{ msg('admin.operations.matches_form.event_cannot_be_changed_for_a') }}</span>{% endif %}
+          </label>
+          <div class="field">
+            <label class="field-label" for="matchStageInput">{{ msg('admin.operations.matches_form.match_stage') }}</label>
+            <input type="text" id="matchStageInput" name="stage" value="{{ match.stage if match and match.stage else '' }}" {% if not setup_editable %}disabled{% endif %}>
+            {% if setup_editable %}
+            <div class="time-chips" role="group" aria-label="{{ msg('admin.operations.matches_form.stage_presets') }}">
+              <button type="button" class="time-chip" data-match-stage="小组赛">{{ msg('admin.operations.matches_form.group_stage') }}</button>
+              <button type="button" class="time-chip" data-match-stage="八强赛">{{ msg('admin.operations.matches_form.quarterfinal') }}</button>
+              <button type="button" class="time-chip" data-match-stage="半决赛">{{ msg('admin.operations.matches_form.semifinal') }}</button>
+              <button type="button" class="time-chip" data-match-stage="季军赛">{{ msg('admin.operations.matches_form.third_place_match') }}</button>
+              <button type="button" class="time-chip" data-match-stage="总决赛">{{ msg('admin.operations.matches_form.grand_final') }}</button>
+            </div>
+            <span id="managedFinalHint" class="field-hint" {% if not managed_info %}hidden{% endif %}>{{ msg('admin.operations.matches_form.use_one_grand_final_with_no') }}</span>
+            {% endif %}
+          </div>
+        </div>
+
+        {# 比赛时间：日期 + 时间 + 常用开赛时间；实际提交的是隐藏的 match_time #}
+        <div class="time-picker-card">
+          <div class="time-picker-head">
+            <span class="field-label">{{ msg('admin.operations.matches_form.match_start_time') }} <span class="field-required">*</span></span>
+            <span id="timePreview" class="time-preview">{{ msg('match.clock.setting', time=match.match_time[:16]) if match and match.match_time else msg('match.clock.unset') }}</span>
+          </div>
+          <div class="time-picker-row">
+            <input type="date" id="matchDate" data-draft-name="match_date" aria-label="{{ msg('admin.operations.matches_form.match_date') }}" value="{{ match.match_time[:10] if match and match.match_time else '' }}" {% if setup_editable %}required{% else %}disabled{% endif %}>
+            {% if setup_editable %}
+            <button type="button" class="btn btn-sm" data-quick-date="0">{{ msg('admin.operations.matches_form.today') }}</button>
+            <button type="button" class="btn btn-sm" data-quick-date="1">{{ msg('admin.operations.matches_form.tomorrow') }}</button>
+            {% endif %}
+            <input type="time" id="matchTime" data-draft-name="match_clock" aria-label="{{ msg('admin.operations.matches_form.start_time') }}" value="{{ match.match_time[11:16] if match and match.match_time and match.match_time|length >= 16 else '19:30' }}" {% if not setup_editable %}disabled{% endif %}>
+          </div>
+          {% if setup_editable %}
+          <div class="time-chips">
+            <span class="time-chips-label">{{ msg('admin.operations.matches_form.common_start_times') }}</span>
+            {% for slot in ['14:00', '16:00', '18:00', '19:00', '19:30', '20:00', '20:30', '21:00'] %}
+            <button type="button" class="time-chip {% if match and match.match_time and match.match_time[11:16] == slot %}active{% endif %}" data-match-time="{{ slot }}">{{ slot }}</button>
+            {% endfor %}
+          </div>
+          {% endif %}
+          <input type="hidden" name="match_time" id="hiddenMatchTime" value="{{ match.match_time[:16] if match and match.match_time else '' }}">
+        </div>
+
+        {% if is_new_match %}
+        <div class="test-mode-control" id="testModeControl">
+          <label class="check-row test-mode-toggle" for="testMode">
+            <input type="checkbox" id="testMode" name="is_test_mode" value="1">
+            <span>{{ msg('admin.operations.matches_form.test_mode') }}</span>
+          </label>
+          <span class="field-hint">{{ msg('admin.operations.matches_form.teams_are_optional_or_select_1') }}</span>
+        </div>
+        {% elif not is_new_match and match.is_test_mode %}
+        <input type="hidden" name="is_test_mode" value="1">
+        <p class="lock-note">{{ msg('admin.operations.matches_form.this_is_a_test_match_teams') }}</p>
+        {% endif %}
+
+        {# 对阵双方（不写红蓝，选边由拼刀 / 在线 BP 决定） #}
+        {% if managed_info %}
+        <div class="vs-matchup-card" id="matchParticipants">
+          <div class="vs-matchup-heading">
+            <div>
+              <strong>{{ msg('admin.operations.matches_form.matchup_linked_event_entrants') }}</strong>
+              <span class="field-hint">{{ msg('admin.operations.matches_form.sides_are_fixed_once_created_and') }}</span>
+            </div>
+            <a class="btn btn-sm" href="{{ managed_info.roster_url }}">{{ ui.icon('team') }}{{ msg('admin.operations.matches_form.go_to_registration_rosters') }}</a>
+          </div>
+          <div class="vs-grid">
+            {% for side_num in (1, 2) %}
+            {% set s = managed_info.sides.get(side_num) %}
+            {% if side_num == 2 %}<div class="vs-divider" data-i18n-ignore>VS</div>{% endif %}
+            <div class="field-section">
+              {% if s %}
+              <h3><span data-i18n-ignore>{{ s.name }}</span> <span class="badge {{ 'badge-done' if s.team_archived else 'badge-accent' }}">{{ msg('admin.operations.matches_form.archived') if s.team_archived else (msg('admin.operations.matches_form.club') ~ s.club_name if s.club_name else msg('admin.operations.matches_form.temp_team')) }}</span></h3>
+              <span class="field-hint">{{ msg('admin.operations.matches_form.entrant_event_entrant_id_current_roster', event_entrant_id=s.event_entrant_id) }}</span>
+              <div class="readonly-teams" data-i18n-ignore>
+                {% for p in s.current_players %}
+                <span class="player-tag">{{ p.nickname }}{% if p.is_added_sub %}<span data-i18n-translate>{{ msg('admin.operations.matches_form.sub') }}</span>{% endif %}</span>
+                {% endfor %}
+              </div>
+              {% else %}
+              <h3>{{ msg('admin.operations.matches_form.side_side_num', side_num=side_num) }}</h3>
+              <span class="field-hint">{{ msg('admin.operations.matches_form.linked_entrant_not_found') }}</span>
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% elif setup_editable %}
+        <div class="vs-matchup-card" id="matchParticipants">
+          <div class="vs-matchup-heading">
+            <div>
+              <strong>{{ msg('admin.operations.matches_form.matchup') }}</strong>
+              <span class="field-hint" id="matchupSideHint">{{ msg('admin.operations.matches_form.starting_ct_t_sides_follow_the') }}</span>
+            </div>
+            <button type="button" class="btn btn-sm" data-swap-sides>{{ ui.icon('reopen') }}{{ msg('admin.operations.matches_form.swap_participants') }}</button>
+          </div>
+          <div id="managedEntrantNotice" class="entrant-empty-notice" hidden>
+            <span>{{ msg('admin.operations.matches_form.no_entrants_have_confirmed_initial_rosters') }}</span>
+            <a id="managedEntrantRosterLink" href="#" class="btn btn-sm">{{ ui.icon('team') }}{{ msg('admin.operations.matches_form.confirm_initial_rosters') }}</a>
+          </div>
+          <div class="vs-grid">
+            {% for side in ('1', '2') %}
+            {% set side_ids = team1_player_ids if side == '1' else team2_player_ids %}
+            {% set side_team_id = match.team1_id if (match and side == '1') else (match.team2_id if match else None) %}
+            {% set side_is_team = side_team_id is not none or not side_ids %}
+            {% if side == '2' %}<div class="vs-divider" data-i18n-ignore>VS</div>{% endif %}
+            <div class="field-section">
+              <h3>{{ msg('admin.operations.matches_form.side_1') if side == '1' else msg('admin.operations.matches_form.side_2') }}</h3>
+              <div id="side{{ side }}_legacy">
+                <div class="side-type-row">
+                  <label class="check-row"><input type="radio" name="side{{ side }}_type" value="team" {% if side_is_team %}checked{% endif %} data-lineup-side="{{ side }}"> {{ msg('admin.operations.matches_form.select_team') }}</label>
+                  <label class="check-row"><input type="radio" name="side{{ side }}_type" value="players" {% if not side_is_team %}checked{% endif %} data-lineup-side="{{ side }}"> {{ msg('admin.operations.matches_form.custom_players') }}</label>
+                </div>
+                <div id="side{{ side }}_team" {% if not side_is_team %}hidden{% endif %}>
+                  <select name="side{{ side }}_id" id="side{{ side }}_select" aria-label="{{ msg('admin.operations.matches_form.left') if side == '1' else msg('admin.operations.matches_form.right') }}{{ msg('admin.operations.matches_form.teams') }}">
+                    <option value="">{{ msg('admin.operations.matches_form.select_team') }}</option>
+                    {% for t in teams %}
+                    <option value="{{ t.id }}" data-i18n-ignore {% if side_team_id|string == t.id|string %}selected{% endif %}>{{ t.name }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div id="side{{ side }}_players" class="side-players" {% if side_is_team %}hidden{% endif %}>
+                  {% for i in range(5) %}
+                  <select name="side{{ side }}_p{{ i }}" aria-label="{{ msg('admin.operations.matches_form.left') if side == '1' else msg('admin.operations.matches_form.right') }}{{ msg('admin.operations.matches_form.entrant_player_value1', value1=i+1) }}">
+                    <option value="">{{ msg('admin.operations.matches_form.player_value1', value1=i+1) }}</option>
+                    {% for p in all_players %}
+                    <option value="{{ p.id }}" data-i18n-ignore {% if side_ids|length > i and side_ids[i]|string == p.id|string %}selected{% endif %}>{{ p.nickname }}{% if p.team_name %} ({{ p.team_name }}){% endif %}</option>
+                    {% endfor %}
+                  </select>
+                  {% endfor %}
+                </div>
+              </div>
+              {% if is_new_match %}
+              <div id="side{{ side }}_entrant" class="side-entrant-box" hidden>
+                <input type="hidden" name="side{{ side }}_type" id="side{{ side }}_entrant_type" value="entrant" disabled>
+                <label class="field">
+                  <span class="field-label">{{ msg('admin.operations.matches_form.event_entrant') }} <span class="field-required">*</span></span>
+                  <select id="side{{ side }}_entrant_select" aria-label="{{ msg('admin.operations.matches_form.side_1') if side == '1' else msg('admin.operations.matches_form.side_2') }}{{ msg('admin.operations.matches_form.event_entrant') }}" disabled>
+                    <option value="">{{ msg('admin.operations.matches_form.select_event_entrant') }}</option>
+                  </select>
+                </label>
+                <div id="side{{ side }}_entrant_preview" class="entrant-preview"></div>
+              </div>
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% else %}
+        <div class="vs-matchup-card">
+          <div class="vs-matchup-heading"><strong>{{ msg('admin.operations.matches_form.teams_locked_after_the_match_starts') }}</strong></div>
+          <div class="vs-grid">
+            {% for side in ('1', '2') %}
+            {% set side_ids = team1_player_ids if side == '1' else team2_player_ids %}
+            {% if side == '2' %}<div class="vs-divider" data-i18n-ignore>VS</div>{% endif %}
+            <div class="field-section">
+              <h3>{{ side_name(side|int) }}</h3>
+              <div class="readonly-teams" data-i18n-ignore>
+                {% if side_ids %}
+                  {% for pid in side_ids %}{% for p in all_players %}{% if p.id|string == pid|string %}<span class="player-tag">{{ p.nickname }}</span>{% endif %}{% endfor %}{% endfor %}
+                {% else %}
+                  <span class="player-tag">{{ side_name(side|int) }}</span>
+                {% endif %}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+      </div>

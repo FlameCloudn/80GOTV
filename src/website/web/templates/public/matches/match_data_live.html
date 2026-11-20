@@ -1,0 +1,100 @@
+{#- 比赛数据直播（照 HLTV 记分板）：比分条 → 双方选手表与回合记录 → 比赛日志 + 小地图。
+    数据每秒从 /api/live/<id> 取一次（页面在后台时 3 秒一次），只改有变化的格子，行和图片都不重建。
+    样式和渲染在 frontend/features/live-scoreboard/。 -#}
+{% macro live_logo(logo, name, short_name, size='md') %}
+{% if logo %}<img class="team-logo {{ size }}" src="{{ logo|team_logo_url }}" alt="">{% else %}<span class="logo-fallback {{ size }}">{{ name|team_abbr(short_name) }}</span>{% endif %}
+{% endmacro %}
+
+{#- 一行选手：头像+名字 | 血量 | 护甲 | 手枪 | 主武器 | 金钱 | K | A | D | ADR。
+    还没收到数据时先填上报名阵容的名字和头像；JS 新建行时用下面 <template> 里同一份结构 -#}
+{% macro live_player_row(p=none) %}
+{% set name = (private_name_for_player(p.id, p.nickname) if p.id else p.nickname) if p else '-' %}
+<div class="player-row dead">
+  <span class="p-name">
+    <span class="p-avatar">{% if p and p.avatar %}<img src="{{ p.avatar }}" data-src="{{ p.avatar }}" alt="" loading="lazy">{% else %}<img hidden alt="">{% endif %}<span data-avatar-fallback{% if p and p.avatar %} hidden{% endif %}>{{ name[:1] }}</span></span>
+    <span class="p-nick">{{ name }}</span>
+  </span>
+  <span class="p-hp"><span class="hp-num">-</span><span class="hp-bar"><i class="hp-fill"></i></span></span>
+  <span class="p-armor"><img class="sb-mono" hidden alt=""></span>
+  <span class="p-pistol"><img class="sb-mono" hidden alt=""></span>
+  <span class="p-weapon"><img class="sb-mono" hidden alt=""></span>
+  <span class="p-money">-</span>
+  <span class="p-stat k">-</span><span class="p-stat a">-</span><span class="p-stat d">-</span><span class="p-adr">-</span>
+</div>
+{% endmacro %}
+
+{#- 一队的选手表：表头 = 队标 + 队名 + 各列名称（阵营靠表头底色和左边色条区分），下面固定 5 行 -#}
+{% macro live_team_block(number, name, roster, logo, short_name) %}
+<div class="sb-team-block side-unknown" id="team{{ number }}Block">
+  <div class="sb-thead">
+    <span class="sb-thead-team">{{ live_logo(logo, name, short_name, '') }}<span id="team{{ number }}RosterLabel">{{ name }}</span></span>
+    <span class="p-hp" data-i18n-translate>{{ msg('public.matches.match_data_live.hp') }}</span>
+    <span class="p-armor" data-i18n-translate>{{ msg('public.matches.match_data_live.armor') }}</span>
+    <span class="p-pistol" data-i18n-translate>{{ msg('public.matches.match_data_live.pistol') }}</span>
+    <span class="p-weapon" data-i18n-translate>{{ msg('public.matches.match_data_live.primary') }}</span>
+    <span class="p-money" data-i18n-translate>{{ msg('public.matches.match_data_live.money') }}</span>
+    <span class="p-stat">K</span><span class="p-stat a">A</span><span class="p-stat">D</span><span class="p-adr">ADR</span>
+  </div>
+  <div class="sb-rows" id="team{{ number }}Players">{% for index in range(5) %}{{ live_player_row(roster[index] if index < roster|length else none) }}{% endfor %}</div>
+</div>
+{% endmacro %}
+
+{% set live_opponents = match_opponents(match) %}
+{% set live_left, live_right = live_opponents %}
+<section class="panel scorebot" id="data-live" data-i18n-ignore data-live-url="{{ url_for('api_live_match', match_id=match.id) }}">
+  <div class="panel-head">
+    <h2 class="panel-title" data-i18n-translate>{{ msg('public.matches.match_data_live.scorebot') }}</h2>
+    <span class="sb-status" id="sourceBadge" data-i18n-translate>{{ msg('public.matches.match_data_live.waiting_for_observer_account') }}</span>
+  </div>
+
+  <header class="sb-head">
+    <div class="sb-head-team">
+      {{ live_logo(live_left.logo, live_left.name, live_left.short) }}
+      <span class="sb-head-name" id="team{{ live_left.number }}Name">{{ live_left.name }}</span>
+    </div>
+    <div class="sb-head-center">
+      <div class="sb-score"><span class="side-score" id="liveScore{{ live_left.number }}">-</span><span class="sb-colon">:</span><span class="side-score" id="liveScore{{ live_right.number }}">-</span></div>
+      <div class="sb-meta">
+        <span id="roundNum" data-i18n-translate>{{ msg('public.matches.match_data_live.waiting_for_round_data') }}</span>
+        <span class="sb-dot">·</span><span id="mapName">-</span>
+        <span class="sb-dot">·</span><span class="sb-timer"><img src="/resources/icons/match/stopwatch.svg" alt=""><span id="timer">-</span></span>
+      </div>
+    </div>
+    <div class="sb-head-team right">
+      <span class="sb-head-name" id="team{{ live_right.number }}Name">{{ live_right.name }}</span>
+      {{ live_logo(live_right.logo, live_right.name, live_right.short) }}
+    </div>
+  </header>
+
+  {{ live_team_block(live_left.number, live_left.name, (team1_roster if live_left.side == 't1' else team2_roster)|default([]), live_left.logo, live_left.short) }}
+
+  {#- 每队一排，与上方队名顺序一致；固定 24 格，中间竖线是半场 -#}
+  <div class="round-board" id="roundBoard">
+    {% for opponent in live_opponents %}
+    <div class="round-lane team{{ opponent.number }}"><span class="round-team">{{ live_logo(opponent.logo, opponent.name, opponent.short) }}</span><div class="round-lane-cells" id="roundTeam{{ opponent.number }}"></div></div>
+    {% if not loop.last %}<div class="round-divider" aria-hidden="true"></div>{% endif %}
+    {% endfor %}
+  </div>
+  <div class="overtime-board" id="overtimeBoard"></div>
+
+  {{ live_team_block(live_right.number, live_right.name, (team1_roster if live_right.side == 't1' else team2_roster)|default([]), live_right.logo, live_right.short) }}
+
+  <div class="sb-lower">
+    <div class="sb-log">
+      <div class="sb-sub-head"><span data-i18n-translate>{{ msg('public.matches.match_data_live.game_log') }}</span><span id="radarMap">-</span></div>
+      <div class="kill-feed-list" id="killFeed" role="log" aria-label="{{ msg('public.matches.match_data_live.match_events') }}" tabindex="0"><div class="kill-line" data-feed-placeholder><span class="kill-round" data-i18n-translate>{{ msg('public.matches.match_data_live.waiting_for_data') }}</span></div></div>
+    </div>
+    <div class="radar" id="radar">
+      <img loading="lazy" class="radar-image" id="radarImage" hidden alt="">
+      <div id="killMarkers"></div>
+    </div>
+  </div>
+
+  <footer class="sb-foot">
+    <span id="updatedAt" data-i18n-translate>{{ msg('public.matches.match_data_live.no_data_received') }}</span>
+    <span class="bomb" id="bombState"><img class="sb-mono" loading="lazy" id="bombStateIcon" src="/resources/icons/match/bombplant.webp" alt=""><span id="bombStateText" data-i18n-translate>{{ msg('public.matches.match_data_live.bomb_status') }}</span></span>
+  </footer>
+  <template id="livePlayerRowTemplate">{{ live_player_row() }}</template>
+</section>
+<script type="application/json" data-site-messages>{{ client_messages('scoreboard')|tojson }}</script>
+{{ frontend_entry('live-scoreboard') }}

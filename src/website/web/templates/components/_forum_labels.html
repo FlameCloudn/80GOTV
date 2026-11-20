@@ -1,0 +1,3 @@
+{% macro forum_category(slug, fallback, field='name') -%}
+{{ msg('forum.category.' ~ slug ~ '.' ~ field) if slug in ('cs2-general', 'tournaments', 'transfers', 'game-updates', 'offtopic') else fallback }}
+{%- endmacro %}

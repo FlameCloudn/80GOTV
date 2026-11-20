@@ -1,0 +1,74 @@
+{% extends 'layouts/public.html' %}
+{% set opponents = match_opponents(match) %}
+{% block title %}{{ msg('public.matches.bp_room.map_veto_room_value1_vs_value2', value1=opponents[0].name, value2=opponents[1].name) }}{% endblock %}
+{% block head %}{{ frontend_entry('bp-style') }}{% endblock %}
+{% block layout_class %}no-side-layout{% endblock %}
+
+{% macro bp_team(side, name, logo, short_name) %}
+<div class="bp-team{% if my_team == side %} my-team{% endif %}">
+  {% if logo %}<img class="team-logo lg" src="{{ logo|team_logo_url }}" alt="{{ name }}" loading="lazy">{% else %}<span class="logo-fallback lg" data-i18n-ignore>{{ name|team_abbr(short_name) }}</span>{% endif %}
+  <span class="bp-team-name" data-i18n-ignore>{{ name }}</span>
+  {% if my_team == side %}<span class="badge badge-accent">{{ msg('public.matches.bp_room.your_team') }}</span>{% endif %}
+</div>
+{% endmacro %}
+
+{% block main %}
+<section class="panel bp-header">
+  <div class="bp-header-meta">
+    <span class="badge badge-accent">{{ match.bo_format or 'BO3' }}</span>
+    {% if match.event_name %}<span class="bp-event-name" data-i18n-ignore>{{ match.event_name }}</span>{% endif %}
+    {% if is_admin %}<span class="badge badge-red">{{ msg('public.matches.bp_room.admin_mode') }}</span>{% endif %}
+  </div>
+  <div class="bp-teams">
+    {% for opponent in opponents %}
+    {{ bp_team(opponent.side, opponent.name, opponent.logo, opponent.short) }}
+    {% if not loop.last %}<span class="bp-vs">VS</span>{% endif %}
+    {% endfor %}
+  </div>
+  {% if my_team %}<p class="bp-role-hint">{{ msg('public.matches.bp_room.you_can_claim_your_team_s') }}</p>{% endif %}
+</section>
+
+<section class="panel bp-board">
+  {% if match.bp_password and not bp_verified and not is_admin %}
+  <div id="bp-password-gate" class="bp-password-gate">
+    <input id="bp-password" type="password" autocomplete="current-password" placeholder="{{ msg('public.matches.bp_room.enter_shared_veto_passcode') }}" aria-label="{{ msg('public.matches.bp_room.shared_veto_passcode') }}">
+    <button type="button" class="btn btn-primary" data-bp-action="verify">{{ msg('public.matches.bp_room.verify') }}</button>
+  </div>
+  {% endif %}
+
+  <div id="bp-status-bar" class="bp-status-bar" aria-live="polite">{{ msg('public.matches.bp_room.loading') }}</div>
+  <div id="bp-steps-indicator" class="bp-steps-indicator"></div>
+
+  <div id="bp-section-label" class="bp-section-label"></div>
+  <div id="map-pool" class="bp-map-pool"></div>
+
+  <div class="bp-picks-section">
+    <div class="bp-section-label">{{ msg('public.matches.bp_room.picked_maps') }}</div>
+    <div id="picks-row" class="bp-picks-row"></div>
+  </div>
+
+  <div id="action-area" class="bp-action-area"></div>
+
+  {% if is_admin %}
+  <div class="bp-admin-tools">
+    <button class="btn btn-danger btn-sm" type="button" data-bp-action="reset"><svg class="bp-tool-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v4h-4"/></svg>{{ msg('public.matches.bp_room.reset_veto') }}</button>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script type="application/json" data-site-messages>{{ client_messages('inline_bp_room')|tojson }}</script>
+<script type="application/json" id="bpRoomData">{{ {
+  'matchId': match.id,
+  'myTeam': my_team or none,
+  'teamNames': {'t1': match.team1_name, 't2': match.team2_name},
+  'teamOrder': opponents|map(attribute='side')|list,
+  'isAdmin': is_admin,
+  'bpVerified': bp_verified,
+  'bpCanStart': bp_can_start,
+  'maps': configured_map_pool,
+  'bpState': bp_state or none
+}|tojson }}</script>
+{{ frontend_entry('bp-room') }}
+{% endblock %}

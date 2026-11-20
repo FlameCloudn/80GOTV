@@ -1,0 +1,47 @@
+  {% if bp %}
+  <section class="panel mh-col mh-veto-panel">
+    <div class="panel-head"><h2 class="panel-title mh-sec-head">{{ msg('public.matches.veto_log.veto') }}</h2></div>
+    {% if bp_view %}
+    {% set bp_names = {'t1': match.t1s, 't2': match.t2s} %}
+    <div class="bp-log">
+      {% if bp_view.roll or bp_view.order %}
+      <div class="bp-intro">
+        {% if bp_view.roll %}
+        <span class="bp-roll">Roll
+          {% for opponent in opponents %}<span class="{% if bp_view.roll.winner == opponent.side %}bp-roll-win{% endif %}"><b data-i18n-ignore>{{ opponent.short }}</b> {{ bp_view.roll[opponent.side] }}</span>{% if not loop.last %}<span class="bp-roll-sep">:</span>{% endif %}{% endfor %}
+        </span>
+        {% endif %}
+        {% if bp_view.order %}
+        <span class="bp-order"><b data-i18n-ignore>{{ bp_names.get(bp_view.order.team) or bp_view.order.label }}</b> {{ bp_view.order.order }}</span>
+        {% endif %}
+      </div>
+      {% endif %}
+      {% for note in bp_view.notes %}<p class="bp-note" data-i18n-ignore>{{ note }}</p>{% endfor %}
+      <ol class="bp-steps">
+        {% for st in bp_view.steps %}
+        <li class="bp-step is-{{ st.action }}">
+          <span class="bp-num">{{ st.num }}</span>
+          <span class="bp-act">{% if st.action == 'ban' %}{{ msg('public.matches.veto_log.ban') }}{% elif st.action == 'pick' %}{{ msg('public.matches.veto_log.pick') }}{% else %}{{ msg('public.matches.veto_log.decider') }}{% endif %}</span>
+          <span class="bp-map">{{ st.map|map_display }}</span>
+          <span class="bp-team" data-i18n-ignore>{{ bp_names.get(st.team) or st.label }}</span>
+        </li>
+        {% endfor %}
+      </ol>
+      {% if bp_view.sides %}
+      <div class="bp-sides">
+        <span class="bp-sides-title">{{ msg('public.matches.veto_log.sides') }}</span>
+        {% for sd in bp_view.sides %}
+        <div class="bp-side-row">
+          <span class="bp-map">{{ sd.map|map_display }}</span>
+          <span class="bp-team" data-i18n-ignore>{{ bp_names.get(sd.team) or sd.label }}</span>
+          <span class="badge {{ 'badge-ct' if sd.side == 'CT' else 'badge-t' if sd.side == 'T' else '' }}">{{ sd.side or '?' }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% else %}
+    <div class="mh-veto" data-i18n-ignore>{{ bp }}</div>
+    {% endif %}
+  </section>
+  {% endif %}

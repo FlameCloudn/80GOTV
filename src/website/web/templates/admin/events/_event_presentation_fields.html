@@ -1,0 +1,52 @@
+      <details class="form-group optional" {% if event and (event.description or event.stream_url) %}open{% endif %}>
+        <summary><span class="form-group-title">{{ msg('admin.events.events_form.more_settings') }}</span><span data-group-status></span></summary>
+        <div class="details-body form-grid">
+          <label class="field">
+            <span class="field-label">{{ msg('admin.events.events_form.bilibili_live_room_url') }}</span>
+            <input type="url" name="stream_url" value="{{ event.stream_url if event and event.stream_url else '' }}" placeholder="https://live.bilibili.com/ROOMID">
+          </label>
+          <label class="field span-all">
+            <span class="field-label">{{ msg('admin.events.events_form.description') }}</span>
+            <textarea name="description" rows="3" placeholder="{{ msg('admin.events.events_form.event_description') }}">{{ event.description if event else '' }}</textarea>
+          </label>
+        </div>
+      </details>
+
+      {% if editing and not managed %}
+      <details class="form-group optional" {% if champion_team or mvp_player or evp_players %}open{% endif %}>
+        <summary><span class="form-group-title">{{ msg('admin.events.events_form.post_event_awards_champion_mvp_evp') }}</span><span data-group-status></span></summary>
+        <div class="details-body">
+          <div class="form-grid">
+            <label class="field">
+              <span class="field-label">{{ msg('admin.events.events_form.champion_team') }}</span>
+              <select name="champion_team_id">
+                <option value="">{{ msg('admin.events.events_form.not_specified') }}</option>
+                {% for t in teams %}
+                <option value="{{ t.id }}" data-i18n-ignore {% if champion_team and champion_team.id==t.id %}selected{% endif %}>{{ t.name }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label class="field">
+              <span class="field-label">{{ msg('admin.events.events_form.event_mvp') }}</span>
+              <select name="mvp_player_id">
+                <option value="">{{ msg('admin.events.events_form.not_specified') }}</option>
+                {% for p in all_players %}
+                <option value="{{ p.id }}" data-i18n-ignore {% if mvp_player and mvp_player.id==p.id %}selected{% endif %}>{{ p.nickname }}{% if p.team_name %} ({{ p.team_name }}){% endif %}</option>
+                {% endfor %}
+              </select>
+            </label>
+          </div>
+          <fieldset class="field">
+            <legend class="field-label">{{ msg('admin.events.events_form.event_evps_multiple') }}</legend>
+            <div class="checkbox-list" data-i18n-ignore>
+              {% for p in all_players %}
+              <label class="check-row">
+                <input type="checkbox" name="evp_player_ids" value="{{ p.id }}" {% if evp_players and p.id in (evp_players|map(attribute='id')|list) %}checked{% endif %}>
+                <span>{{ p.nickname }}{% if p.team_name %} ({{ p.team_name }}){% endif %}</span>
+              </label>
+              {% endfor %}
+            </div>
+          </fieldset>
+        </div>
+      </details>
+      {% endif %}

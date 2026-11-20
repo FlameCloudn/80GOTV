@@ -1,0 +1,48 @@
+{#- 数据统计页右侧栏：今日比赛、近期论坛动态、近期赛果 -#}
+{% if sidebar_feed %}
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">{{ msg('public.stats.stats_home_sidebar.today_s_matches') }}</h2></div>
+  <div class="list side-mini-list">
+    {% for match in sidebar_feed.matches %}
+    <a class="list-row side-mini-match" href="/matches/{{ match.slug or match.id }}">
+      <span class="side-mini-time{% if match.effective_status == 'live' %} live{% endif %}">{% if match.effective_status == 'live' %}{{ msg('public.stats.stats_home_sidebar.live') }}{% elif match.match_time %}{{ match.match_time|time_display }}{% else %}TBD{% endif %}</span>
+      {% set left, right = match_opponents(match) %}
+      <span class="grow side-mini-teams"><b data-i18n-ignore>{{ left.short }}</b><span class="side-mini-vs" data-i18n-ignore>VS</span><b data-i18n-ignore>{{ right.short }}</b></span>
+      <span class="meta" data-i18n-ignore>{{ match.bo_format }}</span>
+    </a>
+    {% else %}
+    <div class="empty-state">{{ msg('public.stats.stats_home_sidebar.no_matches') }}</div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">{{ msg('public.stats.stats_home_sidebar.recent_activity') }}</h2></div>
+  <div class="list side-mini-list">
+    {% for thread in sidebar_feed.forum_activity %}
+    <a class="list-row" href="{{ url_for('forum_thread', thread_id=thread.id) }}">
+      <span class="grow title" data-i18n-ignore>{{ thread.title }}</span>
+      <span class="meta">{{ thread.reply_count or 0 }}</span>
+    </a>
+    {% else %}
+    <a class="empty-state" href="{{ url_for('forum_index') }}">{{ msg('public.stats.stats_home_sidebar.no_forum_activity_yet') }}</a>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">{{ msg('public.stats.stats_home_sidebar.recent_results') }}</h2></div>
+  <div class="list side-mini-list">
+    {% for result in sidebar_feed.recent %}
+    {% set left, right = match_opponents(result) %}
+    <a class="list-row side-mini-result" href="/matches/{{ result.slug or result.id }}">
+      <span class="grow" data-i18n-ignore>{{ left.short }}</span>
+      <b>{{ left.score if left.score is not none else '-' }} : {{ right.score if right.score is not none else '-' }}</b>
+      <span class="grow right" data-i18n-ignore>{{ right.short }}</span>
+    </a>
+    {% else %}
+    <div class="empty-state">{{ msg('public.stats.stats_home_sidebar.no_results') }}</div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}

@@ -1,0 +1,324 @@
+{% from "components/_user_badges.html" import cheater_badge %}
+{% from "components/_icons.html" import site_icon %}
+{#- 当前页面属于顶栏哪个入口：按网址第一段判断，用来给入口加“当前页”标记；首页不属于任何入口，不画蓝线 -#}
+{%- set _nav_seg = request.path.strip('/').split('/')[0] -%}
+{%- set nav_section = {
+  'news': 'news', 'matches': 'matches', 'bp': 'matches', 'results': 'results',
+  'events': 'events', 'players': 'players', 'teams': 'players', 'stats': 'stats', 'awards': 'stats',
+  'predictions': 'predictions', 'games': 'games', 'guess-player': 'games', 'map-quiz': 'games',
+  'player-bingo': 'games', 'dashboard': 'dashboard', 'forum': 'forum'
+}.get(_nav_seg, '') -%}
+{%- macro current(section) -%}{% if nav_section == section %} aria-current="page"{% endif %}{%- endmacro -%}
+<!doctype html>
+<html lang="{{ site_language_tag }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="csrf-token" content="{{ csrf_token }}">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#16191d" media="(prefers-color-scheme: dark)">
+  <title>{% block title %}80GOTV{% endblock %}</title>
+  {% set page_meta_title %}{% block meta_title %}{{ self.title()|striptags }}{% endblock %}{% endset %}
+  {% set page_meta_description %}{% block meta_description %}{{ msg('layouts.public.80gotv_cs2_events_match_results_player') }}{% endblock %}{% endset %}
+  {% set page_meta_description = page_meta_description|striptags|trim %}
+  {% set page_canonical_url = canonical_page_url(page if page is defined else none) %}
+  <meta name="description" content="{{ page_meta_description }}">
+  <link rel="canonical" href="{{ page_canonical_url }}">
+  <meta property="og:title" content="{{ page_meta_title|striptags|trim }}">
+  <meta property="og:description" content="{{ page_meta_description }}">
+  <meta property="og:url" content="{{ page_canonical_url }}">
+  <meta property="og:type" content="{% block og_type %}website{% endblock %}">
+  <meta property="og:image" content="{{ public_site_url(url_for('static', filename='logos/80gotv-mark.png')) }}">
+  <meta property="og:site_name" content="80GOTV">
+  <meta property="og:locale" content="{{ 'en_US' if site_locale == 'en' else 'zh_CN' }}">
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="16x16 32x32 48x48">
+  {% include 'layouts/_theme_bootstrap.html' %}
+  {% include "layouts/_i18n_bootstrap.html" %}
+  {% include "layouts/_design_tokens.html" %}
+  {{ frontend_entry('site-styles') }}
+  <noscript>{{ frontend_entry('public-no-script-style') }}</noscript>
+
+  {% block head %}{% endblock %}
+<script>
+// 图片加载失败 → 显示默认占位图（每张图只换一次，避免占位图也失败时无限重试）
+window.addEventListener('error',function(e){
+  var img=e.target;
+  if(!img||img.tagName!=='IMG'||!img.src||img.dataset.fallbackApplied)return;
+  img.dataset.fallbackApplied='1';
+  img.onerror=null;
+  // <picture> 里的 <source> 会盖过 img.src，要先去掉才能换成占位图
+  if(img.parentNode&&img.parentNode.tagName==='PICTURE'){
+    img.parentNode.querySelectorAll('source').forEach(function(s){s.remove();});
+  }
+  img.src=img.dataset.fallbackSrc||'/resources/placeholders/ImageNotFound.jpg';
+  img.style.objectFit='cover';
+},true);
+</script>
+</head>
+<body class="page-{{ request.endpoint|default('site', true)|replace('.', '-')|replace('_', '-') }}">
+<header class="navbar">
+  <div class="nav-inner">
+    <a href="/" class="logo">
+      <img src="{{ url_for('static', filename='logos/80gotv-mark.png') }}" class="site-logo-mark" alt="80GOTV" width="28" height="28" fetchpriority="high">
+      <span>80GOTV</span>
+    </a>
+
+    {# 手机顶栏常驻的四个入口（电脑上不显示） #}
+    <nav class="nav-quick" aria-label="{{ msg('layouts.public.quick_navigation') }}">
+      <a href="/news"{{ current('news') }}>{{ msg('layouts.public.news') }}</a>
+      <a href="/matches"{{ current('matches') }}>{{ msg('layouts.public.matches') }}</a>
+      <a href="/results"{{ current('results') }}>{{ msg('layouts.public.results') }}</a>
+      <a href="/events"{{ current('events') }}>{{ msg('layouts.public.events') }}</a>
+    </nav>
+
+    {# 电脑上：导航和右侧工具直接排在顶栏；手机上：这一整块变成右侧抽屉 #}
+    <div class="nav-panel" id="navPanel">
+      <nav class="nav-links" id="navLinks" aria-label="{{ msg('layouts.public.main_navigation') }}">
+        <a href="/news" class="nav-news"{{ current('news') }}>{{ msg('layouts.public.news') }}</a>
+        <a href="/matches" class="nav-matches"{{ current('matches') }}>{{ msg('layouts.public.matches') }}</a>
+        <a href="/results" class="nav-results"{{ current('results') }}>{{ msg('layouts.public.results') }}</a>
+        <a href="/stats?tab=players" class="mobile-drawer-only nav-ranking">{{ msg('layouts.public.ranking') }}</a>
+        <div class="nav-dropdown nav-events">
+          <a href="/events" class="nav-dropdown-toggle"{{ current('events') }}>{{ msg('layouts.public.events') }}</a>
+          <div class="nav-dropdown-menu">
+            <a href="/events?view=list">{{ msg('layouts.public.all_events') }}</a>
+            <a href="/events?status=ongoing">{{ msg('layouts.public.ongoing') }}</a>
+            <a href="/events?status=completed">{{ msg('layouts.public.archived') }}</a>
+            <a href="/events">{{ msg('layouts.public.calendar') }}</a>
+          </div>
+        </div>
+        <div class="nav-dropdown nav-players">
+          <a href="/players" class="nav-dropdown-toggle"{{ current('players') }}>{{ msg('layouts.public.players') }}</a>
+          <div class="nav-dropdown-menu">
+            <a href="/players">{{ msg('layouts.public.all_players') }}</a>
+            <a href="/players?filter=mvps">{{ msg('layouts.public.mvp_players') }}</a>
+            <a href="/players?filter=evps">{{ msg('layouts.public.evp_players') }}</a>
+            <a href="/players?filter=top10">TOP 10</a>
+          </div>
+        </div>
+        <div class="nav-dropdown nav-stats">
+          <a href="/stats" class="nav-dropdown-toggle"{{ current('stats') }}>{{ msg('layouts.public.stats') }}</a>
+          <div class="nav-dropdown-menu">
+            <a href="/stats?tab=overview">{{ msg('layouts.public.overview') }}</a>
+            <a href="/stats?tab=players">{{ msg('layouts.public.top_players') }}</a>
+            <a href="/stats?tab=maps">{{ msg('layouts.public.maps') }}</a>
+            <a href="/stats?tab=awards">{{ msg('layouts.public.awards') }}</a>
+          </div>
+        </div>
+        <a href="/predictions" class="nav-fantasy"{{ current('predictions') }}>{{ msg('layouts.public.predictions') }}</a>
+        <div class="nav-dropdown nav-games">
+          <a href="/games" class="nav-dropdown-toggle"{{ current('games') }}>{{ msg('layouts.public.games') }}</a>
+          <div class="nav-dropdown-menu">
+            <a href="/guess-player">{{ msg('layouts.public.guess_the_player') }}</a>
+            <a href="/map-quiz">{{ msg('layouts.public.map_locations') }}</a>
+            <a href="/player-bingo">{{ msg('layouts.public.player_bingo') }}</a>
+          </div>
+        </div>
+        <a href="/dashboard" class="nav-dashboard"{{ current('dashboard') }}>{{ msg('layouts.public.dashboard') }}</a>
+        <div class="nav-dropdown nav-more-compact">
+          <a href="/players" class="nav-dropdown-toggle">{{ msg('layouts.public.more') }}</a>
+          <div class="nav-dropdown-menu">
+            <a href="/results" class="nav-more-extra">{{ msg('layouts.public.results') }}</a>
+            <a href="/events" class="nav-more-extra">{{ msg('layouts.public.events') }}</a>
+            <a href="/players">{{ msg('layouts.public.players') }}</a>
+            <a href="/stats">{{ msg('layouts.public.stats') }}</a>
+            <a href="/predictions">{{ msg('layouts.public.predictions') }}</a>
+            <a href="/games">{{ msg('layouts.public.games') }}</a>
+            <a href="/dashboard">{{ msg('layouts.public.dashboard') }}</a>
+            <a href="/forum" class="nav-more-extra">{{ msg('layouts.public.forum') }}</a>
+          </div>
+        </div>
+        <a href="/forum" class="mobile-drawer-only nav-forum-mobile"{{ current('forum') }}>{{ msg('layouts.public.forum') }}</a>
+        <a href="/forum" id="navForum" class="nav-forum-desktop"{{ current('forum') }}>{{ msg('layouts.public.forum') }}</a>
+      </nav>
+
+      <div class="nav-tools">
+        <span class="user-nav" aria-label="{{ msg('layouts.public.user_menu') }}">
+          {# 登录后：用户名做成下拉，个人主页 / 后台管理 / 退出 收在里面（手机抽屉里直接展开） #}
+          {% if session.user_id %}
+          <div class="nav-dropdown user-dropdown">
+            <button type="button" class="nav-dropdown-toggle username" aria-haspopup="true">{% if session.admin_id %}<span class="admin-badge-small">ADMIN</span>{% endif %}<span class="truncate">{{ session.user_username }}{% if current_user_group_username %} <span class="username-handle">@{{ current_user_group_username }}</span>{% endif %}</span>{{ cheater_badge(current_user_is_cheater) }}</button>
+            <div class="nav-dropdown-menu user-dropdown-menu">
+              <a href="/profile">{{ msg('layouts.public.profile') }}</a>
+              {% if session.admin_id %}<a href="/admin">{{ msg('layouts.public.admin') }}</a>{% endif %}
+              <a href="/logout">{{ msg('layouts.public.log_out') }}</a>
+            </div>
+          </div>
+          {% elif session.admin_id %}
+          <div class="nav-dropdown user-dropdown">
+            <button type="button" class="nav-dropdown-toggle username" aria-haspopup="true"><span class="admin-badge-small">ADMIN</span><span class="truncate">{{ session.admin_username }}</span></button>
+            <div class="nav-dropdown-menu user-dropdown-menu">
+              <a href="/admin">{{ msg('layouts.public.admin') }}</a>
+              <a href="/admin/logout">{{ msg('layouts.public.log_out') }}</a>
+            </div>
+          </div>
+          {% else %}
+          <span class="guest-mode-label">{{ msg('layouts.public.guest') }}</span>
+          <a href="/login">{{ msg('layouts.public.log_in') }}</a>
+          {% endif %}
+        </span>
+        <button id="themeToggle" class="theme-btn" type="button" aria-label="{{ msg('layouts.public.toggle_theme') }}" title="{{ msg('layouts.public.toggle_dark_light_mode') }}">
+          <span class="theme-symbol" data-i18n-ignore aria-hidden="true">
+            <svg class="theme-mode-icon theme-mode-icon-moon" viewBox="0 0 24 24"><path d="M20 15.5A8.5 8.5 0 0 1 8.5 4 8.5 8.5 0 1 0 20 15.5Z"/></svg>
+            <svg class="theme-mode-icon theme-mode-icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+          </span>
+        </button>
+        {% include "components/_language_picker.html" %}
+      </div>
+    </div>
+
+    <form class="search-form" action="/search" method="get" role="search" id="searchForm" autocomplete="off">
+      <div class="mobile-search-heading">{{ msg('layouts.public.search') }}</div>
+      <div class="search-field">
+        <svg class="search-field-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+        <input type="search" name="q" placeholder="{{ msg('layouts.public.search_players_teams_events') }}" aria-label="{{ msg('layouts.public.site_search') }}" value="{{ request.args.get('q', '') }}" id="searchInput">
+        <button class="search-submit" type="submit" aria-label="{{ msg('layouts.public.submit_search') }}" title="{{ msg('layouts.public.search') }}">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+        </button>
+      </div>
+      <div class="search-dropdown" id="searchDropdown"></div>
+      <template id="searchExternalPlayer"><span class="player-origin-marker" role="img" aria-label="{{ msg('public.account.search.external_player') }}">{{ site_icon('globe') }}</span></template>
+      <div class="mobile-search-browse" id="mobileSearchBrowse" aria-live="polite"></div>
+    </form>
+
+    {% if session.user_id %}
+    <button class="notif-bell" title="{{ msg('layouts.public.notifications') }}" id="notifBell" type="button" aria-label="{{ msg('layouts.public.notifications') }}" aria-controls="notifPopup" aria-expanded="false">
+      <svg class="notif-bell-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"></path>
+        <path d="M10 21h4"></path>
+      </svg>
+      {% if unread_count %}<span class="notif-badge" id="notifBadge">{{ unread_count }}</span>{% endif %}
+    </button>
+    {% endif %}
+
+    <button id="searchToggle" class="search-toggle" type="button" aria-label="{{ msg('layouts.public.open_search') }}" aria-controls="searchForm" aria-expanded="false" title="{{ msg('layouts.public.search') }}">
+      <svg class="search-toggle-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+      <svg class="search-toggle-back-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"></path><path d="M9 12h10"></path></svg>
+    </button>
+    <button class="hamburger" id="hamburger" type="button" aria-controls="navLinks" aria-expanded="false" aria-label="{{ msg('layouts.public.open_menu') }}">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>
+    </button>
+    <div class="nav-backdrop" aria-hidden="true"></div>
+  </div>
+</header>
+
+{% include "components/_flash_toasts.html" %}
+
+{% if session.user_id and profile_completion_required %}
+<div class="profile-completion-backdrop" role="presentation">
+  <section class="profile-completion-dialog" role="dialog" aria-modal="true"
+           aria-labelledby="profileCompletionTitle" aria-describedby="profileCompletionHint">
+    <div class="profile-completion-head">
+      <span class="profile-completion-kicker">{{ msg('layouts.public.account_details') }}</span>
+      <h2 id="profileCompletionTitle">{{ msg('layouts.public.one_more_detail_before_you_continue') }}</h2>
+      <p id="profileCompletionHint">{{ msg('layouts.public.this_decides_the_region_badge_on') }}</p>
+    </div>
+    <form method="post" action="{{ url_for('complete_account_profile') }}" id="profileCompletionForm">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="next" value="{{ request.full_path }}">
+
+      <fieldset class="profile-completion-status">
+        <legend>{{ msg('layouts.public.are_you_or_were_you_a') }}</legend>
+        <label>
+          <input type="radio" name="is_bashizhong_student" value="1"
+                 {% if current_user_school_status == 1 %}checked{% endif %} required>
+          <span><strong>{{ msg('layouts.public.yes') }}</strong><small>{{ msg('layouts.public.a_group_nickname_is_required') }}</small></span>
+        </label>
+        <label>
+          <input type="radio" name="is_bashizhong_student" value="0"
+                 {% if current_user_school_status == 0 %}checked{% endif %} required>
+          <span><strong>{{ msg('layouts.public.no') }}</strong><small>{{ msg('layouts.public.your_profile_will_show_the_globe') }}</small></span>
+        </label>
+      </fieldset>
+
+      <label class="profile-completion-group" id="profileCompletionGroup">
+        <span>{{ msg('layouts.public.group_nickname') }}</span>
+        <input type="text" name="group_username" maxlength="40" autocomplete="nickname"
+               value="{{ current_user_saved_group_username or '' }}" placeholder="{{ msg('layouts.public.the_name_you_use_in_the') }}">
+      </label>
+
+      <button type="submit" class="profile-completion-submit">{{ msg('layouts.public.save_and_continue') }}</button>
+    </form>
+  </section>
+</div>
+{{ frontend_entry('profile-completion') }}
+{% endif %}
+
+<main class="layout {% block layout_class %}{% endblock %}">
+  <section class="main-col">{% block main %}{% endblock %}</section>
+  <aside class="side-col">{% block side %}{% endblock %}</aside>
+</main>
+
+<footer class="footer">{{ msg('layouts.public.bashizhong_80go_cs_group_for_learning') }}</footer>
+
+<script type="application/json" data-site-messages>{{ client_messages('site_dialogs')|tojson }}</script>
+{{ frontend_entry('site-dialogs') }}
+<script type="application/json" data-site-messages>{{ client_messages('navigation', 'theme')|tojson }}</script>
+{{ frontend_entry('public-shell') }}
+
+{% block extra_js %}{% endblock %}
+
+{# 通知浮窗 #}
+{% if session.user_id %}
+<section class="notif-popup" id="notifPopup" hidden aria-label="{{ msg('layouts.public.notification_panel') }}">
+  <div class="notif-popup-head">
+    <div>
+      <strong>{{ msg('layouts.public.notifications') }}</strong>
+      <span class="notif-popup-count" id="notifPopupCount"></span>
+    </div>
+    <button class="notif-popup-close" id="notifPopupClose" type="button" aria-label="{{ msg('layouts.public.close_notifications') }}">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"></path></svg>
+    </button>
+  </div>
+  <div class="notif-popup-list" id="notifPopupList" aria-live="polite">
+    <div class="notif-popup-empty">{{ msg('layouts.public.loading') }}</div>
+  </div>
+  <div class="notif-popup-foot">
+    <a href="/notifications">{{ msg('layouts.public.view_all_notifications') }}</a>
+    <button id="notifMarkAll" type="button">{{ msg('layouts.public.mark_all_as_read') }}</button>
+  </div>
+</section>
+<script type="application/json" data-site-messages>{{ client_messages('notifications')|tojson }}</script>
+{{ frontend_entry('notification-popup') }}
+{% endif %}
+
+{% if session.user_id or session.admin_id %}
+<button id="fbBtn" class="feedback-launcher" type="button" aria-label="{{ msg('layouts.public.feedback') }}"
+        aria-haspopup="dialog" aria-controls="fbOverlay" aria-expanded="false" title="{{ msg('layouts.public.feedback') }}">
+  <span aria-hidden="true">{{ site_icon('message') }}</span>
+</button>
+<dialog id="fbOverlay" class="feedback-overlay" aria-labelledby="fbTitle">
+  <section class="feedback-dialog">
+    <header class="feedback-dialog-head">
+      <h2 id="fbTitle">{{ msg('layouts.public.feedback') }}</h2>
+      <button id="fbClose" class="feedback-dialog-close" type="button" aria-label="{{ msg('layouts.public.close_feedback') }}">&#10005;</button>
+    </header>
+    <form id="fbForm">
+      <label class="feedback-field" for="fbType">
+        <span>{{ msg('layouts.public.feedback_type') }}</span>
+        <select id="fbType">
+          <option value="suggestion">{{ msg('layouts.public.suggestion') }}</option>
+          <option value="bug">{{ msg('layouts.public.bug_report') }}</option>
+          <option value="question">{{ msg('layouts.public.question') }}</option>
+          <option value="other">{{ msg('layouts.public.other') }}</option>
+        </select>
+      </label>
+      <label class="feedback-field" for="fbContent">
+        <span>{{ msg('layouts.public.feedback_details') }}</span>
+        <textarea id="fbContent" rows="5" placeholder="{{ msg('layouts.public.write_your_feedback') }}" maxlength="2000" required></textarea>
+      </label>
+      <label class="feedback-field" for="fbContact">
+        <span>{{ msg('layouts.public.contact_optional') }}</span>
+        <input id="fbContact" autocomplete="email" placeholder="{{ msg('layouts.public.email_qq_or_another_contact_method') }}">
+      </label>
+      <button id="fbSubmit" class="feedback-submit" type="submit">{{ msg('layouts.public.submit') }}</button>
+    </form>
+  </section>
+</dialog>
+<script type="application/json" data-site-messages>{{ client_messages('inline_public')|tojson }}</script>
+{{ frontend_entry('feedback') }}
+{% endif %}
+
+</body>
+</html>

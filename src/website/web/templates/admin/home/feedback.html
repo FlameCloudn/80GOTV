@@ -1,0 +1,72 @@
+{% extends "layouts/admin.html" %}
+{% import "components/_icons.html" as ui %}
+{% block title %}{{ msg('admin.home.feedback.user_feedback') }}{% endblock %}
+{% set status_labels = {'open': msg('admin.home.feedback.pending'), 'reviewing': msg('admin.home.feedback.in_review'), 'resolved': msg('admin.home.feedback.resolved_2'), 'closed': msg('admin.home.feedback.resolved')} %}
+{% block main %}
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>FEEDBACK</span><h1>{{ msg('admin.home.feedback.user_feedback') }}</h1></div>
+</header>
+
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">{{ msg('admin.home.feedback.all_feedback') }} <span class="panel-count" data-list-count="#feedbackTable">{{ items|length }}</span></h2></div>
+  {% if items %}
+  <div class="admin-toolbar list-filters">
+    <label class="filter-search-box">{{ ui.icon('search') }}<input type="search" data-list-search="#feedbackTable" placeholder="{{ msg('admin.home.feedback.search_content_user_or_page') }}" aria-label="{{ msg('admin.home.feedback.search_feedback') }}"></label>
+    <select data-list-filter="#feedbackTable" data-filter-key="state" aria-label="{{ msg('admin.home.feedback.filter_by_status') }}">
+      <option value="">{{ msg('admin.home.feedback.status_all') }}</option>
+      <option value="open">{{ msg('admin.home.feedback.pending') }}</option>
+      <option value="done">{{ msg('admin.home.feedback.resolved') }}</option>
+    </select>
+    <select data-list-filter="#feedbackTable" data-filter-key="kind" aria-label="{{ msg('admin.home.feedback.filter_by_type') }}">
+      <option value="">{{ msg('admin.home.feedback.type_all') }}</option>
+      <option value="bug">Bug</option>
+      <option value="suggestion">{{ msg('admin.home.feedback.suggestion') }}</option>
+      <option value="question">{{ msg('admin.home.feedback.question') }}</option>
+      <option value="other">{{ msg('admin.home.feedback.other') }}</option>
+    </select>
+  </div>
+  <div class="table-wrap">
+    <table class="table admin-table fb-table" id="feedbackTable">
+      <thead><tr><th>{{ msg('admin.home.feedback.time') }}</th><th>{{ msg('admin.home.feedback.type') }}</th><th>{{ msg('admin.home.feedback.content') }}</th><th>{{ msg('admin.home.feedback.user_page') }}</th><th>{{ msg('admin.home.feedback.actions') }}</th></tr></thead>
+      <tbody>
+        {% for f in items %}
+        {% set unresolved = (f['status'] or 'open') in ('open', 'reviewing') %}
+        <tr id="feedback-{{ f['id'] }}" class="fb-status-{{ f['status'] }}{% if not unresolved %} is-done{% endif %}"
+            data-state="{{ 'open' if unresolved else 'done' }}" data-kind="{{ f['type'] if f['type'] in ('bug', 'suggestion', 'question') else 'other' }}"
+            data-search="{{ f['content'] }} {{ f['username'] or '' }} {{ f['page_url'] or '' }} {{ f['admin_reply'] or '' }}">
+          <td class="nowrap muted">{{ f['created_at']|cn_time if f['created_at'] else '' }}</td>
+          <td><span class="badge fb-tag fb-tag-{{ f['type'] }}">{{ {'bug':'Bug','suggestion':msg('admin.home.feedback.suggestion'),'question':msg('admin.home.feedback.question')}.get(f['type'], msg('admin.home.feedback.other')) }}</span></td>
+          <td>
+            <div class="fb-content" data-i18n-ignore>{{ f['content'][:200] }}{% if f['content']|length > 200 %}...{% endif %}</div>
+            {% if f['admin_reply'] %}<div class="fb-reply">{{ msg('admin.home.feedback.reply') }}<span data-i18n-ignore>{{ f['admin_reply'] }}</span></div>{% endif %}
+          </td>
+          <td>
+            <span class="nowrap" data-i18n-ignore>{{ f['username'] or msg('admin.home.feedback.anonymous') }}</span>
+            {#- 页面地址是提交反馈时带上的，只有站内路径才做成链接 -#}
+            {% set page_url = f['page_url'] or '' %}
+            {% if page_url.startswith('/') and not page_url.startswith('//') %}<a class="cell-sub fb-page" href="{{ page_url }}" target="_blank" rel="noopener" title="{{ page_url }}" data-i18n-ignore>{{ page_url }}</a>
+            {% else %}<span class="cell-sub fb-page" data-i18n-ignore>{{ page_url or '-' }}</span>{% endif %}
+          </td>
+          <td>
+            {#- 回复框预先填好已有回复：只改状态时不会把原来的回复清掉 -#}
+            <form method="post" action="{{ url_for('admin.admin_feedback_status', fb_id=f['id']) }}" class="inline-form fb-form">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <select name="status" aria-label="{{ msg('admin.home.feedback.status') }}">
+                <option value="open" {% if f['status']=='open' %}selected{% endif %}>{{ msg('admin.home.feedback.pending') }}</option>
+                {% if f['status'] in ('reviewing', 'resolved') %}<option value="{{ f['status'] }}" selected>{{ status_labels[f['status']] }}</option>{% endif %}
+                <option value="closed" {% if f['status']=='closed' %}selected{% endif %}>{{ msg('admin.home.feedback.resolved') }}</option>
+              </select>
+              <input name="reply" value="{{ f['admin_reply'] or '' }}" placeholder="{{ msg('admin.home.feedback.reply_optional') }}" aria-label="{{ msg('admin.home.feedback.reply_optional') }}">
+              <button type="submit" class="btn btn-sm">{{ ui.icon('check') }}{{ msg('admin.home.feedback.save') }}</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">{{ msg('admin.home.feedback.no_feedback') }}</div>
+  {% endif %}
+</section>
+{% endblock %}

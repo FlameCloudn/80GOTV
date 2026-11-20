@@ -1,0 +1,40 @@
+      <section class="form-group">
+        <div class="form-group-head"><h2 class="form-group-title">{{ msg('admin.events.events_form.registration') }}</h2></div>
+        {% if not editing %}
+        <div class="reg-mode-list">
+          <label class="check-row">
+            <input type="radio" name="registration_mode" value="closed" {% if not event or not event.registration_open %}checked{% endif %}>
+            <span>{{ msg('admin.events.events_form.registration_closed') }}</span>
+          </label>
+          <label class="check-row">
+            <input type="radio" name="registration_mode" value="legacy_open" {% if event and event.registration_open %}checked{% endif %}>
+            <span>{{ msg('admin.events.events_form.legacy_toggle_open_team_registration') }}</span>
+          </label>
+          <label class="check-row">
+            <input type="radio" name="registration_mode" value="managed" {% if not rc.get('schema_ready') %}disabled{% endif %}>
+            <span>{{ msg('admin.events.events_form.managed_registration_auto_form_after_deadline') }}{% if not rc.get('schema_ready') %}{{ msg('admin.events.events_form.managed_registration_is_not_available_in_2') }}{% endif %}</span>
+          </label>
+        </div>
+        <input type="hidden" name="registration_open" id="legacyRegOpenInput" value="1" {% if not (event and event.registration_open) %}disabled{% endif %}>
+        <div id="managedAddDeadlineWrap" class="managed-deadline-box" hidden>
+          <label class="field form-narrow">
+            <span class="field-label">{{ msg('admin.events.events_form.registration_deadline') }} <span class="field-required">*</span></span>
+            <input type="datetime-local" id="newRegDeadlineLocal" data-draft-name="registration_deadline_local">
+            <span class="field-hint">{{ msg('admin.events.events_form.teams_auto_form_by_cs2_playtime') }}</span>
+          </label>
+          <input type="hidden" name="registration_deadline" id="newRegDeadlineEpoch" disabled>
+        </div>
+        {% elif managed %}
+        <p class="lock-note">{{ ui.icon('lock') }}{{ msg('admin.events.events_form.managed_registration_opens_and_closes_based') }}</p>
+        {% else %}
+        <label class="check-row">
+          <input type="checkbox" name="registration_open" value="1"
+                 {% if event and event.registration_open and event.status != 'completed' %}checked{% endif %}
+                 {% if event and event.status == 'completed' %}disabled{% endif %}>
+          <span>{{ msg('admin.events.events_form.open_team_registration') }}</span>
+        </label>
+        {% if event and event.status == 'completed' %}
+        <span class="field-hint lock-hint">{{ ui.icon('lock') }}{{ msg('admin.events.events_form.this_event_has_finished_registration_cannot') }}</span>
+        {% endif %}
+        {% endif %}
+      </section>

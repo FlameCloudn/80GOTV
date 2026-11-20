@@ -1,0 +1,70 @@
+{% extends "layouts/admin.html" %}
+{% import "components/_icons.html" as ui %}
+{% block title %}{{ msg('admin.events.event_bracket.bracket_editor_name', name=event.name) }}{% endblock %}
+{% block main %}
+<a href="{{ url_for('admin.admin_events') }}" class="back-link">{{ msg('admin.events.event_bracket.back_to_event_management') }}</a>
+<header class="page-head">
+  <div>
+    <span class="page-head-kicker" data-i18n-ignore>BRACKET · EVENT {{ event.id }}</span>
+    <h1><span data-i18n-ignore>{{ event.name }}</span> {{ msg('admin.events.event_bracket.bracket_editor') }}</h1>
+  </div>
+  <div class="page-actions"><a class="btn" href="{{ event_path(event) }}" target="_blank" rel="noopener">{{ ui.icon('external') }}{{ msg('admin.events.event_bracket.view_event_page') }}</a></div>
+</header>
+
+<section class="panel">
+  <div class="editor-toolbar">
+    <label for="formatSelect">{{ msg('admin.events.event_bracket.format') }}</label>
+    <select id="formatSelect">
+      <option value="4de">{{ msg('admin.events.event_bracket.4_team_double_elimination') }}</option>
+      <option value="8de">{{ msg('admin.events.event_bracket.8_team_double_elimination') }}</option>
+      <option value="4se">{{ msg('admin.events.event_bracket.4_team_single_elimination') }}</option>
+      <option value="8se">{{ msg('admin.events.event_bracket.8_team_single_elimination') }}</option>
+      <option value="swiss" disabled>{{ msg('admin.events.event_bracket.swiss_automatic_advancement_in_development') }}</option>
+    </select>
+    <label for="bracketBoFormat">{{ msg('admin.events.event_bracket.default_format') }}</label>
+    <select id="bracketBoFormat">
+      <option value="BO1">BO1</option>
+      <option value="BO3" selected>BO3</option>
+      <option value="BO5">BO5</option>
+    </select>
+    <div class="toolbar-spacer"></div>
+    <button type="button" class="btn" data-reset-bracket>{{ ui.icon('reopen') }}{{ msg('admin.events.event_bracket.reset') }}</button>
+    <button type="button" class="btn btn-primary" id="saveBracketBtn">{{ ui.icon('check') }}<span class="btn-label">{{ msg('admin.events.event_bracket.save_and_create_all_matches') }}</span></button>
+  </div>
+</section>
+
+<div class="alert alert-info">{{ msg('admin.events.event_bracket.each_slot_can_be_bound_to') }}</div>
+
+<div class="editor-layout">
+  {# 队伍池：拖到首轮槽位 #}
+  <aside class="panel team-pool-panel">
+    <div class="panel-head"><h2 class="panel-title">{{ msg('admin.events.event_bracket.team_pool') }}</h2></div>
+    <div class="team-pool-body">
+      <p class="team-pool-hint">{{ msg('admin.events.event_bracket.drag_into_first_round_slots_only') }}</p>
+      <input type="text" class="team-pool-search" id="teamSearch" placeholder="{{ msg('admin.events.event_bracket.search_teams') }}" aria-label="{{ msg('admin.events.event_bracket.search_teams_2') }}">
+      <div class="team-pool-list" id="teamPool"></div>
+    </div>
+  </aside>
+
+  {# 对阵图编辑区 #}
+  <section class="panel bracket-panel">
+    <div class="panel-head"><h2 class="panel-title">{{ msg('admin.events.event_bracket.bracket_preview') }}</h2></div>
+    <div class="bracket-panel-body">
+      <div class="bracket-editor-wrapper" id="bracketEditor">
+        <div class="empty-bracket-hint" id="emptyHint">{{ msg('admin.events.event_bracket.select_a_format_to_show_the') }}</div>
+      </div>
+    </div>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="application/json" id="bracketEditorData">{{ {
+  'eventId': event.id,
+  'eventName': event.name,
+  'bracket': bracket_data or none,
+  'eventMatches': event_matches
+}|tojson }}</script>
+<script type="application/json" data-site-messages>{{ client_messages('bracket_editor')|tojson }}</script>
+{{ frontend_entry('admin-bracket-editor') }}
+{% endblock %}

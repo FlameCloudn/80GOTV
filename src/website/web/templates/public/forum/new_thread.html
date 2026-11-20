@@ -1,0 +1,38 @@
+{% extends "layouts/public.html" %}
+{% from 'components/_forum_labels.html' import forum_category %}
+{% block title %}{{ msg('public.forum.new_thread.new_thread_forum') }}{% endblock %}
+{% block layout_class %}no-side-layout narrow-layout{% endblock %}
+{% block main %}
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>FORUM</span><h1>{{ msg('public.forum.new_thread.new_thread') }}</h1></div>
+  <a class="page-head-link" href="{{ url_for('forum_index') }}">{{ msg('public.forum.new_thread.back_to_forum') }}</a>
+</header>
+<section class="panel">
+  <form method="post" class="panel-body form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label class="field">
+      <span class="field-label">{{ msg('public.forum.new_thread.section') }}</span>
+      <select name="category_id" required>
+        {% for category in categories %}
+        <option value="{{ category.id }}"{% if request.form.get('category_id', '')|string == category.id|string %} selected{% endif %}>{{ forum_category(category.slug, category.name) }} · {{ forum_category(category.slug, category.description, 'description') }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="field">
+      <span class="field-label">{{ msg('public.forum.new_thread.title') }}</span>
+      <input type="text" name="title" maxlength="120" placeholder="{{ msg('public.forum.new_thread.summarize_your_thread') }}" value="{{ request.form.get('title', '') }}" required>
+      <span class="field-hint">{{ msg('public.forum.new_thread.up_to_120_characters') }}</span>
+    </label>
+    <label class="field">
+      <span class="field-label">{{ msg('public.forum.new_thread.content') }}</span>
+      <textarea name="content" rows="12" placeholder="{{ msg('public.forum.new_thread.describe_your_thoughts') }}" required>{{ request.form.get('content', '') }}</textarea>
+      <span class="field-hint">{{ msg('public.forum.new_thread.up_to_10_000_characters_plain') }}</span>
+    </label>
+    <div class="form-actions">
+      <a href="{{ url_for('forum_index') }}" class="btn">{{ msg('public.forum.new_thread.cancel') }}</a>
+      <button type="submit" class="btn btn-primary">{{ msg('public.forum.new_thread.publish_thread') }}</button>
+    </div>
+  </form>
+</section>
+{% endblock %}
+{% block side %}{% endblock %}

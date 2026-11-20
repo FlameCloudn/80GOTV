@@ -11,21 +11,22 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from services.map_quiz_service import ASSET_ROOT, QUESTIONS  # noqa: E402
-from utils.db_helpers import create_avatar_thumbnail  # noqa: E402
+from src.website.domains.games.map_quiz_service import ASSET_ROOT, QUESTIONS  # noqa: E402
+from src.website.runtime.storage import site_paths  # noqa: E402
+from src.website.runtime.uploads import create_avatar_thumbnail  # noqa: E402
 
 MAP_MOBILE_WIDTH = 960
 
 
 def build_avatar_thumbnails():
-    avatar_dir = ROOT / "static" / "avatars"
+    avatar_dir = site_paths().avatars
     if not avatar_dir.is_dir():
         return 0
     count = 0
     for source in avatar_dir.iterdir():
         if not source.is_file():
             continue
-        if create_avatar_thumbnail(str(ROOT), source.name):
+        if create_avatar_thumbnail(site_paths().root, source.name):
             count += 1
     return count
 

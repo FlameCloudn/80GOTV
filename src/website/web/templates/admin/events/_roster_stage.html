@@ -1,0 +1,40 @@
+{#- 1. 阶段条与版本信息 -#}
+{% set step_idx = {'signup': 1, 'due': 2, 'formed_unconfirmed': 3, 'initial_confirmed': 4, 'archived': 5}.get(control.phase, 1) %}
+<section class="panel roster-stage-panel">
+  <div class="panel-body roster-stage-body">
+    <ol class="roster-stepper" aria-label="{{ msg('admin.events.event_roster.event_stages') }}">
+      <li class="roster-step {{ 'is-current' if step_idx == 1 else 'is-done' }}">
+        <span class="roster-step-dot">{% if step_idx > 1 %}{{ ui.icon('check') }}{% else %}1{% endif %}</span>
+        <span>{{ msg('admin.events.event_roster.registration_open') }}</span>
+      </li>
+      <li class="roster-step {{ 'is-current' if step_idx == 2 else ('is-done' if step_idx > 2 else '') }}">
+        <span class="roster-step-dot">{% if step_idx > 2 %}{{ ui.icon('check') }}{% else %}2{% endif %}</span>
+        <span>{{ msg('admin.events.event_roster.deadline_team_formation') }}</span>
+      </li>
+      <li class="roster-step {{ 'is-current' if step_idx == 3 else ('is-done' if step_idx > 3 else '') }}">
+        <span class="roster-step-dot">{% if step_idx > 3 %}{{ ui.icon('check') }}{% else %}3{% endif %}</span>
+        <span>{{ msg('admin.events.event_roster.confirm_initial_roster') }}</span>
+      </li>
+      <li class="roster-step {{ 'is-current' if step_idx == 4 else ('is-done' if step_idx > 4 else '') }}">
+        <span class="roster-step-dot">{% if step_idx > 4 %}{{ ui.icon('check') }}{% else %}4{% endif %}</span>
+        <span>{{ msg('admin.events.event_roster.reserves_pre_match_changes') }}</span>
+      </li>
+      <li class="roster-step {{ 'is-done' if step_idx == 5 else '' }}">
+        <span class="roster-step-dot">{% if step_idx == 5 %}{{ ui.icon('check') }}{% else %}5{% endif %}</span>
+        <span>{{ msg('admin.events.event_roster.create_matches_lock_rosters') }}</span>
+      </li>
+    </ol>
+    <div class="roster-stage-meta">
+      <span class="badge {{ control.phase_badge }}">{{ control.phase_label }}</span>
+      <span>{{ msg('admin.events.event_roster.deadline_deadline_iso', deadline_iso=control.deadline_iso|datetime_display) }}{{ msg('admin.events.event_roster.closed') if control.is_due else msg('admin.events.event_roster.open') }}）</span>
+      {% if control.formed %}
+      <span>{{ msg('admin.events.event_roster.revision') }}<b>{{ msg('admin.events.event_roster.v_formation_revision', formation_revision=control.formation_revision) }}</b></span>
+      {% endif %}
+      {% if control.archived_at %}
+      <span class="muted">{{ msg('admin.events.event_roster.archived_archived_at_iso_read_only', archived_at_iso=control.archived_at_iso|datetime_display) }}</span>
+      {% elif step_idx == 4 %}
+      <a class="panel-link" href="{{ url_for('admin.admin_matches_add', event=event.id) }}">{{ msg('admin.events.event_roster.create_match') }}</a>
+      {% endif %}
+    </div>
+  </div>
+</section>

@@ -1,0 +1,94 @@
+{% extends 'layouts/public.html' %}
+{% from 'components/_icons.html' import site_icon %}
+{% block title %}{{ news.title }} - 80GOTV{% endblock %}
+{% block meta_description %}{{ (news.summary or news.content or news.title)|striptags|truncate(160, true, '...') }}{% endblock %}
+{% block og_type %}article{% endblock %}
+{% block head %}
+{{ frontend_entry('news-style') }}
+{{ frontend_entry('news-reference-style') }}
+{% endblock %}
+{% block layout_class %}narrow-layout no-side-layout{% endblock %}
+{% block main %}
+<a href="/news" class="back-link">{{ site_icon('back') }} {{ msg('public.news.news_detail.back_to_news') }}</a>
+
+<article class="panel news-detail">
+  <header class="news-detail-head">
+    <h1 class="news-detail-title" data-i18n-ignore>{{ news.title }}</h1>
+    <div class="meta news-detail-meta">
+      <span data-i18n-ignore>{{ news.author }}</span>
+      <span>·</span>
+      <span>{{ news.publish_time|datetime_display }}</span>
+      <span>·</span>
+      <span>{{ msg('public.news.news_detail.comments_comment_count', comment_count=news.comment_count) }}</span>
+    </div>
+  </header>
+
+  {% if news.redirect_url or related_match %}
+  <div class="news-detail-links">
+    {% if news.redirect_url %}
+    <a class="btn btn-primary news-related-page-cta" href="{{ news.redirect_url }}">{{ msg('public.news.news_detail.open_event_registration') }}</a>
+    {% endif %}
+    {% if related_match %}
+    <a href="/matches/{{ related_match.slug or related_match.id }}" class="related-match-card">
+      <small>{{ msg('public.news.news_detail.linked_match') }}</small>
+      <div class="related-match-row">
+        {% set left_team, right_team = match_opponents(related_match) %}
+        <div>
+          <strong><span data-i18n-ignore>{{ left_team.name }}</span> <span class="related-match-vs" data-i18n-ignore>vs</span> <span data-i18n-ignore>{{ right_team.name }}</span></strong>
+          {% if related_match.event_name %}<small><span data-i18n-ignore>{{ related_match.event_name }}</span> · {{ related_match.match_time|date_display if related_match.match_time else '' }}</small>{% endif %}
+        </div>
+        {#- 还没开打的比赛没有比分，显示 VS，不把未知比分写成 0 : 0 -#}
+        {% if related_match.status in ('completed', 'live') and related_match.team1_score is not none and related_match.team2_score is not none %}
+        <b class="score related-match-score">{{ left_team.score }} : {{ right_team.score }}</b>
+        {% else %}
+        <b class="score related-match-score is-pending" data-i18n-ignore>VS</b>
+        {% endif %}
+      </div>
+    </a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="prose news-content" data-i18n-ignore>{{ article_content|safe }}</div>
+  {% if news.internal_link_url %}
+  <div class="news-detail-links news-article-actions">
+    <a class="btn btn-primary news-related-page-cta" href="{{ news.internal_link_url }}" data-i18n-ignore>{{ news.internal_link_text or msg('public.news.news_detail.open_page') }}</a>
+  </div>
+  {% endif %}
+</article>
+
+{% from 'components/_comment_macros.html' import render_comment with context %}
+
+{# 评论区 #}
+<section class="panel comments news-comments comment-section">
+  <h3 class="comments-title">{{ msg('public.news.news_detail.comments_comment_count_2', comment_count=news.comment_count) }}</h3>
+
+  {% if session.user_id %}
+  <form method="post" action="/comment/news/{{ news.id }}" class="comment-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <textarea name="content" rows="3" placeholder="{{ msg('public.news.news_detail.write_a_comment') }}" required class="comment-textarea"></textarea>
+    <div class="comment-form-footer">
+      <button type="submit" class="btn btn-primary comment-submit">{{ msg('public.news.news_detail.post_comment') }}</button>
+    </div>
+  </form>
+  {% else %}
+  <div class="comment-login-prompt">
+    <a href="/login">{{ msg('public.news.news_detail.log_in') }}</a> {{ msg('public.news.news_detail.to_comment') }}
+  </div>
+  {% endif %}
+
+  {% if comments %}
+  <div class="comment-list">
+    {% for c in comments %}
+      {{ render_comment(c, session, 'news', news.id) }}
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="empty-state">{{ msg('public.news.news_detail.no_comments') }}</p>
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block extra_js %}
+{% include 'components/_comment_assets.html' %}
+{% endblock %}

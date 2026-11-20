@@ -1,0 +1,38 @@
+{% if editing and managed %}
+<section class="panel managed-awards-panel" id="managedAwardsPanel"
+         data-event-id="{{ event.id }}"
+         data-championship-url="{{ url_for('admin.managed_championship', event_id=event.id) }}"
+         data-player-awards-url="{{ url_for('admin.managed_player_awards', event_id=event.id) }}">
+  <div class="panel-head">
+    <h2 class="panel-title">{{ msg('admin.events.events_form.event_awards') }}</h2>
+    <div class="managed-awards-head-links">
+      <a class="btn btn-sm" href="{{ url_for('admin.admin_award_poster') }}">{{ ui.icon('image') }}{{ msg('admin.events.events_form.award_posters') }}</a>
+      <a class="btn btn-sm" href="/awards">{{ ui.icon('external') }}{{ msg('admin.events.events_form.awards_overview') }}</a>
+    </div>
+  </div>
+  <div class="panel-body managed-awards-body">
+    <div class="managed-awards-grid">
+      <article class="managed-award-card" id="managedChampCard">
+        <div class="managed-award-card-head">
+          <h3>{{ msg('admin.events.events_form.team_championship') }}</h3>
+          <span class="muted" id="managedChampBadge"></span>
+        </div>
+        <div class="managed-award-card-body" id="managedChampBody">
+          <p class="muted">{{ msg('admin.events.events_form.loading') }}</p>
+        </div>
+        <p id="managedChampError" class="roster-inline-error" role="alert" hidden></p>
+      </article>
+
+      <article class="managed-award-card" id="managedMedalsCard">
+        <div class="managed-award-card-head">
+          <h3>{{ msg('admin.events.events_form.player_awards') }}</h3>
+        </div>
+        <div class="managed-award-card-body" id="managedMedalsBody">
+          <p class="muted">{{ msg('admin.events.events_form.loading') }}</p>
+        </div>
+        <p id="managedMedalsError" class="roster-inline-error" role="alert" hidden></p>
+      </article>
+    </div>
+  </div>
+</section>
+{% endif %}

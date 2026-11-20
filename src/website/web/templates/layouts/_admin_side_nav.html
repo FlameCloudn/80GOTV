@@ -1,0 +1,42 @@
+{#-
+  后台左侧导航：按管理员的日常任务分组，每项一个自绘图标；“注册审核”“用户反馈”旁直接显示待处理数量
+  （数量来自 blueprints/admin.py 的 admin_nav_counts，只读）。
+  当前页面按网址第二段判断（/admin/teams/... → teams），给对应入口加 aria-current。
+  电脑上是左侧一列；窗口窄时（≤1100px）变成正文上方的横排，放不下就换行（样式见 admin.css）。
+-#}
+{%- import "components/_icons.html" as ui -%}
+{%- set _admin_parts = request.path.strip('/').split('/') -%}
+{%- set admin_section = _admin_parts[1] if _admin_parts|length > 1 else 'home' -%}
+{%- set nav_counts = admin_nav_counts or {} -%}
+{%- macro admin_link(section, href, label, icon_name, count=0, count_label='') -%}
+<a href="{{ href }}"{% if admin_section == section %} aria-current="page"{% endif %}>{{ ui.icon(icon_name) }}<span>{{ label }}</span>{% if count %}<span class="nav-count" aria-label="{{ count_label }}">{{ count }}</span>{% endif %}</a>
+{%- endmacro -%}
+<nav class="admin-sidenav admin-nav" aria-label="{{ msg('layouts.admin_side_nav.admin_navigation') }}">
+  <div class="admin-nav-group">
+    {{ admin_link('home', url_for('admin.admin_dashboard'), msg('layouts.admin_side_nav.overview'), 'dashboard') }}
+  </div>
+  <div class="admin-nav-group">
+    <span class="admin-nav-label">{{ msg('layouts.admin_side_nav.tournament_operations') }}</span>
+    {{ admin_link('events', url_for('admin.admin_events'), msg('layouts.admin_side_nav.events'), 'event') }}
+    {{ admin_link('matches', url_for('admin.admin_matches'), msg('layouts.admin_side_nav.matches'), 'match') }}
+    {{ admin_link('live', url_for('admin.admin_live_status'), msg('layouts.admin_side_nav.live_status'), 'live') }}
+  </div>
+  <div class="admin-nav-group">
+    <span class="admin-nav-label">{{ msg('layouts.admin_side_nav.people') }}</span>
+    {{ admin_link('registrations', url_for('admin.registration_reviews'), msg('layouts.admin_side_nav.registration_reviews'), 'review', nav_counts.get('pending_users', 0), msg('admin.nav.pending_reviews', count=nav_counts.get('pending_users', 0))) }}
+    {{ admin_link('players', url_for('admin.admin_players'), msg('layouts.admin_side_nav.players'), 'player') }}
+    {{ admin_link('teams', url_for('admin.admin_teams'), msg('layouts.admin_side_nav.teams'), 'team') }}
+    {{ admin_link('nicknames', url_for('admin.admin_nicknames'), msg('layouts.admin_side_nav.nicknames'), 'tag') }}
+  </div>
+  <div class="admin-nav-group">
+    <span class="admin-nav-label">{{ msg('layouts.admin_side_nav.content') }}</span>
+    {{ admin_link('news', url_for('admin.admin_news'), msg('layouts.admin_side_nav.news'), 'news') }}
+    {{ admin_link('feedback', url_for('admin.admin_feedback'), msg('layouts.admin_side_nav.user_feedback'), 'feedback', nav_counts.get('open_feedback', 0), msg('admin.nav.pending_feedback', count=nav_counts.get('open_feedback', 0))) }}
+    {{ admin_link('top10', url_for('admin.admin_top10'), msg('layouts.admin_side_nav.yearly_top_10'), 'star') }}
+    {{ admin_link('awards', url_for('admin.admin_award_poster'), msg('layouts.admin_side_nav.mvp_evp_stats_image'), 'image') }}
+  </div>
+  <div class="admin-nav-group">
+    <span class="admin-nav-label">{{ msg('layouts.admin_side_nav.tool') }}</span>
+    <a href="{{ url_for('admin.admin_backup_download') }}">{{ ui.icon('download') }}<span>{{ msg('layouts.admin_side_nav.download_backup') }}</span></a>
+  </div>
+</nav>

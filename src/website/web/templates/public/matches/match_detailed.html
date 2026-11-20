@@ -1,0 +1,359 @@
+{% extends 'layouts/public.html' %}
+{% from 'public/matches/_match_stat_value.html' import stat_value %}
+{% set opponents = match_opponents(match) %}
+{% set left_team, right_team = opponents %}
+{% set left_summary, right_summary = summary[left_team.side], summary[right_team.side] %}
+{% set score_left, score_right = (score_t1, score_t2) if left_team.side == 't1' else (score_t2, score_t1) %}
+{% block title %}{{ msg('public.matches.match_detailed.name_vs_value2_stats_80gotv', name=left_team.name, value2=right_team.name) }}{% endblock %}
+{% block head %}{{ frontend_entry('match-style') }}{% endblock %}
+{% block layout_class %}match-detail-layout match-detailed-layout no-side-layout{% endblock %}
+
+{% macro team_logo(logo, name, short_name, size='sm') %}
+  {% if logo %}
+  <img class="team-logo {{ size }}" src="{{ logo|team_logo_url }}" alt="{{ name }}" loading="lazy">
+  {% else %}
+  <span class="logo-fallback {{ size }}" data-i18n-ignore>{{ name|team_abbr(short_name) }}</span>
+  {% endif %}
+{% endmacro %}
+
+{% macro player_avatar(player, size='xs') %}
+  {% set display_name = private_name_for_player(player.player_id, player.nickname) %}
+  {% if player.avatar %}
+  <img class="avatar {{ size }}" src="{{ url_for('static', filename='avatars/' + player.avatar) }}" alt="{{ display_name }}" loading="lazy">
+  {% else %}
+  <span class="avatar {{ size }}" data-i18n-ignore>{{ display_name[:1] }}</span>
+  {% endif %}
+{% endmacro %}
+
+{% macro metric(value, digits=0, suffix='') -%}
+{{ (('%.' ~ digits ~ 'f')|format(value)) ~ suffix if value is not none else '-' }}
+{%- endmacro %}
+
+{#- 一支队伍的详细数据表（双方 / T / CT 三套列，靠页面根节点上的类切换） -#}
+{% macro team_table(title, logo, short_name, rows) %}
+<section class="match-detailed-team-table">
+  <h3 class="match-detailed-team-title">
+    {{ team_logo(logo, title, short_name, 'md') }}
+    <span data-i18n-ignore>{{ title }}</span>
+  </h3>
+  <div class="table-wrap match-detailed-table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>{{ msg('public.matches.match_detailed.players') }}</th>
+          <th class="num sortable" data-sort="opening" aria-sort="none">{{ msg('public.matches.match_detailed.opening_k_d') }}</th>
+          <th class="num sortable" data-sort="maps" aria-sort="none">{{ msg('public.matches.match_detailed.maps') }}</th>
+          <th class="num sortable" data-sort="kast" aria-sort="none">KAST</th>
+          <th class="num sortable" data-sort="clutches" aria-sort="none">1vX</th>
+          <th class="num sortable" data-sort="kills" aria-sort="none">{{ msg('public.matches.match_detailed.kills_hs') }}</th>
+          <th class="num sortable" data-sort="assists" aria-sort="none">{{ msg('public.matches.match_detailed.assists_flash') }}</th>
+          <th class="num sortable" data-sort="deaths" aria-sort="none">{{ msg('public.matches.match_detailed.deaths_traded') }}</th>
+          <th class="num sortable md-col-overall" data-sort="adr" aria-sort="none">ADR</th>
+          <th class="num sortable md-col-t" data-sort="t-adr" aria-sort="none">T ADR</th>
+          <th class="num sortable md-col-ct" data-sort="ct-adr" aria-sort="none">CT ADR</th>
+          <th class="num sortable" data-sort="rws" aria-sort="none">RWS</th>
+          <th class="num sortable sort-desc md-col-overall" data-sort="rating" aria-sort="descending">Rating</th>
+          <th class="num sortable md-col-t" data-sort="t-rating" aria-sort="none">T Rating</th>
+          <th class="num sortable md-col-ct" data-sort="ct-rating" aria-sort="none">CT Rating</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in rows %}
+        <tr data-side-values="{{ p.side_views|tojson|forceescape }}">
+          <td>
+            <a class="cell-entity dense-player" href="/players/{{ p.player_id }}">
+              {{ player_avatar(p) }}
+              <b data-i18n-ignore>{{ private_name_for_player(p.player_id, p.nickname) }}</b>
+            </a>
+          </td>
+          <td class="num" data-stat-sort="opening_diff" data-val="{{ p.opening_diff if p.opening_diff is not none else '' }}">{{ stat_value('first_kills', p.first_kills) }} : {{ stat_value('first_deaths', p.first_deaths) }}</td>
+          <td class="num" data-stat-sort="maps" data-val="{{ p.maps }}">{{ stat_value('maps', p.maps) }}</td>
+          <td class="num" data-stat-sort="kast" data-val="{{ p.kast if p.kast is not none else '' }}">{{ stat_value('kast', p.kast, 1, '%') }}</td>
+          <td class="num" data-stat-sort="clutches_won" data-val="{{ p.clutches_won if p.clutches_won is not none else '' }}">{{ stat_value('clutches_won', p.clutches_won) }}</td>
+          <td class="num" data-stat-sort="kills" data-val="{{ p.kills if p.kills is not none else '' }}">{{ stat_value('kills', p.kills) }} <small>({{ stat_value('headshot_kills', p.headshot_kills) }})</small></td>
+          <td class="num" data-stat-sort="assists" data-val="{{ p.assists if p.assists is not none else '' }}">{{ stat_value('assists', p.assists) }} <small>({{ stat_value('flash_assists', p.flash_assists) }})</small></td>
+          <td class="num" data-stat-sort="deaths" data-val="{{ p.deaths if p.deaths is not none else '' }}">{{ stat_value('deaths', p.deaths) }} <small>({{ stat_value('trade_deaths', p.trade_deaths) }})</small></td>
+          <td class="num md-col-overall" data-val="{{ p.adr if p.adr is not none else '' }}">{{ metric(p.adr, 1) }}</td>
+          <td class="num md-col-t" data-val="{{ p.t_adr if p.t_adr is not none else '' }}">{{ metric(p.t_adr, 1) }}</td>
+          <td class="num md-col-ct" data-val="{{ p.ct_adr if p.ct_adr is not none else '' }}">{{ metric(p.ct_adr, 1) }}</td>
+          <td class="num" data-stat-sort="rws" data-val="{{ p.rws if p.rws is not none else '' }}">{{ stat_value('rws', p.rws, 2) }}</td>
+          <td class="num rt-cell md-col-overall" data-val="{{ p.rating if p.rating is not none else '' }}"><b>{{ metric(p.rating, 2) }}</b></td>
+          <td class="num rt-cell md-col-t" data-val="{{ p.t_rating if p.t_rating is not none else '' }}"><b>{{ metric(p.t_rating, 2) }}</b></td>
+          <td class="num rt-cell md-col-ct" data-val="{{ p.ct_rating if p.ct_rating is not none else '' }}"><b>{{ metric(p.ct_rating, 2) }}</b></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="15" class="empty-state match-detailed-empty-cell">{{ msg('public.matches.match_detailed.no_data') }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endmacro %}
+
+{#- 数值来自原始比赛位置，显示顺序与队名一致。 -#}
+{% macro compare_bar(label, left, right) %}
+{% if left_team.side == 't2' %}{% set left, right = right, left %}{% endif %}
+{% if left is not none and right is not none %}
+  {% set total = left + right %}
+  {% set left_pct = (left / total * 100) if total else 50 %}
+  {% set right_pct = 100 - left_pct %}
+{% else %}
+  {% set left_pct = 0 %}
+  {% set right_pct = 0 %}
+{% endif %}
+<div class="match-detailed-compare-row">
+  <span class="match-detailed-compare-left">{{ metric(left) }}</span>
+  <b>{{ label }}</b>
+  <div class="match-detailed-compare-track">
+    <i class="{{ left_team.side }}" style="width:{{ left_pct }}%"></i>
+    <i class="{{ right_team.side }}" style="width:{{ right_pct }}%"></i>
+  </div>
+  <span class="match-detailed-compare-right">{{ metric(right) }}</span>
+</div>
+{% endmacro %}
+
+{#- 选手表现总览的队伍栏：队标、队名、全队平均 Rating -#}
+{% macro perf_team_head(logo, name, short_name, side, rating) %}
+<div class="perf-team {{ side }}">
+  {{ team_logo(logo, name, short_name, 'md') }}
+  <span class="perf-team-name" data-i18n-ignore>{{ name }}</span>
+  <span class="perf-team-rating"><span>{{ msg('public.matches.match_detailed.team_rating') }}</span> <b>{{ metric(rating, 2) }}</b></span>
+</div>
+{% endmacro %}
+
+{#- 选手表现总览的一张卡（照 HLTV）：每根条 = 这项数据 ÷ 平均水平，竖线是平均（Rating 的平均是 1.00，其余用全站平均） -#}
+{% macro perf_card(p, avg) %}
+{% set name = private_name_for_player(p.player_id, p.nickname) %}
+{% set diff = p.kills - p.deaths if p.kills is not none and p.deaths is not none else none %}
+<article class="perf-card">
+  <header class="perf-card-head">
+    <a href="/players/{{ p.player_id }}" data-i18n-ignore>{{ name }}</a>
+    <span class="perf-kd" title="{{ msg('public.matches.match_detailed.k_d') }}">{{ metric(p.kills) }}-{{ metric(p.deaths) }} <b class="{{ 'up' if diff is not none and diff > 0 else 'down' if diff is not none and diff < 0 else '' }}">{{ '%+d'|format(diff) if diff else ('0' if diff is not none else '-') }}</b></span>
+  </header>
+  <div class="perf-card-body">
+    <a class="perf-photo" href="/players/{{ p.player_id }}" tabindex="-1" aria-hidden="true">
+      {% if p.avatar %}<img src="{{ url_for('static', filename='avatars/' + p.avatar) }}" alt="" loading="lazy">{% else %}<span data-i18n-ignore>{{ name[:1] }}</span>{% endif %}
+    </a>
+    <div class="perf-chart" style="--avg:{{ avg }}">
+      {% for m in p.perf_bars %}
+      <span class="perf-label"{% if m.fixed %} data-i18n-ignore{% endif %}>{{ m.label }}</span>
+      <span class="perf-track"><i class="{{ m.tier }}" style="width:{{ m.pct }}%"></i><b>{{ m.text }}</b></span>
+      {% endfor %}
+      <span class="perf-avg-line" aria-hidden="true"></span>
+      <span class="perf-avg-label">{{ msg('public.matches.match_detailed.avg') }}</span>
+    </div>
+  </div>
+</article>
+{% endmacro %}
+
+{#- 评分条共用当前地图的刻度，竖线始终代表 1.00。 -#}
+{% macro rating_chart(rows) %}
+<div class="match-detailed-rating-area">
+  {% for p in rows %}
+  <a class="match-detailed-rating-row" href="/players/{{ p.player_id }}">
+    <span data-i18n-ignore>{{ private_name_for_player(p.player_id, p.nickname) }}</span>
+    <i><em class="{{ p.team_side }}" style="width:{{ p.rating_bar }}%"></em></i>
+    <b class="rt-cell">{{ metric(p.rating, 2) }}</b>
+  </a>
+  {% else %}
+  <p class="empty-state">{{ msg('public.matches.match_detailed.no_performance_data') }}</p>
+  {% endfor %}
+</div>
+{% if rows %}
+<div class="match-detailed-rating-scale" aria-hidden="true"><span>0.00</span><span>0.50</span><span>1.00</span><span>{{ metric(rating_scale.maximum, 2) }}</span></div>
+<div class="match-detailed-rating-labels"><span>{{ msg('public.matches.match_detailed.poor') }}</span><span>{{ msg('public.matches.match_detailed.avg') }}</span><span>{{ msg('public.matches.match_detailed.good') }}</span></div>
+{% endif %}
+{% endmacro %}
+
+{% macro team_legend() %}
+<span class="match-detailed-legend">
+  {% for opponent in opponents %}<span class="{{ opponent.side }}" data-i18n-ignore>{{ opponent.short }}</span>{% endfor %}
+</span>
+{% endmacro %}
+
+{% block main %}
+<section class="panel match-detailed-page match-stats-page" data-current-tab="{{ selected_tab }}" style="--rating-average:{{ rating_scale.average_pct }}%;--rating-half:{{ rating_scale.half_pct }}%;--rating-excellent:{{ rating_scale.excellent_pct }}%">
+  <div class="tabs match-stats-tabs" role="tablist" aria-label="{{ msg('public.matches.match_detailed.match_stats') }}">
+    <button class="tab match-stats-tab{% if selected_tab == 'overview' %} active{% endif %}" type="button" role="tab" aria-selected="{{ 'true' if selected_tab == 'overview' else 'false' }}" data-detailed-tab="overview">{{ msg('public.matches.match_detailed.overview') }}</button>
+    <button class="tab match-stats-tab{% if selected_tab == 'performance' %} active{% endif %}" type="button" role="tab" aria-selected="{{ 'true' if selected_tab == 'performance' else 'false' }}" data-detailed-tab="performance">{{ msg('public.matches.match_detailed.performance') }}</button>
+  </div>
+
+  {# 地图选择：HLTV 地图图原样，地图名居中；比分和选图写在图下面 #}
+  <nav class="match-detailed-map-strip" aria-label="{{ msg('public.matches.match_detailed.map_selection') }}">
+    <a class="match-detailed-map-card match-detailed-all-card{% if selected_map_index == 0 %} active{% endif %}" href="/matches/{{ match.slug or match.id }}/detailed?map=all&tab={{ selected_tab }}" data-map-href="/matches/{{ match.slug or match.id }}/detailed?map=all">
+      <span class="match-detailed-map-cover"><span>{{ msg('public.matches.match_detailed.all_maps') }}</span></span>
+      <span class="match-detailed-map-info">
+        <b>{{ left_team.score if left_team.score is not none else '-' }} - {{ right_team.score if right_team.score is not none else '-' }}</b>
+        <small>{{ match.bo_format or 'BO1' }}</small>
+      </span>
+    </a>
+    {% for ms in map_cards %}
+    <a class="match-detailed-map-card{% if selected_map_index == ms.index %} active{% endif %}{% if not ms.has_stats %} muted{% endif %}" href="/matches/{{ match.slug or match.id }}/detailed?map={{ ms.index }}&tab={{ selected_tab }}" data-map-href="/matches/{{ match.slug or match.id }}/detailed?map={{ ms.index }}">
+      <span class="match-detailed-map-cover" style="background-image:url('{{ ms.name|map_image }}')"><span>{{ ms.name|map_display }}</span></span>
+      <span class="match-detailed-map-info">
+        <b>{{ ms[left_team.side] }} - {{ ms[right_team.side] }}</b>
+        <small>{% if ms.picked_by == 't1' %}{{ msg('public.matches.match_detailed.t1s_pick', t1s=match.t1s) }}{% elif ms.picked_by == 't2' %}{{ msg('public.matches.match_detailed.t2s_pick', t2s=match.t2s) }}{% else %}{{ msg('public.matches.match_detailed.map_index', index=ms.index) }}{% endif %}</small>
+      </span>
+    </a>
+    {% endfor %}
+  </nav>
+
+  {% if not has_any_stats %}
+  <div class="empty-state">{{ msg('public.matches.match_detailed.no_player_stats_have_been_entered') }}</div>
+  {% endif %}
+
+  <div class="match-detailed-content{% if selected_tab == 'overview' %} active{% endif %}" id="detailed-tab-overview" role="tabpanel">
+    <div class="match-detailed-overview-grid">
+      <article class="match-detailed-summary">
+        <a class="match-detailed-event" href="{{ event_path(match) }}" data-i18n-ignore>{{ match.event_name or '80GOTV' }}</a>
+        <div class="match-detailed-date">{{ match.match_time|datetime_display if match.match_time else 'TBD' }}</div>
+        <div class="match-detailed-score-card">
+          <div class="match-detailed-score-team">
+            {{ team_logo(left_team.logo, left_team.name, left_team.short, 'lg') }}
+            <span data-i18n-ignore>{{ left_team.name }}</span>
+          </div>
+          <div class="match-detailed-score-mid">
+            <div class="match-detailed-score-nums">
+              <b class="{% if score_left > score_right %}score-win{% elif score_left < score_right %}score-lose{% endif %}">{{ score_left }}</b>
+              <span>:</span>
+              <b class="{% if score_right > score_left %}score-win{% elif score_right < score_left %}score-lose{% endif %}">{{ score_right }}</b>
+            </div>
+            <small>{{ msg('public.matches.match_detailed.maps') }}</small>
+            <strong>{{ selected_label|map_display if selected_label != 'All' else msg('public.matches.match_detailed.all') }}</strong>
+          </div>
+          <div class="match-detailed-score-team">
+            {{ team_logo(right_team.logo, right_team.name, right_team.short, 'lg') }}
+            <span data-i18n-ignore>{{ right_team.name }}</span>
+          </div>
+        </div>
+        <dl class="facts match-detailed-breakdown">
+          <div><dt>{{ msg('public.matches.match_detailed.team_rating') }}</dt><dd>{{ metric(left_summary.rating, 2) }} : {{ metric(right_summary.rating, 2) }}</dd></div>
+          <div><dt>{{ msg('public.matches.match_detailed.opening_kills') }}</dt><dd>{{ metric(left_summary.first_kills) }} : {{ metric(right_summary.first_kills) }}</dd></div>
+          <div><dt>{{ msg('public.matches.match_detailed.1vx_clutches') }}</dt><dd>{{ metric(left_summary.clutches) }} : {{ metric(right_summary.clutches) }}</dd></div>
+        </dl>
+        <a class="btn btn-block match-detailed-more" href="/matches/{{ match.slug or match.id }}">{{ msg('public.matches.match_detailed.back_to_match_details') }}</a>
+      </article>
+
+      <div class="match-detailed-highlights">
+        {% for h in highlights %}
+        {% if h.player %}
+        <a class="match-detailed-highlight" href="/players/{{ h.player.player_id }}">
+          <span class="match-detailed-highlight-avatar">{{ player_avatar(h.player, 'md') }}</span>
+          <span class="match-detailed-highlight-main">
+            <b data-i18n-ignore>{{ private_name_for_player(h.player.player_id, h.player.nickname) }}</b>
+            <small>{{ h.label }}</small>
+          </span>
+          <strong class="{% if h.key == 'rating' %}rt-cell{% endif %}">{{ h.value }}</strong>
+        </a>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+
+    <section class="match-detailed-section match-detailed-performance">
+      <div class="match-detailed-section-head"><h3>{{ msg('public.matches.match_detailed.performance_rating') }}</h3>{{ team_legend() }}</div>
+      {{ rating_chart(performance_rows) }}
+    </section>
+
+    <section class="match-detailed-section">
+      <div class="match-detailed-section-head match-detailed-players-head">
+        <h3>{{ msg('public.matches.match_detailed.players') }}</h3>
+        <div class="segmented match-detailed-side-tabs" role="tablist" aria-label="{{ msg('public.matches.match_detailed.side_switch') }}">
+          <button class="active" type="button" role="tab" aria-selected="true" data-side="overall">{{ msg('public.matches.match_detailed.both_sides') }}</button>
+          <button type="button" role="tab" aria-selected="false" data-side="t">{{ msg('public.matches.match_detailed.t_side') }}</button>
+          <button type="button" role="tab" aria-selected="false" data-side="ct">{{ msg('public.matches.match_detailed.ct_side') }}</button>
+        </div>
+      </div>
+      <div class="match-detailed-team-tables">
+        {% for opponent in opponents %}{{ team_table(opponent.name, opponent.logo, opponent.short, team1_rows if opponent.side == 't1' else team2_rows) }}{% endfor %}
+      </div>
+    </section>
+  </div>
+
+  <div class="match-detailed-content{% if selected_tab == 'performance' %} active{% endif %}" id="detailed-tab-performance" role="tabpanel">
+    <section class="match-detailed-section match-detailed-performance-overview">
+      <div class="match-detailed-section-head"><h3>{{ msg('public.matches.match_detailed.performance_overview') }}</h3></div>
+      <div class="match-detailed-compare-panel">
+        <div class="match-detailed-compare-teams">
+          <span>{{ team_logo(left_team.logo, left_team.name, left_team.short, 'md') }}<b data-i18n-ignore>{{ left_team.short }}</b></span>
+          <span><b data-i18n-ignore>{{ right_team.short }}</b>{{ team_logo(right_team.logo, right_team.name, right_team.short, 'md') }}</span>
+        </div>
+        {{ compare_bar(msg('public.matches.match_detailed.kills'), summary.t1.kills, summary.t2.kills) }}
+        {{ compare_bar(msg('public.matches.match_detailed.deaths'), summary.t1.deaths, summary.t2.deaths) }}
+        {{ compare_bar(msg('public.matches.match_detailed.assists'), summary.t1.assists, summary.t2.assists) }}
+      </div>
+    </section>
+
+    <section class="match-detailed-section match-detailed-kill-matrix">
+      <div class="match-detailed-section-head">
+        <h3>{{ msg('public.matches.match_detailed.kill_matrix') }}</h3>
+        <small>{% if kill_matrix.matched_events %}{{ msg('public.matches.match_detailed.from_demo') }}{% else %}{{ msg('public.matches.match_detailed.no_matched_kills') }}{% endif %}</small>
+      </div>
+      {% if kill_matrix.rows and kill_matrix.cols and kill_matrix.matched_events %}
+      <div class="match-detailed-matrix-bar">
+        <div class="segmented match-detailed-matrix-tabs" role="tablist" aria-label="{{ msg('public.matches.match_detailed.kill_matrix_type') }}">
+          {% for mode in kill_matrix.modes %}
+          <button class="{% if loop.first %}active{% endif %}" type="button" role="tab" aria-selected="{{ 'true' if loop.first else 'false' }}" data-matrix-tab="{{ mode.id }}" data-matrix-status="{{ mode.label }} · {{ mode.matched_events }} 条记录">
+            <span>{{ mode.label }}</span>
+            <small>{{ mode.matched_events }}</small>
+          </button>
+          {% endfor %}
+        </div>
+        {{ team_legend() }}
+      </div>
+      <div class="table-wrap match-detailed-matrix-wrap">
+        <table class="table match-detailed-matrix">
+          <thead>
+            <tr>
+              <th></th>
+              {% for col in kill_matrix.cols %}
+              <th class="center"><span data-i18n-ignore>{{ private_name_for_player(col.player_id, col.nickname) }}</span></th>
+              {% endfor %}
+            </tr>
+          </thead>
+          {% for mode in kill_matrix.modes %}
+          <tbody data-matrix-mode="{{ mode.id }}"{% if not loop.first %} hidden{% endif %}>
+            {% for row in kill_matrix.rows %}
+            {% set row_cells = mode.cells.get(row.player_id, {}) %}
+            <tr>
+              <th><span data-i18n-ignore>{{ private_name_for_player(row.player_id, row.nickname) }}</span></th>
+              {% for col in kill_matrix.cols %}
+              {% set cell = row_cells.get(col.player_id, {'t1': 0, 't2': 0}) %}
+              <td class="kill-cell{% if cell.t1 > cell.t2 %} t1-ahead{% elif cell.t2 > cell.t1 %} t2-ahead{% endif %}"><span class="{{ left_team.side }}">{{ cell[left_team.side] }}</span><span class="kill-sep">:</span><span class="{{ right_team.side }}">{{ cell[right_team.side] }}</span></td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+          {% endfor %}
+        </table>
+      </div>
+      {% else %}
+      <p class="empty-state">{{ msg('public.matches.match_detailed.no_demo_kill_data_is_available') }}</p>
+      {% endif %}
+    </section>
+
+    <section class="match-detailed-section match-detailed-performance solo">
+      <div class="match-detailed-section-head"><h3>{{ msg('public.matches.match_detailed.performance_rating') }}</h3>{{ team_legend() }}</div>
+      {{ rating_chart(performance_rows) }}
+    </section>
+
+    <section class="match-detailed-section match-detailed-player-overview">
+      <div class="match-detailed-section-head"><h3>{{ msg('public.matches.match_detailed.player_performance_overview') }}</h3><small>{{ msg('public.matches.match_detailed.longer_bars_are_better_the_line') }}</small></div>
+      {% if team1_rows or team2_rows %}
+      <div class="perf-columns">
+        {% for opponent in opponents %}
+        <div class="perf-column">
+          {{ perf_team_head(opponent.logo, opponent.name, opponent.short, opponent.side, summary[opponent.side].rating) }}
+          {% for p in (team1_rows if opponent.side == 't1' else team2_rows) %}{{ perf_card(p, perf_avg) }}{% else %}<p class="empty-state">{{ msg('public.matches.match_detailed.no_player_stats') }}</p>{% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="empty-state">{{ msg('public.matches.match_detailed.no_player_performance_data') }}</p>
+      {% endif %}
+    </section>
+  </div>
+</section>
+
+{{ frontend_entry('match-detailed') }}
+{% endblock %}

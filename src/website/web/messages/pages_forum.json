@@ -1,0 +1,316 @@
+{
+  "forum.category.cs2-general.name": {"zh": "CS2 综合讨论", "en": "CS2 general discussion"},
+  "forum.category.cs2-general.description": {"zh": "Counter-Strike 2 赛事、战队、选手讨论", "en": "Counter-Strike 2 events, teams, and players"},
+  "forum.category.tournaments.name": {"zh": "赛事讨论", "en": "Tournament discussion"},
+  "forum.category.tournaments.description": {"zh": "S/A/B 级赛事讨论与赛后分析", "en": "S-, A-, and B-tier events and post-match analysis"},
+  "forum.category.transfers.name": {"zh": "转会与战队", "en": "Transfers and teams"},
+  "forum.category.transfers.description": {"zh": "战队阵容变动、转会新闻讨论", "en": "Roster changes and transfer news"},
+  "forum.category.game-updates.name": {"zh": "游戏更新", "en": "Game updates"},
+  "forum.category.game-updates.description": {"zh": "版本更新、地图变化、武器平衡讨论", "en": "Patches, map changes, and weapon balance"},
+  "forum.category.offtopic.name": {"zh": "水友专区", "en": "Off-topic"},
+  "forum.category.offtopic.description": {"zh": "灌水闲聊，非 CS 话题", "en": "Casual chat and topics outside CS"},
+  "public.forum.edit_thread.back_to_thread": {
+    "zh": "返回帖子",
+    "en": "Back to thread"
+  },
+  "public.forum.edit_thread.cancel": {
+    "zh": "取消",
+    "en": "Cancel"
+  },
+  "public.forum.edit_thread.content": {
+    "zh": "内容",
+    "en": "Content"
+  },
+  "public.forum.edit_thread.edit_thread": {
+    "zh": "编辑帖子",
+    "en": "Edit thread"
+  },
+  "public.forum.edit_thread.edit_thread_forum": {
+    "zh": "编辑帖子 - 论坛",
+    "en": "Edit thread - Forum"
+  },
+  "public.forum.edit_thread.save_changes": {
+    "zh": "保存修改",
+    "en": "Save changes"
+  },
+  "public.forum.edit_thread.section": {
+    "zh": "版块",
+    "en": "Section"
+  },
+  "public.forum.edit_thread.title": {
+    "zh": "标题",
+    "en": "Title"
+  },
+  "public.forum.edit_thread.up_to_10_000_characters": {
+    "zh": "最多 10000 字",
+    "en": "Up to 10,000 characters"
+  },
+  "public.forum.edit_thread.up_to_120_characters": {
+    "zh": "最多 120 字",
+    "en": "Up to 120 characters"
+  },
+  "public.forum.index.all_sections": {
+    "zh": "全部版块",
+    "en": "All sections"
+  },
+  "public.forum.index.all_threads": {
+    "zh": "全部帖子",
+    "en": "All threads"
+  },
+  "public.forum.index.clear": {
+    "zh": "清除",
+    "en": "Clear"
+  },
+  "public.forum.index.forum": {
+    "zh": "社区论坛",
+    "en": "Forum"
+  },
+  "public.forum.index.forum_sections": {
+    "zh": "论坛版块",
+    "en": "Forum sections"
+  },
+  "public.forum.index.last_post": {
+    "zh": "最后回复",
+    "en": "Last post"
+  },
+  "public.forum.index.latest_activity": {
+    "zh": "最新回复",
+    "en": "Latest activity"
+  },
+  "public.forum.index.locked": {
+    "zh": "已锁定",
+    "en": "Locked"
+  },
+  "public.forum.index.log_in_to_post": {
+    "zh": "登录发帖",
+    "en": "Log in to post"
+  },
+  "public.forum.index.my_threads": {
+    "zh": "我的帖子",
+    "en": "My threads"
+  },
+  "public.forum.index.new_thread": {
+    "zh": "发新帖",
+    "en": "New thread"
+  },
+  "public.forum.index.newest": {
+    "zh": "最新发布",
+    "en": "Newest"
+  },
+  "public.forum.index.next": {
+    "zh": "下一页",
+    "en": "Next"
+  },
+  "public.forum.index.no_posts_yet_be_the_first": {
+    "zh": "暂无帖子，快来发第一个吧",
+    "en": "No posts yet. Be the first to post."
+  },
+  "public.forum.index.no_threads_contain_search_query": {
+    "zh": "没有找到包含「{search_query}」的帖子",
+    "en": "No threads contain “{search_query}”"
+  },
+  "public.forum.index.no_threads_in_this_section_yet": {
+    "zh": "这个版块还没有帖子",
+    "en": "No threads in this section yet"
+  },
+  "public.forum.index.pagination": {
+    "zh": "翻页",
+    "en": "Pagination"
+  },
+  "public.forum.index.pin": {
+    "zh": "置顶",
+    "en": "Pin"
+  },
+  "public.forum.index.popular": {
+    "zh": "热门讨论",
+    "en": "Popular"
+  },
+  "public.forum.index.previous": {
+    "zh": "上一页",
+    "en": "Previous"
+  },
+  "public.forum.index.reply": {
+    "zh": "回复",
+    "en": "Reply"
+  },
+  "public.forum.index.search": {
+    "zh": "搜索",
+    "en": "Search"
+  },
+  "public.forum.index.search_titles_and_content": {
+    "zh": "搜索标题和内容...",
+    "en": "Search titles and content..."
+  },
+  "public.forum.index.search_titles_and_posts": {
+    "zh": "搜索标题和内容",
+    "en": "Search titles and posts"
+  },
+  "public.forum.index.thread": {
+    "zh": "帖子",
+    "en": "Thread"
+  },
+  "public.forum.index.thread_sorting": {
+    "zh": "帖子排序",
+    "en": "Thread sorting"
+  },
+  "public.forum.index.view_count_views": {
+    "zh": "{view_count} 浏览",
+    "en": "{view_count} views"
+  },
+  "public.forum.index.you_have_not_posted_any_threads": {
+    "zh": "你还没有发表帖子",
+    "en": "You have not posted any threads yet"
+  },
+  "public.forum.new_thread.back_to_forum": {
+    "zh": "返回论坛",
+    "en": "Back to forum"
+  },
+  "public.forum.new_thread.cancel": {
+    "zh": "取消",
+    "en": "Cancel"
+  },
+  "public.forum.new_thread.content": {
+    "zh": "内容",
+    "en": "Content"
+  },
+  "public.forum.new_thread.describe_your_thoughts": {
+    "zh": "详细描述你的观点...",
+    "en": "Describe your thoughts..."
+  },
+  "public.forum.new_thread.new_thread": {
+    "zh": "发表新帖",
+    "en": "New thread"
+  },
+  "public.forum.new_thread.new_thread_forum": {
+    "zh": "发表新帖 - 论坛",
+    "en": "New thread - Forum"
+  },
+  "public.forum.new_thread.publish_thread": {
+    "zh": "发布帖子",
+    "en": "Publish thread"
+  },
+  "public.forum.new_thread.section": {
+    "zh": "版块",
+    "en": "Section"
+  },
+  "public.forum.new_thread.summarize_your_thread": {
+    "zh": "一句话概括你的帖子...",
+    "en": "Summarize your thread..."
+  },
+  "public.forum.new_thread.title": {
+    "zh": "标题",
+    "en": "Title"
+  },
+  "public.forum.new_thread.up_to_10_000_characters_plain": {
+    "zh": "最多 10000 字，支持纯文本",
+    "en": "Up to 10,000 characters; plain text supported"
+  },
+  "public.forum.new_thread.up_to_120_characters": {
+    "zh": "最多 120 字",
+    "en": "Up to 120 characters"
+  },
+  "public.forum.thread.author": {
+    "zh": "作者：",
+    "en": "Author: "
+  },
+  "public.forum.thread.delete": {
+    "zh": "删除",
+    "en": "Delete"
+  },
+  "public.forum.thread.delete_thread": {
+    "zh": "删除帖子",
+    "en": "Delete thread"
+  },
+  "public.forum.thread.edit_thread": {
+    "zh": "编辑帖子",
+    "en": "Edit thread"
+  },
+  "public.forum.thread.forum": {
+    "zh": "论坛",
+    "en": "Forum"
+  },
+  "public.forum.thread.lock": {
+    "zh": "锁定",
+    "en": "Lock"
+  },
+  "public.forum.thread.locked": {
+    "zh": "已锁定",
+    "en": "Locked"
+  },
+  "public.forum.thread.log_in": {
+    "zh": "登录",
+    "en": "Log in"
+  },
+  "public.forum.thread.log_in_to_like": {
+    "zh": "登录后可点赞",
+    "en": "Log in to like"
+  },
+  "public.forum.thread.next": {
+    "zh": "下一页",
+    "en": "Next"
+  },
+  "public.forum.thread.pagination": {
+    "zh": "翻页",
+    "en": "Pagination"
+  },
+  "public.forum.thread.pin": {
+    "zh": "置顶",
+    "en": "Pin"
+  },
+  "public.forum.thread.post_reply": {
+    "zh": "发表回复",
+    "en": "Post reply"
+  },
+  "public.forum.thread.posted_created_at": {
+    "zh": "发布：{created_at}",
+    "en": "Posted: {created_at}"
+  },
+  "public.forum.thread.previous": {
+    "zh": "上一页",
+    "en": "Previous"
+  },
+  "public.forum.thread.quote": {
+    "zh": "引用",
+    "en": "Quote"
+  },
+  "public.forum.thread.reply_count_replies": {
+    "zh": "{reply_count} 回复",
+    "en": "{reply_count} replies"
+  },
+  "public.forum.thread.reply_to_thread": {
+    "zh": "回复帖子",
+    "en": "Reply to thread"
+  },
+  "public.forum.thread.share_your_thoughts": {
+    "zh": "发表你的看法...",
+    "en": "Share your thoughts..."
+  },
+  "public.forum.thread.slot": {
+    "zh": "位置",
+    "en": "Slot"
+  },
+  "public.forum.thread.this_thread_is_locked_and_cannot": {
+    "zh": "该帖子已锁定，无法回复",
+    "en": "This thread is locked and cannot be replied to"
+  },
+  "public.forum.thread.title_forum": {
+    "zh": "{title} - 论坛",
+    "en": "{title} - Forum"
+  },
+  "public.forum.thread.to_reply": {
+    "zh": "后即可回复",
+    "en": "to reply"
+  },
+  "public.forum.thread.unlock": {
+    "zh": "解锁",
+    "en": "Unlock"
+  },
+  "public.forum.thread.unpin": {
+    "zh": "取消置顶",
+    "en": "Unpin"
+  },
+  "public.forum.thread.view_count_views": {
+    "zh": "{view_count} 浏览",
+    "en": "{view_count} views"
+  }
+}

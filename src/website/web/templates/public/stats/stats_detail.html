@@ -1,0 +1,229 @@
+{% extends 'layouts/public.html' %}
+{% from 'public/stats/_stats_shell.html' import stats_tabs, player_cell with context %}
+{% block title %}{{ msg('stats.detail.' ~ section) }} - 80GOTV{% endblock %}
+{% block head %}
+{{ frontend_entry('stats-style') }}
+{% endblock %}
+{% block main %}
+{% set event_value = filters.event if filters.event else '' %}
+{% set qs_base = 'time=' ~ filters.time ~ '&map=' ~ (filters.map|urlencode) ~ '&side=' ~ filters.side ~ '&event=' ~ event_value ~ '&ranking=' ~ filters.ranking %}
+
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>STATS</span><h1>{{ msg('stats.detail.' ~ section) }}</h1></div>
+  <a class="page-head-link" href="/stats?tab=overview&{{ qs_base }}">{{ msg('public.stats.stats_detail.back_to_overview') }}</a>
+</header>
+
+{#- 标签导航 + 筛选条（和数据统计首页同一套） -#}
+<section class="panel stats-toolbar">
+  {{ stats_tabs('overview', qs_base) }}
+  <form class="stats-filters" method="get">
+    <input type="hidden" name="side" value="{{ filters.side }}">
+    <input type="hidden" name="ranking" value="{{ filters.ranking }}">
+    <label class="stats-filter">
+      <span>{{ msg('public.stats.stats_detail.events') }}</span>
+      <select name="event" data-auto-submit>
+        <option value="" {% if not filters.event %}selected{% endif %}>{{ msg('public.stats.stats_detail.all_events') }}</option>
+        {% for event in event_options %}
+        <option value="{{ event.id }}" {% if filters.event == event.id %}selected{% endif %} data-i18n-ignore>{{ event.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="stats-filter">
+      <span>{{ msg('public.stats.stats_detail.time') }}</span>
+      <select name="time" data-auto-submit>
+        {% for item in time_options %}
+        <option value="{{ item.value }}" {% if filters.time == item.value %}selected{% endif %}>{{ msg('stats.time.' ~ item.value) }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="stats-filter">
+      <span>{{ msg('public.stats.stats_detail.maps') }}</span>
+      <select name="map" data-auto-submit>
+        <option value="all" {% if filters.map == 'all' %}selected{% endif %}>{{ msg('public.stats.stats_detail.all_maps') }}</option>
+        {% for map in map_options %}
+        <option value="{{ map.value }}" {% if filters.map == map.value %}selected{% endif %}>{{ map.value|map_display }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    {% if config.kind in ('players', 'flashes', 'pistol') %}
+    <nav class="segmented stats-side-tabs" aria-label="{{ msg('public.stats.stats_detail.side') }}">
+      {% for side in side_options %}
+      <a href="?time={{ filters.time }}&map={{ filters.map|urlencode }}&event={{ event_value }}&ranking={{ filters.ranking }}&side={{ side.value }}" class="{% if filters.side == side.value %}active{% endif %}">{{ msg('stats.side.' ~ side.value) }}</a>
+      {% endfor %}
+    </nav>
+    {% endif %}
+  </form>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <h2 class="panel-title">{{ msg('stats.detail.' ~ section) }}</h2>
+    <span class="panel-count">{{ msg('public.stats.stats_detail.all_time' if filters.time == 'all' else 'stats.time.' ~ filters.time) }} · {% if filters.map == 'all' %}{{ msg('public.stats.stats_detail.all_maps') }}{% else %}{{ filters.map|map_display }}{% endif %}</span>
+  </div>
+{% if section == 'top-events' %}
+<div class="table-wrap">
+  <table class="table stats-rank-table">
+    <thead><tr><th>{{ msg('public.stats.stats_detail.champion_team') }}</th><th>{{ msg('public.stats.stats_detail.events') }}</th><th>{{ msg('public.stats.stats_detail.matches') }}</th></tr></thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td class="champion-cell" data-i18n-ignore>
+          {% if r.champion_teams %}
+            {{ r.champion_teams }}
+          {% else %}
+            <span class="no-champion">-</span>
+          {% endif %}
+        </td>
+        <td><a href="{{ event_path(r) }}" data-i18n-ignore>{{ r.name }}</a></td>
+        <td>{{ r.matches or 0 }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% elif section == 'flashes' %}
+<div class="table-wrap">
+  <table class="table stats-rank-table stats-flash-table">
+    <colgroup>
+      <col class="stats-flash-player-col">
+      <col class="stats-flash-maps-col">
+      <col class="stats-flash-rounds-col">
+      <col class="stats-flash-thrown-col">
+      <col class="stats-flash-blinded-col">
+      <col class="stats-flash-opponent-col">
+      <col class="stats-flash-diff-col">
+      <col class="stats-flash-fa-col">
+      <col class="stats-flash-success-col">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>{{ msg('public.stats.stats_detail.players') }}</th>
+        <th>{{ msg('public.stats.stats_detail.maps') }}</th>
+        <th>{{ msg('public.stats.stats_detail.rounds_played') }}</th>
+        <th>{{ msg('public.stats.stats_detail.thrown') }}</th>
+        <th>{{ msg('public.stats.stats_detail.blinded') }}</th>
+        <th>{{ msg('public.stats.stats_detail.opp_flash') }}</th>
+        <th>{{ msg('public.stats.stats_detail.diff') }}</th>
+        <th>{{ msg('public.stats.stats_detail.flash_assists') }}</th>
+        <th title="{{ msg('public.stats.stats_detail.share_of_recorded_maps_with_throws') }}">{{ msg('public.stats.stats_detail.effective_maps') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td>{{ player_cell(r.id, r.nickname, r.avatar) }}</td>
+        <td>{{ r.maps or 0 }}</td>
+        <td>{{ format_stat(r.rounds) }}</td>
+        <td>{% if r.thrown is none %}<span class="stat-missing">{{ msg('public.stats.stats_detail.no_data') }}</span>{% else %}{{ "%.2f"|format(r.thrown) }}{% endif %}</td>
+        <td>{{ format_stat(r.blinded, 2, suffix='s') }}</td>
+        <td>{{ format_stat(r.opp_flashed, 2, suffix='s') }}</td>
+        <td class="{% if r.diff and r.diff > 0 %}stat-pos{% elif r.diff and r.diff < 0 %}stat-neg{% endif %}">{{ format_stat(r.diff, 2, signed=true) }}</td>
+        <td>{{ format_stat(r.fa, 2) }}</td>
+        <td>{% if r.thrown is none %}<span class="stat-missing">{{ msg('public.stats.stats_detail.no_data') }}</span>{% elif r.success is none %}-{% else %}{{ "%.1f"|format(r.success * 100) }}%{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% elif section == 'pistol-rounds' %}
+<div class="table-wrap">
+  <table class="table stats-rank-table">
+    <thead>
+      <tr><th>{{ msg('public.stats.stats_detail.teams') }}</th><th>{{ msg('public.stats.stats_detail.maps') }}</th><th>{{ msg('public.stats.stats_detail.won_lost') }}</th><th>{{ msg('public.stats.stats_detail.pistol_win') }}</th><th>{{ msg('public.stats.stats_detail.round_2_conv') }}</th><th>{{ msg('public.stats.stats_detail.round_2_break') }}</th></tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td class="team-cell" data-i18n-ignore><span class="cell-entity">
+          {% if r.logo %}<img src="{{ r.logo|team_logo_url }}" alt="" loading="lazy" class="team-logo sm">{% endif %}
+          {% if r.team_id %}
+          <a href="{{ url_for('team_detail', team_id=r.team_id) }}">{{ r.team_name }}</a>
+          {% else %}
+          <span>{{ r.team_name }}</span>
+          {% endif %}
+        </span></td>
+        <td>{{ r.maps or 0 }}</td>
+        <td>{{ r.won or 0 }} - {{ r.lost or 0 }}</td>
+        <td class="{% if r.pistol_win_pct >= 50 %}stat-pos{% else %}stat-neg{% endif %}">{{ r.pistol_win_pct }}%</td>
+        <td>{{ r.round2_conv }}%</td>
+        <td>{{ r.round2_break }}%</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% elif section == 'best-players' %}
+<div class="table-wrap">
+  <table class="table stats-rank-table">
+    <thead>
+      <tr><th>{{ msg('public.stats.stats_detail.players') }}</th><th>{{ msg('public.stats.stats_detail.maps') }}</th><th>{{ msg('public.stats.stats_detail.round') }}</th><th>K-D Diff</th><th>K/D</th><th>RATING</th></tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td>{{ player_cell(r.id, r.nickname, r.avatar) }}</td>
+        <td>{{ r.maps }}</td>
+        <td>{{ format_stat(r.rounds) }}</td>
+        <td class="{% if r.kd_diff and r.kd_diff > 0 %}stat-pos{% elif r.kd_diff and r.kd_diff < 0 %}stat-neg{% endif %}">{{ format_stat(r.kd_diff, signed=true) }}</td>
+        <td>{{ format_stat(r.kd, 2) }}</td>
+        <td class="rt-cell {{ r.rating|rating_class }}"><b>{{ format_stat(r.rating, 2) }}</b></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% elif section == 'kd' %}
+<div class="table-wrap">
+  <table class="table stats-rank-table">
+    <thead>
+      <tr><th>{{ msg('public.stats.stats_detail.players') }}</th><th>{{ msg('public.stats.stats_detail.teams') }}</th><th>{{ msg('public.stats.stats_detail.maps') }}</th><th>{{ msg('public.stats.stats_detail.kills') }}</th><th>{{ msg('public.stats.stats_detail.k_d_difference') }}</th><th>K/D</th><th>RATING</th></tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td>{{ player_cell(r.id, r.nickname, r.avatar) }}</td>
+        <td data-i18n-ignore>{{ r.team or '-' }}</td>
+        <td>{{ r.maps }}</td>
+        <td>{{ format_stat(r.kills) }}</td>
+        <td class="{% if r.kd_diff and r.kd_diff > 0 %}stat-pos{% elif r.kd_diff and r.kd_diff < 0 %}stat-neg{% endif %}">{{ format_stat(r.kd_diff, signed=true) }}</td>
+        <td><b>{{ format_stat(r.kd, 2) }}</b></td>
+        <td class="rt-cell {{ r.rating|rating_class }}"><b>{{ format_stat(r.rating, 2) }}</b></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="table-wrap">
+  <table class="table stats-rank-table">
+    <thead>
+      <tr><th>{{ msg('public.stats.stats_detail.players') }}</th><th>{{ msg('public.stats.stats_detail.teams') }}</th><th>{{ msg('public.stats.stats_detail.maps') }}</th><th>{{ msg('public.stats.stats_detail.round') }}</th><th>{{ msg('public.stats.stats_detail.k_d_difference') }}</th><th>K/D</th><th>ADR</th><th>HS%</th><th>RATING</th></tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td>{{ player_cell(r.id, r.nickname, r.avatar) }}</td>
+        <td data-i18n-ignore>{{ r.team or '-' }}</td>
+        <td>{{ r.maps }}</td>
+        <td>{{ format_stat(r.rounds) }}</td>
+        <td class="{% if r.kd_diff and r.kd_diff > 0 %}stat-pos{% elif r.kd_diff and r.kd_diff < 0 %}stat-neg{% endif %}">{{ format_stat(r.kd_diff, signed=true) }}</td>
+        <td>{{ format_stat(r.kd, 2) }}</td>
+        <td>{{ format_stat(r.adr, 1) }}</td>
+        <td>{{ format_stat(r.hs, 1, suffix='%') }}</td>
+        <td class="rt-cell {{ r.rating|rating_class }}"><b>{{ format_stat(r.rating, 2) }}</b></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if not rows %}<div class="empty-state">{{ msg('public.stats.stats_detail.no_data') }}</div>{% endif %}
+</section>
+{% endblock %}
+
+{% block side %}{% include 'public/stats/_stats_home_sidebar.html' %}{% endblock %}
+
+{% block extra_js %}
+{{ frontend_entry('stats-sides') }}
+{% endblock %}

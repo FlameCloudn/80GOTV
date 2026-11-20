@@ -1,0 +1,351 @@
+"""Daily and unlimited practice guess-the-professional-player games."""
+
+from flask import flash, jsonify, redirect, render_template, request, session, url_for
+
+from src.website.domains.games.guess_player_service import (
+    MAX_GUESSES,
+    create_multiplayer_room,
+    create_practice_game,
+    get_multiplayer_room,
+    join_multiplayer_room,
+    load_game,
+    load_practice_game,
+    multiplayer_room_state,
+    normalize_pool_mode,
+    pool_players,
+    submit_multiplayer_guess,
+    user_statistics,
+)
+from src.website.runtime.database import get_db
+from src.website.runtime.rate_limiter import rate_limit
+from src.website.web.access import csrf_required
+from src.website.web.localization import t as ui_message
+from src.website.web.routing import site_routes
+
+MAX_SQLITE_INTEGER = 9223372036854775807
+
+
+def _login_redirect(endpoint="guess_player_page"):
+    return redirect(url_for("user_login", next=url_for(endpoint)))
+
+
+def _parse_player_id(value):
+    raw_value = str(value or "").strip()
+    if not raw_value.isascii() or not raw_value.isdigit() or len(raw_value) > 19:
+        return None
+    player_id = int(raw_value)
+    return player_id if 0 < player_id <= MAX_SQLITE_INTEGER else None
+
+
+def _player_options(conn, pool_mode="pro"):
+    return pool_players(conn, pool_mode, "id, nickname, full_name")
+
+
+def _resolve_player(conn, pool_mode="pro"):
+    pool_mode = normalize_pool_mode(pool_mode)
+    extra = " AND noob_eligible=1" if pool_mode == "noob" else ""
+    player_id = _parse_player_id(request.form.get("player_id", ""))
+    player_query = request.form.get("player_query", "").strip()
+    guessed = None
+    if player_id is not None:
+        guessed = conn.execute(
+            f"SELECT * FROM guess_players WHERE id=? AND active=1{extra}", (player_id,)
+        ).fetchone()
+    if not guessed and player_query:
+        guessed = conn.execute(
+            f"""SELECT * FROM guess_players WHERE active=1{extra}
+                AND LOWER(nickname)=LOWER(?) ORDER BY nickname=? DESC, id LIMIT 1""",
+            (player_query, player_query),
+        ).fetchone()
+        if not guessed:
+            real_names = conn.execute(
+                f"""SELECT * FROM guess_players WHERE active=1{extra}
+                    AND LOWER(full_name)=LOWER(?) LIMIT 2""",
+                (player_query,),
+            ).fetchall()
+            if len(real_names) == 1:
+                guessed = real_names[0]
+    return guessed
+
+
+def _render_game(game, mode, pool_mode="pro"):
+    pool_mode = normalize_pool_mode(pool_mode)
+    conn = get_db()
+    try:
+        players = _player_options(conn, pool_mode)
+        pool_counts = {
+            "noob": conn.execute(
+                "SELECT COUNT(*) FROM guess_players WHERE active=1 AND noob_eligible=1"
+            ).fetchone()[0],
+            "pro": conn.execute("SELECT COUNT(*) FROM guess_players WHERE active=1").fetchone()[0],
+        }
+        statistics = user_statistics(conn, session["user_id"]) if mode == "daily" else None
+    finally:
+        conn.close()
+    return render_template(
+        "public/games/guess_player.html",
+        game=game,
+        players=players,
+        statistics=statistics,
+        max_guesses=MAX_GUESSES,
+        mode=mode,
+        pool_mode=pool_mode,
+        pool_counts=pool_counts,
+    )
+
+
+@site_routes.route("/guess-player", methods=["GET"])
+def guess_player_page():
+    if "user_id" not in session:
+        return _login_redirect()
+    conn = get_db()
+    try:
+        game = load_game(conn, session["user_id"])
+    finally:
+        conn.close()
+    return _render_game(game, "daily", "pro")
+
+
+@site_routes.route("/guess-player", methods=["POST"])
+@csrf_required
+def guess_player_submit():
+    if "user_id" not in session:
+        return _login_redirect()
+    if not rate_limit("guess_player_submit", 60, 60):
+        flash(ui_message("flash.guess_player.too_fast_wait_a_few_seconds"), "error")
+        return redirect(url_for("guess_player_page"))
+
+    conn = get_db()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        game = load_game(conn, session["user_id"])
+        if game["finished"]:
+            flash(ui_message("flash.guess_player.today_s_challenge_is_over_come"), "info")
+            return redirect(url_for("guess_player_page"))
+        guessed = _resolve_player(conn)
+        if not guessed:
+            flash(ui_message("flash.guess_player.select_a_player_from_the_suggestions"), "error")
+            return redirect(url_for("guess_player_page"))
+
+        duplicate = conn.execute(
+            """SELECT 1 FROM guess_player_attempts
+               WHERE user_id=? AND game_date=? AND guessed_player_id=?""",
+            (session["user_id"], game["date"], guessed["id"]),
+        ).fetchone()
+        if duplicate:
+            flash(ui_message("flash.guess_player.you_already_guessed_this_player_today"), "error")
+            return redirect(url_for("guess_player_page"))
+
+        attempt_number = len(game["results"]) + 1
+        is_correct = int(guessed["id"] == game["answer_row"]["id"])
+        conn.execute(
+            """INSERT INTO guess_player_attempts(
+                   user_id, game_date, guessed_player_id, attempt_number, is_correct
+               ) VALUES(?,?,?,?,?)""",
+            (session["user_id"], game["date"], guessed["id"], attempt_number, is_correct),
+        )
+        conn.commit()
+        if is_correct:
+            flash(
+                ui_message(
+                    "flash.guess_player.correct_guessed_in_attempt_number_tries",
+                    attempt_number=attempt_number,
+                ),
+                "success",
+            )
+        elif attempt_number >= MAX_GUESSES:
+            flash(ui_message("flash.guess_player.no_daily_guesses_left_today"), "info")
+    finally:
+        conn.close()
+    return redirect(url_for("guess_player_page"))
+
+
+@site_routes.route("/guess-player/practice", methods=["GET"])
+def guess_player_practice_page():
+    if "user_id" not in session:
+        return _login_redirect("guess_player_practice_page")
+    pool_mode = normalize_pool_mode(request.args.get("difficulty", "noob"))
+    conn = get_db()
+    try:
+        game = load_practice_game(conn, session["user_id"], pool_mode)
+    finally:
+        conn.close()
+    return _render_game(game, "practice", pool_mode)
+
+
+@site_routes.route("/guess-player/practice", methods=["POST"])
+@csrf_required
+def guess_player_practice_submit():
+    if "user_id" not in session:
+        return _login_redirect("guess_player_practice_page")
+    pool_mode = normalize_pool_mode(request.form.get("pool_mode", "noob"))
+    if not rate_limit("guess_player_practice_submit", 60, 60):
+        flash(ui_message("flash.guess_player.too_fast_wait_a_few_seconds"), "error")
+        return redirect(url_for("guess_player_practice_page", difficulty=pool_mode))
+    conn = get_db()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        game = load_practice_game(conn, session["user_id"], pool_mode)
+        if game["finished"]:
+            flash(ui_message("flash.guess_player.this_round_is_over_start_a"), "info")
+            return redirect(url_for("guess_player_practice_page", difficulty=pool_mode))
+        guessed = _resolve_player(conn, pool_mode)
+        if not guessed:
+            flash(ui_message("flash.guess_player.select_a_player_from_the_suggestions"), "error")
+            return redirect(url_for("guess_player_practice_page", difficulty=pool_mode))
+        duplicate = conn.execute(
+            """SELECT 1 FROM guess_player_practice_attempts
+               WHERE game_id=? AND guessed_player_id=?""",
+            (game["id"], guessed["id"]),
+        ).fetchone()
+        if duplicate:
+            flash(ui_message("flash.guess_player.you_already_guessed_this_player_this"), "error")
+            return redirect(url_for("guess_player_practice_page", difficulty=pool_mode))
+
+        attempt_number = len(game["results"]) + 1
+        is_correct = int(guessed["id"] == game["answer_row"]["id"])
+        conn.execute(
+            """INSERT INTO guess_player_practice_attempts(
+                   game_id, guessed_player_id, attempt_number, is_correct
+               ) VALUES(?,?,?,?)""",
+            (game["id"], guessed["id"], attempt_number, is_correct),
+        )
+        conn.commit()
+        if is_correct:
+            flash(
+                ui_message(
+                    "flash.guess_player.correct_guessed_in_attempt_number_tries",
+                    attempt_number=attempt_number,
+                ),
+                "success",
+            )
+        elif attempt_number >= MAX_GUESSES:
+            flash(ui_message("flash.guess_player.out_of_guesses_for_this_round"), "info")
+    finally:
+        conn.close()
+    return redirect(url_for("guess_player_practice_page", difficulty=pool_mode))
+
+
+@site_routes.route("/guess-player/practice/new", methods=["POST"])
+@csrf_required
+def guess_player_practice_new():
+    if "user_id" not in session:
+        return _login_redirect("guess_player_practice_page")
+    pool_mode = normalize_pool_mode(request.form.get("pool_mode", "noob"))
+    if not rate_limit("guess_player_practice_new", 30, 60):
+        flash(ui_message("flash.guess_player.too_fast_wait_a_few_seconds_2"), "error")
+        return redirect(url_for("guess_player_practice_page", difficulty=pool_mode))
+    conn = get_db()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        create_practice_game(conn, session["user_id"], pool_mode)
+        conn.commit()
+    finally:
+        conn.close()
+    return redirect(url_for("guess_player_practice_page", difficulty=pool_mode))
+
+
+@site_routes.route("/guess-player/multiplayer", methods=["GET"])
+def guess_player_multiplayer_page():
+    if "user_id" not in session:
+        return _login_redirect("guess_player_multiplayer_page")
+    return render_template("public/games/guess_player_multiplayer.html")
+
+
+@site_routes.route("/guess-player/multiplayer/create", methods=["POST"])
+@csrf_required
+def guess_player_multiplayer_create():
+    if "user_id" not in session:
+        return _login_redirect("guess_player_multiplayer_page")
+    if not rate_limit("guess_player_room_create", 10, 60):
+        flash(ui_message("flash.guess_player.too_fast_wait_a_moment_before"), "error")
+        return redirect(url_for("guess_player_multiplayer_page"))
+    pool_mode = normalize_pool_mode(request.form.get("pool_mode", "noob"))
+    conn = get_db()
+    try:
+        _, room_code = create_multiplayer_room(conn, session["user_id"], pool_mode)
+    finally:
+        conn.close()
+    return redirect(url_for("guess_player_multiplayer_room", room_code=room_code))
+
+
+@site_routes.route("/guess-player/multiplayer/join", methods=["POST"])
+@csrf_required
+def guess_player_multiplayer_join():
+    if "user_id" not in session:
+        return _login_redirect("guess_player_multiplayer_page")
+    if not rate_limit("guess_player_room_join", 30, 60):
+        flash(ui_message("flash.guess_player.too_fast_wait_a_moment_before_2"), "error")
+        return redirect(url_for("guess_player_multiplayer_page"))
+    room_code = request.form.get("room_code", "").strip().upper()
+    conn = get_db()
+    try:
+        room, error = join_multiplayer_room(conn, room_code, session["user_id"])
+    finally:
+        conn.close()
+    if error or not room:
+        flash(error or "加入房间失败", "error")
+        return redirect(url_for("guess_player_multiplayer_page"))
+    return redirect(url_for("guess_player_multiplayer_room", room_code=room["room_code"]))
+
+
+@site_routes.route("/guess-player/multiplayer/<room_code>", methods=["GET"])
+def guess_player_multiplayer_room(room_code):
+    if "user_id" not in session:
+        return _login_redirect("guess_player_multiplayer_page")
+    conn = get_db()
+    try:
+        room = get_multiplayer_room(conn, room_code)
+        if not room or session["user_id"] not in (room["host_user_id"], room["guest_user_id"]):
+            flash(ui_message("flash.guess_player.join_with_a_room_code_first"), "error")
+            return redirect(url_for("guess_player_multiplayer_page"))
+        state = multiplayer_room_state(conn, room_code, session["user_id"])
+        players = _player_options(conn, room["pool_mode"])
+    finally:
+        conn.close()
+    return render_template(
+        "public/games/guess_player_room.html",
+        room_code=room["room_code"],
+        pool_mode=normalize_pool_mode(room["pool_mode"]),
+        state=state,
+        players=players,
+        max_guesses=MAX_GUESSES,
+    )
+
+
+@site_routes.route("/api/guess-player/multiplayer/<room_code>/state", methods=["GET"])
+def guess_player_multiplayer_state(room_code):
+    if "user_id" not in session:
+        return jsonify({"success": False, "error": "请先登录"}), 401
+    conn = get_db()
+    try:
+        state = multiplayer_room_state(conn, room_code, session["user_id"])
+    finally:
+        conn.close()
+    if not state:
+        return jsonify({"success": False, "error": "房间不存在或你不在房间内"}), 404
+    return jsonify({"success": True, "state": state})
+
+
+@site_routes.route("/api/guess-player/multiplayer/<room_code>/guess", methods=["POST"])
+@csrf_required
+def guess_player_multiplayer_guess(room_code):
+    if "user_id" not in session:
+        return jsonify({"success": False, "error": "请先登录"}), 401
+    if not rate_limit("guess_player_room_guess", 60, 60):
+        return jsonify({"success": False, "error": "操作太快了，请稍后再试"}), 429
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        payload = {}
+    player_id = _parse_player_id(payload.get("player_id", ""))
+    if player_id is None:
+        return jsonify({"success": False, "error": "请选择一名选手"}), 400
+    conn = get_db()
+    try:
+        error = submit_multiplayer_guess(conn, room_code, session["user_id"], player_id)
+        state = multiplayer_room_state(conn, room_code, session["user_id"])
+    finally:
+        conn.close()
+    if error:
+        return jsonify({"success": False, "error": error, "state": state}), 400
+    return jsonify({"success": True, "state": state})

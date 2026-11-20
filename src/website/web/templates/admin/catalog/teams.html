@@ -1,0 +1,52 @@
+{% extends "layouts/admin.html" %}
+{% import "components/_icons.html" as ui %}
+{% block title %}{{ msg('admin.catalog.teams.manage_teams') }}{% endblock %}
+{% block main %}
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>TEAMS</span><h1>{{ msg('admin.catalog.teams.manage_teams') }}</h1></div>
+  <div class="page-actions"><a href="{{ url_for('admin.admin_teams_add') }}" class="btn btn-primary">{{ ui.icon('plus') }}{{ msg('admin.catalog.teams.add_team') }}</a></div>
+</header>
+
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">{{ msg('admin.catalog.teams.all_teams') }} <span class="panel-count" data-list-count="#teamsTable">{{ teams|length }}</span></h2></div>
+  {% if teams %}
+  <div class="admin-toolbar list-filters">
+    <label class="filter-search-box">{{ ui.icon('search') }}<input type="search" data-list-search="#teamsTable" placeholder="{{ msg('admin.catalog.teams.search_team_name_or_abbreviation') }}" aria-label="{{ msg('admin.catalog.teams.search_teams') }}"></label>
+  </div>
+  <div class="table-wrap">
+    <table class="table admin-table" id="teamsTable">
+      <thead><tr><th class="col-id">ID</th><th>{{ msg('admin.catalog.teams.teams') }}</th><th>{{ msg('admin.catalog.teams.short_name') }}</th><th>{{ msg('admin.catalog.teams.description') }}</th><th>{{ msg('admin.catalog.teams.created') }}</th><th class="col-actions">{{ msg('admin.catalog.teams.actions') }}</th></tr></thead>
+      <tbody>
+        {% for t in teams %}
+        <tr id="team-{{ t.id }}" data-search="{{ t.name }} {{ t.short_name or '' }} #{{ t.id }}">
+          <td class="col-id">{{ t.id }}</td>
+          <td>
+            <span class="cell-entity">
+              {% if t.logo %}<img class="team-logo md" src="{{ t.logo|team_logo_url }}" alt="" loading="lazy">{% else %}<span class="logo-fallback md" data-i18n-ignore>{{ t.name|team_abbr(t.short_name) }}</span>{% endif %}
+              <a class="cell-title" href="{{ url_for('admin.admin_teams_edit', team_id=t.id) }}" data-i18n-ignore>{{ t.name }}</a>
+            </span>
+          </td>
+          <td data-i18n-ignore>{{ t.short_name or '-' }}</td>
+          <td class="muted"><div class="cell-clamp" data-i18n-ignore>{{ t.description or '-' }}</div></td>
+          <td class="nowrap">{{ t.created_at|date_display }}</td>
+          <td class="col-actions">
+            <div class="row-actions">
+              <a href="{{ url_for('admin.admin_teams_edit', team_id=t.id) }}" class="btn btn-sm">{{ ui.icon('edit') }}{{ msg('admin.catalog.teams.edit') }}</a>
+              {{ ui.icon_link('player', url_for('admin.admin_players') ~ '?team=' ~ (t.name|urlencode), msg('admin.catalog.teams.view_team_players')) }}
+              {{ ui.icon_link('external', '/teams/' ~ t.id, msg('admin.catalog.teams.view_team_opens_in_a_new'), target='_blank') }}
+              <form method="post" action="{{ url_for('admin.admin_teams_delete', team_id=t.id) }}" data-confirm="{{ msg('admin.catalog.teams.delete_team_name', name=t.name) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit" class="btn btn-sm btn-icon btn-danger" title="{{ msg('admin.catalog.teams.delete_team') }}" aria-label="{{ msg('admin.catalog.teams.delete_team_name_2', name=t.name) }}">{{ ui.icon('trash') }}</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">{{ msg('admin.catalog.teams.no_teams_yet') }}</div>
+  {% endif %}
+</section>
+{% endblock %}

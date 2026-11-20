@@ -1,0 +1,289 @@
+"""Admin login, dashboard and editor image upload."""
+
+import uuid
+
+from flask import flash, jsonify, redirect, render_template, request, session, url_for
+from werkzeug.security import check_password_hash
+
+from src.website.domains.community import feedback
+from src.website.domains.directory.player_service import record_player_nickname
+from src.website.domains.events.steam_playtime_service import attach_latest_playtime
+from src.website.domains.identity.accounts import approval_status, profile_completion_required
+from src.website.domains.matches.match_utils import get_sql_effective_status
+from src.website.domains.matches.opponents import supplement_temp_teams
+from src.website.runtime.database import get_db
+from src.website.runtime.rate_limiter import rate_limit
+from src.website.runtime.storage import site_paths
+from src.website.runtime.uploads import save_news_image
+from src.website.web.access import admin_required as login_required
+from src.website.web.access import csrf_required
+from src.website.web.admin.admin import admin_bp
+from src.website.web.localization import t as ui_message
+
+
+@admin_bp.route("/upload/image", methods=["POST"])
+@csrf_required
+@login_required
+def upload_image():
+    if "image" not in request.files:
+        return jsonify({"error": "没有文件"}), 400
+    file = request.files["image"]
+    if not file or not file.filename:
+        return jsonify({"error": "空文件"}), 400
+    url, error = save_news_image(file, site_paths().root)
+    if error:
+        return jsonify({"error": error}), 400
+    return jsonify({"url": url})
+
+
+# ---- 登录/登出 ----
+@admin_bp.route("/login", methods=["GET", "POST"])
+@csrf_required
+def admin_login():
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        # 两道桶：账号维度 5 次 / 5 分钟，另加一道与用户名无关的 IP 桶 20 次 / 5 分钟。
+        # 只有账号维度时，攻击者只要换用户名就能各试 5 次；管理员账号是唯一的，
+        # 一旦被猜中即可下载整库备份，因此再加一道全球 IP 桶兜底。
+        if not rate_limit(f"admin_login:{username.lower()}", 5, 300, by_ip=True) or not rate_limit(
+            "admin_login_ip", 20, 300, by_ip=True
+        ):
+            flash(ui_message("flash.admin_core.too_many_login_attempts_try_again"), "error")
+            return render_template("admin/accounts/login.html"), 429
+        conn = get_db()
+        admin = conn.execute("SELECT * FROM admins WHERE username=?", (username,)).fetchone()
+        if admin and check_password_hash(admin["password_hash"], password):
+            user = conn.execute("SELECT * FROM users WHERE username=?", (username,)).fetchone()
+            conn.close()
+            session.clear()
+            session.permanent = True
+            session["csrf_token"] = uuid.uuid4().hex
+            if user and approval_status(user) == "approved":
+                session["user_id"] = user["id"]
+                session["user_username"] = user["username"]
+                if profile_completion_required(user):
+                    session["profile_completion_required"] = True
+            session["admin_id"] = admin["id"]
+            session["admin_username"] = admin["username"]
+            flash(ui_message("flash.admin_core.logged_in"), "success")
+            return redirect(url_for("admin.admin_dashboard"))
+        else:
+            conn.close()
+            flash(ui_message("flash.admin_core.wrong_username_or_password"), "error")
+    return render_template("admin/accounts/login.html")
+
+
+@admin_bp.route("/logout")
+def admin_logout():
+    """管理员登出。
+
+    整体清空 session：原先只 pop admin_id/admin_username，前台 user_id 会留下来，
+    在共享电脑上管理员以为已经完全登出，实际前台身份仍然有效。
+    """
+    session.clear()
+    flash(ui_message("flash.admin_core.logged_out"), "success")
+    return redirect(url_for("admin.admin_login"))
+
+
+@admin_bp.route("/")
+@admin_bp.route("")
+@login_required
+def admin_dashboard():
+    conn = get_db()
+    stats = {
+        "teams": conn.execute("SELECT COUNT(*) as cnt FROM teams").fetchone()["cnt"],
+        "players": conn.execute("SELECT COUNT(*) as cnt FROM players").fetchone()["cnt"],
+        "events": conn.execute("SELECT COUNT(*) as cnt FROM events").fetchone()["cnt"],
+        "matches": conn.execute("SELECT COUNT(*) as cnt FROM matches").fetchone()["cnt"],
+        "news": conn.execute("SELECT COUNT(*) as cnt FROM news").fetchone()["cnt"],
+        "pending_users": conn.execute(
+            """SELECT COUNT(*) as cnt
+               FROM users
+               WHERE approval_status='pending'
+                 AND (is_placeholder=0 OR email_verified_at IS NOT NULL)"""
+        ).fetchone()["cnt"],
+    }
+    work = _dashboard_work(conn)
+    conn.close()
+    return render_template("admin/home/dashboard.html", stats=stats, **work)
+
+
+def _dashboard_work(conn):
+    """工作台的“待处理”（只读）：待审核账号、待处理反馈、进行中和即将开始的比赛。
+
+    以前首页只有总数，管理员要逐个打开列表才知道要做什么；这里只多读几条记录，
+    操作仍走原来的页面和表单（审核、反馈、比赛编辑 / 数据 / BP / Demo），不新增写入。
+    """
+    pending_users = conn.execute(
+        """SELECT id, username, group_username, created_at FROM users
+           WHERE approval_status='pending' AND (is_placeholder=0 OR email_verified_at IS NOT NULL)
+           ORDER BY created_at DESC LIMIT 5"""
+    ).fetchall()
+    open_feedback = feedback.recent_open_feedback(conn)
+    open_feedback_count = feedback.count_open_feedback(conn)
+    rows = conn.execute(
+        f"""SELECT m.*, t1.name AS team1_name, t2.name AS team2_name, e.name AS event_name,
+               {get_sql_effective_status()}
+            FROM matches m
+            LEFT JOIN teams t1 ON m.team1_id=t1.id LEFT JOIN teams t2 ON m.team2_id=t2.id
+            LEFT JOIN events e ON m.event_id=e.id
+            WHERE COALESCE(m.status, '') NOT IN ('completed', 'cancelled')
+            ORDER BY CASE WHEN effective_status = 'live' THEN 0 ELSE 1 END,
+                     m.match_time IS NULL, m.match_time ASC, m.id ASC
+            LIMIT 8"""
+    ).fetchall()
+    from src.website.domains.matches.admin_queries import annotate_managed_matches
+
+    matches = annotate_managed_matches(conn, [supplement_temp_teams(m, conn) for m in rows])
+    return {
+        "pending_users": pending_users,
+        "open_feedback": open_feedback,
+        "open_feedback_count": open_feedback_count,
+        "active_matches": matches,
+    }
+
+
+@admin_bp.route("/registrations")
+@login_required
+def registration_reviews():
+    status = request.args.get("status", "pending")
+    if status not in {"pending", "approved", "rejected", "all"}:
+        status = "pending"
+    conn = get_db()
+    if status == "all":
+        users = conn.execute(
+            """SELECT id, username, group_username, is_bashizhong_student,
+                      email, email_verified_at, steam_id64, avatar, approval_status,
+                      approval_note, created_at, approved_at
+               FROM users
+               WHERE is_placeholder=0 OR email_verified_at IS NOT NULL
+               ORDER BY created_at DESC"""
+        ).fetchall()
+    else:
+        users = conn.execute(
+            """SELECT id, username, group_username, is_bashizhong_student,
+                      email, email_verified_at, steam_id64, avatar, approval_status,
+                      approval_note, created_at, approved_at
+               FROM users
+               WHERE approval_status=?
+                 AND (is_placeholder=0 OR email_verified_at IS NOT NULL)
+               ORDER BY created_at DESC""",
+            (status,),
+        ).fetchall()
+    users = attach_latest_playtime(conn, users, "steam_id64")
+    conn.close()
+    return render_template("admin/accounts/registrations.html", users=users, current_status=status)
+
+
+@admin_bp.route("/registrations/create", methods=["POST"])
+@csrf_required
+@login_required
+def create_registration():
+    flash(ui_message("flash.admin_core.account_creation_is_integrated_into_player"), "info")
+    return redirect(url_for("admin.admin_players_add"))
+
+
+@admin_bp.route("/registrations/<int:user_id>/<action>", methods=["POST"])
+@csrf_required
+@login_required
+def review_registration(user_id, action):
+    if action not in {"approve", "reject"}:
+        return "无效操作", 400
+    conn = get_db()
+    user = conn.execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone()
+    if not user:
+        conn.close()
+        flash(ui_message("flash.admin_core.application_not_found"), "error")
+        return redirect(url_for("admin.registration_reviews"))
+
+    if action == "approve":
+        conn.execute(
+            """UPDATE users
+               SET approval_status='approved', approval_note=NULL,
+                   approved_at=CURRENT_TIMESTAMP, approved_by=?
+               WHERE id=?""",
+            (session["admin_id"], user_id),
+        )
+        if user["steam_id64"]:
+            player = conn.execute(
+                "SELECT id FROM players WHERE steam_id=?", (user["steam_id64"],)
+            ).fetchone()
+            if not player:
+                conn.execute(
+                    """INSERT INTO players(
+                           nickname, group_username_override,
+                           is_bashizhong_student, steam_id, avatar
+                       ) VALUES(?,?,?,?,?)""",
+                    (
+                        user["username"],
+                        (user["group_username"] if user["is_bashizhong_student"] == 1 else None),
+                        user["is_bashizhong_student"],
+                        user["steam_id64"],
+                        user["avatar"],
+                    ),
+                )
+                player_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+                record_player_nickname(conn, player_id, user["username"], "admin_approval")
+            else:
+                conn.execute(
+                    """UPDATE players
+                       SET is_bashizhong_student=?,
+                           group_username_override=CASE
+                               WHEN ?=1 THEN ?
+                               ELSE group_username_override
+                           END
+                       WHERE id=?""",
+                    (
+                        user["is_bashizhong_student"],
+                        user["is_bashizhong_student"],
+                        user["group_username"],
+                        player["id"],
+                    ),
+                )
+        message = f"已通过 {user['username']} 的申请"
+    else:
+        note = request.form.get("approval_note", "").strip()[:300]
+        conn.execute(
+            """UPDATE users
+               SET approval_status='rejected', approval_note=?,
+                   approved_at=NULL, approved_by=?
+               WHERE id=?""",
+            (note or "管理员未通过该申请", session["admin_id"], user_id),
+        )
+        message = f"已拒绝 {user['username']} 的申请"
+    conn.commit()
+    conn.close()
+    flash(message, "success")
+    return redirect(url_for("admin.registration_reviews"))
+
+
+@admin_bp.route("/feedback")
+@login_required
+def admin_feedback():
+    """查看用户反馈列表"""
+    conn = get_db()
+    items = feedback.list_feedback(conn)
+    conn.close()
+    return render_template("admin/home/feedback.html", items=items)
+
+
+@admin_bp.route("/feedback/<int:fb_id>/status", methods=["POST"])
+@login_required
+@csrf_required
+def admin_feedback_status(fb_id):
+    """更新反馈状态"""
+    status = request.form.get("status", "open")
+    if status not in {"open", "reviewing", "resolved", "closed"}:
+        flash(ui_message("flash.admin_operations.invalid_feedback_status"), "error")
+        return redirect(url_for("admin.admin_feedback"))
+    reply = request.form.get("reply", "").strip()
+    conn = get_db()
+    if not feedback.update_feedback(conn, fb_id, status, reply):
+        conn.close()
+        flash(ui_message("flash.admin_operations.feedback_entry_not_found"), "error")
+        return redirect(url_for("admin.admin_feedback"))
+    conn.commit()
+    conn.close()
+    flash(ui_message("flash.admin_operations.updated"), "success")
+    return redirect(url_for("admin.admin_feedback"))

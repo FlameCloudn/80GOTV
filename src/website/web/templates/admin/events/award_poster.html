@@ -1,0 +1,43 @@
+{% extends "layouts/admin.html" %}
+{% import "components/_icons.html" as ui %}
+{% block title %}{{ msg('admin.events.award_poster.mvp_evp_image') }}{% endblock %}
+{% block main %}
+<header class="page-head">
+  <div>
+    <span class="page-head-kicker" data-i18n-ignore>MVP / EVP</span><h1>{{ msg('admin.events.award_poster.mvp_evp_image') }}</h1>
+    <p class="page-head-sub">{{ msg('admin.events.award_poster.choose_an_event_and_player_to') }}</p>
+  </div>
+</header>
+
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">{{ msg('admin.events.award_poster.settings') }}</h2></div>
+  <form class="poster-form" method="get">
+    <label class="field">
+      <span class="field-label">{{ msg('admin.events.award_poster.type') }}</span>
+      <select name="award_type"><option value="MVP" {% if award_type == 'MVP' %}selected{% endif %}>MVP</option><option value="EVP" {% if award_type == 'EVP' %}selected{% endif %}>EVP</option></select>
+    </label>
+    <label class="field">
+      <span class="field-label">{{ msg('admin.events.award_poster.events') }}</span>
+      <select name="event_id" required><option value="">{{ msg('admin.events.award_poster.select_event') }}</option>{% for e in events %}<option value="{{ e.id }}" data-i18n-ignore {% if selected_event == e.id %}selected{% endif %}>{{ e.name }}</option>{% endfor %}</select>
+    </label>
+    <label class="field">
+      <span class="field-label">{{ msg('admin.events.award_poster.players') }}</span>
+      <select name="player_id" required><option value="">{{ msg('admin.events.award_poster.select_player') }}</option>{% for p in players %}<option value="{{ p.id }}" data-i18n-ignore {% if selected_player == p.id %}selected{% endif %}>{{ p.nickname }}{% if p.team_short %} · {{ p.team_short }}{% endif %}</option>{% endfor %}</select>
+    </label>
+    <button class="btn btn-primary" type="submit">{{ ui.icon('image') }}{{ msg('admin.events.award_poster.generate_preview') }}</button>
+  </form>
+</section>
+
+{% if selected_event and selected_player %}
+<section class="panel">
+  {% set image_url = '/admin/awards/poster.png?award_type=' ~ award_type ~ '&event_id=' ~ selected_event ~ '&player_id=' ~ selected_player %}
+  <div class="panel-head">
+    <h2 class="panel-title">{{ msg('admin.events.award_poster.preview') }}</h2>
+    <a class="btn btn-sm btn-primary" href="{{ image_url }}">{{ ui.icon('download') }}{{ msg('admin.events.award_poster.download_png') }}</a>
+  </div>
+  <div class="poster-preview">
+    <img loading="lazy" class="preview" src="{{ image_url }}" alt="{{ msg('admin.events.award_poster.award_type_stats_image', award_type=award_type) }}">
+  </div>
+</section>
+{% endif %}
+{% endblock %}

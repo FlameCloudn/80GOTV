@@ -1,0 +1,22 @@
+{#- 选手 CS2 游戏时长（选手列表、注册审核共用）：第一行时长或状态，第二行来源和更新时间 -#}
+{% macro playtime_cell(minutes, status, checked_at) -%}
+<div class="admin-playtime">
+  {% if minutes is not none %}
+    <strong>{{ msg('components.playtime_macros.value1_h', value1="%.1f"|format(minutes / 60)) }}</strong>
+    {% set note = msg('components.playtime_macros.public_data') %}
+  {% elif status == 'private' %}
+    <strong>{{ msg('components.playtime_macros.unavailable') }}</strong>
+    {% set note = msg('components.playtime_macros.private_steam_profile') %}
+  {% elif status == 'unavailable' %}
+    <strong>{{ msg('components.playtime_macros.read_failed') }}</strong>
+    {% set note = msg('components.playtime_macros.can_be_refreshed_later') %}
+  {% elif status == 'invalid' %}
+    <strong>{{ msg('components.playtime_macros.unable_to_read') }}</strong>
+    {% set note = msg('components.playtime_macros.invalid_steam_id') %}
+  {% else %}
+    <strong>{{ msg('components.playtime_macros.pending') }}</strong>
+    {% set note = msg('components.playtime_macros.no_cached_data') %}
+  {% endif %}
+  <small><span>{{ note }}</span>{% if checked_at %} · <span>{{ msg('components.playtime_macros.updated_checked_at', checked_at=checked_at|datetime_display) }}</span>{% endif %}</small>
+</div>
+{%- endmacro %}

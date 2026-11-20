@@ -1,0 +1,52 @@
+{#- 6. D 区：候补 -#}
+<section class="panel" id="sectionReserves">
+  <div class="panel-head">
+    <h2 class="panel-title">{{ msg('admin.events.event_roster.d_reserve_pool') }} <span class="panel-count">{{ reserve_candidates|length }}</span></h2>
+  </div>
+  <div class="panel-body-hint">
+    <p class="field-hint">{{ msg('admin.events.event_roster.independent_reserves_have_priority_same_origin') }}</p>
+  </div>
+  {% if not reserve_candidates %}
+  <div class="empty-state">{{ msg('admin.events.event_roster.no_reserves') }}</div>
+  {% else %}
+  <div class="table-wrap">
+    <table class="table admin-table">
+      <thead>
+        <tr>
+          <th>{{ msg('admin.events.event_roster.players') }}</th>
+          <th>{{ msg('admin.events.event_roster.origin_group') }}</th>
+          <th>{{ msg('admin.events.event_roster.preferred_team') }}</th>
+          <th>{{ msg('admin.events.event_roster.signup_time_reference') }}</th>
+          <th>{{ msg('admin.events.event_roster.status') }}</th>
+          <th class="col-actions">{{ msg('admin.events.event_roster.actions') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in reserve_candidates %}
+        <tr>
+          <td data-i18n-ignore><b>{{ c.nickname }}</b></td>
+          <td>{{ c.origin_label }}</td>
+          <td data-i18n-ignore>{{ c.preferred_team_name or '—' }}</td>
+          <td class="nowrap cell-datetime">{{ c.created_at_iso|datetime_display if c.created_at_iso else '-' }}</td>
+          <td>
+            {% if c.assigned_entrant_id %}
+            <span class="badge badge-green">{{ msg('admin.events.event_roster.substitute_slot_for') }}<span data-i18n-ignore>{{ c.assigned_team_name }}</span>{{ msg('admin.events.event_roster.label') }}</span>
+            {% else %}
+            <span class="badge badge-gold">{{ msg('admin.events.event_roster.unassigned') }}</span>
+            {% endif %}
+          </td>
+          <td class="col-actions">
+            {% set active_entrants = entrants|rejectattr('team_archived')|list %}
+            {% if not c.assigned_entrant_id and not control.archived_at and active_entrants %}
+            <button type="button" class="btn btn-sm" data-roster-mutator data-open-assign-candidate="{{ c.player_id }}">{{ msg('admin.events.event_roster.assign') }}</button>
+            {% else %}
+            <span class="muted">{{ msg('admin.events.event_roster.assigned') if c.assigned_entrant_id else '—' }}</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</section>

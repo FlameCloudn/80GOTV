@@ -1,0 +1,2 @@
+@layer vendor, foundation, shell, components, pages;
+@import "../styles/tokens.css" layer(foundation);

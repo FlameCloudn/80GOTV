@@ -1,0 +1,139 @@
+{% extends 'layouts/public.html' %}
+{% from 'components/_icons.html' import site_icon %}
+{% block title %}{{ msg('public.events.event_stats.name_event_stats_80gotv', name=event.name) }}{% endblock %}
+{% block head %}
+{{ frontend_entry('event-style') }}
+{{ frontend_entry('stats-style') }}
+{% endblock %}
+{% block layout_class %}event-detail-layout no-side-layout{% endblock %}
+{% block main %}
+<a href="{{ event_path(event) }}" class="back-link btn-back">{{ site_icon('back') }} {{ msg('public.events.event_stats.back_to_event') }}</a>
+
+{#- 赛事头部（和赛事页同一种）：日期、赛制、名称；右边赛制和队伍数 -#}
+<section class="panel event-header">
+  <div class="event-header-main">
+    <div class="event-meta">
+      <span>{{ event.start_date|date_range_display(event.end_date) }}</span>
+      <span>{{ event_format_label(event) }}</span>
+    </div>
+    <h1 data-i18n-ignore>{{ event.name }}</h1>
+    <div class="event-header-actions"><a href="{{ event_path(event) }}" class="btn">{{ msg('public.events.event_stats.bracket') }}</a></div>
+  </div>
+  <dl class="event-facts" aria-label="{{ msg('public.events.event_stats.event_information') }}">
+    <div><dt>{{ msg('public.events.event_stats.format') }}</dt><dd>{{ event_format_label(event) }}</dd></div>
+    <div><dt>{{ msg('public.events.event_stats.teams') }}</dt><dd>{{ team_count or '-' }}</dd></div>
+  </dl>
+  <span class="event-header-mark" aria-hidden="true"></span>
+</section>
+
+{% if rankings %}
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">{{ msg('public.events.event_stats.player_rankings') }}</h2><span class="panel-count">{{ msg('public.events.event_stats.click_a_header_to_sort') }}</span></div>
+  <div class="table-wrap">
+    <table class="table stats-rank-table">
+      <thead>
+        <tr>
+          <th class="center">#</th><th>{{ msg('public.events.event_stats.players') }}</th><th>{{ msg('public.events.event_stats.teams_2') }}</th><th>{{ msg('public.events.event_stats.matches') }}</th><th>{{ msg('public.events.event_stats.maps_played') }}</th>
+          <th class="sortable sort-desc" data-sort="rating" aria-sort="descending">Rating</th>
+          <th class="sortable" data-sort="kd" aria-sort="none">K/D</th>
+          <th class="sortable" data-sort="adr" aria-sort="none">ADR</th>
+          <th class="sortable" data-sort="kast" aria-sort="none">KAST</th>
+          <th class="sortable" data-sort="impact" aria-sort="none">IMP</th>
+          <th class="sortable" data-sort="hs" aria-sort="none">HS%</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rankings %}
+        <tr>
+          <td class="rank-cell">{{ loop.index }}</td>
+          <td><a href="/players/{{ r.id }}" data-i18n-ignore>{{ private_name_for_player(r.id, r.nickname) }}</a></td>
+          <td class="muted-cell" data-i18n-ignore>{{ r.team or '-' }}</td>
+          <td>{{ r.matches }}</td>
+          <td>{{ r.maps }}</td>
+          <td class="rt-cell" data-val="{{ r.rating }}"><b>{{ "%.2f"|format(r.rating) }}</b></td>
+          <td data-val="{{ r.kd }}">{{ "%.2f"|format(r.kd) if r.kd else '-' }}</td>
+          <td data-val="{{ r.adr }}">{{ "%.1f"|format(r.adr) }}</td>
+          <td data-val="{{ r.kast }}">{{ "%.1f"|format(r.kast) }}%</td>
+          <td data-val="{{ r.impact }}">{{ "%.2f"|format(r.impact) if r.impact is not none else '-' }}</td>
+          <td data-val="{{ r.hs }}">{{ "%.1f"|format(r.hs) }}%</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+{% if team_rankings %}
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">{{ msg('public.events.event_stats.team_standings') }}</h2></div>
+  <div class="table-wrap">
+    <table class="table stats-rank-table">
+      <thead>
+        <tr>
+          <th class="center">#</th><th>{{ msg('public.events.event_stats.teams_2') }}</th>
+          <th class="sortable" data-sort="matches" aria-sort="none">{{ msg('public.events.event_stats.matches') }}</th>
+          <th class="sortable sort-desc" data-sort="wins" aria-sort="descending">{{ msg('public.events.event_stats.wins') }}</th>
+          <th class="sortable" data-sort="win-rate" aria-sort="none">{{ msg('public.events.event_stats.win_rate') }}</th>
+          <th class="sortable" data-sort="avg-score" aria-sort="none">{{ msg('public.events.event_stats.average_score') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in team_rankings %}
+        <tr>
+          <td class="rank-cell">{{ loop.index }}</td>
+          <td><b data-i18n-ignore>{{ t.team_short or t.team_name }}</b></td>
+          <td data-val="{{ t.match_count }}">{{ t.match_count }}</td>
+          <td data-val="{{ t.wins }}">{{ t.wins }}</td>
+          <td data-val="{{ (t.wins / t.match_count * 100) if t.match_count > 0 else 0 }}">
+            {% if t.match_count > 0 %}
+            {% set wr = (t.wins / t.match_count * 100)|round|int %}
+            <span class="{% if wr >= 60 %}stat-pos{% elif wr >= 40 %}stat-mid{% else %}stat-neg{% endif %}">{{ wr }}%</span>
+            {% else %}-{% endif %}
+          </td>
+          <td data-val="{{ t.avg_score or 0 }}">{{ "%.1f"|format(t.avg_score) if t.avg_score is not none else '-' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+{% if map_stats %}
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">{{ msg('public.events.event_stats.map_stats') }}</h2></div>
+  <div class="table-wrap">
+    <table class="table stats-rank-table">
+      <thead>
+        <tr>
+          <th>{{ msg('public.events.event_stats.maps') }}</th>
+          <th class="sortable sort-desc" data-sort="played" aria-sort="descending">{{ msg('public.events.event_stats.appearances') }}</th>
+          <th class="sortable" data-sort="rating" aria-sort="none">{{ msg('public.events.event_stats.avg_rating') }}</th>
+          <th class="sortable" data-sort="kd" aria-sort="none">{{ msg('public.events.event_stats.average_k_d') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for ms in map_stats %}
+        <tr>
+          <td><b>{{ ms.map_name|map_display }}</b></td>
+          <td data-val="{{ ms.times_played }}">{{ ms.times_played }}</td>
+          <td class="rt-cell {{ ms.avg_rating|rating_class }}" data-val="{{ ms.avg_rating }}"><b>{{ "%.2f"|format(ms.avg_rating) }}</b></td>
+          <td data-val="{{ ms.avg_kd or 0 }}">{{ "%.2f"|format(ms.avg_kd) if ms.avg_kd else '-' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+{% if not rankings and not team_rankings %}
+<div class="panel empty-state">{{ msg('public.events.event_stats.no_stats_for_this_event') }}</div>
+{% endif %}
+{% endblock %}
+
+{% block side %}{% endblock %}
+
+{% block extra_js %}{{ frontend_entry('event-stats') }}
+{% endblock %}

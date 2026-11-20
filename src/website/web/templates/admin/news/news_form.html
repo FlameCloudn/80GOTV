@@ -1,0 +1,120 @@
+{% extends "layouts/admin.html" %}
+{% import "components/_icons.html" as ui %}
+{% set editing = news and news.id %}
+{% block title %}{% if editing %}{{ msg('admin.news.news_form.edit_news') }}{% else %}{{ msg('admin.news.news_form.add_news') }}{% endif %}{% endblock %}
+{% block head %}
+{{ frontend_entry('quill-style') }}
+{{ frontend_entry('news-reference-style') }}
+{% endblock %}
+{% block main %}
+<a href="{{ url_for('admin.admin_news') }}" class="back-link">{{ msg('admin.news.news_form.back_to_news_management') }}</a>
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>NEWS</span><h1>{% if editing %}{{ msg('admin.news.news_form.edit_news') }}{% else %}{{ msg('admin.news.news_form.add_news') }}{% endif %}</h1></div>
+  {% if editing %}<div class="page-actions"><a class="btn" href="{{ news_path(news) }}" target="_blank" rel="noopener">{{ ui.icon('external') }}{{ msg('admin.news.news_form.view_on_site') }}</a></div>{% endif %}
+</header>
+
+{#- 分组：标题与正文（必填）→ 列表展示 → 关联与跳转。正文编辑器的内容随时写回 content 字段，
+    草稿、离开提醒、必填检查都看这个字段。 -#}
+<section class="panel">
+  <form method="post" id="newsForm" data-reference-url="{{ url_for('admin.admin_news_reference') }}" class="admin-form" data-busy-text="保存中……" data-guard data-draft>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+    <section class="form-group" data-required-group>
+      <div class="form-group-head"><h2 class="form-group-title">{{ msg('admin.news.news_form.title_and_body') }}</h2><span data-group-status></span></div>
+      <label class="field">
+        <span class="field-label">{{ msg('admin.news.news_form.title') }} <span class="field-required">*</span></span>
+        <input type="text" name="title" value="{{ news.title if news else '' }}" required placeholder="{{ msg('admin.news.news_form.news_title') }}">
+      </label>
+      <div class="field">
+        <div class="news-editor-heading">
+          <span class="field-label" id="contentLabel">{{ msg('admin.news.news_form.body') }} <span class="field-required">*</span></span>
+          <button type="button" class="btn btn-sm" id="referenceToggle" aria-controls="referenceControls" aria-expanded="false" hidden>{{ ui.icon('link') }}{{ msg('admin.news.news_form.reference_a_site_page') }}</button>
+        </div>
+        <div id="referenceControls" class="news-reference-controls" data-draft-skip hidden>
+          <div class="news-reference-lookup">
+            <label class="field" for="referenceUrl">
+              <span class="field-label">{{ msg('admin.news.news_form.site_page_url') }}</span>
+              <input type="text" id="referenceUrl" inputmode="url" maxlength="2048" autocomplete="off" spellcheck="false" placeholder="https://80gotv.cn/matches/12">
+            </label>
+            <button type="button" class="btn btn-sm" id="referenceResolve">{{ msg('admin.news.news_form.read_page') }}</button>
+          </div>
+          <div id="referenceMessage" class="news-reference-message" role="status" aria-live="polite" hidden></div>
+          <div id="referencePreview" class="news-reference-preview" hidden>
+            <div id="referencePreviewContent" data-i18n-ignore></div>
+            <button type="button" class="btn btn-sm btn-primary" id="referenceInsert" disabled>{{ ui.icon('plus') }}{{ msg('admin.news.news_form.insert_into_article') }}</button>
+          </div>
+        </div>
+        <div id="editor" data-i18n-ignore class="news-editor" hidden></div>
+        <textarea name="content" id="contentTextarea" data-i18n-ignore data-max-utf8-bytes="{{ max_news_content_bytes }}" data-msg-max-bytes="新闻正文不能超过 100KB" rows="18" required aria-labelledby="contentLabel" placeholder="{{ msg('admin.news.news_form.news_body') }}">{{ editor_content }}</textarea>
+      </div>
+    </section>
+
+    <details class="form-group optional" {% if news and (news.summary or news.publish_time) %}open{% endif %}>
+      <summary><span class="form-group-title">{{ msg('admin.news.news_form.listing_summary_author_and_publication_time') }}</span><span data-group-status></span></summary>
+      <div class="details-body">
+        <label class="field">
+          <span class="field-label">{{ msg('admin.news.news_form.summary') }}</span>
+          <input type="text" name="summary" value="{{ news.summary if news else '' }}" placeholder="{{ msg('admin.news.news_form.shown_in_the_news_list') }}">
+        </label>
+        <div class="form-grid">
+          <label class="field">
+            <span class="field-label">{{ msg('admin.news.news_form.author') }}</span>
+            <input type="text" name="author" value="{{ news.author if news else 'admin' }}" placeholder="{{ msg('admin.news.news_form.author_name') }}">
+          </label>
+          <label class="field">
+            <span class="field-label">{{ msg('admin.news.news_form.published_at') }}</span>
+            <input type="datetime-local" name="publish_time" value="{{ news.publish_time[:16] if news and news.publish_time else '' }}">
+            <span class="field-hint">{{ msg('admin.news.news_form.leave_blank_to_use_the_current') }}</span>
+          </label>
+        </div>
+      </div>
+    </details>
+
+    <details class="form-group optional" {% if news and (news.related_match_id or news.redirect_url or news.internal_link_url) %}open{% endif %}>
+      <summary><span class="form-group-title">{{ msg('admin.news.news_form.related_pages_and_redirect') }}</span><span data-group-status></span></summary>
+      <div class="details-body form-grid">
+        <label class="field">
+          <span class="field-label">{{ msg('admin.news.news_form.linked_match') }}</span>
+          <select name="related_match_id">
+            <option value="">{{ msg('admin.news.news_form.not_linked') }}</option>
+            {% for m in recent_matches %}
+            {% set left_team, right_team = match_opponents(m) %}
+            <option value="{{ m.id }}" data-i18n-ignore {% if news and news.related_match_id == m.id %}selected{% endif %}>
+              {{ m.event_name or '' }} | {{ left_team.name }} {{ left_team.score if left_team.score is not none else '-' }}:{{ right_team.score if right_team.score is not none else '-' }} {{ right_team.name }} | {{ m.match_time|date_display if m.match_time else '' }}
+            </option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="field">
+          <span class="field-label">{{ msg('admin.news.news_form.article_links') }}</span>
+          <input type="text" name="internal_link_url" inputmode="url" maxlength="2048" value="{{ news.internal_link_url if news and news.internal_link_url else '' }}" placeholder="{{ msg('admin.news.news_form.example_events') }}">
+        </label>
+        <label class="field">
+          <span class="field-label">{{ msg('admin.news.news_form.link_text') }}</span>
+          <input type="text" name="internal_link_text" maxlength="80" value="{{ news.internal_link_text if news and news.internal_link_text else '' }}" placeholder="{{ msg('admin.news.news_form.open_page') }}">
+        </label>
+        {% if news and news.redirect_url %}
+        <label class="field">
+          <span class="field-label">{{ msg('admin.news.news_form.clicking_the_news_item_opens') }}</span>
+          <input type="text" name="redirect_url" value="{{ news.redirect_url if news and news.redirect_url else '' }}" placeholder="{{ msg('admin.news.news_form.example_events_80cs_summer_major') }}">
+          <span class="field-hint">{{ msg('admin.news.news_form.leave_blank_to_open_the_article') }}</span>
+        </label>
+        {% endif %}
+      </div>
+    </details>
+
+    <div class="sticky-form-actions">
+      <div class="form-actions">
+        <a href="{{ url_for('admin.admin_news') }}" class="btn" data-discard>{{ msg('admin.news.news_form.cancel') }}</a>
+        <button type="submit" class="btn btn-primary">{{ ui.icon('check') }}{% if editing %}{{ msg('admin.news.news_form.save_changes') }}{% else %}{{ msg('admin.news.news_form.publish_news') }}{% endif %}</button>
+      </div>
+    </div>
+  </form>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='vendor/quill/quill.min.js') }}?v=1.3.7"></script>
+<script type="application/json" data-site-messages>{{ client_messages('inline_news_form')|tojson }}</script>
+{{ frontend_entry('admin-news-form') }}
+{% endblock %}

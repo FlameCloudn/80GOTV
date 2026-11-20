@@ -1,0 +1,84 @@
+{% extends 'layouts/public.html' %}
+{% block title %}{% if status_filter=='ongoing' %}{{ msg('public.events.events.ongoing_events') }}{% elif status_filter=='completed' %}{{ msg('public.events.events.archived') }}{% elif status_filter=='upcoming' %}{{ msg('public.events.events.upcoming') }}{% else %}{{ msg('public.events.events.events') }}{% endif %} - 80GOTV{% endblock %}
+{% block head %}{{ frontend_entry('events-style') }}{% endblock %}
+{% block layout_class %}events-layout no-side-layout{% endblock %}
+
+{% macro event_card(e) %}
+<a class="event-card event-list-row{% if is_arg_event(e) %} event-card-unavailable{% endif %}" href="{{ event_path(e) }}">
+  {% if is_arg_event(e) %}
+  <span class="event-card-body">
+    <h3 data-i18n-ignore data-event-display="{{ url_for('event_display', event_id=e.id) }}">{{ e.name }}</h3>
+    <span class="event-info">
+      <span class="event-list-status badge" data-i18n-ignore>???</span>
+      <span class="event-list-date" data-i18n-ignore>{{ arg_event_date }}</span>
+    </span>
+    <span class="meta" data-i18n-ignore>{{ arg_event_format }}</span>
+  </span>
+  {% else %}
+  <span class="event-card-date" aria-hidden="true">
+    <b>{{ e.start_date[5:7] if e.start_date else '--' }}.{{ e.start_date[8:10] if e.start_date else '--' }}</b>
+    <small>{{ e.start_date[:4] if e.start_date else '' }}</small>
+  </span>
+  <span class="event-card-body">
+    <h3 data-i18n-ignore>{{ e.name }}</h3>
+    <span class="event-info">
+      <span class="event-list-status badge {% if e.effective_event_status == 'ongoing' %}badge-live{% elif e.effective_event_status == 'upcoming' %}badge-upcoming{% else %}badge-done{% endif %} status-{{ e.effective_event_status }}">
+        {% if e.effective_event_status == 'upcoming' %}{{ msg('public.events.events.upcoming') }}
+        {% elif e.effective_event_status == 'ongoing' %}{{ msg('public.events.events.ongoing') }}
+        {% else %}{{ msg('public.events.events.completed') }}{% endif %}
+      </span>
+      <span class="event-list-date">{{ e.start_date|date_range_display(e.end_date) }}</span>
+    </span>
+    <span class="meta">{{ msg('public.events.events.format_team_count_teams_match_count', format=event_format_label(e), team_count=e.team_count, match_count=e.match_count) }}</span>
+  </span>
+  {% endif %}
+</a>
+{% endmacro %}
+
+{% block main %}
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>EVENTS</span><h1>{{ msg('public.events.events.events_2') }}</h1></div>
+  <p class="page-head-meta">{{ msg('public.events.events.events_events', events=events|length) }}</p>
+</header>
+
+<nav class="segmented events-view-tabs" aria-label="{{ msg('public.events.events.event_filter') }}">
+  <a href="/events?view=list"{% if not status_filter and view_mode != 'calendar' %} aria-current="page"{% endif %}>{{ msg('public.events.events.all_events') }}</a>
+  <a href="/events?status=ongoing"{% if status_filter == 'ongoing' %} aria-current="page"{% endif %}>{{ msg('public.events.events.ongoing') }}</a>
+  <a href="/events?status=completed"{% if status_filter == 'completed' %} aria-current="page"{% endif %}>{{ msg('public.events.events.archived') }}</a>
+  <a href="/events"{% if view_mode == 'calendar' %} aria-current="page"{% endif %}>{{ msg('public.events.events.calendar') }}</a>
+</nav>
+
+<div class="events-list-layout">
+{% if view_mode == 'calendar' %}
+{% for e in events if is_arg_event(e) %}
+<div class="events-grid">{{ event_card(e) }}</div>
+{% endfor %}
+{# ── 日历视图：按月分组 ── #}
+{% set months = {} %}
+{% for e in events if not is_arg_event(e) %}
+  {% set ym = e.start_date[:7] if e.start_date else 'unknown' %}
+  {% if ym not in months %}{% set _ = months.update({ym: []}) %}{% endif %}
+  {% set _ = months[ym].append(e) %}
+{% endfor %}
+{% for ym, month_events in months.items()|sort(reverse=True) %}
+<section class="events-month">
+  <h2 class="section-title events-month-title">{{ msg('public.events.events.unknown_date') if ym == 'unknown' else (ym ~ '-01')|date_display(month_only=True) }}</h2>
+  <div class="events-grid">
+    {% for e in month_events %}{{ event_card(e) }}{% endfor %}
+  </div>
+</section>
+{% endfor %}
+{% else %}
+<div class="events-grid">
+  {% for e in events %}{{ event_card(e) }}{% endfor %}
+</div>
+{% endif %}
+{% if not events %}<div class="panel empty-state">{{ msg('public.events.events.no_events') }}</div>{% endif %}
+</div>
+{% endblock %}
+
+{% block side %}{% endblock %}
+
+{% block extra_js %}
+<script src="{{ versioned_url('static/js/event_display.js') }}" defer></script>
+{% endblock %}

@@ -1,0 +1,7 @@
+<script type="application/json" id="siteLocale">{{ {
+  'saved': site_language_is_saved,
+  'language': site_locale,
+  'url': url_for('set_site_language'),
+  'csrfToken': csrf_token,
+}|tojson }}</script>
+<script src="{{ versioned_url('static/js/i18n.js') }}"></script>

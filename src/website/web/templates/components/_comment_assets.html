@@ -1,0 +1,7 @@
+<script type="application/json" id="publicViewerData">{{ {
+  'userId': session.get('user_id'),
+  'isAdmin': 'admin_id' in session,
+  'username': session.get('user_username')
+}|tojson }}</script>
+<script type="application/json" data-site-messages>{{ client_messages('comments')|tojson }}</script>
+{{ frontend_entry('comments') }}

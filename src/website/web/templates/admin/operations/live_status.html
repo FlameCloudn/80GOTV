@@ -1,0 +1,58 @@
+{% extends "layouts/admin.html" %}
+{% block title %}{{ msg('admin.operations.live_status.live_connection_status') }}{% endblock %}
+{% block main %}
+<header class="page-head">
+  <div>
+    <span class="page-head-kicker" data-i18n-ignore>LIVE</span><h1>{{ msg('admin.operations.live_status.live_connection_status') }}</h1>
+    <p class="page-head-sub">{{ msg('admin.operations.live_status.view_the_latest_observer_account_and') }}</p>
+  </div>
+</header>
+
+<section class="live-grid" aria-label="{{ msg('admin.operations.live_status.data_source') }}">
+  {% for item in receivers %}
+  <article class="panel live-card">
+    <div class="live-card-head">
+      <b data-i18n-ignore>{{ item.source|upper }}</b>
+      {% if item.status == 'ok' %}<span class="badge badge-green status ok">{{ msg('admin.operations.live_status.normal') }}</span>{% else %}<span class="badge badge-red status error">{{ msg('admin.operations.live_status.error') }}</span>{% endif %}
+    </div>
+    <div data-i18n-ignore>{{ item.message or '-' }}</div>
+    {% set item_left, item_right = match_opponents(item) %}
+    <div class="muted">{{ msg('admin.operations.live_status.match') }}{% if item.match_id %}#{{ item.match_id }} <span data-i18n-ignore>{{ item_left.name }}</span> VS <span data-i18n-ignore>{{ item_right.name }}</span>{% else %}-{% endif %}</div>
+    <div class="muted">{{ msg('admin.operations.live_status.map') }}<span data-i18n-ignore>{{ item.map_name|map_display if item.map_name else '-' }}</span></div>
+    <div class="muted">{{ msg('admin.operations.live_status.last_received_received_at', received_at=item.received_at|datetime_display) }}</div>
+  </article>
+  {% else %}
+  <div class="panel empty-state"><b>{{ msg('admin.operations.live_status.no_live_data_received') }}</b><br>{{ msg('admin.operations.live_status.connection_status_appears_here_after_the') }}</div>
+  {% endfor %}
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">{{ msg('admin.operations.live_status.active_matches') }} <span class="panel-count">{{ matches|length }}</span></h2></div>
+  <div class="table-wrap">
+    <table class="table admin-table">
+      <thead><tr><th class="col-id">ID</th><th>{{ msg('admin.operations.live_status.matches') }}</th><th>{{ msg('admin.operations.live_status.status') }}</th><th>{{ msg('admin.operations.live_status.scheduled_time') }}</th><th>{{ msg('admin.operations.live_status.data_source') }}</th><th>{{ msg('admin.operations.live_status.current_map') }}</th><th>{{ msg('admin.operations.live_status.last_update') }}</th></tr></thead>
+      <tbody>
+        {% for m in matches %}
+        <tr>
+          <td class="col-id">#{{ m.id }}</td>
+          {% set left_team, right_team = match_opponents(m) %}
+          <td><a href="{{ url_for('admin.admin_matches_edit', match_id=m.id) }}"><span data-i18n-ignore>{{ left_team.name }}</span> VS <span data-i18n-ignore>{{ right_team.name }}</span></a></td>
+          <td>
+            {% if m.effective_status == 'upcoming' %}<span class="badge badge-upcoming">{{ msg('admin.operations.live_status.upcoming') }}</span>
+            {% elif m.effective_status == 'live' %}<span class="badge badge-live">{{ msg('admin.operations.live_status.live') }}</span>
+            {% elif m.effective_status == 'cancelled' %}<span class="badge badge-red">{{ msg('admin.operations.live_status.cancelled') }}</span>
+            {% else %}<span class="badge badge-done">{{ msg('admin.operations.live_status.completed') }}</span>{% endif %}
+          </td>
+          <td class="nowrap">{{ m.match_time|datetime_display if m.match_time else '-' }}</td>
+          <td>{{ m.live_source }}</td>
+          <td data-i18n-ignore>{{ m.current_map }}</td>
+          <td class="nowrap">{{ m.updated_at|datetime_display if m.updated_at else '-' }}</td>
+        </tr>
+        {% else %}
+        <tr class="empty-row"><td colspan="7">{{ msg('admin.operations.live_status.no_active_matches') }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

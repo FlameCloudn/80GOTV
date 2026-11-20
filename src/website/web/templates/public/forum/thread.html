@@ -1,0 +1,152 @@
+{% extends "layouts/public.html" %}
+{% from 'components/_forum_labels.html' import forum_category %}
+{% from 'components/_icons.html' import site_icon %}
+{% from "components/_user_badges.html" import cheater_badge %}
+{% block title %}{{ msg('public.forum.thread.title_forum', title=thread.title) }}{% endblock %}
+{% block head %}{{ frontend_entry('forum-style') }}{% endblock %}
+{% block layout_class %}no-side-layout narrow-layout{% endblock %}
+{% block main %}
+{% set thread_private_remark = private_remark_for_user(thread.user_id) %}
+{% set thread_display_name = thread_private_remark or thread.username or thread.group_username %}
+<nav class="forum-breadcrumb" aria-label="{{ msg('public.forum.thread.slot') }}">
+  <a href="{{ url_for('forum_index') }}">{{ msg('public.forum.thread.forum') }}</a><span>›</span>
+  <a href="{{ url_for('forum_index', category=thread.category_slug) }}">{{ forum_category(thread.category_slug, thread.category_name) }}</a><span>›</span>
+  <span class="forum-breadcrumb-current" data-i18n-ignore>{{ thread.title }}</span>
+</nav>
+
+{#- 帖子标题区：标题 + 置顶/锁定标记，下面一行作者、时间、浏览、回复、版块；管理按钮放最下面 -#}
+<section class="panel forum-thread-head">
+  <h1>
+    <span data-i18n-ignore>{{ thread.title }}</span>
+    {% if thread.is_pinned %}<span class="badge badge-square forum-pin">{{ msg('public.forum.thread.pin') }}</span>{% endif %}
+    {% if thread.is_locked %}<span class="badge badge-square badge-red">{{ msg('public.forum.thread.locked') }}</span>{% endif %}
+  </h1>
+  <div class="forum-thread-facts">
+    <span>{{ msg('public.forum.thread.author') }}<b data-i18n-ignore>{{ thread_display_name }}</b>{% if not thread_private_remark and thread.group_username %} <span class="forum-handle" data-i18n-ignore>@{{ thread.group_username }}</span>{% endif %}{{ cheater_badge(thread.is_cheater) }}</span>
+    <span>{{ msg('public.forum.thread.posted_created_at', created_at=thread.created_at|datetime_display) }}</span>
+    <span>{{ msg('public.forum.thread.view_count_views', view_count=thread.view_count) }}</span>
+    <span>{{ msg('public.forum.thread.reply_count_replies', reply_count=thread.reply_count) }}</span>
+    <a class="badge badge-square forum-category" href="{{ url_for('forum_index', category=thread.category_slug) }}">{{ forum_category(thread.category_slug, thread.category_name) }}</a>
+  </div>
+  {% if can_manage_thread or is_forum_admin %}
+  <div class="forum-thread-actions">
+    {% if can_manage_thread %}<a href="{{ url_for('forum_edit_thread', thread_id=thread.id) }}" class="btn btn-sm">{{ msg('public.forum.thread.edit_thread') }}</a>{% endif %}
+    {% if is_forum_admin %}
+    <form method="post" action="{{ url_for('forum_manage_thread', thread_id=thread.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="action" value="{{ 'unpin' if thread.is_pinned else 'pin' }}">
+      <button type="submit" class="btn btn-sm">{{ msg('public.forum.thread.unpin') if thread.is_pinned else msg('public.forum.thread.pin') }}</button>
+    </form>
+    <form method="post" action="{{ url_for('forum_manage_thread', thread_id=thread.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="action" value="{{ 'unlock' if thread.is_locked else 'lock' }}">
+      <button type="submit" class="btn btn-sm">{{ msg('public.forum.thread.unlock') if thread.is_locked else msg('public.forum.thread.lock') }}</button>
+    </form>
+    {% endif %}
+    {% if is_forum_admin or (current_user_id == thread.user_id and not thread.reply_count) %}
+    <form method="post" action="{{ url_for('forum_manage_thread', thread_id=thread.id) }}" data-confirm-delete-thread="确定删除这个帖子吗？此操作无法撤销。">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="action" value="delete">
+      <button type="submit" class="btn btn-sm btn-danger">{{ msg('public.forum.thread.delete_thread') }}</button>
+    </form>
+    {% endif %}
+  </div>
+  {% endif %}
+</section>
+
+{#- 楼主帖和回复用同一种楼层：头像、名字、时间、楼号，下面正文和操作 -#}
+<section class="panel forum-posts">
+<article class="forum-post forum-post-op">
+  <div class="post-header">
+    {% if thread.avatar %}
+    <div class="post-avatar"><img loading="lazy" src="{{ avatar_thumbnail_url(thread.avatar) }}" alt=""></div>
+    {% else %}
+    <div class="post-avatar">{{ (thread_display_name or '?')[0]|upper }}</div>
+    {% endif %}
+    <span class="post-user"><span data-i18n-ignore>{{ thread_display_name }}</span>{% if not thread_private_remark and thread.group_username %} <span class="post-handle" data-i18n-ignore>@{{ thread.group_username }}</span>{% endif %}{{ cheater_badge(thread.is_cheater) }}</span>
+    {% if thread.username and thread.username.lower() == 'flamecloud_' %}<span class="admin-badge-small">ADMIN</span>{% endif %}
+    <span class="post-time">{{ thread.created_at|datetime_display }}</span>
+    <span class="post-number">#1</span>
+  </div>
+  <div class="post-body" data-i18n-ignore>{{ thread.content }}</div>
+  {% if current_user_id and not thread.is_locked %}
+  <div class="post-footer">
+    <button type="button" class="post-action-btn forum-quote-btn" data-author="{{ thread_display_name }}{% if not thread_private_remark and thread.group_username %} @{{ thread.group_username }}{% endif %}" data-floor="1" data-content="{{ thread.content|e }}">{{ msg('public.forum.thread.quote') }}</button>
+  </div>
+  {% endif %}
+</article>
+
+{% if posts %}
+  {% for post in posts %}
+  {% set post_num = (page - 1) * 20 + loop.index + 1 %}
+  {% set post_private_remark = private_remark_for_user(post.user_id) %}
+  {% set post_display_name = post_private_remark or post.username or post.group_username %}
+  <article class="forum-post" id="post-{{ post.id }}">
+    <div class="post-header">
+      {% if post.avatar %}
+      <div class="post-avatar"><img loading="lazy" src="{{ avatar_thumbnail_url(post.avatar) }}" alt=""></div>
+      {% else %}
+      <div class="post-avatar">{{ (post_display_name or '?')[0]|upper }}</div>
+      {% endif %}
+      <span class="post-user"><span data-i18n-ignore>{{ post_display_name }}</span>{% if not post_private_remark and post.group_username %} <span class="post-handle" data-i18n-ignore>@{{ post.group_username }}</span>{% endif %}{{ cheater_badge(post.is_cheater) }}</span>
+      {% if post.username and post.username.lower() == 'flamecloud_' %}<span class="admin-badge-small">ADMIN</span>{% endif %}
+      <span class="post-time">{{ post.created_at|datetime_display }}</span>
+      <span class="post-number">#{{ post_num }}</span>
+    </div>
+    <div class="post-body" data-i18n-ignore>{{ post.content }}</div>
+    <div class="post-footer">
+      {% if current_user_id %}
+      <button class="comment-like-btn{% if post.user_liked %} liked{% endif %}" data-cid="{{ post.id }}" data-liked="{{ 1 if post.user_liked else 0 }}">
+        <span class="like-icon">{{ site_icon('heart') }}</span> <span class="like-count">{{ post.like_count or 0 }}</span>
+      </button>
+      {% else %}
+      <span class="comment-like-btn disabled" title="{{ msg('public.forum.thread.log_in_to_like') }}">
+        <span class="like-icon">{{ site_icon('heart') }}</span> <span class="like-count">{{ post.like_count or 0 }}</span>
+      </span>
+      {% endif %}
+      {% if current_user_id and not thread.is_locked %}
+      <button type="button" class="post-action-btn forum-quote-btn" data-author="{{ post_display_name }}{% if not post_private_remark and post.group_username %} @{{ post.group_username }}{% endif %}" data-floor="{{ post_num }}" data-content="{{ post.content|e }}">{{ msg('public.forum.thread.quote') }}</button>
+      {% endif %}
+      {% if (current_user_id and current_user_id == post.user_id) or session.admin_id or (session.user_username or '')|lower == 'flamecloud_' %}
+      <form class="comment-delete-form" data-cid="{{ post.id }}">
+        <button type="submit" class="comment-delete-btn">{{ msg('public.forum.thread.delete') }}</button>
+      </form>
+      {% endif %}
+    </div>
+  </article>
+  {% endfor %}
+{% endif %}
+</section>
+
+{% if total_pages > 1 %}
+<nav class="pagination" aria-label="{{ msg('public.forum.thread.pagination') }}">
+  {% if page > 1 %}<a href="?page={{ page - 1 }}">{{ msg('public.forum.thread.previous') }}</a>{% endif %}
+  {% for p in range(1, total_pages + 1) %}
+    {% if p == page %}<span class="current">{{ p }}</span>
+    {% else %}<a href="?page={{ p }}">{{ p }}</a>{% endif %}
+  {% endfor %}
+  {% if page < total_pages %}<a href="?page={{ page + 1 }}">{{ msg('public.forum.thread.next') }}</a>{% endif %}
+</nav>
+{% endif %}
+
+{% if current_user_id %}
+{% if not thread.is_locked %}
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">{{ msg('public.forum.thread.reply_to_thread') }}</h2></div>
+  <form class="panel-body form" method="post" action="{{ url_for('forum_thread_reply', thread_id=thread.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <textarea id="forumReplyContent" name="content" rows="4" placeholder="{{ msg('public.forum.thread.share_your_thoughts') }}" required></textarea>
+    <div class="form-actions"><button type="submit" class="btn btn-primary">{{ msg('public.forum.thread.post_reply') }}</button></div>
+  </form>
+</section>
+{% else %}
+<div class="panel empty-state">{{ msg('public.forum.thread.this_thread_is_locked_and_cannot') }}</div>
+{% endif %}
+{% else %}
+<div class="panel empty-state"><a href="{{ url_for('user_login') }}">{{ msg('public.forum.thread.log_in') }}</a> {{ msg('public.forum.thread.to_reply') }}</div>
+{% endif %}
+{% endblock %}
+{% block extra_js %}
+<script type="application/json" data-site-messages>{{ client_messages('inline_thread')|tojson }}</script>
+{{ frontend_entry('forum-thread') }}
+{% endblock %}

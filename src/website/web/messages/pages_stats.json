@@ -1,0 +1,414 @@
+{
+  "public.stats.awards.awards": {
+    "zh": "荣誉堂",
+    "en": "Awards"
+  },
+  "public.stats.awards.awards_80gotv": {
+    "zh": "荣誉堂 - 80GOTV",
+    "en": "Awards - 80GOTV"
+  },
+  "public.stats.awards.champion": {
+    "zh": "冠军",
+    "en": "Champion"
+  },
+  "public.stats.awards.no_award_records": {
+    "zh": "暂无荣誉记录",
+    "en": "No award records"
+  },
+  "public.stats.dashboard.dashboard": {
+    "zh": "数据看板",
+    "en": "Dashboard"
+  },
+  "public.stats.dashboard.dashboard_80gotv": {
+    "zh": "数据仪表盘 - 80GOTV",
+    "en": "Dashboard - 80GOTV"
+  },
+  "public.stats.dashboard.evp_count": {
+    "zh": "EVP 数量",
+    "en": "EVP count"
+  },
+  "public.stats.dashboard.matches_per_event": {
+    "zh": "赛事比赛数量",
+    "en": "Matches per event"
+  },
+  "public.stats.dashboard.mvp_count": {
+    "zh": "MVP 数量",
+    "en": "MVP count"
+  },
+  "public.stats.dashboard.player_rating_distribution": {
+    "zh": "选手生涯 RATING 分布",
+    "en": "Player Rating distribution"
+  },
+  "public.stats.dashboard.top_5_by_evps": {
+    "zh": "EVP 数量排行 TOP 5",
+    "en": "Top 5 by EVPs"
+  },
+  "public.stats.dashboard.top_5_by_mvps": {
+    "zh": "MVP 数量排行 TOP 5",
+    "en": "Top 5 by MVPs"
+  },
+  "public.stats.stats.all_events": {
+    "zh": "全部赛事",
+    "en": "All events"
+  },
+  "public.stats.stats.all_maps": {
+    "zh": "全部地图",
+    "en": "All maps"
+  },
+  "public.stats.stats.best_players": {
+    "zh": "最佳选手",
+    "en": "Best players"
+  },
+  "public.stats.stats.champion_team": {
+    "zh": "冠军队伍",
+    "en": "Champion team"
+  },
+  "public.stats.stats.compare": {
+    "zh": "对比",
+    "en": "Compare"
+  },
+  "public.stats.stats.compare_players": {
+    "zh": "选手对比",
+    "en": "Compare players"
+  },
+  "public.stats.stats.comparison_result": {
+    "zh": "选手对比结果",
+    "en": "Comparison result"
+  },
+  "public.stats.stats.ct_win_rate": {
+    "zh": "CT 胜率",
+    "en": "CT win rate"
+  },
+  "public.stats.stats.date": {
+    "zh": "日期",
+    "en": "Date"
+  },
+  "public.stats.stats.event_stats": {
+    "zh": "赛事统计",
+    "en": "Event stats"
+  },
+  "public.stats.stats.events": {
+    "zh": "赛事",
+    "en": "Events"
+  },
+  "public.stats.stats.flashes": {
+    "zh": "闪光弹",
+    "en": "Flashes"
+  },
+  "public.stats.stats.full_ranking": {
+    "zh": "完整排行 →",
+    "en": "Full ranking →"
+  },
+  "public.stats.stats.k_d_difference": {
+    "zh": "K-D 差",
+    "en": "K-D difference"
+  },
+  "public.stats.stats.kill_share_by_weapon": {
+    "zh": "常用武器击杀占比",
+    "en": "Kill share by weapon"
+  },
+  "public.stats.stats.map_stats": {
+    "zh": "地图数据",
+    "en": "Map stats"
+  },
+  "public.stats.stats.maps": {
+    "zh": "地图",
+    "en": "Maps"
+  },
+  "public.stats.stats.maps_maps": {
+    "zh": "{maps} 张地图",
+    "en": "{maps} maps"
+  },
+  "public.stats.stats.maps_played": {
+    "zh": "地图数",
+    "en": "Maps played"
+  },
+  "public.stats.stats.match_stats": {
+    "zh": "比赛数据",
+    "en": "Match stats"
+  },
+  "public.stats.stats.matches": {
+    "zh": "比赛",
+    "en": "Matches"
+  },
+  "public.stats.stats.matches_2": {
+    "zh": "比赛数",
+    "en": "Matches"
+  },
+  "public.stats.stats.no_comparable_data_for_the_current": {
+    "zh": "当前筛选下暂无可对比数据",
+    "en": "No comparable data for the current filters"
+  },
+  "public.stats.stats.no_data": {
+    "zh": "暂无数据",
+    "en": "No data"
+  },
+  "public.stats.stats.no_events": {
+    "zh": "暂无赛事",
+    "en": "No events"
+  },
+  "public.stats.stats.no_matches": {
+    "zh": "暂无比赛",
+    "en": "No matches"
+  },
+  "public.stats.stats.no_weapon_data": {
+    "zh": "暂无武器数据",
+    "en": "No weapon data"
+  },
+  "public.stats.stats.other": {
+    "zh": "其他",
+    "en": "Other"
+  },
+  "public.stats.stats.pick_rate": {
+    "zh": "出场率",
+    "en": "Pick rate"
+  },
+  "public.stats.stats.pistol_rounds": {
+    "zh": "手枪局",
+    "en": "Pistol rounds"
+  },
+  "public.stats.stats.played": {
+    "zh": "出场",
+    "en": "Played"
+  },
+  "public.stats.stats.players": {
+    "zh": "选手",
+    "en": "Players"
+  },
+  "public.stats.stats.please_select_two_players_to_compare": {
+    "zh": "请选择两名选手进行对比",
+    "en": "Please select two players to compare"
+  },
+  "public.stats.stats.quick_navigation": {
+    "zh": "快速导航",
+    "en": "Quick navigation"
+  },
+  "public.stats.stats.ranking": {
+    "zh": "排行",
+    "en": "Ranking"
+  },
+  "public.stats.stats.recorded_data_under_the_same_filters": {
+    "zh": "同一筛选条件下的真实比赛数据",
+    "en": "Recorded data under the same filters"
+  },
+  "public.stats.stats.round": {
+    "zh": "回合",
+    "en": "Round"
+  },
+  "public.stats.stats.select_player_side_name": {
+    "zh": "选择选手 {side_name}",
+    "en": "Select player {side_name}"
+  },
+  "public.stats.stats.select_player_side_name_2": {
+    "zh": "选择选手 {side_name}...",
+    "en": "Select player {side_name}…"
+  },
+  "public.stats.stats.side": {
+    "zh": "阵营",
+    "en": "Side"
+  },
+  "public.stats.stats.statistics": {
+    "zh": "数据统计",
+    "en": "Statistics"
+  },
+  "public.stats.stats.statistics_2": {
+    "zh": "统计总览",
+    "en": "Statistics"
+  },
+  "public.stats.stats.stats_80gotv": {
+    "zh": "数据统计 - 80GOTV",
+    "en": "Stats - 80GOTV"
+  },
+  "public.stats.stats.t_win_rate": {
+    "zh": "T 胜率",
+    "en": "T win rate"
+  },
+  "public.stats.stats.teams": {
+    "zh": "队伍",
+    "en": "Teams"
+  },
+  "public.stats.stats.time": {
+    "zh": "时间",
+    "en": "Time"
+  },
+  "public.stats.stats.top_players": {
+    "zh": "选手排行",
+    "en": "Top players"
+  },
+  "public.stats.stats.top_teams": {
+    "zh": "最佳队伍",
+    "en": "Top teams"
+  },
+  "public.stats.stats.top_weapons": {
+    "zh": "常用武器",
+    "en": "Top weapons"
+  },
+  "public.stats.stats_detail.all_events": {
+    "zh": "全部赛事",
+    "en": "All events"
+  },
+  "public.stats.stats_detail.all_maps": {
+    "zh": "全部地图",
+    "en": "All maps"
+  },
+  "public.stats.stats_detail.all_time": {
+    "zh": "全部时间",
+    "en": "All time"
+  },
+  "public.stats.stats_detail.back_to_overview": {
+    "zh": "返回数据概览",
+    "en": "Back to overview"
+  },
+  "public.stats.stats_detail.blinded": {
+    "zh": "致盲",
+    "en": "Blinded"
+  },
+  "public.stats.stats_detail.champion_team": {
+    "zh": "冠军队伍",
+    "en": "Champion team"
+  },
+  "public.stats.stats_detail.diff": {
+    "zh": "差值",
+    "en": "Diff"
+  },
+  "public.stats.stats_detail.effective_maps": {
+    "zh": "有效地图占比",
+    "en": "Effective maps"
+  },
+  "public.stats.stats_detail.events": {
+    "zh": "赛事",
+    "en": "Events"
+  },
+  "public.stats.stats_detail.flash_assists": {
+    "zh": "闪光助攻",
+    "en": "Flash assists"
+  },
+  "public.stats.stats_detail.k_d_difference": {
+    "zh": "K-D 差",
+    "en": "K-D difference"
+  },
+  "public.stats.stats_detail.kills": {
+    "zh": "击杀",
+    "en": "Kills"
+  },
+  "public.stats.stats_detail.maps": {
+    "zh": "地图",
+    "en": "Maps"
+  },
+  "public.stats.stats_detail.matches": {
+    "zh": "比赛数",
+    "en": "Matches"
+  },
+  "public.stats.stats_detail.no_data": {
+    "zh": "暂无数据",
+    "en": "No data"
+  },
+  "public.stats.stats_detail.opp_flash": {
+    "zh": "敌方致盲",
+    "en": "Opp. flash"
+  },
+  "public.stats.stats_detail.pistol_win": {
+    "zh": "手枪局胜率",
+    "en": "Pistol win %"
+  },
+  "public.stats.stats_detail.players": {
+    "zh": "选手",
+    "en": "Players"
+  },
+  "public.stats.stats_detail.round": {
+    "zh": "回合",
+    "en": "Round"
+  },
+  "public.stats.stats_detail.round_2_break": {
+    "zh": "第二局翻盘",
+    "en": "Round 2 break"
+  },
+  "public.stats.stats_detail.round_2_conv": {
+    "zh": "第二局延续",
+    "en": "Round 2 conv"
+  },
+  "public.stats.stats_detail.rounds_played": {
+    "zh": "回合数",
+    "en": "Rounds played"
+  },
+  "public.stats.stats_detail.share_of_recorded_maps_with_throws": {
+    "zh": "在有投掷记录且投掷大于零的地图中，闪到过对手的地图占比；不是每颗闪光弹的成功率",
+    "en": "Share of recorded maps with throws that blinded an opponent; not a per-grenade success rate"
+  },
+  "public.stats.stats_detail.side": {
+    "zh": "阵营",
+    "en": "Side"
+  },
+  "public.stats.stats_detail.teams": {
+    "zh": "队伍",
+    "en": "Teams"
+  },
+  "public.stats.stats_detail.thrown": {
+    "zh": "投掷",
+    "en": "Thrown"
+  },
+  "public.stats.stats_detail.time": {
+    "zh": "时间",
+    "en": "Time"
+  },
+  "public.stats.stats_detail.won_lost": {
+    "zh": "胜 - 负",
+    "en": "Won - Lost"
+  },
+  "public.stats.stats_home_sidebar.live": {
+    "zh": "直播",
+    "en": "Live"
+  },
+  "public.stats.stats_home_sidebar.no_forum_activity_yet": {
+    "zh": "暂无论坛动态",
+    "en": "No forum activity yet"
+  },
+  "public.stats.stats_home_sidebar.no_matches": {
+    "zh": "暂无比赛",
+    "en": "No matches"
+  },
+  "public.stats.stats_home_sidebar.no_results": {
+    "zh": "暂无赛果",
+    "en": "No results"
+  },
+  "public.stats.stats_home_sidebar.recent_activity": {
+    "zh": "近期动态",
+    "en": "Recent activity"
+  },
+  "public.stats.stats_home_sidebar.recent_results": {
+    "zh": "近期赛果",
+    "en": "Recent results"
+  },
+  "public.stats.stats_home_sidebar.today_s_matches": {
+    "zh": "今日比赛",
+    "en": "Today's matches"
+  },
+  "public.stats.stats_shell.compare": {
+    "zh": "对比",
+    "en": "Compare"
+  },
+  "public.stats.stats_shell.events": {
+    "zh": "赛事",
+    "en": "Events"
+  },
+  "public.stats.stats_shell.maps": {
+    "zh": "地图",
+    "en": "Maps"
+  },
+  "public.stats.stats_shell.matches": {
+    "zh": "比赛",
+    "en": "Matches"
+  },
+  "public.stats.stats_shell.overview": {
+    "zh": "总览",
+    "en": "Overview"
+  },
+  "public.stats.stats_shell.players": {
+    "zh": "选手",
+    "en": "Players"
+  },
+  "public.stats.stats_shell.stats_navigation": {
+    "zh": "数据统计导航",
+    "en": "Stats navigation"
+  }
+}

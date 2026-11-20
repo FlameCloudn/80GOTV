@@ -1,0 +1,47 @@
+{# ================= Tab 2: Demo 与数据采纳 ================= #}
+<section class="ops-tab-pane" id="ops-pane-demos" role="tabpanel" aria-labelledby="ops-tab-demos" data-ops-pane="demos" hidden>
+  <div class="ops-section-stack">
+    <section class="panel">
+      <div class="panel-head">
+        <h2 class="panel-title">{{ msg('admin.operations.demo_panel.upload_raw_demo_dem') }}</h2>
+        <span class="muted">{{ msg('admin.operations.demo_panel.must_bind_to_a_scheduled_map') }}</span>
+      </div>
+      <div class="ops-panel-body">
+        <form id="opsDemoUploadForm" class="ops-inline-form">
+          <label class="field">
+            <span class="field-label">{{ msg('admin.operations.demo_panel.scheduled_map') }}</span>
+            <select id="demoUploadMapSelect" required></select>
+          </label>
+          <label class="field">
+            <span class="field-label">{{ msg('admin.operations.demo_panel.map_run') }}</span>
+            <select id="demoUploadRunSelect" required></select>
+          </label>
+          <label class="field ops-file-field">
+            <span class="field-label">{{ msg('admin.operations.demo_panel.raw_demo_file_dem') }}</span>
+            <input type="file" id="demoUploadFile" accept=".dem" required>
+          </label>
+          <div class="ops-form-btn-slot">
+            <button type="submit" class="btn btn-primary" id="demoUploadSubmitBtn">{{ ui.icon('upload') }}{{ msg('admin.operations.demo_panel.upload_demo') }}</button>
+          </div>
+        </form>
+        <div id="demoUploadError" class="roster-inline-error" role="alert" hidden></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2 class="panel-title">{{ msg('admin.operations.demo_panel.uploaded_demo_originals_analyses') }}</h2>
+        <button type="button" class="btn btn-sm" id="demoRefreshBtn">{{ ui.icon('reopen') }}{{ msg('admin.operations.demo_panel.refresh_list') }}</button>
+      </div>
+      <div class="ops-panel-body" id="opsDemosList"></div>
+    </section>
+
+    <section class="panel" id="opsDemoPreviewPanel" hidden>
+      <div class="panel-head">
+        <h2 class="panel-title" id="opsDemoPreviewTitle">{{ msg('admin.operations.demo_panel.demo_analysis_preview_selective_adoption') }}</h2>
+        <button type="button" class="btn btn-sm" id="opsDemoPreviewCloseBtn">{{ msg('admin.operations.demo_panel.close_preview') }}</button>
+      </div>
+      <div class="ops-panel-body" id="opsDemoPreviewBody"></div>
+    </section>
+  </div>
+</section>

@@ -1,0 +1,70 @@
+{#- 4. B 区：待核实预留位 -#}
+{% if reservations %}
+<section class="panel" id="sectionReservations">
+  <div class="panel-head">
+    <h2 class="panel-title">{{ msg('admin.events.event_roster.b_reservations_awaiting_review') }} <span class="panel-count">{{ reservations|length }}</span></h2>
+    {% if not control.is_due %}<span class="muted">{{ msg('admin.events.event_roster.claim_or_release_after_registration_closes') }}</span>{% endif %}
+  </div>
+  <div class="panel-body-hint">
+    <p class="field-hint">{{ msg('admin.events.event_roster.reserved_slots_were_entered_as_placeholders') }}</p>
+  </div>
+  <div class="table-wrap">
+    <table class="table admin-table">
+      <thead>
+        <tr>
+          <th>{{ msg('admin.events.event_roster.registered_team') }}</th>
+          <th>{{ msg('admin.events.event_roster.slot') }}</th>
+          <th>{{ msg('admin.events.event_roster.reserved_name') }}</th>
+          <th>{{ msg('admin.events.event_roster.reserved_steam_id') }}</th>
+          <th>{{ msg('admin.events.event_roster.matched_account') }}</th>
+          <th class="col-actions">{{ msg('admin.events.event_roster.actions') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for res in reservations %}
+        <tr>
+          <td data-i18n-ignore><b>{{ res.team_name }}</b></td>
+          <td class="nowrap">{{ msg('admin.events.event_roster.slot_value1', value1=res.roster_slot + 1) }}</td>
+          <td data-i18n-ignore>{{ res.display_label }}</td>
+          <td class="nowrap"><code data-i18n-ignore>{{ res.steam_id or '-' }}</code></td>
+          <td>
+            {% if res.matched_account %}
+            <span data-i18n-ignore>@{{ res.matched_account.username }}</span>
+            {% if res.matched_account.group_username %}· <span data-i18n-ignore>{{ res.matched_account.group_username }}</span>{% endif %}
+            <span class="badge badge-green">{{ msg('admin.events.event_roster.approved') }}</span>
+            <span class="cell-sub">{{ msg('admin.events.event_roster.player_profile') }}<span data-i18n-ignore>{{ res.matched_account.player_nickname }}</span></span>
+            {% else %}
+            <span class="muted">{{ res.claim_block_reason }}</span>
+            {% endif %}
+          </td>
+          <td class="col-actions">
+            {% if not control.is_due or control.archived_at %}
+            <span class="muted">{{ msg('admin.events.event_roster.archived') if control.archived_at else msg('admin.events.event_roster.review_after_the_deadline') }}</span>
+            {% else %}
+            <div class="row-actions">
+              {% if res.matched_account %}
+              <button type="button" class="btn btn-sm btn-primary"
+                      data-open-review="claim"
+                      data-reg-id="{{ res.registration_id }}"
+                      data-slot="{{ res.roster_slot }}"
+                      data-team-name="{{ res.team_name }}"
+                      data-label="{{ res.display_label }}"
+                      data-account-id="{{ res.matched_account.id }}"
+                      data-account-display="@{{ res.matched_account.username }}{% if res.matched_account.group_username %} ({{ res.matched_account.group_username }}){% endif %}">{{ msg('admin.events.event_roster.claim') }}</button>
+              {% endif %}
+              <button type="button" class="btn btn-sm btn-danger"
+                      data-open-review="release"
+                      data-reg-id="{{ res.registration_id }}"
+                      data-slot="{{ res.roster_slot }}"
+                      data-team-name="{{ res.team_name }}"
+                      data-label="{{ res.display_label }}">{{ msg('admin.events.event_roster.release') }}</button>
+            </div>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}

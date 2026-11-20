@@ -1,0 +1,45 @@
+{# -- 赛前预测 -- #}
+{% if match.effective_status not in ('completed', 'cancelled') %}
+<section class="panel vote-section" data-vote-url="{{ url_for('match_vote', slug=match.slug or match.id) }}">
+  <div class="panel-head">
+    <h2 class="panel-title section-title">{{ msg('public.matches.prediction.pre_match_prediction') }}</h2>
+    {% if prediction_disabled %}<span class="badge badge-done">{{ msg('public.matches.prediction.unavailable') }}</span>{% endif %}
+  </div>
+  <div class="vote-body">
+    {% if prediction_disabled %}
+    <p class="empty-state">{{ msg('public.matches.prediction.pre_match_predictions_are_closed_for') }}</p>
+    {% else %}
+    {% set t1_pct = (vote_data.t1_count / vote_data.total * 100)|round|int if vote_data.total > 0 else 50 %}
+    {% set t2_pct = 100 - t1_pct %}
+    <div class="vote-bar-wrap">
+      <div class="vote-bar">
+        {% for opponent in opponents %}<div class="vote-bar-fill vote-bar-{{ opponent.side }}" style="width:{{ t1_pct if opponent.side == 't1' else t2_pct }}%"></div>{% endfor %}
+      </div>
+      <div class="vote-labels">
+        {% for opponent in opponents %}<span class="vote-label-{{ opponent.side }}"><span data-i18n-ignore>{{ opponent.short }}</span> {{ msg('public.matches.prediction.value1_value2_votes', value1=t1_pct if opponent.side == 't1' else t2_pct, value2=vote_data.t1_count if opponent.side == 't1' else vote_data.t2_count) }}</span>{% endfor %}
+      </div>
+    </div>
+    {% if session.user_id %}
+      {% if vote_data.user_voted %}
+      <p class="vote-voted-hint">{{ msg('public.matches.prediction.you_voted_for') }} <span data-i18n-ignore>{{ match.t1s if vote_data.user_voted == 't1' else match.t2s }}</span></p>
+      {% else %}
+      <div class="vote-form-row">
+        <div class="vote-score-inputs">
+          {% for opponent in opponents %}
+          <input type="number" class="vote-score-inp" id="score{{ opponent.number }}" placeholder="?" min="0" max="99" aria-label="{{ msg('public.matches.prediction.short_score', short=opponent.short) }}">
+          {% if not loop.last %}<span class="muted">:</span>{% endif %}
+          {% endfor %}
+          <span class="vote-score-hint">{{ msg('public.matches.prediction.score_optional') }}</span>
+        </div>
+      </div>
+      <div class="vote-buttons">
+        {% for opponent in opponents %}<button class="btn vote-btn vote-btn-{{ opponent.side }}" type="button" data-vote="{{ opponent.side }}"><span data-vote-label data-i18n-ignore>{{ opponent.short }}</span></button>{% endfor %}
+      </div>
+      {% endif %}
+    {% else %}
+    <p class="vote-login-hint"><a href="/login">{{ msg('public.matches.prediction.log_in') }}</a> {{ msg('public.matches.prediction.to_join_the_prediction') }}</p>
+    {% endif %}
+    {% endif %}
+  </div>
+</section>
+{% endif %}

@@ -1,0 +1,63 @@
+{% extends "layouts/admin.html" %}
+{% import "components/_icons.html" as ui %}
+{% set editing = team and team.id %}
+{% block title %}{% if editing %}{{ msg('admin.catalog.teams_form.edit_team') }}{% else %}{{ msg('admin.catalog.teams_form.add_team') }}{% endif %}{% endblock %}
+{% block main %}
+<a href="{{ url_for('admin.admin_teams') }}" class="back-link">{{ msg('admin.catalog.teams_form.back_to_team_management') }}</a>
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>TEAMS</span><h1>{% if editing %}{{ msg('admin.catalog.teams_form.edit_team') }}{% else %}{{ msg('admin.catalog.teams_form.add_team') }}{% endif %}</h1></div>
+  {% if editing %}<div class="page-actions"><a class="btn" href="/teams/{{ team.id }}" target="_blank" rel="noopener">{{ ui.icon('external') }}{{ msg('admin.catalog.teams_form.public_homepage') }}</a></div>{% endif %}
+</header>
+
+<section class="panel admin-form-narrow">
+  <form method="post" enctype="multipart/form-data" class="admin-form" id="teamForm" data-busy-text="保存中……" data-guard data-draft>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <section class="form-group" data-required-group>
+      <div class="form-group-head"><h2 class="form-group-title">{{ msg('admin.catalog.teams_form.team_details') }}</h2><span data-group-status></span></div>
+      <div class="form-grid">
+        <label class="field">
+          <span class="field-label">{{ msg('admin.catalog.teams_form.team_name') }} <span class="field-required">*</span></span>
+          <input type="text" name="name" value="{{ team.name if team else '' }}" maxlength="40" required placeholder="{{ msg('admin.catalog.teams_form.example_star_esports_club') }}">
+        </label>
+        <label class="field">
+          <span class="field-label">{{ msg('admin.catalog.teams_form.short_name') }} <span class="field-required">*</span></span>
+          <input type="text" name="short_name" value="{{ team.short_name if team else '' }}" maxlength="16" required placeholder="{{ msg('admin.catalog.teams_form.example_star') }}">
+        </label>
+      </div>
+    </section>
+
+    <section class="form-group">
+      <div class="form-group-head"><h2 class="form-group-title">{{ msg('admin.catalog.teams_form.team_logo') }}</h2><span data-group-status></span></div>
+      <div class="field">
+        {% if team and team.logo %}
+        <div class="file-preview">
+          <img src="{{ team.logo|team_logo_url }}" alt="{{ team.name }}">
+          <span>{{ msg('admin.catalog.teams_form.current_logo_leave_blank_to_keep') }}</span>
+        </div>
+        {% endif %}
+        {#- 前端先查大小和格式（site_dialogs.js 的 checkUploadFile），服务器保存时再查一遍 -#}
+        <input type="file" name="logo" accept="image/png,image/jpeg,image/gif,.png,.jpg,.jpeg,.gif" aria-label="{{ msg('admin.catalog.teams_form.team_logo_2') }}" aria-describedby="teamLogoHint"
+               data-max-bytes="10485760" data-size-error="{{ msg('common.team_logo.file_too_large') }}" data-type-error="{{ msg('common.team_logo.unsupported_type') }}">
+        <span class="field-hint" id="teamLogoHint">{{ msg('admin.catalog.teams_form.png_jpg_jpeg_gif_up_to') }}</span>
+      </div>
+    </section>
+
+    <details class="form-group optional" {% if team and team.description %}open{% endif %}>
+      <summary><span class="form-group-title">{{ msg('admin.catalog.teams_form.description') }}</span><span data-group-status></span></summary>
+      <div class="details-body">
+        <label class="field">
+          <span class="field-label">{{ msg('admin.catalog.teams_form.team_description') }}</span>
+          <textarea name="description" rows="4">{{ team.description if team else '' }}</textarea>
+        </label>
+      </div>
+    </details>
+
+    <div class="sticky-form-actions">
+      <div class="form-actions">
+        <a href="{{ url_for('admin.admin_teams') }}" class="btn" data-discard>{{ msg('admin.catalog.teams_form.cancel') }}</a>
+        <button type="submit" class="btn btn-primary">{{ ui.icon('check') }}{% if editing %}{{ msg('admin.catalog.teams_form.save_changes') }}{% else %}{{ msg('admin.catalog.teams_form.add_team') }}{% endif %}</button>
+      </div>
+    </div>
+  </form>
+</section>
+{% endblock %}

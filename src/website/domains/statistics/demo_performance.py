@@ -1,0 +1,471 @@
+"""Derive performance evidence from a Demo and persist its match projection."""
+
+import math
+from collections import defaultdict
+
+from src.website.domains.statistics.performance_service import refresh_player_performance
+
+
+def _steam_id(value):
+    value = str(value or "").strip()
+    return "" if value == "0" else value
+
+
+def _optional_int(value):
+    """None 保持 None（表示没有这项数据），其余转成整数。"""
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _optional_float(value):
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return None
+    return value if math.isfinite(value) else None
+
+
+def _side(value):
+    try:
+        value = int(value)
+    except (TypeError, ValueError):
+        value = str(value or "").strip().upper()
+    if value in (2, "T", "TERRORIST"):
+        return "T"
+    if value in (3, "CT", "COUNTERTERRORIST", "COUNTER_TERRORIST"):
+        return "CT"
+    return ""
+
+
+def _count_flash_throws(match_data, flash_metrics):
+    """按“闪光弹爆炸”事件统计每名选手的投掷次数。
+
+    CSDA 的选手汇总里没有投掷次数字段，只能从事件里数。Demo 里没有这类事件时
+    不写次数（保持 None），页面会显示“暂无数据”而不是把缺失当成 0。
+    """
+    if "flashbangsExplode" not in match_data:
+        return
+    events = match_data.get("flashbangsExplode")
+    if events is None:
+        return
+    if not isinstance(events, list):
+        raise ValueError("Demo 的闪光弹事件格式无效，未保存统计数据")
+    for steam_id, player in (match_data.get("players") or {}).items():
+        steam_id = _steam_id(steam_id)
+        if not steam_id or not isinstance(player, dict):
+            continue
+        item = flash_metrics[steam_id]
+        item["steam_id"] = steam_id
+        item["name"] = item["name"] or str(player.get("name") or "").strip()
+    for item in flash_metrics.values():
+        item["flash_count"] = 0
+    for event in events or []:
+        if not isinstance(event, dict):
+            raise ValueError("Demo 的闪光弹事件格式无效，未保存统计数据")
+        thrower_steam_id = _steam_id(event.get("throwerSteamId"))
+        if not thrower_steam_id:
+            continue
+        item = flash_metrics[thrower_steam_id]
+        item["steam_id"] = thrower_steam_id
+        item["name"] = item["name"] or str(event.get("throwerName") or "").strip()
+        item["flash_count"] = (item.get("flash_count") or 0) + 1
+
+
+def build_demo_performance_payload(match_data, player_stats=None):
+    """Reduce a multi-megabyte parser result to the fields pages actually need."""
+    kill_events = []
+    blinds_recorded = isinstance(match_data.get("playersFlashed"), list)
+    assists_recorded = isinstance(match_data.get("kills"), list)
+    flash_metrics = defaultdict(
+        lambda: {
+            "steam_id": "",
+            "name": "",
+            "blinded_seconds": 0.0 if blinds_recorded else None,
+            "enemy_seconds": 0.0 if blinds_recorded else None,
+            "flash_assists": 0 if assists_recorded else None,
+            # 下面两项只有 Demo 里有对应事件时才会被填上数字
+            "flash_count": None,
+            "enemies_flashed": 0 if blinds_recorded else None,
+        }
+    )
+    for steam_id, player in (match_data.get("players") or {}).items():
+        steam_id = _steam_id(steam_id)
+        if steam_id and isinstance(player, dict):
+            flash_metrics[steam_id]["steam_id"] = steam_id
+            flash_metrics[steam_id]["name"] = str(player.get("name") or "").strip()
+
+    for event in match_data.get("kills", []) or []:
+        if not isinstance(event, dict):
+            continue
+        killer_steam_id = _steam_id(event.get("killerSteamId", event.get("killerSteamId64")))
+        victim_steam_id = _steam_id(event.get("victimSteamId", event.get("victimSteamId64")))
+        assister_steam_id = _steam_id(event.get("assisterSteamId", event.get("assisterSteamId64")))
+        killer_name = str(event.get("killerName") or "").strip()
+        victim_name = str(event.get("victimName") or "").strip()
+        if not (killer_steam_id or killer_name) or not (victim_steam_id or victim_name):
+            continue
+        kill_events.append(
+            {
+                "round_number": int(event.get("roundNumber", 0) or 0),
+                "tick": int(event.get("tick", 0) or 0),
+                "killer_steam_id": killer_steam_id,
+                "victim_steam_id": victim_steam_id,
+                "assister_steam_id": assister_steam_id,
+                "killer_name": killer_name,
+                "victim_name": victim_name,
+                "assister_name": str(event.get("assisterName") or "").strip(),
+                "killer_side": _side(event.get("killerSide")),
+                "victim_side": _side(event.get("victimSide")),
+                "assister_side": _side(event.get("assisterSide")),
+                "weapon": str(event.get("weaponName") or event.get("weapon") or "").strip(),
+                "headshot": int(bool(event.get("isHeadshot"))),
+                "assisted_flash": int(bool(event.get("isAssistedFlash"))),
+            }
+        )
+        if event.get("isAssistedFlash") and assister_steam_id:
+            item = flash_metrics[assister_steam_id]
+            item["steam_id"] = assister_steam_id
+            item["name"] = str(event.get("assisterName") or "").strip()
+            item["flash_assists"] += 1
+
+    for event in match_data.get("playersFlashed", []) or []:
+        if not isinstance(event, dict):
+            continue
+        duration = max(0.0, float(event.get("duration", 0) or 0))
+        flasher_steam_id = _steam_id(event.get("flasherSteamId"))
+        flashed_steam_id = _steam_id(event.get("flashedSteamId"))
+        flasher_side = _side(event.get("flasherSide"))
+        flashed_side = _side(event.get("flashedSide"))
+        if flasher_steam_id:
+            item = flash_metrics[flasher_steam_id]
+            item["steam_id"] = flasher_steam_id
+            item["name"] = str(event.get("flasherName") or "").strip()
+            if flasher_side and flashed_side and flasher_side != flashed_side:
+                item["enemy_seconds"] += duration
+                item["enemies_flashed"] = (item.get("enemies_flashed") or 0) + 1
+        if flashed_steam_id:
+            item = flash_metrics[flashed_steam_id]
+            item["steam_id"] = flashed_steam_id
+            item["name"] = str(event.get("flashedName") or "").strip()
+            item["blinded_seconds"] += duration
+
+    _count_flash_throws(match_data, flash_metrics)
+    from src.website.domains.statistics.stats_calc import (
+        HLTV2_ESTIMATE_METHOD,
+        HLTV2_ESTIMATE_SOURCE,
+    )
+
+    event_fields = (
+        "rounds",
+        "kills",
+        "clutches",
+        "damages",
+        "playerEconomies",
+        "playersBuy",
+        "bombsPlanted",
+        "bombsDefused",
+        "bombsExploded",
+        "flashbangsExplode",
+        "playersFlashed",
+        "heGrenadesExplode",
+        "smokesStart",
+    )
+    return {
+        "analysis": {
+            "schema_version": 2,
+            "parser": "cs-demo-analyzer",
+            "parser_version": (match_data.get("analysisMetadata") or {}).get("parser_version"),
+            "demo_checksum": match_data.get("checksum"),
+            "rating_method": HLTV2_ESTIMATE_METHOD,
+            "impact_method": HLTV2_ESTIMATE_METHOD,
+            "method_source": HLTV2_ESTIMATE_SOURCE,
+            "official_hltv_formula": False,
+            "event_availability": {
+                field: isinstance(match_data.get(field), list) for field in event_fields
+            },
+        },
+        "raw_events": {
+            field: [dict(event) for event in match_data[field] if isinstance(event, dict)]
+            if isinstance(match_data.get(field), list)
+            else None
+            for field in event_fields
+        },
+        "player_metrics": list(player_stats or []),
+        "kill_events": kill_events,
+        "flash_metrics": [
+            {
+                **item,
+                "blinded_seconds": round(item["blinded_seconds"], 3)
+                if item["blinded_seconds"] is not None
+                else None,
+                "enemy_seconds": round(item["enemy_seconds"], 3)
+                if item["enemy_seconds"] is not None
+                else None,
+            }
+            for item in flash_metrics.values()
+        ],
+    }
+
+
+def _player_identity_maps(conn):
+    players = conn.execute("SELECT id, nickname, steam_id FROM players").fetchall()
+    by_steam = {}
+    names = defaultdict(set)
+    for player in players:
+        steam_id = _steam_id(player["steam_id"])
+        if steam_id:
+            by_steam[steam_id] = player["id"]
+        nickname = str(player["nickname"] or "").strip().casefold()
+        if nickname:
+            names[nickname].add(player["id"])
+    for alias in conn.execute("SELECT player_id, nickname FROM player_nickname_history").fetchall():
+        nickname = str(alias["nickname"] or "").strip().casefold()
+        if nickname:
+            names[nickname].add(alias["player_id"])
+    by_name = {
+        nickname: next(iter(player_ids))
+        for nickname, player_ids in names.items()
+        if len(player_ids) == 1
+    }
+    return by_steam, by_name
+
+
+def _player_id(by_steam, by_name, steam_id, name):
+    steam_id = _steam_id(steam_id)
+    if steam_id and steam_id in by_steam:
+        return by_steam[steam_id]
+    return by_name.get(str(name or "").strip().casefold())
+
+
+def _match_player_id(conn, by_steam, by_name, match_id, map_name, steam_id, name):
+    """Resolve imported identities against the player row used by this map.
+
+    Historical data can be transferred to another website player while the
+    Demo still contains the original Steam ID. Prefer the normal identity when
+    it owns a stats row for this map. Otherwise, use a unique nickname-history
+    owner that does own the row. This keeps old aliases useful without globally
+    merging two active player accounts.
+    """
+    primary_id = _player_id(by_steam, by_name, steam_id, name)
+    if primary_id:
+        row = conn.execute(
+            """
+            SELECT 1 FROM match_stats
+            WHERE match_id=? AND map_name=? COLLATE NOCASE AND player_id=?
+              AND COALESCE(data_status, 'final') <> 'superseded'
+            LIMIT 1
+            """,
+            (match_id, str(map_name or "").strip(), primary_id),
+        ).fetchone()
+        if row:
+            return primary_id
+
+    nickname = str(name or "").strip()
+    if nickname:
+        rows = conn.execute(
+            """
+            SELECT DISTINCT ms.player_id
+            FROM match_stats ms
+            JOIN players p ON p.id = ms.player_id
+            LEFT JOIN player_nickname_history history
+              ON history.player_id = ms.player_id
+            WHERE ms.match_id=?
+              AND ms.map_name=? COLLATE NOCASE
+              AND COALESCE(ms.data_status, 'final') <> 'superseded'
+              AND (
+                TRIM(p.nickname)=? COLLATE NOCASE
+                OR TRIM(history.nickname)=? COLLATE NOCASE
+              )
+            """,
+            (match_id, str(map_name or "").strip(), nickname, nickname),
+        ).fetchall()
+        candidates = {row["player_id"] for row in rows}
+        if len(candidates) == 1:
+            return next(iter(candidates))
+
+    return primary_id
+
+
+def persist_demo_performance_payload(conn, match_id, map_name, payload):
+    """Persist compact kill and flash data for one imported map."""
+    map_name = str(map_name or "").strip()
+    by_steam, by_name = _player_identity_maps(conn)
+    affected_player_ids = set()
+
+    conn.execute(
+        "DELETE FROM match_kill_events WHERE match_id=? AND map_name=?",
+        (match_id, map_name),
+    )
+    for event in (payload or {}).get("kill_events", []) or []:
+        killer_player_id = _match_player_id(
+            conn,
+            by_steam,
+            by_name,
+            match_id,
+            map_name,
+            event.get("killer_steam_id"),
+            event.get("killer_name"),
+        )
+        victim_player_id = _match_player_id(
+            conn,
+            by_steam,
+            by_name,
+            match_id,
+            map_name,
+            event.get("victim_steam_id"),
+            event.get("victim_name"),
+        )
+        assister_player_id = _match_player_id(
+            conn,
+            by_steam,
+            by_name,
+            match_id,
+            map_name,
+            event.get("assister_steam_id"),
+            event.get("assister_name"),
+        )
+        affected_player_ids.update(
+            player_id
+            for player_id in (killer_player_id, victim_player_id, assister_player_id)
+            if player_id
+        )
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO match_kill_events(
+                match_id, map_name, round_number, tick,
+                killer_player_id, victim_player_id, assister_player_id,
+                killer_steam_id, victim_steam_id, assister_steam_id,
+                killer_name, victim_name, assister_name,
+                killer_side, victim_side, assister_side,
+                weapon, headshot, assisted_flash
+            ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            """,
+            (
+                match_id,
+                map_name,
+                int(event.get("round_number", 0) or 0),
+                int(event.get("tick", 0) or 0),
+                killer_player_id,
+                victim_player_id,
+                assister_player_id,
+                _steam_id(event.get("killer_steam_id")),
+                _steam_id(event.get("victim_steam_id")),
+                _steam_id(event.get("assister_steam_id")),
+                str(event.get("killer_name") or "").strip(),
+                str(event.get("victim_name") or "").strip(),
+                str(event.get("assister_name") or "").strip(),
+                _side(event.get("killer_side")),
+                _side(event.get("victim_side")),
+                _side(event.get("assister_side")),
+                str(event.get("weapon") or "").strip(),
+                int(bool(event.get("headshot"))),
+                int(bool(event.get("assisted_flash"))),
+            ),
+        )
+
+    for metric in (payload or {}).get("flash_metrics", []) or []:
+        player_id = _match_player_id(
+            conn,
+            by_steam,
+            by_name,
+            match_id,
+            map_name,
+            metric.get("steam_id"),
+            metric.get("name"),
+        )
+        if not player_id:
+            continue
+        affected_player_ids.add(player_id)
+        conn.execute(
+            """
+            UPDATE match_stats
+            SET flash_blinded_seconds=COALESCE(?, flash_blinded_seconds),
+                flash_enemy_seconds=COALESCE(?, flash_enemy_seconds),
+                flash_assists=COALESCE(?, flash_assists),
+                flash_count=COALESCE(?, flash_count),
+                flash_count_recorded=CASE WHEN ? IS NOT NULL THEN 1 ELSE flash_count_recorded END,
+                enemies_flashed=COALESCE(?, enemies_flashed)
+            WHERE match_id=? AND map_name=? AND player_id=?
+              AND COALESCE(data_status, 'final') <> 'superseded'
+            """,
+            (
+                _optional_float(metric.get("blinded_seconds")),
+                _optional_float(metric.get("enemy_seconds")),
+                _optional_int(metric.get("flash_assists")),
+                _optional_int(metric.get("flash_count")),
+                _optional_int(metric.get("flash_count")),
+                _optional_int(metric.get("enemies_flashed")),
+                match_id,
+                map_name,
+                player_id,
+            ),
+        )
+    return affected_player_ids
+
+
+def backfill_demo_performance(conn, match_id, map_name, match_data):
+    """Offline migration helper for existing CSDA cache files."""
+    from src.website.domains.demos.demo_parser import parse_player_stats
+
+    by_steam, by_name = _player_identity_maps(conn)
+    affected_player_ids = set()
+    conn.execute(
+        """
+        UPDATE match_stats
+        SET clutch_1v1=0, clutch_1v2=0, clutch_1v3=0,
+            clutch_1v4=0, clutch_1v5=0, clutches_won=0,
+            rws_basic=0
+        WHERE match_id=? AND map_name=? COLLATE NOCASE
+          AND COALESCE(data_status, 'final') <> 'superseded'
+        """,
+        (match_id, str(map_name or "").strip()),
+    )
+    for stat in parse_player_stats(match_data):
+        player_id = _match_player_id(
+            conn,
+            by_steam,
+            by_name,
+            match_id,
+            map_name,
+            stat.get("steam_id"),
+            stat.get("name"),
+        )
+        if not player_id:
+            continue
+        affected_player_ids.add(player_id)
+        conn.execute(
+            """
+            UPDATE match_stats
+            SET clutch_1v1=?, clutch_1v2=?, clutch_1v3=?,
+                clutch_1v4=?, clutch_1v5=?, clutches_won=?,
+                rws_basic=?
+            WHERE match_id=? AND map_name=? COLLATE NOCASE AND player_id=?
+              AND COALESCE(data_status, 'final') <> 'superseded'
+            """,
+            (
+                int(stat.get("clutch_1v1", 0) or 0),
+                int(stat.get("clutch_1v2", 0) or 0),
+                int(stat.get("clutch_1v3", 0) or 0),
+                int(stat.get("clutch_1v4", 0) or 0),
+                int(stat.get("clutch_1v5", 0) or 0),
+                int(stat.get("clutches_won", 0) or 0),
+                float(stat.get("rws_basic", 0) or 0),
+                match_id,
+                map_name,
+                player_id,
+            ),
+        )
+    affected_player_ids.update(
+        persist_demo_performance_payload(
+            conn,
+            match_id,
+            map_name,
+            build_demo_performance_payload(match_data),
+        )
+    )
+    refresh_player_performance(conn, affected_player_ids)
+    return len(affected_player_ids)

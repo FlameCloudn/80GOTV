@@ -17,7 +17,8 @@ import urllib.error
 import urllib.request
 
 from config import Config
-from utils.demo_parser import find_csda, get_match_info, parse_player_stats
+from src.website.domains.demos.demo_parser import get_match_info, parse_player_stats
+from src.website.domains.demos.demo_runner import find_csda
 
 logger = logging.getLogger("80gotv.gotv_relay")
 
@@ -150,7 +151,7 @@ class GotvRelay:
                 },
                 method="POST",
             )
-            with urllib.request.urlopen(req, timeout=5) as resp:
+            with urllib.request.urlopen(req, timeout=5):
                 self.push_count += 1
                 pl_count = len(payload.get("players", []))
                 logger.info(
@@ -166,6 +167,7 @@ class GotvRelay:
 
     def read_loop(self):
         """持续读取 GOTV 数据流"""
+        assert self.sock is not None and self.demo_path is not None
         self.running = True
         self.last_push = time.time()
         PUSH_INTERVAL = 5
@@ -219,12 +221,12 @@ class GotvRelay:
         if self.sock:
             try:
                 self.sock.close()
-            except:
+            except OSError:
                 pass
         if self.demo_path:
             try:
                 os.remove(self.demo_path)
-            except:
+            except OSError:
                 pass
 
 
@@ -232,7 +234,9 @@ def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] GOTV: %(message)s")
 
     if len(sys.argv) < 3:
-        print("用法: python -m integrations.gotv_relay.relay <match_id> <gotv_host:port> [--api URL]")
+        print(
+            "用法: python -m integrations.gotv_relay.relay <match_id> <gotv_host:port> [--api URL]"
+        )
         print("GOTV 端口通常 = 游戏端口 + 1，如服务器 :27015 → GOTV :27016")
         print("示例: python -m integrations.gotv_relay.relay 8 127.0.0.1:27016")
         sys.exit(1)

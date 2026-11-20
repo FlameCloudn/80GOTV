@@ -1,0 +1,41 @@
+{# 6. 批准技术重赛（可选技术替补） #}
+<dialog class="roster-dialog ops-dialog-wide" id="techReplayDialog" aria-labelledby="techReplayDialogTitle">
+  <form method="dialog" id="techReplayForm">
+    <div class="roster-dialog-head">
+      <h3 id="techReplayDialogTitle">{{ msg('admin.operations.tech_replay_dialog.approve_technical_rematch') }}</h3>
+      <button type="button" class="btn btn-sm" data-close-dialog="techReplayDialog">{{ msg('admin.operations.tech_replay_dialog.close') }}</button>
+    </div>
+    <div class="roster-dialog-body">
+      <p id="techReplayContext" class="ops-dialog-meta"></p>
+      <div class="ops-callout-warn">
+        {{ msg('admin.operations.tech_replay_dialog.approving_a_technical_rematch_marks_the') }}<strong>{{ msg('admin.operations.tech_replay_dialog.void') }}</strong>{{ msg('admin.operations.tech_replay_dialog.clearing_it_from_scorebot_any_official') }}
+      </div>
+      <label class="field">
+        <span class="field-label">{{ msg('admin.operations.tech_replay_dialog.technical_fault_reason_required') }}</span>
+        <textarea id="techReplayReason" rows="3" maxlength="2000" placeholder="{{ msg('admin.operations.tech_replay_dialog.e_g_server_crashed_on_round') }}" required></textarea>
+      </label>
+      <label class="ops-checkbox-row">
+        <input type="checkbox" id="techReplaySubToggle">
+        <span>{{ msg('admin.operations.tech_replay_dialog.include_a_technical_substitute_assigned_team') }}</span>
+      </label>
+      <div id="techReplaySubFields" class="ops-sub-box" hidden>
+        <label class="field">
+          <span class="field-label">{{ msg('admin.operations.tech_replay_dialog.outgoing_player_effective_roster') }}</span>
+          <select id="techReplayOutgoing"></select>
+        </label>
+        <label class="field">
+          <span class="field-label">{{ msg('admin.operations.tech_replay_dialog.incoming_substitute_assigned_team_reserve') }}</span>
+          <select id="techReplayIncoming"></select>
+        </label>
+        <div id="techReplaySubCheck" class="ops-sub-check"></div>
+      </div>
+      <div id="techReplayRetentionBox" class="ops-retention-box" hidden></div>
+      <div id="techReplayError" class="roster-inline-error" role="alert" hidden></div>
+      <button type="button" class="btn btn-sm" id="techReplayReload" hidden>{{ msg('admin.operations.tech_replay_dialog.review_latest_result_without_discarding_edits') }}</button>
+    </div>
+    <div class="roster-dialog-foot">
+      <button type="button" class="btn" data-close-dialog="techReplayDialog">{{ msg('admin.operations.tech_replay_dialog.cancel') }}</button>
+      <button type="submit" class="btn btn-danger" id="techReplaySubmitBtn">{{ msg('admin.operations.tech_replay_dialog.approve_technical_rematch_2') }}</button>
+    </div>
+  </form>
+</dialog>

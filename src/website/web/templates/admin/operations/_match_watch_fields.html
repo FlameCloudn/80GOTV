@@ -1,0 +1,41 @@
+      {# ---------- 标签 4：直播与房间信息 ---------- #}
+      <div id="pane-broadcast" class="tab-pane">
+        {% if current_status != 'completed' or setup_editable %}
+        <label class="field">
+          <span class="field-label">{{ msg('admin.operations.matches_form.match_server_address') }}</span>
+          <input type="text" name="server_address" value="{{ (match.server_address or '') if match else '' }}" placeholder="{{ msg('admin.operations.matches_form.password_password_connect_server_ip_port') }}">
+          <span class="field-hint">{{ msg('admin.operations.matches_form.paste_a_tgpro_connect_command_it') }}</span>
+        </label>
+        {% endif %}
+
+        {% if setup_editable %}
+        <div class="field" id="bpModeSection">
+          <span class="field-label">{{ msg('admin.operations.matches_form.shared_online_veto_passcode') }}</span>
+          <input type="password" name="bp_password" autocomplete="new-password" aria-label="{{ msg('admin.operations.matches_form.shared_online_veto_passcode') }}"
+                 placeholder="{% if match and match.bp_password %}{{ msg('admin.operations.matches_form.leave_blank_to_keep_the_current') }}{% else %}{{ msg('admin.operations.matches_form.set_shared_veto_passcode_optional') }}{% endif %}">
+          <span class="field-hint">{{ msg('admin.operations.matches_form.rostered_players_verify_the_passcode_to') }}</span>
+          {% if match and match.bp_password %}
+          <label class="check-row"><input type="checkbox" name="clear_bp_password" value="1"> {{ msg('admin.operations.matches_form.clear_shared_veto_passcode') }}</label>
+          {% endif %}
+        </div>
+        {% endif %}
+
+        <label class="field">
+          <span class="field-label">{{ msg('admin.operations.matches_form.bilibili_live_room_link') }}</span>
+          <input type="url" name="stream_url" value="{{ (match.stream_url or '') if match else '' }}" placeholder="https://live.bilibili.com/ROOMID">
+        </label>
+
+        <div class="field">
+          <span class="field-label">{{ msg('admin.operations.matches_form.watch_platform_links') }}</span>
+          <div id="watchUrlContainer" class="watch-url-list"></div>
+          <div><button type="button" data-add-watch-url class="btn btn-sm">{{ msg('admin.operations.matches_form.add_platform') }}</button></div>
+          <span class="field-hint">{{ msg('admin.operations.matches_form.shown_on_the_public_page_as') }}</span>
+        </div>
+
+        {% if not is_new_match and current_status == 'completed' %}
+        <label class="field" id="bpProcessGroup">
+          <span class="field-label">{{ msg('admin.operations.matches_form.manual_map_veto_log') }}</span>
+          <textarea name="bp_process" rows="8" placeholder="{{ msg('admin.operations.matches_form.if_no_online_veto_was_used') }}">{{ match.bp_process if match else '' }}</textarea>
+        </label>
+        {% endif %}
+      </div>

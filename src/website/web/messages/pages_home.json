@@ -1,0 +1,134 @@
+{
+  "public.home.error.back_to_home": {
+    "zh": "返回首页",
+    "en": "Back to home"
+  },
+  "public.home.error.error_details_development_mode_only": {
+    "zh": "错误详情（仅开发模式可见）",
+    "en": "Error details (development mode only)"
+  },
+  "public.home.error.page_not_found": {
+    "zh": "页面未找到",
+    "en": "Page not found"
+  },
+  "public.home.error.page_not_found_80gotv": {
+    "zh": "页面走丢了 - 80GOTV",
+    "en": "Page not found - 80GOTV"
+  },
+  "public.home.error.server_error": {
+    "zh": "服务器错误",
+    "en": "Server error"
+  },
+  "public.home.error.something_went_wrong": {
+    "zh": "页面走丢了",
+    "en": "Something went wrong"
+  },
+  "public.home.error.sorry_something_went_wrong_please_try": {
+    "zh": "抱歉，出了点问题，请稍后重试。",
+    "en": "Sorry, something went wrong. Please try again later."
+  },
+  "public.home.error.the_server_ran_into_an_error": {
+    "zh": "服务器内部发生错误，请稍后再试。如持续出现，请联系管理员。",
+    "en": "The server ran into an error. Please try again later, and contact an admin if it keeps happening."
+  },
+  "public.home.error.this_page_does_not_exist_it": {
+    "zh": "你访问的页面不存在，可能已被删除或地址输入有误。",
+    "en": "This page does not exist. It may have been removed, or the address may be wrong."
+  },
+  "public.home.index.all": {
+    "zh": "全部",
+    "en": "All"
+  },
+  "public.home.index.comment_count_comments": {
+    "zh": "{comment_count} 评论",
+    "en": "{comment_count} comments"
+  },
+  "public.home.index.events": {
+    "zh": "赛事",
+    "en": "Events"
+  },
+  "public.home.index.featured_news": {
+    "zh": "焦点新闻",
+    "en": "Featured news"
+  },
+  "public.home.index.forum": {
+    "zh": "论坛",
+    "en": "Forum"
+  },
+  "public.home.index.live": {
+    "zh": "直播",
+    "en": "Live"
+  },
+  "public.home.index.no_data": {
+    "zh": "暂无数据",
+    "en": "No data"
+  },
+  "public.home.index.no_events": {
+    "zh": "暂无赛事",
+    "en": "No events"
+  },
+  "public.home.index.no_featured_news": {
+    "zh": "暂无焦点新闻",
+    "en": "No featured news"
+  },
+  "public.home.index.no_forum_activity_yet": {
+    "zh": "暂无论坛动态",
+    "en": "No forum activity yet"
+  },
+  "public.home.index.no_matches": {
+    "zh": "暂无比赛",
+    "en": "No matches"
+  },
+  "public.home.index.no_more_news": {
+    "zh": "暂无更多新闻",
+    "en": "No more news"
+  },
+  "public.home.index.no_results": {
+    "zh": "暂无赛果",
+    "en": "No results"
+  },
+  "public.home.index.open_event_registration": {
+    "zh": "进入赛事并报名",
+    "en": "Open event registration"
+  },
+  "public.home.index.players": {
+    "zh": "选手",
+    "en": "Players"
+  },
+  "public.home.index.publish_time_comments_comment_count": {
+    "zh": "{publish_time} · 评论 {comment_count}",
+    "en": "{publish_time} · Comments {comment_count}"
+  },
+  "public.home.index.ranking": {
+    "zh": "排行",
+    "en": "Ranking"
+  },
+  "public.home.index.recent_activity": {
+    "zh": "近期动态",
+    "en": "Recent activity"
+  },
+  "public.home.index.recent_results": {
+    "zh": "近期赛果",
+    "en": "Recent results"
+  },
+  "public.home.index.today_s_matches": {
+    "zh": "今日比赛",
+    "en": "Today's matches"
+  },
+  "public.home.index.today_s_news": {
+    "zh": "今日新闻",
+    "en": "Today's news"
+  },
+  "public.home.index.wins": {
+    "zh": "{wins}胜",
+    "en": "{wins} wins"
+  },
+  "public.home.index.one_win": {
+    "zh": "{wins}胜",
+    "en": "{wins} win"
+  },
+  "public.home.index.view_all": {
+    "zh": "查看全部",
+    "en": "View all"
+  }
+}

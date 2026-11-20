@@ -1,0 +1,159 @@
+<h3 class="section-title mt-20">{{ msg('public.events.event_registration_list.registered_teams') }}</h3>
+{% if registrations %}
+<div class="event-reg-list">
+  {% for reg in registrations %}
+  {% set is_captain = session.user_id and reg.info.creator_user_id == session.user_id %}
+  {% set can_manage = regular_actions and (session.admin_id or is_captain) %}
+  {% set creator_private_remark = private_remark_for_user(reg.info.creator_user_id) if private_remark_for_user is defined else None %}
+  {% set creator_display_name = creator_private_remark or reg.info.creator_name or msg('public.events.event_registration_list.unknown_account') %}
+  <article class="event-reg-team" data-registration-id="{{ reg.info.id }}">
+    <div class="event-reg-team-head">
+      <div class="event-reg-team-logo-wrap">
+        {% if reg.info.team_logo %}
+        <img class="event-reg-team-logo"
+             src="{{ reg.info.team_logo|team_logo_url }}"
+             alt="{{ msg('public.events.event_registration_list.team_name_logo', team_name=reg.info.team_name) }}">
+        {% else %}
+        <span class="event-reg-team-logo event-reg-team-logo-fallback" aria-hidden="true">{{ reg.info.team_name|registration_team_abbr }}</span>
+        {% endif %}
+      </div>
+      <div class="event-reg-team-identity">
+        <span class="event-reg-team-name" data-i18n-ignore>{{ reg.info.team_name }}</span>
+        <span class="event-reg-team-creator">{{ msg('public.events.event_registration_list.captain_creator_display_name', creator_display_name=creator_display_name) }}{% if not creator_private_remark and reg.info.creator_group_username %} <b>@{{ reg.info.creator_group_username }}</b>{% endif %}</span>
+        {% if regular_actions and is_captain and not reg.info.team_logo %}<span class="event-reg-logo-hint">{{ msg('public.events.event_registration_list.upload_a_team_logo_from_captain') }}</span>{% endif %}
+      </div>
+      {% if can_manage %}
+      <details class="event-reg-team-manage">
+        <summary>{% if session.admin_id %}{{ msg('public.events.event_registration_list.admin_actions') }}{% else %}{{ msg('public.events.event_registration_list.captain_actions') }}{% endif %}</summary>
+        <div class="event-reg-team-manage-panel">
+          <form class="event-reg-ajax-form event-reg-logo-form"
+                action="/events/{{ event.id }}/registrations/{{ reg.info.id }}/logo"
+                method="POST"
+                enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <label>
+              <span>{{ msg('public.events.event_registration_list.team_logo') }}</span>
+              <input type="file" name="team_logo" accept="image/png,image/jpeg,image/gif,.png,.jpg,.jpeg,.gif" required
+                     aria-describedby="regLogoHint{{ reg.info.id }}" data-max-bytes="10485760" data-size-error="{{ msg('common.team_logo.file_too_large') }}" data-type-error="{{ msg('common.team_logo.unsupported_type') }}">
+            </label>
+            <span class="event-reg-file-hint" id="regLogoHint{{ reg.info.id }}">{{ msg('public.events.event_registration_list.png_jpg_jpeg_gif_up_to') }}</span>
+            <button type="submit" class="event-reg-control-btn">{% if reg.info.team_logo %}{{ msg('public.events.event_registration_list.change_team_logo') }}{% else %}{{ msg('public.events.event_registration_list.upload_team_logo') }}{% endif %}</button>
+          </form>
+          {% if reg.info.team_logo %}
+          <form class="event-reg-ajax-form event-reg-remove-logo-form"
+                action="/events/{{ event.id }}/registrations/{{ reg.info.id }}/logo/remove"
+                method="POST"
+                data-confirm="{{ msg('public.events.event_registration_list.remove_the_logo_for_team_name', team_name=reg.info.team_name) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="event-reg-remove-logo-btn">{{ msg('public.events.event_registration_list.remove_logo') }}</button>
+          </form>
+          {% endif %}
+          <form class="event-reg-ajax-form event-reg-rename-form"
+                action="/events/{{ event.id }}/registrations/{{ reg.info.id }}/rename"
+                method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <label>
+              <span>{{ msg('public.events.event_registration_list.team_name') }}</span>
+              <input name="team_name" value="{{ reg.info.team_name }}" maxlength="40" required>
+            </label>
+            <button type="submit" class="event-reg-control-btn">{{ msg('public.events.event_registration_list.save_team_name') }}</button>
+          </form>
+          <form class="event-reg-ajax-form"
+                action="/events/{{ event.id }}/registrations/{{ reg.info.id }}/dissolve"
+                method="POST"
+                data-confirm="{{ msg('public.events.event_registration_list.disband_team_name_its_roster_slots', team_name=reg.info.team_name) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="event-reg-control-btn is-danger">{{ msg('public.events.event_registration_list.disband_team') }}</button>
+          </form>
+        </div>
+      </details>
+      {% endif %}
+    </div>
+
+    <div class="event-reg-slots">
+      {% for slot in reg.slots %}
+      {% set slot_is_captain = slot.user_id and slot.user_id == reg.info.creator_user_id %}
+      {% set slot_has_name = slot.user_id or slot.filled_by_creator %}
+      {% set slot_private_remark = private_remark_for_user(slot.user_id) if private_remark_for_user is defined and slot.user_id else '' %}
+      {% set slot_display_name = slot_private_remark or slot.user_username or slot.player_name %}
+      <div class="event-reg-slot {% if slot.user_id %}is-filled{% elif slot.filled_by_creator %}is-reserved{% else %}is-empty{% endif %}">
+        <div class="event-reg-slot-index">{{ msg('public.events.event_registration_list.slot_value1', value1=slot.slot_index + 1) }}</div>
+        {% if slot_has_name %}
+          <div class="event-reg-slot-player" title="{{ slot_display_name }}" data-i18n-ignore>
+            {{ slot_display_name }}{% if not slot_private_remark and slot.group_username %} <b>@{{ slot.group_username }}</b>{% endif %}
+          </div>
+          <div class="event-reg-slot-role">
+            {% if slot_is_captain %}{{ msg('public.events.event_registration_list.captain') }}{% elif slot.user_id %}{{ msg('public.events.event_registration_list.member') }}{% else %}{{ msg('public.events.event_registration_list.reserved') }}{% endif %}
+          </div>
+        {% else %}
+          <div class="event-reg-slot-player">{{ msg('public.events.event_registration_list.empty') }}</div>
+          <div class="event-reg-slot-role">{{ msg('public.events.event_registration_list.waiting_for_player') }}</div>
+        {% endif %}
+
+        {% if regular_actions %}<div class="event-reg-slot-actions">
+          {% if slot_has_name and ((session.admin_id and not entrant_event) or ((session.admin_id or is_captain) and not slot.user_id)) %}
+          <details class="event-reg-slot-edit">
+            <summary>{{ msg('public.events.event_registration_list.change') }}</summary>
+            <form class="event-reg-ajax-form"
+                  action="/events/{{ event.id }}/registrations/{{ reg.info.id }}/slots/{{ slot.slot_index }}/update"
+                  method="POST">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <input name="player_name" value="{{ slot.player_name }}" maxlength="40" placeholder="{{ msg('public.events.event_registration_list.player_name') }}">
+              <input name="steam_id" value="{{ slot.steam_id or '' }}" maxlength="17" inputmode="numeric" placeholder="{{ msg('public.events.event_registration_list.steamid_optional') }}">
+              <button type="submit" class="event-reg-control-btn">{{ msg('public.events.event_registration_list.save') }}</button>
+            </form>
+          </details>
+          {% endif %}
+
+          {% if can_manage and slot_has_name and not slot_is_captain %}
+          {% if session.admin_id and slot.user_id %}
+          <form class="event-reg-ajax-form"
+                action="/events/{{ event.id }}/registrations/{{ reg.info.id }}/slots/{{ slot.slot_index }}/captain"
+                method="POST"
+                data-confirm="{{ msg('public.events.event_registration_list.make_slot_display_name_captain_the', slot_display_name=slot_display_name) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="event-reg-captain-btn">{{ msg('public.events.event_registration_list.make_captain') }}</button>
+          </form>
+          {% endif %}
+          <form class="event-reg-ajax-form"
+                action="/events/{{ event.id }}/registrations/{{ reg.info.id }}/slots/{{ slot.slot_index }}/remove"
+                method="POST"
+                data-confirm="{{ msg('public.events.event_registration_list.remove_slot_display_name', slot_display_name=slot_display_name) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="event-reg-leave-btn">{{ msg('public.events.event_registration_list.remove') }}</button>
+          </form>
+          {% elif slot.user_id and session.user_id and slot.user_id == session.user_id and not slot_is_captain %}
+          <form class="event-reg-ajax-form"
+                method="POST"
+                action="/events/{{ event.id }}/leave/{{ reg.info.id }}/{{ slot.slot_index }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="event-reg-leave-btn">{{ msg('public.events.event_registration_list.leave_slot') }}</button>
+          </form>
+          {% endif %}
+
+          {% if not slot.user_id %}
+            {% if session.user_id and current_user and current_user.steam_id64 %}
+            <form class="event-reg-ajax-form"
+                  method="POST"
+                  action="/events/{{ event.id }}/join/{{ reg.info.id }}/{{ slot.slot_index }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button type="submit" class="event-reg-join-btn">{{ msg('public.events.event_registration_list.join_this_slot') }}</button>
+            </form>
+            {% elif session.user_id %}
+              <a href="/profile" class="event-reg-action-link">{{ msg('public.events.event_registration_list.link_steam') }}</a>
+            {% elif session.admin_id %}
+              <span class="event-reg-disabled-text">{{ msg('public.events.event_registration_list.admins_cannot_join') }}</span>
+            {% else %}
+              <a href="{{ url_for('user_login', next=event_login_next) }}" class="event-reg-action-link">{{ msg('public.events.event_registration_list.log_in_to_join') }}</a>
+            {% endif %}
+          {% endif %}
+        </div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% else %}
+<div class="event-reg-empty">{{ msg('public.events.event_registration_list.no_teams_have_registered_yet') }}</div>
+{% endif %}

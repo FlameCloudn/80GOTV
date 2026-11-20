@@ -1,0 +1,87 @@
+{# 4. 登记选手出场 #}
+<dialog class="roster-dialog" id="recordPartDialog" aria-labelledby="recordPartDialogTitle">
+  <form method="dialog" id="recordPartForm">
+    <div class="roster-dialog-head">
+      <h3 id="recordPartDialogTitle">{{ msg('admin.operations.participation_dialogs.record_player_participation') }}</h3>
+      <button type="button" class="btn btn-sm" data-close-dialog="recordPartDialog">{{ msg('admin.operations.participation_dialogs.close') }}</button>
+    </div>
+    <div class="roster-dialog-body">
+      <p id="recordPartContext" class="ops-dialog-meta"></p>
+      <label class="field">
+        <span class="field-label">{{ msg('admin.operations.participation_dialogs.approved_lineup_player') }}</span>
+        <select id="recordPartPlayerSelect" required></select>
+      </label>
+      <div class="ops-two-col">
+        <label class="field">
+          <span class="field-label">{{ msg('admin.operations.participation_dialogs.observed_round_optional') }}</span>
+          <input type="number" id="recordPartRound" min="1" max="1000" placeholder="{{ msg('admin.operations.participation_dialogs.example_1') }}">
+        </label>
+        <label class="field">
+          <span class="field-label">{{ msg('admin.operations.participation_dialogs.side_optional_with_round') }}</span>
+          <select id="recordPartSide">
+            <option value="">{{ msg('admin.operations.participation_dialogs.unspecified') }}</option>
+            <option value="CT">CT</option>
+            <option value="T">T</option>
+          </select>
+        </label>
+      </div>
+      <label class="field">
+        <span class="field-label">{{ msg('admin.operations.participation_dialogs.reason_required') }}</span>
+        <textarea id="recordPartReason" rows="2" maxlength="2000" placeholder="{{ msg('admin.operations.participation_dialogs.e_g_verified_player_active_in') }}" required></textarea>
+      </label>
+      <div id="recordPartError" class="roster-inline-error" role="alert" hidden></div>
+    </div>
+    <div class="roster-dialog-foot">
+      <button type="button" class="btn" data-close-dialog="recordPartDialog">{{ msg('admin.operations.participation_dialogs.cancel') }}</button>
+      <button type="submit" class="btn btn-primary">{{ msg('admin.operations.participation_dialogs.confirm_participation') }}</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="roster-dialog" id="batchPartDialog" aria-labelledby="batchPartDialogTitle">
+  <form method="dialog" id="batchPartForm">
+    <div class="roster-dialog-head">
+      <h3 id="batchPartDialogTitle">{{ msg('admin.operations.participation_dialogs.record_multiple_appearances') }}</h3>
+      <button type="button" class="btn btn-sm" data-close-dialog="batchPartDialog">{{ msg('admin.operations.participation_dialogs.close') }}</button>
+    </div>
+    <div class="roster-dialog-body">
+      <p id="batchPartContext" class="ops-dialog-meta"></p>
+      <fieldset id="batchPartFields" class="batch-part-fields">
+        <legend class="field-label">{{ msg('admin.operations.participation_dialogs.select_the_players_who_played_in') }}</legend>
+        <label class="check-row"><input type="checkbox" id="batchPartAll"><span>{{ msg('admin.operations.participation_dialogs.select_all') }}</span></label>
+        <div class="batch-part-sides" id="batchPartPlayerList"></div>
+        <label class="field">
+          <span class="field-label">{{ msg('admin.operations.participation_dialogs.reason_for_recording') }}</span>
+          <textarea id="batchPartReason" rows="2" maxlength="2000" required></textarea>
+        </label>
+      </fieldset>
+      <div id="batchPartError" class="roster-inline-error" role="alert" hidden></div>
+    </div>
+    <div class="roster-dialog-foot">
+      <button type="button" class="btn" data-close-dialog="batchPartDialog">{{ msg('admin.operations.participation_dialogs.cancel') }}</button>
+      <button type="submit" class="btn btn-primary" id="batchPartSubmitBtn" disabled>{{ msg('admin.operations.participation_dialogs.confirm_participation') }}</button>
+    </div>
+  </form>
+</dialog>
+
+{# 5. 撤回 / 恢复选手出场 #}
+<dialog class="roster-dialog" id="reviewPartDialog" aria-labelledby="reviewPartDialogTitle">
+  <form method="dialog" id="reviewPartForm">
+    <div class="roster-dialog-head">
+      <h3 id="reviewPartDialogTitle">{{ msg('admin.operations.participation_dialogs.review_participation') }}</h3>
+      <button type="button" class="btn btn-sm" data-close-dialog="reviewPartDialog">{{ msg('admin.operations.participation_dialogs.close') }}</button>
+    </div>
+    <div class="roster-dialog-body">
+      <p id="reviewPartContext" class="ops-dialog-meta"></p>
+      <label class="field">
+        <span class="field-label">{{ msg('admin.operations.participation_dialogs.reason_required_2') }}</span>
+        <textarea id="reviewPartReason" rows="3" maxlength="2000" placeholder="{{ msg('admin.operations.participation_dialogs.explain_why_participation_is_being_withdrawn') }}" required></textarea>
+      </label>
+      <div id="reviewPartError" class="roster-inline-error" role="alert" hidden></div>
+    </div>
+    <div class="roster-dialog-foot">
+      <button type="button" class="btn" data-close-dialog="reviewPartDialog">{{ msg('admin.operations.participation_dialogs.cancel') }}</button>
+      <button type="submit" class="btn btn-primary" id="reviewPartSubmitBtn">{{ msg('admin.operations.participation_dialogs.confirm') }}</button>
+    </div>
+  </form>
+</dialog>

@@ -1,0 +1,39 @@
+{#-
+  后台所有页面共用的外壳：顶栏（站标、查看前台、主题、语言、账号、退出）+ 左侧分组导航 + 正文。
+  和前台同一套设计变量与组件；后台排版从 admin-style 入口加载。
+  页面写法：{% extends "layouts/admin.html" %}，内容放 {% block main %}，页面脚本放 {% block scripts %}。
+-#}
+<!doctype html>
+<html lang="{{ site_language_tag }}">
+<head>
+  {% include "layouts/_standalone_head.html" %}
+  <meta name="csrf-token" content="{{ csrf_token }}">
+  <title>{% block title %}{{ msg('layouts.admin.admin') }}{% endblock %} {{ msg('layouts.admin.80gotv_admin') }}</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="16x16 32x32 48x48">
+  {{ frontend_entry('site-styles') }}
+
+  {{ frontend_entry('admin-style') }}
+  {% block head %}{% endblock %}
+</head>
+{#- data-admin-key：草稿按管理员账号分开存（admin_form_draft.js），不同账号互相看不到 -#}
+<body class="admin-body {% block body_class %}{% endblock %}" data-admin-key="{{ session.get('admin_id', '') }}:{{ session.get('admin_username', '') }}">
+{% include "layouts/_admin_top_nav.html" %}
+<div class="admin-shell">
+  {% include "layouts/_admin_side_nav.html" %}
+  <main class="admin-main" id="adminMain">
+    {% include "components/_flashes.html" %}
+    {% block main %}{% endblock %}
+  </main>
+</div>
+<script type="application/json" data-site-messages>{{ client_messages('site_dialogs')|tojson }}</script>
+{{ frontend_entry('site-dialogs') }}
+
+<script type="application/json" data-site-messages>{{ client_messages('admin_form_guard')|tojson }}</script>
+
+<script type="application/json" data-site-messages>{{ client_messages('admin_form_draft')|tojson }}</script>
+
+<script type="application/json" data-site-messages>{{ client_messages('admin')|tojson }}</script>
+{{ frontend_entry('admin-shell') }}
+{% block scripts %}{% endblock %}
+</body>
+</html>

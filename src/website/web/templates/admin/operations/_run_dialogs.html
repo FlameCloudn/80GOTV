@@ -1,0 +1,62 @@
+
+{# 1. 登记实际开局 / 开启重赛新局 #}
+<dialog class="roster-dialog" id="startRunDialog" aria-labelledby="startRunDialogTitle">
+  <form method="dialog" id="startRunForm">
+    <div class="roster-dialog-head">
+      <h3 id="startRunDialogTitle">{{ msg('admin.operations.run_dialogs.start_map_run') }}</h3>
+      <button type="button" class="btn btn-sm" data-close-dialog="startRunDialog">{{ msg('admin.operations.run_dialogs.close') }}</button>
+    </div>
+    <div class="roster-dialog-body">
+      <p id="startRunContext" class="ops-dialog-meta"></p>
+      <div id="startRunReplayNote" class="ops-callout-note" hidden></div>
+      <label class="field">
+        <span class="field-label">{{ msg('admin.operations.run_dialogs.start_evidence_required') }}</span>
+        <textarea id="startRunEvidence" rows="3" maxlength="2000" placeholder="{{ msg('admin.operations.run_dialogs.e_g_verified_pistol_round_live') }}" required></textarea>
+      </label>
+      <div id="startRunError" class="roster-inline-error" role="alert" hidden></div>
+    </div>
+    <div class="roster-dialog-foot">
+      <button type="button" class="btn" data-close-dialog="startRunDialog">{{ msg('admin.operations.run_dialogs.cancel') }}</button>
+      <button type="submit" class="btn btn-primary" id="startRunSubmitBtn">{{ msg('admin.operations.run_dialogs.confirm_start') }}</button>
+    </div>
+  </form>
+</dialog>
+
+{# 2. 绑定独立导播会话 #}
+<dialog class="roster-dialog" id="bindDirectorDialog" aria-labelledby="bindDirectorDialogTitle">
+  <form method="dialog" id="bindDirectorForm">
+    <div class="roster-dialog-head">
+      <h3 id="bindDirectorDialogTitle">{{ msg('admin.operations.run_dialogs.bind_director_session') }}</h3>
+      <button type="button" class="btn btn-sm" data-close-dialog="bindDirectorDialog">{{ msg('admin.operations.run_dialogs.close') }}</button>
+    </div>
+    <div class="roster-dialog-body">
+      <p id="bindDirectorContext" class="ops-dialog-meta"></p>
+      <p class="field-hint">{{ msg('admin.operations.run_dialogs.restarting_the_director_with_the_same') }}</p>
+      <label class="field">
+        <span class="field-label">{{ msg('admin.operations.run_dialogs.director_session_id_required') }}</span>
+        <input type="text" id="bindDirectorSessionId" maxlength="120" placeholder="{{ msg('admin.operations.run_dialogs.e_g_dir_session_map2_replay') }}" required>
+      </label>
+      <label class="field">
+        <span class="field-label">{{ msg('admin.operations.run_dialogs.verification_reason_required') }}</span>
+        <textarea id="bindDirectorReason" rows="2" maxlength="2000" placeholder="{{ msg('admin.operations.run_dialogs.explain_how_this_director_session_was') }}" required></textarea>
+      </label>
+      <div id="bindDirectorError" class="roster-inline-error" role="alert" hidden></div>
+    </div>
+    <div class="roster-dialog-foot">
+      <button type="button" class="btn" data-close-dialog="bindDirectorDialog">{{ msg('admin.operations.run_dialogs.cancel') }}</button>
+      <button type="submit" class="btn btn-primary">{{ msg('admin.operations.run_dialogs.confirm_binding') }}</button>
+    </div>
+  </form>
+</dialog>
+
+{# 3. 查看导播回执 #}
+<dialog class="roster-dialog ops-dialog-wide" id="directorReceiptsDialog" aria-labelledby="directorReceiptsTitle">
+  <div class="roster-dialog-head">
+    <h3 id="directorReceiptsTitle">{{ msg('admin.operations.run_dialogs.director_terminal_receipts') }}</h3>
+    <button type="button" class="btn btn-sm" data-close-dialog="directorReceiptsDialog">{{ msg('admin.operations.run_dialogs.close') }}</button>
+  </div>
+  <div class="roster-dialog-body" id="directorReceiptsBody"></div>
+  <div class="roster-dialog-foot">
+    <button type="button" class="btn" data-close-dialog="directorReceiptsDialog">{{ msg('admin.operations.run_dialogs.close') }}</button>
+  </div>
+</dialog>

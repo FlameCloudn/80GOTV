@@ -1,0 +1,179 @@
+{#- 7. 操作弹窗（原生 dialog） -#}
+<dialog id="dialogReviewReservation" class="roster-dialog" aria-labelledby="reviewDialogTitle">
+  <form method="dialog" class="roster-dialog-form" id="reviewReservationForm">
+    <div class="roster-dialog-head">
+      <h3 id="reviewDialogTitle">{{ msg('admin.events.event_roster.review_reserved_slot') }}</h3>
+      <button type="button" class="btn btn-sm btn-icon" data-dialog-close aria-label="{{ msg('admin.events.event_roster.close') }}">{{ ui.icon('close') }}</button>
+    </div>
+    <div class="roster-dialog-body">
+      <p id="reviewDialogSummary" class="lock-note" data-i18n-ignore></p>
+      <label class="field">
+        <span class="field-label">{{ msg('admin.events.event_roster.reason_2') }} <span class="field-required">*</span></span>
+        <input type="text" id="reviewReasonInput" maxlength="300" placeholder="{{ msg('admin.events.event_roster.e_g_verified_by_captain_unreachable') }}" required>
+      </label>
+      <p class="dialog-error" id="reviewDialogError" role="alert" hidden></p>
+    </div>
+    <div class="roster-dialog-actions">
+      <button type="button" class="btn" data-dialog-close>{{ msg('admin.events.event_roster.cancel') }}</button>
+      <button type="submit" class="btn btn-primary" id="reviewSubmitBtn" disabled>{{ msg('admin.events.event_roster.confirm') }}</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dialogConfirmInitial" class="roster-dialog" aria-labelledby="confirmInitialTitle">
+  <form method="dialog" class="roster-dialog-form" id="confirmInitialForm">
+    <div class="roster-dialog-head">
+      <h3 id="confirmInitialTitle">{{ msg('admin.events.event_roster.confirm_initial_roster_2') }}</h3>
+      <button type="button" class="btn btn-sm btn-icon" data-dialog-close aria-label="{{ msg('admin.events.event_roster.close') }}">{{ ui.icon('close') }}</button>
+    </div>
+    <div class="roster-dialog-body">
+      <p class="lock-note">{{ ui.icon('alert') }}{{ msg('admin.events.event_roster.once_confirmed_these_players_become_the') }}</p>
+      <div id="confirmInitialPreview" class="confirm-initial-list"></div>
+      <p class="dialog-error" id="confirmInitialError" role="alert" hidden></p>
+    </div>
+    <div class="roster-dialog-actions">
+      <button type="button" class="btn" data-dialog-close>{{ msg('admin.events.event_roster.cancel') }}</button>
+      <button type="submit" class="btn btn-primary" id="confirmInitialSubmitBtn">{{ msg('admin.events.event_roster.confirm_initial_roster') }}</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dialogAdjustFormation" class="roster-dialog roster-dialog-wide" aria-labelledby="adjustFormationTitle">
+  <form method="dialog" class="roster-dialog-form" id="adjustFormationForm">
+    <div class="roster-dialog-head">
+      <h3 id="adjustFormationTitle">{{ msg('admin.events.event_roster.adjust_formation_before_initial_lock') }}</h3>
+      <button type="button" class="btn btn-sm btn-icon" data-dialog-close aria-label="{{ msg('admin.events.event_roster.close') }}">{{ ui.icon('close') }}</button>
+    </div>
+    <div class="roster-dialog-body">
+      <p class="field-hint">{{ msg('admin.events.event_roster.select_one_or_more_unconfirmed_teams') }}</p>
+      <fieldset class="field">
+        <legend class="field-label">{{ msg('admin.events.event_roster.teams_to_adjust') }}</legend>
+        <div id="adjustTeamChecks" class="adjust-team-checks"></div>
+      </fieldset>
+      <div id="adjustTeamEditors" class="adjust-team-editors"></div>
+      <p id="adjustReturnedPreview" class="field-hint"></p>
+      <label class="field">
+        <span class="field-label">{{ msg('admin.events.event_roster.adjustment_reason') }} <span class="field-required">*</span></span>
+        <input type="text" id="adjustReasonInput" maxlength="300" placeholder="{{ msg('admin.events.event_roster.enter_reason_for_adjustment') }}" required>
+      </label>
+      <p class="dialog-error" id="adjustDialogError" role="alert" hidden></p>
+    </div>
+    <div class="roster-dialog-actions">
+      <button type="button" class="btn" data-dialog-close>{{ msg('admin.events.event_roster.cancel') }}</button>
+      <button type="submit" class="btn btn-primary" id="adjustSubmitBtn" disabled>{{ msg('admin.events.event_roster.save_adjustment') }}</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dialogAssignReserve" class="roster-dialog" aria-labelledby="assignReserveTitle">
+  <form method="dialog" class="roster-dialog-form" id="assignReserveForm">
+    <div class="roster-dialog-head">
+      <h3 id="assignReserveTitle">{{ msg('admin.events.event_roster.assign_reserve_to_team_bench') }}</h3>
+      <button type="button" class="btn btn-sm btn-icon" data-dialog-close aria-label="{{ msg('admin.events.event_roster.close') }}">{{ ui.icon('close') }}</button>
+    </div>
+    <div class="roster-dialog-body">
+      <div class="form-grid">
+        <label class="field">
+          <span class="field-label">{{ msg('admin.events.event_roster.target_team') }} <span class="field-required">*</span></span>
+          <select id="assignEntrantSelect" required></select>
+        </label>
+        <label class="field">
+          <span class="field-label">{{ msg('admin.events.event_roster.reserves') }} <span class="field-required">*</span></span>
+          <select id="assignCandidateSelect" required></select>
+        </label>
+      </div>
+      <label class="field">
+        <span class="field-label">{{ msg('admin.events.event_roster.assignment_reason') }} <span class="field-required">*</span></span>
+        <input type="text" id="assignReasonInput" maxlength="300" placeholder="{{ msg('admin.events.event_roster.e_g_agreed_to_join_as') }}" required>
+      </label>
+      <div id="assignExcludedWrap" class="assign-excluded-wrap" hidden></div>
+      <p class="field-hint">{{ msg('admin.events.event_roster.granting_a_substitute_slot_does_not') }}</p>
+      <p class="dialog-error" id="assignDialogError" role="alert" hidden></p>
+    </div>
+    <div class="roster-dialog-actions">
+      <button type="button" class="btn" data-dialog-close>{{ msg('admin.events.event_roster.cancel') }}</button>
+      <button type="submit" class="btn btn-primary" id="assignSubmitBtn" disabled>{{ msg('admin.events.event_roster.confirm_assignment') }}</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dialogReplaceBeforeSeries" class="roster-dialog" aria-labelledby="replaceTitle">
+  <form method="dialog" class="roster-dialog-form" id="replaceForm">
+    <div class="roster-dialog-head">
+      <h3 id="replaceTitle">{{ msg('admin.events.event_roster.pre_match_change') }}</h3>
+      <button type="button" class="btn btn-sm btn-icon" data-dialog-close aria-label="{{ msg('admin.events.event_roster.close') }}">{{ ui.icon('close') }}</button>
+    </div>
+    <div class="roster-dialog-body">
+      <div class="form-grid">
+        <label class="field">
+          <span class="field-label">{{ msg('admin.events.event_roster.outgoing_current_roster') }} <span class="field-required">*</span></span>
+          <select id="replaceOutgoingSelect" required></select>
+        </label>
+        <label class="field">
+          <span class="field-label">{{ msg('admin.events.event_roster.incoming_team_substitute') }} <span class="field-required">*</span></span>
+          <select id="replaceIncomingSelect" required></select>
+        </label>
+      </div>
+      <p id="replaceMajorityHint" class="roster-majority-hint"></p>
+      <label class="field">
+        <span class="field-label">{{ msg('admin.events.event_roster.change_reason') }} <span class="field-required">*</span></span>
+        <input type="text" id="replaceReasonInput" maxlength="300" placeholder="{{ msg('admin.events.event_roster.e_g_player_unavailable_for_this') }}" required>
+      </label>
+      <p class="field-hint">{{ msg('admin.events.event_roster.note_swapped_out_players_do_not') }}</p>
+      <p class="dialog-error" id="replaceDialogError" role="alert" hidden></p>
+    </div>
+    <div class="roster-dialog-actions">
+      <button type="button" class="btn" data-dialog-close>{{ msg('admin.events.event_roster.cancel') }}</button>
+      <button type="submit" class="btn btn-primary" id="replaceSubmitBtn" disabled>{{ msg('admin.events.event_roster.confirm_change') }}</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dialogArchiveTeam" class="roster-dialog" aria-labelledby="archiveTeamTitle">
+  <form method="dialog" class="roster-dialog-form" id="archiveTeamForm">
+    <div class="roster-dialog-head">
+      <h3 id="archiveTeamTitle">{{ msg('admin.events.event_roster.archive_entrant') }}</h3>
+      <button type="button" class="btn btn-sm btn-icon" data-dialog-close aria-label="{{ msg('admin.events.event_roster.close') }}">{{ ui.icon('close') }}</button>
+    </div>
+    <div class="roster-dialog-body">
+      <p id="archiveTeamSummary" class="lock-note" data-i18n-ignore></p>
+      <label class="field">
+        <span class="field-label">{{ msg('admin.events.event_roster.archive_reason') }} <span class="field-required">*</span></span>
+        <input type="text" id="archiveReasonInput" maxlength="300" placeholder="{{ msg('admin.events.event_roster.e_g_team_withdrew') }}" required>
+      </label>
+      <p class="field-hint">{{ msg('admin.events.event_roster.once_archived_the_team_leaves_this') }}</p>
+      <p class="dialog-error" id="archiveDialogError" role="alert" hidden></p>
+    </div>
+    <div class="roster-dialog-actions">
+      <button type="button" class="btn" data-dialog-close>{{ msg('admin.events.event_roster.cancel') }}</button>
+      <button type="submit" class="btn btn-danger" id="archiveSubmitBtn" disabled>{{ msg('admin.events.event_roster.confirm_archive') }}</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dialogLinkClub" class="roster-dialog" aria-labelledby="linkClubTitle">
+  <form method="dialog" class="roster-dialog-form" id="linkClubForm">
+    <div class="roster-dialog-head">
+      <h3 id="linkClubTitle">{{ msg('admin.events.event_roster.link_a_club') }}</h3>
+      <button type="button" class="btn btn-sm btn-icon" data-dialog-close aria-label="{{ msg('admin.events.event_roster.close') }}">{{ ui.icon('close') }}</button>
+    </div>
+    <div class="roster-dialog-body">
+      <p id="linkClubSummary" data-i18n-ignore></p>
+      <label class="field">
+        <span class="field-label">{{ msg('admin.events.event_roster.club_3') }} <span class="field-required">*</span></span>
+        <select id="linkClubSelect" required>
+          <option value="">{{ msg('admin.events.event_roster.select_a_club') }}</option>
+          {% for club in clubs or [] %}
+          <option value="{{ club.id }}" data-i18n-ignore>{{ club.name }}{% if club.short_name and club.short_name != club.name %} ({{ club.short_name }}){% endif %}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <p class="field-hint">{{ msg('admin.events.event_roster.the_club_cannot_be_changed_after') }}</p>
+      <p class="dialog-error" id="linkClubDialogError" role="alert" hidden></p>
+    </div>
+    <div class="roster-dialog-actions">
+      <button type="button" class="btn" data-dialog-close>{{ msg('admin.events.event_roster.cancel') }}</button>
+      <button type="submit" class="btn btn-primary" id="linkClubSubmitBtn" disabled>{{ msg('admin.events.event_roster.link_club') }}</button>
+    </div>
+  </form>
+</dialog>

@@ -12,8 +12,8 @@ if str(PROJECT_ROOT) not in sys.path:
 
 # 必须先完成上面的 sys.path 处理，项目模块才可导入，故此处豁免 E402。
 from config import Config  # noqa: E402
-from models import init_tables, supported_schema_version  # noqa: E402
-from site_core.database import get_db, using_turso  # noqa: E402
+from src.website.runtime.database import get_db, using_turso  # noqa: E402
+from src.website.runtime.schema import init_tables, supported_schema_version  # noqa: E402
 
 
 def current_version():

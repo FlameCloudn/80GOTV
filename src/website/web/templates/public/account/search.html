@@ -1,0 +1,94 @@
+{% extends 'layouts/public.html' %}
+{% from 'components/_icons.html' import site_icon %}
+{% block title %}{{ msg('public.account.search.search_query_80gotv', query=query) }}{% endblock %}
+{% block head %}{{ frontend_entry('account-style') }}{% endblock %}
+{% block layout_class %}no-side-layout narrow-layout{% endblock %}
+
+{#- 一组搜索结果：标题 + 条数，下面一行一个 -#}
+{% macro result_group(title, count) %}
+<section class="panel search-group">
+  <div class="panel-head"><h2 class="panel-title">{{ title }}</h2><span class="panel-count">{{ count }}</span></div>
+  <div class="list">{{ caller() }}</div>
+</section>
+{% endmacro %}
+
+{% block main %}
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>SEARCH</span><h1>{% if query %}{{ msg('public.account.search.results_for_query', query=query) }}{% else %}{{ msg('public.account.search.search') }}{% endif %}</h1></div>
+</header>
+
+{% if not query %}
+<div class="panel empty-state">{{ msg('public.account.search.enter_keywords_to_search_the_site') }}</div>
+{% elif not results.news and not results.players and not results.teams and not results.events and not results.matches %}
+<div class="panel empty-state">{{ msg('public.account.search.no_results_related_to_query', query=query) }}</div>
+{% else %}
+
+{% if results.news %}
+{% call result_group(msg('public.account.search.news'), results.news|length) %}
+  {% for n in results.news %}
+  <a class="list-row search-news" href="{{ news_path(n) }}">
+    <span class="grow">
+      <span class="title" data-i18n-ignore>{{ n.title }}</span>
+      {% if n.summary %}<span class="search-summary" data-i18n-ignore>{{ n.summary[:120] }}</span>{% endif %}
+    </span>
+    <span class="meta">{{ n.publish_time|datetime_display }}</span>
+  </a>
+  {% endfor %}
+{% endcall %}
+{% endif %}
+
+{% if results.players %}
+{% call result_group(msg('public.account.search.players'), results.players|length) %}
+  {% for p in results.players %}
+  {% set player_private_remark = private_remark_for_player(p.id) %}
+  {% set player_display_name = player_private_remark or p.nickname %}
+  <a class="list-row" href="/players/{{ p.id }}">
+    <span class="grow title" data-i18n-ignore>{{ player_display_name }}{% if not player_private_remark and p.group_username %} <span class="user-group-handle">@{{ p.group_username }}</span>{% elif not player_private_remark and p.is_bashizhong_student == 0 %} <span class="player-origin-marker" aria-label="{{ msg('public.account.search.external_player') }}">{{ site_icon('globe') }}</span>{% endif %}</span>
+    {% if p.team_name %}<span class="meta" data-i18n-ignore>{{ p.team_name }}</span>{% endif %}
+  </a>
+  {% endfor %}
+{% endcall %}
+{% endif %}
+
+{% if results.teams %}
+{% call result_group(msg('public.account.search.teams'), results.teams|length) %}
+  {% for t in results.teams %}
+  <a class="list-row" href="{{ url_for('team_detail', team_id=t.id) }}">
+    <span class="grow title" data-i18n-ignore>{{ t.name }}</span>
+    {% if t.short_name %}<span class="meta" data-i18n-ignore>{{ t.short_name }}</span>{% endif %}
+  </a>
+  {% endfor %}
+{% endcall %}
+{% endif %}
+
+{% if results.events %}
+{% call result_group(msg('public.account.search.events'), results.events|length) %}
+  {% for e in results.events %}
+  <a class="list-row" href="{{ event_path(e) }}">
+    <span class="grow title" data-i18n-ignore>{{ e.name }}</span>
+    {% if e.start_date %}<span class="meta">{{ e.start_date|date_display }}</span>{% endif %}
+  </a>
+  {% endfor %}
+{% endcall %}
+{% endif %}
+
+{% if results.matches %}
+<section class="panel search-group">
+  <div class="panel-head"><h2 class="panel-title">{{ msg('public.account.search.matches') }}</h2><span class="panel-count">{{ results.matches|length }}</span></div>
+  <div class="card-list">
+    {% for m in results.matches %}
+    {% set left, right = match_opponents(m) %}
+    <a class="match-card" href="/matches/{{ m.slug or m.id }}">
+      <span class="team" data-match-side="{{ left.side }}" data-i18n-ignore>{{ left.name }}</span>
+      <span class="vs">{% if m.effective_status in ['completed', 'live'] %}<b>{{ left.score if left.score is not none else '-' }} : {{ right.score if right.score is not none else '-' }}</b>{% else %}VS{% endif %}</span>
+      <span class="team right" data-match-side="{{ right.side }}" data-i18n-ignore>{{ right.name }}</span>
+      <span class="meta"><span data-i18n-ignore>{{ m.event_name or '' }}</span> · {{ m.bo_format or '' }} · {{ m.match_time|date_display if m.match_time else '' }}</span>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% endif %}
+{% endblock %}
+{% block side %}{% endblock %}

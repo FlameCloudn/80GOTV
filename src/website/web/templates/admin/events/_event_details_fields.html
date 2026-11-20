@@ -1,0 +1,58 @@
+      <section class="form-group" data-required-group>
+        <div class="form-group-head"><h2 class="form-group-title">{{ msg('admin.events.events_form.basic_information') }}</h2><span data-group-status></span></div>
+        <div class="form-grid">
+          <label class="field">
+            <span class="field-label">{{ msg('admin.events.events_form.event_name') }} <span class="field-required">*</span></span>
+            <input type="text" name="name" value="{{ event.name if event else '' }}" required placeholder="{{ msg('admin.events.events_form.example_campus_spring_cup') }}">
+          </label>
+          <label class="field">
+            <span class="field-label">{{ msg('admin.events.events_form.event_short_name') }} <span class="field-required">*</span></span>
+            <input type="text" name="short_name" value="{{ event.short_name if event and event.short_name else '' }}" required placeholder="{{ msg('admin.events.events_form.e_g_80cs_s1_or_freshman') }}">
+            <span class="field-hint">{{ msg('admin.events.events_form.used_in_event_and_match_urls') }}</span>
+          </label>
+          <label class="field">
+            <span class="field-label">{{ msg('admin.events.events_form.format') }}</span>
+            <input type="text" name="format" value="{{ event.format if event else '' }}" placeholder="{{ msg('admin.events.events_form.example_single_elimination_or_double_round') }}">
+          </label>
+          {% if editing %}
+          <label class="field">
+            <span class="field-label">{{ msg('admin.events.events_form.status') }} <span class="field-required">*</span></span>
+            {% if managed and event.status == 'completed' %}
+            <input type="hidden" name="status" value="completed">
+            <input type="text" value="已结束（已归档，不可重新开放）" disabled>
+            {% else %}
+            <select name="status" required>
+              <option value="upcoming" {% if event.status=='upcoming' %}selected{% endif %}>{{ msg('admin.events.events_form.upcoming') }}</option>
+              <option value="ongoing" {% if event.status=='ongoing' %}selected{% endif %} {% if managed %}disabled{% endif %}>{{ msg('admin.events.events_form.ongoing') }}{% if managed %}{{ msg('admin.events.events_form.this_event_only_supports_pre_match') }}{% endif %}</option>
+              <option value="completed" {% if event.status=='completed' %}selected{% endif %}>{{ msg('admin.events.events_form.completed') }}{% if managed %}{{ msg('admin.events.events_form.archive_this_event_after_saving') }}{% endif %}</option>
+            </select>
+            {% if managed %}<span class="field-hint">{{ msg('admin.events.events_form.managed_events_currently_support_pre_match') }}</span>{% endif %}
+            {% endif %}
+          </label>
+          {% endif %}
+        </div>
+      </section>
+
+      <section class="form-group" data-required-group>
+        <div class="form-group-head"><h2 class="form-group-title">{{ msg('admin.events.events_form.schedule') }}</h2><span data-group-status></span></div>
+        <div class="form-grid">
+          <label class="field">
+            <span class="field-label">{{ msg('admin.events.events_form.start_date_and_time') }} <span class="field-required">*</span></span>
+            <input type="datetime-local" id="startDateInput" name="start_date" value="{{ event.start_date[:16] if event and event.start_date else '' }}" required>
+          </label>
+          <label class="field">
+            <span class="field-label">{{ msg('admin.events.events_form.end_date_and_time') }} <span class="field-required">*</span></span>
+            <input type="datetime-local" id="endDateInput" name="end_date" value="{{ event.end_date[:16] if event and event.end_date else '' }}" required
+                   data-not-before="start_date" data-msg-not-before="结束时间不能早于开始时间">
+          </label>
+        </div>
+        <div class="time-chips" role="group" aria-label="{{ msg('admin.events.events_form.quick_duration') }}">
+          <span class="time-chips-label">{{ msg('admin.events.events_form.quick_duration_2') }}</span>
+          <button type="button" class="time-chip" data-event-days="1">{{ msg('admin.events.events_form.1_day_single_day_event') }}</button>
+          <button type="button" class="time-chip" data-event-days="2">{{ msg('admin.events.events_form.2_days_weekend_cup') }}</button>
+          <button type="button" class="time-chip" data-event-days="7">{{ msg('admin.events.events_form.7_days_1_week') }}</button>
+          <button type="button" class="time-chip" data-event-days="14">{{ msg('admin.events.events_form.14_days_2_weeks') }}</button>
+          <button type="button" class="time-chip" data-event-days="30">{{ msg('admin.events.events_form.30_days_monthly_event') }}</button>
+        </div>
+        <span class="field-hint">{{ msg('admin.events.events_form.the_start_date_is_day_1') }}</span>
+      </section>

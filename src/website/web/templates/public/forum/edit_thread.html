@@ -1,0 +1,39 @@
+{% extends "layouts/public.html" %}
+{% from 'components/_forum_labels.html' import forum_category %}
+{% block title %}{{ msg('public.forum.edit_thread.edit_thread_forum') }}{% endblock %}
+{% block layout_class %}no-side-layout narrow-layout{% endblock %}
+{% block main %}
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>FORUM</span><h1>{{ msg('public.forum.edit_thread.edit_thread') }}</h1></div>
+  <a class="page-head-link" href="{{ url_for('forum_thread', thread_id=thread.id) }}">{{ msg('public.forum.edit_thread.back_to_thread') }}</a>
+</header>
+<section class="panel">
+  <form method="post" class="panel-body form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {% set selected_category = request.form.get('category_id', thread.category_id if thread else '') %}
+    <label class="field">
+      <span class="field-label">{{ msg('public.forum.edit_thread.section') }}</span>
+      <select name="category_id" required>
+        {% for category in categories %}
+        <option value="{{ category.id }}"{% if selected_category|string == category.id|string %} selected{% endif %}>{{ forum_category(category.slug, category.name) }} · {{ forum_category(category.slug, category.description, 'description') }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="field">
+      <span class="field-label">{{ msg('public.forum.edit_thread.title') }}</span>
+      <input type="text" name="title" maxlength="120" value="{{ request.form.get('title', thread.title if thread else '') }}" required>
+      <span class="field-hint">{{ msg('public.forum.edit_thread.up_to_120_characters') }}</span>
+    </label>
+    <label class="field">
+      <span class="field-label">{{ msg('public.forum.edit_thread.content') }}</span>
+      <textarea name="content" rows="12" required>{{ request.form.get('content', thread.content if thread else '') }}</textarea>
+      <span class="field-hint">{{ msg('public.forum.edit_thread.up_to_10_000_characters') }}</span>
+    </label>
+    <div class="form-actions">
+      <a href="{{ url_for('forum_thread', thread_id=thread.id) }}" class="btn">{{ msg('public.forum.edit_thread.cancel') }}</a>
+      <button type="submit" class="btn btn-primary">{{ msg('public.forum.edit_thread.save_changes') }}</button>
+    </div>
+  </form>
+</section>
+{% endblock %}
+{% block side %}{% endblock %}

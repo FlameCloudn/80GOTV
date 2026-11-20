@@ -1,0 +1,3878 @@
+{
+  "admin.accounts.login.admin": {
+    "zh": "后台管理",
+    "en": "Admin"
+  },
+  "admin.accounts.login.admin_login": {
+    "zh": "后台管理登录",
+    "en": "Admin login"
+  },
+  "admin.accounts.login.admin_login_80gotv": {
+    "zh": "后台管理登录 - 80GOTV",
+    "en": "Admin login - 80GOTV"
+  },
+  "admin.accounts.login.auto": {
+    "zh": "跟随系统",
+    "en": "Auto"
+  },
+  "admin.accounts.login.back_to_site": {
+    "zh": "← 返回前台",
+    "en": "← Back to site"
+  },
+  "admin.accounts.login.chinese": {
+    "zh": "中文",
+    "en": "Chinese"
+  },
+  "admin.accounts.login.enter_your_password": {
+    "zh": "请输入密码",
+    "en": "Enter your password"
+  },
+  "admin.accounts.login.enter_your_username": {
+    "zh": "请输入用户名",
+    "en": "Enter your username"
+  },
+  "admin.accounts.login.language": {
+    "zh": "语言",
+    "en": "Language"
+  },
+  "admin.accounts.login.log_in": {
+    "zh": "登录",
+    "en": "Log in"
+  },
+  "admin.accounts.login.password": {
+    "zh": "密码",
+    "en": "Password"
+  },
+  "admin.accounts.login.username": {
+    "zh": "用户名",
+    "en": "Username"
+  },
+  "admin.accounts.player_password.at_least_8_characters_the_old": {
+    "zh": "至少 8 位。保存后旧密码立即失效。",
+    "en": "At least 8 characters. The old password stops working immediately after saving."
+  },
+  "admin.accounts.player_password.back_to_player_management": {
+    "zh": "← 返回选手管理",
+    "en": "← Back to player management"
+  },
+  "admin.accounts.player_password.cancel": {
+    "zh": "取消",
+    "en": "Cancel"
+  },
+  "admin.accounts.player_password.change_player_password": {
+    "zh": "修改选手密码",
+    "en": "Change player password"
+  },
+  "admin.accounts.player_password.enter_the_new_password_again": {
+    "zh": "再次输入新密码",
+    "en": "Enter the new password again"
+  },
+  "admin.accounts.player_password.new_password": {
+    "zh": "新密码",
+    "en": "New password"
+  },
+  "admin.accounts.player_password.players": {
+    "zh": "选手",
+    "en": "Players"
+  },
+  "admin.accounts.player_password.save_new_password": {
+    "zh": "保存新密码",
+    "en": "Save new password"
+  },
+  "admin.accounts.player_password.site_account": {
+    "zh": "网站账号",
+    "en": "Site account"
+  },
+  "admin.accounts.registrations.account_reviews": {
+    "zh": "账号审核",
+    "en": "Account reviews"
+  },
+  "admin.accounts.registrations.actions": {
+    "zh": "操作",
+    "en": "Actions"
+  },
+  "admin.accounts.registrations.add_player_account": {
+    "zh": "添加选手/账号",
+    "en": "Add player/account"
+  },
+  "admin.accounts.registrations.all": {
+    "zh": "全部",
+    "en": "All"
+  },
+  "admin.accounts.registrations.applicant_group_nickname": {
+    "zh": "申请人 / 群内昵称",
+    "en": "Applicant / group nickname"
+  },
+  "admin.accounts.registrations.approve": {
+    "zh": "通过",
+    "en": "Approve"
+  },
+  "admin.accounts.registrations.approved": {
+    "zh": "已通过",
+    "en": "Approved"
+  },
+  "admin.accounts.registrations.completed": {
+    "zh": "已完成",
+    "en": "Completed"
+  },
+  "admin.accounts.registrations.cs2_playtime": {
+    "zh": "CS2 时长",
+    "en": "CS2 playtime"
+  },
+  "admin.accounts.registrations.email_steam_id": {
+    "zh": "邮箱 / Steam ID",
+    "en": "Email / Steam ID"
+  },
+  "admin.accounts.registrations.group_nickname_not_set": {
+    "zh": "群内昵称待填写",
+    "en": "Group nickname not set"
+  },
+  "admin.accounts.registrations.no_80_high_school": {
+    "zh": "八十中",
+    "en": "No. 80 High School"
+  },
+  "admin.accounts.registrations.other_school": {
+    "zh": "外校",
+    "en": "Other school"
+  },
+  "admin.accounts.registrations.pending": {
+    "zh": "待审核",
+    "en": "Pending"
+  },
+  "admin.accounts.registrations.reject": {
+    "zh": "拒绝",
+    "en": "Reject"
+  },
+  "admin.accounts.registrations.rejected": {
+    "zh": "已拒绝",
+    "en": "Rejected"
+  },
+  "admin.accounts.registrations.rejection_reason_optional": {
+    "zh": "拒绝原因（可选）",
+    "en": "Rejection reason (optional)"
+  },
+  "admin.accounts.registrations.review_status": {
+    "zh": "审核状态",
+    "en": "Review status"
+  },
+  "admin.accounts.registrations.school_not_set": {
+    "zh": "来源待设置",
+    "en": "School not set"
+  },
+  "admin.accounts.registrations.search_applications": {
+    "zh": "搜索申请",
+    "en": "Search applications"
+  },
+  "admin.accounts.registrations.search_username_group_nickname_email_or": {
+    "zh": "搜索用户名、群昵称、邮箱、Steam ID",
+    "en": "Search username, group nickname, email or Steam ID"
+  },
+  "admin.accounts.registrations.status_notes": {
+    "zh": "状态/备注",
+    "en": "Status / notes"
+  },
+  "admin.accounts.registrations.submitted": {
+    "zh": "提交时间",
+    "en": "Submitted"
+  },
+  "admin.accounts.registrations.there_are_no_account_applications_here": {
+    "zh": "这里暂时没有账号申请。",
+    "en": "There are no account applications here."
+  },
+  "admin.accounts.registrations.verified": {
+    "zh": "已验证",
+    "en": "Verified"
+  },
+  "admin.catalog.nicknames.actions": {
+    "zh": "操作",
+    "en": "Actions"
+  },
+  "admin.catalog.nicknames.duplicate_profile_to_remove": {
+    "zh": "要移除的重复档案",
+    "en": "Duplicate profile to remove"
+  },
+  "admin.catalog.nicknames.edit": {
+    "zh": "编辑",
+    "en": "Edit"
+  },
+  "admin.catalog.nicknames.merge_duplicate_players": {
+    "zh": "合并重复选手",
+    "en": "Merge duplicate players"
+  },
+  "admin.catalog.nicknames.merge_into": {
+    "zh": "合并到",
+    "en": "Merge into"
+  },
+  "admin.catalog.nicknames.merge_profiles": {
+    "zh": "合并档案",
+    "en": "Merge profiles"
+  },
+  "admin.catalog.nicknames.merge_the_incorrectly_created_duplicate_profile": {
+    "zh": "把错误生成的重复档案合并到要保留的档案。历史比赛会一起搬过去。",
+    "en": "Merge the incorrectly created duplicate profile into the profile you want to keep. Historical matches will move with it."
+  },
+  "admin.catalog.nicknames.merge_these_two_player_profiles_the": {
+    "zh": "确定合并这两个选手档案吗？重复档案会被移除。",
+    "en": "Merge these two player profiles? The duplicate profile will be removed."
+  },
+  "admin.catalog.nicknames.no_players_yet": {
+    "zh": "还没有选手。",
+    "en": "No players yet."
+  },
+  "admin.catalog.nicknames.official_nickname": {
+    "zh": "正式昵称",
+    "en": "Official nickname"
+  },
+  "admin.catalog.nicknames.official_profile_to_keep": {
+    "zh": "要保留的正式档案",
+    "en": "Official profile to keep"
+  },
+  "admin.catalog.nicknames.player_nickname_management": {
+    "zh": "选手昵称管理",
+    "en": "Player nickname management"
+  },
+  "admin.catalog.nicknames.players_and_past_nicknames": {
+    "zh": "选手与历史昵称",
+    "en": "Players and past nicknames"
+  },
+  "admin.catalog.nicknames.previous_nicknames": {
+    "zh": "历史昵称",
+    "en": "Previous nicknames"
+  },
+  "admin.catalog.nicknames.teams": {
+    "zh": "队伍",
+    "en": "Teams"
+  },
+  "admin.catalog.nicknames.the_official_nickname_is_shown_on": {
+    "zh": "正式昵称用于网站显示，Steam 和 Demo 中见过的旧昵称仍会保留。",
+    "en": "The official nickname is shown on the site. Old nicknames seen in Steam and Demo are still kept."
+  },
+  "admin.catalog.players.account_account_username": {
+    "zh": "账号：{account_username}",
+    "en": "Account: {account_username}"
+  },
+  "admin.catalog.players.account_all": {
+    "zh": "账号：全部",
+    "en": "Account: All"
+  },
+  "admin.catalog.players.actions": {
+    "zh": "操作",
+    "en": "Actions"
+  },
+  "admin.catalog.players.add_player_account": {
+    "zh": "添加选手/账号",
+    "en": "Add player/account"
+  },
+  "admin.catalog.players.all_players": {
+    "zh": "全部选手",
+    "en": "All players"
+  },
+  "admin.catalog.players.all_teams": {
+    "zh": "全部队伍",
+    "en": "All teams"
+  },
+  "admin.catalog.players.change_website_account_password": {
+    "zh": "修改网站账号密码",
+    "en": "Change website account password"
+  },
+  "admin.catalog.players.cs2_playtime": {
+    "zh": "CS2 时长",
+    "en": "CS2 playtime"
+  },
+  "admin.catalog.players.delete_player": {
+    "zh": "删除选手",
+    "en": "Delete player"
+  },
+  "admin.catalog.players.delete_player_nickname": {
+    "zh": "确定删除选手【{nickname}】吗？",
+    "en": "Delete player \"{nickname}\"?"
+  },
+  "admin.catalog.players.delete_player_nickname_2": {
+    "zh": "删除选手 {nickname}",
+    "en": "Delete player {nickname}"
+  },
+  "admin.catalog.players.edit": {
+    "zh": "编辑",
+    "en": "Edit"
+  },
+  "admin.catalog.players.filter_by_account": {
+    "zh": "按账号筛选",
+    "en": "Filter by account"
+  },
+  "admin.catalog.players.filter_by_source": {
+    "zh": "按来源筛选",
+    "en": "Filter by source"
+  },
+  "admin.catalog.players.filter_by_team": {
+    "zh": "按队伍筛选",
+    "en": "Filter by team"
+  },
+  "admin.catalog.players.group_nickname_not_set": {
+    "zh": "群内昵称待填写",
+    "en": "Group nickname not set"
+  },
+  "admin.catalog.players.linked_account": {
+    "zh": "已关联账号",
+    "en": "Linked account"
+  },
+  "admin.catalog.players.no_80_high_school": {
+    "zh": "八十中",
+    "en": "No. 80 High School"
+  },
+  "admin.catalog.players.no_linked_account": {
+    "zh": "未关联账号",
+    "en": "No linked account"
+  },
+  "admin.catalog.players.no_players_yet": {
+    "zh": "还没有选手",
+    "en": "No players yet"
+  },
+  "admin.catalog.players.no_team": {
+    "zh": "无队伍",
+    "en": "No team"
+  },
+  "admin.catalog.players.other_school": {
+    "zh": "外校",
+    "en": "Other school"
+  },
+  "admin.catalog.players.player_account": {
+    "zh": "选手 / 账号",
+    "en": "Player / Account"
+  },
+  "admin.catalog.players.player_management": {
+    "zh": "选手管理",
+    "en": "Player management"
+  },
+  "admin.catalog.players.refresh_player_playtime": {
+    "zh": "更新选手时长",
+    "en": "Refresh player playtime"
+  },
+  "admin.catalog.players.refresh_public_cs2_playtime_for_all": {
+    "zh": "重新读取全部选手的公开 CS2 游戏时长吗？",
+    "en": "Refresh public CS2 playtime for all players?"
+  },
+  "admin.catalog.players.school_not_set": {
+    "zh": "来源待设置",
+    "en": "School not set"
+  },
+  "admin.catalog.players.search_nickname_account_group_nickname_or": {
+    "zh": "搜索昵称、账号、群昵称、Steam ID",
+    "en": "Search nickname, account, group nickname or Steam ID"
+  },
+  "admin.catalog.players.search_players": {
+    "zh": "搜索选手",
+    "en": "Search players"
+  },
+  "admin.catalog.players.source_all": {
+    "zh": "来源：全部",
+    "en": "Source: All"
+  },
+  "admin.catalog.players.teams": {
+    "zh": "队伍",
+    "en": "Teams"
+  },
+  "admin.catalog.players_form.17_digit_steam64_id": {
+    "zh": "17 位 Steam64 ID",
+    "en": "17-digit Steam64 ID"
+  },
+  "admin.catalog.players_form.8_128_characters": {
+    "zh": "8–128 个字符。",
+    "en": "8–128 characters."
+  },
+  "admin.catalog.players_form.account_email": {
+    "zh": "账号邮箱",
+    "en": "Account email"
+  },
+  "admin.catalog.players_form.add_player_and_account": {
+    "zh": "添加选手与账号",
+    "en": "Add player and account"
+  },
+  "admin.catalog.players_form.also_create_and_enable_a_website": {
+    "zh": "同时创建并启用网站登录账号（用户名与昵称相同）",
+    "en": "Also create and enable a website account with the nickname as its username"
+  },
+  "admin.catalog.players_form.avatar": {
+    "zh": "头像",
+    "en": "Avatar"
+  },
+  "admin.catalog.players_form.back_to_player_management": {
+    "zh": "← 返回选手管理",
+    "en": "← Back to player management"
+  },
+  "admin.catalog.players_form.cancel": {
+    "zh": "取消",
+    "en": "Cancel"
+  },
+  "admin.catalog.players_form.confirm_initial_password": {
+    "zh": "确认初始密码",
+    "en": "Confirm initial password"
+  },
+  "admin.catalog.players_form.create": {
+    "zh": "创建",
+    "en": "Create"
+  },
+  "admin.catalog.players_form.current_avatar": {
+    "zh": "当前头像",
+    "en": "Current avatar"
+  },
+  "admin.catalog.players_form.edit_player": {
+    "zh": "编辑选手",
+    "en": "Edit player"
+  },
+  "admin.catalog.players_form.group_nickname": {
+    "zh": "群内昵称",
+    "en": "Group nickname"
+  },
+  "admin.catalog.players_form.in_game_nickname": {
+    "zh": "游戏昵称",
+    "en": "In-game nickname"
+  },
+  "admin.catalog.players_form.initial_password": {
+    "zh": "初始密码",
+    "en": "Initial password"
+  },
+  "admin.catalog.players_form.is_or_was_a_no_80": {
+    "zh": "是否是或曾经是八十中学生",
+    "en": "Is or was a No. 80 High School student"
+  },
+  "admin.catalog.players_form.jpg_png_gif_leave_blank_to": {
+    "zh": "jpg / png / gif；不选则不修改。",
+    "en": "JPG / PNG / GIF; leave blank to keep the current image."
+  },
+  "admin.catalog.players_form.name_used_in_the_group_chat": {
+    "zh": "群聊中使用的名字",
+    "en": "Name used in the group chat"
+  },
+  "admin.catalog.players_form.nickname": {
+    "zh": "昵称",
+    "en": "Nickname"
+  },
+  "admin.catalog.players_form.no": {
+    "zh": "不是",
+    "en": "No"
+  },
+  "admin.catalog.players_form.no_team": {
+    "zh": "无队伍",
+    "en": "No team"
+  },
+  "admin.catalog.players_form.optional": {
+    "zh": "可选",
+    "en": "Optional"
+  },
+  "admin.catalog.players_form.player_profile": {
+    "zh": "选手资料",
+    "en": "Player profile"
+  },
+  "admin.catalog.players_form.public_homepage": {
+    "zh": "前台主页",
+    "en": "Public homepage"
+  },
+  "admin.catalog.players_form.save_changes": {
+    "zh": "保存修改",
+    "en": "Save changes"
+  },
+  "admin.catalog.players_form.steam_and_avatar": {
+    "zh": "Steam 与头像",
+    "en": "Steam and avatar"
+  },
+  "admin.catalog.players_form.teams": {
+    "zh": "队伍",
+    "en": "Teams"
+  },
+  "admin.catalog.players_form.website_account": {
+    "zh": "网站登录账号",
+    "en": "Website account"
+  },
+  "admin.catalog.players_form.yes": {
+    "zh": "是",
+    "en": "Yes"
+  },
+  "admin.catalog.teams.actions": {
+    "zh": "操作",
+    "en": "Actions"
+  },
+  "admin.catalog.teams.add_team": {
+    "zh": "添加队伍",
+    "en": "Add team"
+  },
+  "admin.catalog.teams.all_teams": {
+    "zh": "全部队伍",
+    "en": "All teams"
+  },
+  "admin.catalog.teams.created": {
+    "zh": "创建时间",
+    "en": "Created"
+  },
+  "admin.catalog.teams.delete_team": {
+    "zh": "删除队伍",
+    "en": "Delete team"
+  },
+  "admin.catalog.teams.delete_team_name": {
+    "zh": "确定删除队伍【{name}】吗？",
+    "en": "Delete team \"{name}\"?"
+  },
+  "admin.catalog.teams.delete_team_name_2": {
+    "zh": "删除队伍 {name}",
+    "en": "Delete team {name}"
+  },
+  "admin.catalog.teams.description": {
+    "zh": "描述",
+    "en": "Description"
+  },
+  "admin.catalog.teams.edit": {
+    "zh": "编辑",
+    "en": "Edit"
+  },
+  "admin.catalog.teams.manage_teams": {
+    "zh": "队伍管理",
+    "en": "Manage teams"
+  },
+  "admin.catalog.teams.no_teams_yet": {
+    "zh": "还没有队伍",
+    "en": "No teams yet"
+  },
+  "admin.catalog.teams.search_team_name_or_abbreviation": {
+    "zh": "搜索队名、简称",
+    "en": "Search team name or abbreviation"
+  },
+  "admin.catalog.teams.search_teams": {
+    "zh": "搜索队伍",
+    "en": "Search teams"
+  },
+  "admin.catalog.teams.short_name": {
+    "zh": "简称",
+    "en": "Short name"
+  },
+  "admin.catalog.teams.teams": {
+    "zh": "队伍",
+    "en": "Teams"
+  },
+  "admin.catalog.teams.view_team_opens_in_a_new": {
+    "zh": "前台队伍页（新标签页）",
+    "en": "View team (opens in a new tab)"
+  },
+  "admin.catalog.teams.view_team_players": {
+    "zh": "查看本队选手",
+    "en": "View team players"
+  },
+  "admin.catalog.teams_form.add_team": {
+    "zh": "添加队伍",
+    "en": "Add team"
+  },
+  "admin.catalog.teams_form.back_to_team_management": {
+    "zh": "← 返回队伍管理",
+    "en": "← Back to team management"
+  },
+  "admin.catalog.teams_form.cancel": {
+    "zh": "取消",
+    "en": "Cancel"
+  },
+  "admin.catalog.teams_form.current_logo_leave_blank_to_keep": {
+    "zh": "当前队标；不选新文件就保持不变",
+    "en": "Current logo; leave blank to keep it unchanged"
+  },
+  "admin.catalog.teams_form.description": {
+    "zh": "描述",
+    "en": "Description"
+  },
+  "admin.catalog.teams_form.edit_team": {
+    "zh": "编辑队伍",
+    "en": "Edit team"
+  },
+  "admin.catalog.teams_form.example_star": {
+    "zh": "例如：STAR",
+    "en": "Example: STAR"
+  },
+  "admin.catalog.teams_form.example_star_esports_club": {
+    "zh": "例如：星辰电竞社",
+    "en": "Example: Star Esports Club"
+  },
+  "admin.catalog.teams_form.png_jpg_jpeg_gif_up_to": {
+    "zh": "PNG / JPG / JPEG / GIF，最大 10MB。上传后自动去掉纯色背景并居中，原图另外备份。",
+    "en": "PNG / JPG / JPEG / GIF, up to 10MB. The solid background is removed and the logo is centered. The original is backed up separately."
+  },
+  "admin.catalog.teams_form.public_homepage": {
+    "zh": "前台主页",
+    "en": "Public homepage"
+  },
+  "admin.catalog.teams_form.save_changes": {
+    "zh": "保存修改",
+    "en": "Save changes"
+  },
+  "admin.catalog.teams_form.short_name": {
+    "zh": "简称",
+    "en": "Short name"
+  },
+  "admin.catalog.teams_form.team_description": {
+    "zh": "队伍简介",
+    "en": "Team description"
+  },
+  "admin.catalog.teams_form.team_details": {
+    "zh": "队伍资料",
+    "en": "Team details"
+  },
+  "admin.catalog.teams_form.team_logo": {
+    "zh": "队标",
+    "en": "Team logo"
+  },
+  "admin.catalog.teams_form.team_logo_2": {
+    "zh": "队标图片",
+    "en": "Team logo"
+  },
+  "admin.catalog.teams_form.team_name": {
+    "zh": "队名",
+    "en": "Team name"
+  },
+  "admin.catalog.top10.clear_the_year_top_10": {
+    "zh": "确定清空 {year} 年 TOP 10 吗？",
+    "en": "Clear the {year} Top 10?"
+  },
+  "admin.catalog.top10.clear_this_year": {
+    "zh": "清空该年",
+    "en": "Clear this year"
+  },
+  "admin.catalog.top10.published": {
+    "zh": "已公布：",
+    "en": "Published:"
+  },
+  "admin.catalog.top10.rank": {
+    "zh": "第 {rank} 名",
+    "en": "#{rank}"
+  },
+  "admin.catalog.top10.save_and_publish": {
+    "zh": "保存并公布",
+    "en": "Save and publish"
+  },
+  "admin.catalog.top10.select_player": {
+    "zh": "选择选手",
+    "en": "Select player"
+  },
+  "admin.catalog.top10.switch": {
+    "zh": "切换",
+    "en": "Switch"
+  },
+  "admin.catalog.top10.the_list_becomes_public_only_after": {
+    "zh": "榜单只在管理员保存后公开；每年必须选择 10 名不重复选手。",
+    "en": "The list becomes public only after an admin saves it; each year needs 10 different players."
+  },
+  "admin.catalog.top10.year": {
+    "zh": "年份",
+    "en": "Year"
+  },
+  "admin.catalog.top10.year_rankings": {
+    "zh": "{year} 年榜单",
+    "en": "{year} rankings"
+  },
+  "admin.catalog.top10.yearly_top_10": {
+    "zh": "年度 TOP 10",
+    "en": "Yearly Top 10"
+  },
+  "admin.events.award_poster.award_type_stats_image": {
+    "zh": "{award_type} 数据图片",
+    "en": "{award_type} stats image"
+  },
+  "admin.events.award_poster.choose_an_event_and_player_to": {
+    "zh": "选择赛事和选手后，按整场赛事数据生成。RWS Basic 是本站按胜利回合伤害占比计算的基础版。旧 Demo 请重新解析一次。",
+    "en": "Choose an event and player to generate an event-wide image. RWS Basic uses damage share in won rounds. Reparse old Demos first."
+  },
+  "admin.events.award_poster.download_png": {
+    "zh": "下载 PNG",
+    "en": "Download PNG"
+  },
+  "admin.events.award_poster.events": {
+    "zh": "赛事",
+    "en": "Events"
+  },
+  "admin.events.award_poster.generate_preview": {
+    "zh": "生成预览",
+    "en": "Generate preview"
+  },
+  "admin.events.award_poster.mvp_evp_image": {
+    "zh": "MVP / EVP 数据图片",
+    "en": "MVP / EVP image"
+  },
+  "admin.events.award_poster.players": {
+    "zh": "选手",
+    "en": "Players"
+  },
+  "admin.events.award_poster.preview": {
+    "zh": "预览",
+    "en": "Preview"
+  },
+  "admin.events.award_poster.select_event": {
+    "zh": "选择赛事",
+    "en": "Select event"
+  },
+  "admin.events.award_poster.select_player": {
+    "zh": "选择选手",
+    "en": "Select player"
+  },
+  "admin.events.award_poster.settings": {
+    "zh": "生成设置",
+    "en": "Settings"
+  },
+  "admin.events.award_poster.type": {
+    "zh": "类型",
+    "en": "Type"
+  },
+  "admin.events.event_bracket.4_team_double_elimination": {
+    "zh": "4 队双败淘汰",
+    "en": "4-team double elimination"
+  },
+  "admin.events.event_bracket.4_team_single_elimination": {
+    "zh": "4 队单败淘汰",
+    "en": "4-team single elimination"
+  },
+  "admin.events.event_bracket.8_team_double_elimination": {
+    "zh": "8 队双败淘汰",
+    "en": "8-team double elimination"
+  },
+  "admin.events.event_bracket.8_team_single_elimination": {
+    "zh": "8 队单败淘汰",
+    "en": "8-team single elimination"
+  },
+  "admin.events.event_bracket.back_to_event_management": {
+    "zh": "← 返回赛事管理",
+    "en": "← Back to event management"
+  },
+  "admin.events.event_bracket.bracket_editor": {
+    "zh": "— 对阵图编辑器",
+    "en": "— Bracket editor"
+  },
+  "admin.events.event_bracket.bracket_editor_name": {
+    "zh": "对阵图编辑 — {name}",
+    "en": "Bracket editor — {name}"
+  },
+  "admin.events.event_bracket.bracket_preview": {
+    "zh": "对阵图预览",
+    "en": "Bracket preview"
+  },
+  "admin.events.event_bracket.default_format": {
+    "zh": "默认赛制：",
+    "en": "Default format:"
+  },
+  "admin.events.event_bracket.drag_into_first_round_slots_only": {
+    "zh": "只拖拽到首轮槽位，后续对阵由赛果决定",
+    "en": "Drag into first-round slots only; later rounds follow the results"
+  },
+  "admin.events.event_bracket.each_slot_can_be_bound_to": {
+    "zh": "可为每个槽位绑定该赛事中已经创建的比赛。绑定后只同步时间、比分和晋级结果，不会重新创建或更换比赛。",
+    "en": "Each slot can be bound to a match already created for this event. Binding only syncs time, score and advancement; it never recreates or replaces the match."
+  },
+  "admin.events.event_bracket.format": {
+    "zh": "赛制：",
+    "en": "Format: "
+  },
+  "admin.events.event_bracket.reset": {
+    "zh": "重置",
+    "en": "Reset"
+  },
+  "admin.events.event_bracket.save_and_create_all_matches": {
+    "zh": "保存并生成全部比赛",
+    "en": "Save and create all matches"
+  },
+  "admin.events.event_bracket.search_teams": {
+    "zh": "搜索队伍...",
+    "en": "Search teams..."
+  },
+  "admin.events.event_bracket.search_teams_2": {
+    "zh": "搜索队伍",
+    "en": "Search teams"
+  },
+  "admin.events.event_bracket.select_a_format_to_show_the": {
+    "zh": "选择赛制后将显示对阵图编辑区域",
+    "en": "Select a format to show the bracket editor"
+  },
+  "admin.events.event_bracket.swiss_automatic_advancement_in_development": {
+    "zh": "瑞士制（自动晋级规则开发中）",
+    "en": "Swiss (automatic advancement in development)"
+  },
+  "admin.events.event_bracket.team_pool": {
+    "zh": "队伍池",
+    "en": "Team pool"
+  },
+  "admin.events.event_bracket.view_event_page": {
+    "zh": "查看前台赛事页",
+    "en": "View event page"
+  },
+  "admin.events.event_bracket_managed.away_side": {
+    "zh": "客队侧 (away)",
+    "en": "Away side"
+  },
+  "admin.events.event_bracket_managed.back_to_event_management": {
+    "zh": "← 返回赛事管理",
+    "en": "← Back to event management"
+  },
+  "admin.events.event_bracket_managed.bracket_name": {
+    "zh": "晋级签表 — {name}",
+    "en": "Bracket — {name}"
+  },
+  "admin.events.event_bracket_managed.club": {
+    "zh": "俱乐部：",
+    "en": "Club: "
+  },
+  "admin.events.event_bracket_managed.configure_advancement_link": {
+    "zh": "配置胜者 / 败者晋级联动",
+    "en": "Configure advancement link"
+  },
+  "admin.events.event_bracket_managed.configure_downstream_matches_and_winner_loser": {
+    "zh": "基于本届真实参赛身份（Event Entrant）配置下游比赛与胜者 / 败者晋级联动，不依赖旧 4 队固定签表。",
+    "en": "Configure downstream matches and winner/loser advancement links using real Event Entrants."
+  },
+  "admin.events.event_bracket_managed.configured_advancement_links": {
+    "zh": "已配置的晋级联动",
+    "en": "Configured advancement links"
+  },
+  "admin.events.event_bracket_managed.create_downstream_match": {
+    "zh": "新增下游比赛",
+    "en": "Create downstream match"
+  },
+  "admin.events.event_bracket_managed.create_downstream_match_2": {
+    "zh": "创建下游比赛",
+    "en": "Create downstream match"
+  },
+  "admin.events.event_bracket_managed.e_g_semifinal_upper_final_grand": {
+    "zh": "例如：半决赛、胜者组决赛、总决赛",
+    "en": "e.g. Semifinal, Upper Final, Grand Final"
+  },
+  "admin.events.event_bracket_managed.edit_event": {
+    "zh": "编辑赛事",
+    "en": "Edit event"
+  },
+  "admin.events.event_bracket_managed.entrants_teams": {
+    "zh": "{entrants} 支",
+    "en": "{entrants} teams"
+  },
+  "admin.events.event_bracket_managed.event_entrants": {
+    "zh": "本届参赛队伍（Event Entrants）",
+    "en": "Event Entrants"
+  },
+  "admin.events.event_bracket_managed.event_entrants_are_not_confirmed_yet": {
+    "zh": "本届尚未完成分队与参赛队伍确认，请先前往“赛事名单管理”。",
+    "en": "Event entrants are not confirmed yet. Complete formation in Event Roster first."
+  },
+  "admin.events.event_bracket_managed.event_matches": {
+    "zh": "本赛事比赛列表",
+    "en": "Event matches"
+  },
+  "admin.events.event_bracket_managed.event_matches_matches": {
+    "zh": "{event_matches} 场",
+    "en": "{event_matches} matches"
+  },
+  "admin.events.event_bracket_managed.event_page": {
+    "zh": "前台赛事页",
+    "en": "Event page"
+  },
+  "admin.events.event_bracket_managed.event_roster": {
+    "zh": "赛事名单管理",
+    "en": "Event roster"
+  },
+  "admin.events.event_bracket_managed.format_bo": {
+    "zh": "赛制（BO）",
+    "en": "Format (BO)"
+  },
+  "admin.events.event_bracket_managed.grand_final": {
+    "zh": "总决赛",
+    "en": "Grand final"
+  },
+  "admin.events.event_bracket_managed.home_side": {
+    "zh": "主队侧 (home)",
+    "en": "Home side"
+  },
+  "admin.events.event_bracket_managed.loser_drops": {
+    "zh": "败者去向 (loser)",
+    "en": "Loser drops"
+  },
+  "admin.events.event_bracket_managed.lower_bracket_final": {
+    "zh": "败者组决赛",
+    "en": "Lower bracket final"
+  },
+  "admin.events.event_bracket_managed.managed_event_bracket": {
+    "zh": "托管赛事晋级管理",
+    "en": "Managed event bracket"
+  },
+  "admin.events.event_bracket_managed.match_stage": {
+    "zh": "比赛阶段名称",
+    "en": "Match stage"
+  },
+  "admin.events.event_bracket_managed.matches_in_this_event": {
+    "zh": "本赛事比赛",
+    "en": "Matches in this event"
+  },
+  "admin.events.event_bracket_managed.quarterfinal": {
+    "zh": "八强赛",
+    "en": "Quarterfinal"
+  },
+  "admin.events.event_bracket_managed.refresh_links": {
+    "zh": "刷新晋级状态",
+    "en": "Refresh links"
+  },
+  "admin.events.event_bracket_managed.save_advancement_link": {
+    "zh": "保存晋级联动",
+    "en": "Save advancement link"
+  },
+  "admin.events.event_bracket_managed.scheduled_time_optional": {
+    "zh": "预计开赛时间（可选）",
+    "en": "Scheduled time (optional)"
+  },
+  "admin.events.event_bracket_managed.semifinal": {
+    "zh": "半决赛",
+    "en": "Semifinal"
+  },
+  "admin.events.event_bracket_managed.source_match": {
+    "zh": "上游比赛",
+    "en": "Source match"
+  },
+  "admin.events.event_bracket_managed.source_outcome": {
+    "zh": "上游结果出口",
+    "en": "Source outcome"
+  },
+  "admin.events.event_bracket_managed.stage_presets": {
+    "zh": "快捷阶段",
+    "en": "Stage presets"
+  },
+  "admin.events.event_bracket_managed.target_match": {
+    "zh": "下游目标比赛",
+    "en": "Target match"
+  },
+  "admin.events.event_bracket_managed.target_side": {
+    "zh": "下游签位",
+    "en": "Target side"
+  },
+  "admin.events.event_bracket_managed.temp_team": {
+    "zh": "临时队",
+    "en": "Temp team"
+  },
+  "admin.events.event_bracket_managed.third_place_match": {
+    "zh": "季军赛",
+    "en": "Third-place match"
+  },
+  "admin.events.event_bracket_managed.upper_bracket_final": {
+    "zh": "胜者组决赛",
+    "en": "Upper bracket final"
+  },
+  "admin.events.event_bracket_managed.use_one_grand_final_with_no": {
+    "zh": "本届只能有一场总决赛，且不能连接下游席位。",
+    "en": "Use one grand final, with no outgoing bracket links."
+  },
+  "admin.events.event_bracket_managed.winner_advances": {
+    "zh": "胜者晋级 (winner)",
+    "en": "Winner advances"
+  },
+  "admin.events.event_roster.a_deadline_team_formation": {
+    "zh": "A. 截止与正式分队",
+    "en": "A. Deadline & Team Formation"
+  },
+  "admin.events.event_roster.a_team_formation_complete": {
+    "zh": "A. 正式分队已完成",
+    "en": "A. Team Formation Complete"
+  },
+  "admin.events.event_roster.actions": {
+    "zh": "操作",
+    "en": "Actions"
+  },
+  "admin.events.event_roster.adjust_formation": {
+    "zh": "调整分队",
+    "en": "Adjust formation"
+  },
+  "admin.events.event_roster.adjust_formation_before_initial_lock": {
+    "zh": "调整分队（初始五人确认前）",
+    "en": "Adjust formation (before Initial lock)"
+  },
+  "admin.events.event_roster.adjustment_reason": {
+    "zh": "调整理由",
+    "en": "Adjustment reason"
+  },
+  "admin.events.event_roster.another_admin_updated_this_roster_you": {
+    "zh": "其他管理员刚修改了本届名单，你当前查看的是第 {value1} 版。",
+    "en": "Another admin updated this roster; you are viewing Revision {value1}."
+  },
+  "admin.events.event_roster.approved": {
+    "zh": "已审核",
+    "en": "Approved"
+  },
+  "admin.events.event_roster.archive": {
+    "zh": "归档",
+    "en": "Archive"
+  },
+  "admin.events.event_roster.archive_entrant": {
+    "zh": "归档参赛队伍",
+    "en": "Archive entrant"
+  },
+  "admin.events.event_roster.archive_reason": {
+    "zh": "归档原因",
+    "en": "Archive reason"
+  },
+  "admin.events.event_roster.archived": {
+    "zh": "已归档",
+    "en": "Archived"
+  },
+  "admin.events.event_roster.archived_archived_at_iso_read_only": {
+    "zh": "已归档（{archived_at_iso}），只读",
+    "en": "Archived ({archived_at_iso}); read-only"
+  },
+  "admin.events.event_roster.archived_at_team_archived_iso_reason": {
+    "zh": "归档于 {team_archived_iso} · 理由：",
+    "en": "Archived at {team_archived_iso} · Reason: "
+  },
+  "admin.events.event_roster.assign": {
+    "zh": "分配到…",
+    "en": "Assign…"
+  },
+  "admin.events.event_roster.assign_reserve": {
+    "zh": "分配候补",
+    "en": "Assign reserve"
+  },
+  "admin.events.event_roster.assign_reserve_to_team_bench": {
+    "zh": "分配候补到队伍替补席",
+    "en": "Assign reserve to team bench"
+  },
+  "admin.events.event_roster.assigned": {
+    "zh": "已分配",
+    "en": "Assigned"
+  },
+  "admin.events.event_roster.assigned_substitutes_are_on_the_bench": {
+    "zh": "已获替补席位的选手尚未进入当前阵容；需要更换首发时请点下方「赛前换人」。",
+    "en": "Assigned substitutes are on the bench and not yet in the Current Roster. Use \"Pre-match change\" below to swap them in."
+  },
+  "admin.events.event_roster.assignment_reason": {
+    "zh": "分配理由",
+    "en": "Assignment reason"
+  },
+  "admin.events.event_roster.b_reservations_awaiting_review": {
+    "zh": "B. 待核实预留位",
+    "en": "B. Reservations Awaiting Review"
+  },
+  "admin.events.event_roster.back_to_event_management": {
+    "zh": "← 返回赛事管理",
+    "en": "← Back to event management"
+  },
+  "admin.events.event_roster.bracket": {
+    "zh": "晋级签表",
+    "en": "Bracket"
+  },
+  "admin.events.event_roster.c_event_entrants": {
+    "zh": "C. 参赛队伍",
+    "en": "C. Event Entrants"
+  },
+  "admin.events.event_roster.cancel": {
+    "zh": "取消",
+    "en": "Cancel"
+  },
+  "admin.events.event_roster.change_linked_club": {
+    "zh": "更换关联俱乐部",
+    "en": "Change linked club"
+  },
+  "admin.events.event_roster.change_reason": {
+    "zh": "换人理由",
+    "en": "Change reason"
+  },
+  "admin.events.event_roster.claim": {
+    "zh": "认领",
+    "en": "Claim"
+  },
+  "admin.events.event_roster.claim_or_release_after_registration_closes": {
+    "zh": "截止后可办理认领或释放",
+    "en": "Claim or release after registration closes"
+  },
+  "admin.events.event_roster.claim_or_release_all_reserved_slots": {
+    "zh": "请先处理下方全部待核实预留位，再执行正式分队。",
+    "en": "Claim or release all reserved slots in Section B first."
+  },
+  "admin.events.event_roster.claimed": {
+    "zh": "已认领",
+    "en": "Claimed"
+  },
+  "admin.events.event_roster.close": {
+    "zh": "关闭",
+    "en": "Close"
+  },
+  "admin.events.event_roster.closed": {
+    "zh": "已截止",
+    "en": "Closed"
+  },
+  "admin.events.event_roster.club": {
+    "zh": "俱乐部",
+    "en": "Club"
+  },
+  "admin.events.event_roster.club_2": {
+    "zh": "俱乐部：",
+    "en": "Club: "
+  },
+  "admin.events.event_roster.club_3": {
+    "zh": "长期俱乐部",
+    "en": "Club"
+  },
+  "admin.events.event_roster.confirm": {
+    "zh": "确认",
+    "en": "Confirm"
+  },
+  "admin.events.event_roster.confirm_archive": {
+    "zh": "确认归档",
+    "en": "Confirm archive"
+  },
+  "admin.events.event_roster.confirm_assignment": {
+    "zh": "确认分配",
+    "en": "Confirm assignment"
+  },
+  "admin.events.event_roster.confirm_change": {
+    "zh": "确认换人",
+    "en": "Confirm change"
+  },
+  "admin.events.event_roster.confirm_initial_roster": {
+    "zh": "确认初始五人",
+    "en": "Confirm Initial Roster"
+  },
+  "admin.events.event_roster.confirm_initial_roster_2": {
+    "zh": "确认初始五人名单",
+    "en": "Confirm Initial Roster"
+  },
+  "admin.events.event_roster.confirm_initial_roster_for_selected": {
+    "zh": "确认所选队伍的初始五人",
+    "en": "Confirm Initial Roster for selected"
+  },
+  "admin.events.event_roster.confirmed_confirmed_at_iso": {
+    "zh": "确认于 {confirmed_at_iso}",
+    "en": "Confirmed {confirmed_at_iso}"
+  },
+  "admin.events.event_roster.confirmed_entrants_active_entrants_active_teams": {
+    "zh": "首五已确认 {confirmed_entrants} / {active_entrants} 支活跃队伍",
+    "en": "{confirmed_entrants}/{active_entrants} active teams confirmed"
+  },
+  "admin.events.event_roster.create_match": {
+    "zh": "去创建比赛 →",
+    "en": "Create match →"
+  },
+  "admin.events.event_roster.create_matches_lock_rosters": {
+    "zh": "创建比赛与冻结阵容",
+    "en": "Create Matches & Lock Rosters"
+  },
+  "admin.events.event_roster.current_roster": {
+    "zh": "当前阵容",
+    "en": "Current Roster"
+  },
+  "admin.events.event_roster.d_reserve_pool": {
+    "zh": "D. 候补",
+    "en": "D. Reserve Pool"
+  },
+  "admin.events.event_roster.deadline_deadline_iso": {
+    "zh": "报名截止：{deadline_iso}（",
+    "en": "Deadline: {deadline_iso}（"
+  },
+  "admin.events.event_roster.deadline_team_formation": {
+    "zh": "截止与正式分队",
+    "en": "Deadline & Team Formation"
+  },
+  "admin.events.event_roster.e_g_agreed_to_join_as": {
+    "zh": "例如：协商确认补入该队替补席",
+    "en": "e.g. Agreed to join as team substitute"
+  },
+  "admin.events.event_roster.e_g_player_unavailable_for_this": {
+    "zh": "例如：队员临时有事请假",
+    "en": "e.g. Player unavailable for this series"
+  },
+  "admin.events.event_roster.e_g_team_withdrew": {
+    "zh": "例如：退赛弃权",
+    "en": "e.g. Team withdrew"
+  },
+  "admin.events.event_roster.e_g_verified_by_captain_unreachable": {
+    "zh": "例如：队长确认本人 / 联系不上予以释放",
+    "en": "e.g. Verified by captain / Unreachable, releasing slot"
+  },
+  "admin.events.event_roster.edit_event": {
+    "zh": "编辑赛事",
+    "en": "Edit event"
+  },
+  "admin.events.event_roster.enter_reason_for_adjustment": {
+    "zh": "请写明调整原因",
+    "en": "Enter reason for adjustment"
+  },
+  "admin.events.event_roster.event_archived_team_formation_disabled": {
+    "zh": "赛事已归档，不可执行分队。",
+    "en": "Event archived; team formation disabled."
+  },
+  "admin.events.event_roster.event_entrant_event_entrant_id": {
+    "zh": "· 参赛身份 #{event_entrant_id}",
+    "en": "· Event Entrant #{event_entrant_id}"
+  },
+  "admin.events.event_roster.event_page": {
+    "zh": "前台赛事页",
+    "en": "Event page"
+  },
+  "admin.events.event_roster.event_stages": {
+    "zh": "办赛阶段",
+    "en": "Event stages"
+  },
+  "admin.events.event_roster.form_teams": {
+    "zh": "执行正式分队",
+    "en": "Form teams"
+  },
+  "admin.events.event_roster.formed_on_formed_at_iso_entrants": {
+    "zh": "已于 {formed_at_iso} 完成分队，共 {entrants} 支参赛队、{reserve_candidates} 名候补",
+    "en": "Formed on {formed_at_iso} · {entrants} entrant teams, {reserve_candidates} reserves"
+  },
+  "admin.events.event_roster.formed_roster": {
+    "zh": "分队结果",
+    "en": "Formed roster"
+  },
+  "admin.events.event_roster.granting_a_substitute_slot_does_not": {
+    "zh": "说明：授予替补席位不会直接替换当前五人阵容；需要让替补上场时，请再对该队执行「赛前换人」。",
+    "en": "Granting a substitute slot does not alter the Current Roster yet; perform a pre-match change afterward to swap them in."
+  },
+  "admin.events.event_roster.group_count_registered_team_s_incomplete": {
+    "zh": "已报名队伍 {group_count} 支，其中 {incomplete_group_count} 支未满 5 人，共缺",
+    "en": "{group_count} registered team(s), {incomplete_group_count} under 5 players, short by "
+  },
+  "admin.events.event_roster.incoming_team_substitute": {
+    "zh": "换上（本队替补席）",
+    "en": "Incoming (Team substitute)"
+  },
+  "admin.events.event_roster.independent_reserve_count_independent_reserve_s": {
+    "zh": "独立候补 {independent_reserve_count} 人（不参与首五自动分队，分队完成后直接进入候补列表）",
+    "en": "{independent_reserve_count} independent reserve(s) (excluded from initial auto-formation; join the reserve pool afterward)"
+  },
+  "admin.events.event_roster.independent_reserves_have_priority_same_origin": {
+    "zh": "独立报名候补享有优先权；同来源候补不按报名时间自动排名，最后席位由管理员协商决定。分配到某队替补席后，还需在该队执行「赛前换人」才会进入当前阵容。",
+    "en": "Independent reserves have priority. Same-origin peers are not ranked by signup time; admins decide final spots in consultation. Assigning a bench slot still requires a pre-match change to enter the Current Roster."
+  },
+  "admin.events.event_roster.individual_count_solo_signup_s": {
+    "zh": "个人报名 {individual_count} 人",
+    "en": "{individual_count} solo signup(s)"
+  },
+  "admin.events.event_roster.initial_confirmed": {
+    "zh": "首五已确认",
+    "en": "Initial confirmed"
+  },
+  "admin.events.event_roster.initial_pending": {
+    "zh": "首五待确认",
+    "en": "Initial pending"
+  },
+  "admin.events.event_roster.initial_pending_adjustable": {
+    "zh": "尚未确认初始五人，可调整分队",
+    "en": "Initial pending · adjustable"
+  },
+  "admin.events.event_roster.initial_roster": {
+    "zh": "本届初始五人",
+    "en": "Initial Roster"
+  },
+  "admin.events.event_roster.label": {
+    "zh": "」替补席",
+    "en": "”"
+  },
+  "admin.events.event_roster.link_a_club": {
+    "zh": "关联长期俱乐部",
+    "en": "Link a club"
+  },
+  "admin.events.event_roster.link_club": {
+    "zh": "确认关联",
+    "en": "Link club"
+  },
+  "admin.events.event_roster.link_club_2": {
+    "zh": "关联俱乐部",
+    "en": "Link club"
+  },
+  "admin.events.event_roster.matched_account": {
+    "zh": "匹配账号",
+    "en": "Matched account"
+  },
+  "admin.events.event_roster.matches_in_this_event": {
+    "zh": "本赛事比赛",
+    "en": "Matches in this event"
+  },
+  "admin.events.event_roster.name_registration_rosters": {
+    "zh": "{name} · 报名与阵容",
+    "en": "{name} · Registration & Rosters"
+  },
+  "admin.events.event_roster.no_assigned_substitutes": {
+    "zh": "暂无已分配替补",
+    "en": "No assigned substitutes"
+  },
+  "admin.events.event_roster.no_five_player_teams_could_be": {
+    "zh": "本次分队没有组成五人队伍，所有报名选手已进入下方候补列表。",
+    "en": "No five-player teams could be formed; all entrants are listed in the reserve pool below."
+  },
+  "admin.events.event_roster.no_reservations_awaiting_review": {
+    "zh": "没有待核实的预留席位",
+    "en": "No reservations awaiting review"
+  },
+  "admin.events.event_roster.no_reserves": {
+    "zh": "暂无候补",
+    "en": "No reserves"
+  },
+  "admin.events.event_roster.no_signups_yet_form_teams_here": {
+    "zh": "目前还没有人报名。报名截止后可在这里执行正式分队。",
+    "en": "No signups yet. Form teams here once the deadline passes."
+  },
+  "admin.events.event_roster.not_enough_players_to_fill_vacancies": {
+    "zh": "不足以补齐 {vacancies} 个空位，原报名会保留，不会强行拆队",
+    "en": "Not enough players to fill {vacancies} open slots. Existing registrations and teams will be kept."
+  },
+  "admin.events.event_roster.note_swapped_out_players_do_not": {
+    "zh": "提示：被换下的队员不会自动退回候补池；已经冻结的比赛名单不受影响，只影响之后冻结的新比赛。",
+    "en": "Note: Swapped-out players do not return to the reserve pool. Already-locked match rosters stay unchanged."
+  },
+  "admin.events.event_roster.once_archived_the_team_leaves_this": {
+    "zh": "注意：归档后本队不再参赛，不能再修改阵容或用于新建比赛；仍有未结束已绑定比赛的队伍无法归档。",
+    "en": "Once archived, the team leaves this event and cannot enter new matches. Teams with active matches cannot be archived."
+  },
+  "admin.events.event_roster.once_confirmed_these_players_become_the": {
+    "zh": "确认后，这批队伍的初始五人将固定为本届原队资格基准，之后不能再调整分队；后续变更只能走「赛前换人」，且每次都须保留至少三名初始成员。",
+    "en": "Once confirmed, these players become the fixed Initial Roster baseline. Formation changes lock, and later updates must use pre-match substitutions while retaining at least 3 Initial Roster members."
+  },
+  "admin.events.event_roster.open": {
+    "zh": "未截止",
+    "en": "Open"
+  },
+  "admin.events.event_roster.origin_group": {
+    "zh": "来源分组",
+    "en": "Origin group"
+  },
+  "admin.events.event_roster.outgoing_current_roster": {
+    "zh": "换下（当前阵容）",
+    "en": "Outgoing (Current Roster)"
+  },
+  "admin.events.event_roster.pending_review": {
+    "zh": "（待核实）",
+    "en": " (pending review)"
+  },
+  "admin.events.event_roster.player_profile": {
+    "zh": "选手档案：",
+    "en": "Player profile: "
+  },
+  "admin.events.event_roster.player_s": {
+    "zh": "人",
+    "en": " player(s)"
+  },
+  "admin.events.event_roster.players": {
+    "zh": "选手",
+    "en": "Players"
+  },
+  "admin.events.event_roster.pre_formation_check_reference": {
+    "zh": "分队前检查（参考）",
+    "en": "Pre-formation check (reference)"
+  },
+  "admin.events.event_roster.pre_match_change": {
+    "zh": "赛前换人",
+    "en": "Pre-match change"
+  },
+  "admin.events.event_roster.pre_match_changes_must_keep_at": {
+    "zh": "赛前换人须保留至少 3 名初始成员",
+    "en": "Pre-match changes must keep at least 3 Initial members"
+  },
+  "admin.events.event_roster.pre_match_roster_changes": {
+    "zh": "赛前换人记录",
+    "en": "Pre-match roster changes"
+  },
+  "admin.events.event_roster.preferred_team": {
+    "zh": "意向队伍",
+    "en": "Preferred team"
+  },
+  "admin.events.event_roster.read_only": {
+    "zh": "只读",
+    "en": "Read-only"
+  },
+  "admin.events.event_roster.ready_to_form_teams": {
+    "zh": "可尝试执行正式分队",
+    "en": "Ready to form teams"
+  },
+  "admin.events.event_roster.reason": {
+    "zh": "理由：",
+    "en": "Reason: "
+  },
+  "admin.events.event_roster.reason_2": {
+    "zh": "处理理由",
+    "en": "Reason"
+  },
+  "admin.events.event_roster.registered_team": {
+    "zh": "报名队",
+    "en": "Registered team"
+  },
+  "admin.events.event_roster.registered_teams_have_enough_players_to": {
+    "zh": "可以补齐已报队伍空位",
+    "en": "Registered teams have enough players to fill their remaining slots"
+  },
+  "admin.events.event_roster.registration_deadline_not_reached_deadline_iso": {
+    "zh": "尚未到达报名截止时间（{deadline_iso}）",
+    "en": "Registration deadline not reached ({deadline_iso})"
+  },
+  "admin.events.event_roster.registration_deadline_passed_deadline_iso": {
+    "zh": "已过报名截止时间（{deadline_iso}）",
+    "en": "Registration deadline passed ({deadline_iso})"
+  },
+  "admin.events.event_roster.registration_open": {
+    "zh": "报名中",
+    "en": "Registration open"
+  },
+  "admin.events.event_roster.registration_rosters": {
+    "zh": "· 报名与阵容",
+    "en": "· Registration & Rosters"
+  },
+  "admin.events.event_roster.release": {
+    "zh": "释放",
+    "en": "Release"
+  },
+  "admin.events.event_roster.reload_page": {
+    "zh": "重新加载页面",
+    "en": "Reload page"
+  },
+  "admin.events.event_roster.reserved_name": {
+    "zh": "预留名称",
+    "en": "Reserved name"
+  },
+  "admin.events.event_roster.reserved_slots": {
+    "zh": "预留席位",
+    "en": "Reserved slots"
+  },
+  "admin.events.event_roster.reserved_slots_were_entered_as_placeholders": {
+    "zh": "预留席位由队长报名时填写占位，尚未对应到真人已审核账号。截止前由队长在前台自行调整；截止后管理员须逐一按原预留 Steam 身份核实认领或释放，不接受改填其他账号。",
+    "en": "Reserved slots were entered as placeholders during team signup. Captains can update them before the deadline; afterward, admins must claim each by its original Steam ID or release it."
+  },
+  "admin.events.event_roster.reserved_steam_id": {
+    "zh": "预留 Steam ID",
+    "en": "Reserved Steam ID"
+  },
+  "admin.events.event_roster.reserves": {
+    "zh": "候补选手",
+    "en": "Reserves"
+  },
+  "admin.events.event_roster.reserves_pre_match_changes": {
+    "zh": "候补与赛前换人",
+    "en": "Reserves & Pre-match Changes"
+  },
+  "admin.events.event_roster.retains_kept_initial_count_5_initial": {
+    "zh": "保留初始 {kept_initial_count} / 5",
+    "en": "Retains {kept_initial_count}/5 initial"
+  },
+  "admin.events.event_roster.review_after_the_deadline": {
+    "zh": "截止后可复核",
+    "en": "Review after the deadline"
+  },
+  "admin.events.event_roster.review_reserved_slot": {
+    "zh": "核实预留席位",
+    "en": "Review reserved slot"
+  },
+  "admin.events.event_roster.revision": {
+    "zh": "名单版本：",
+    "en": "Revision: "
+  },
+  "admin.events.event_roster.roster_actions_are_paused_to_prevent": {
+    "zh": "为防止用旧名单覆盖他人修改，名单操作已暂停；请重新加载查看最新状态（如果弹窗里已填写理由，建议先复制留存，刷新后按最新名单重新提交）。",
+    "en": "Roster actions are paused to prevent overwriting changes. Reload to view the latest revision (copy any reason text first if needed)."
+  },
+  "admin.events.event_roster.save_adjustment": {
+    "zh": "提交调整",
+    "en": "Save adjustment"
+  },
+  "admin.events.event_roster.select_a_club": {
+    "zh": "选择俱乐部",
+    "en": "Select a club"
+  },
+  "admin.events.event_roster.select_all_unconfirmed_teams_unconfirmed_active": {
+    "zh": "全选尚未确认初始五人的队伍（{unconfirmed_active} 支）",
+    "en": "Select all unconfirmed teams ({unconfirmed_active})"
+  },
+  "admin.events.event_roster.select_one_or_more_unconfirmed_teams": {
+    "zh": "可同时勾选多支未确认初始五人的队伍，互相调换队员；可选人员为勾选队伍的现有队员以及来自个人报名或调出的待分配候补（不含独立候补）。",
+    "en": "Select one or more unconfirmed teams to swap players between them or pull from unassigned solo/reassigned reserves (independent reserves excluded)."
+  },
+  "admin.events.event_roster.select_team_name_to_confirm_initial": {
+    "zh": "选择 {team_name} 以确认初始五人",
+    "en": "Select {team_name} to confirm Initial Roster"
+  },
+  "admin.events.event_roster.signup_time_reference": {
+    "zh": "报名时间（参考）",
+    "en": "Signup time (reference)"
+  },
+  "admin.events.event_roster.slot": {
+    "zh": "位置",
+    "en": "Slot"
+  },
+  "admin.events.event_roster.slot_value1": {
+    "zh": "{value1} 号位",
+    "en": "Slot {value1}"
+  },
+  "admin.events.event_roster.status": {
+    "zh": "状态",
+    "en": "Status"
+  },
+  "admin.events.event_roster.subbed_in": {
+    "zh": "换入",
+    "en": "Subbed in"
+  },
+  "admin.events.event_roster.subbed_out": {
+    "zh": "已换出",
+    "en": "Subbed out"
+  },
+  "admin.events.event_roster.substitute_slot_for": {
+    "zh": "已获「",
+    "en": "Substitute slot for “"
+  },
+  "admin.events.event_roster.target_team": {
+    "zh": "目标队伍",
+    "en": "Target team"
+  },
+  "admin.events.event_roster.team_formation_requirements_not_met": {
+    "zh": "分队前置条件待满足",
+    "en": "Team formation requirements not met"
+  },
+  "admin.events.event_roster.team_formation_runs_once_and_will": {
+    "zh": "正式分队是一次性结果，不可再次洗牌。如某队尚未确认初始五人，可在下方 C 区使用「调整分队」进行微调。",
+    "en": "Team formation runs once and will not reshuffle teams. You can still adjust unconfirmed teams in Section C below."
+  },
+  "admin.events.event_roster.team_formation_unlocks_after_the_registration": {
+    "zh": "截止时间到达后才能执行正式分队。",
+    "en": "Team formation unlocks after the registration deadline."
+  },
+  "admin.events.event_roster.team_substitutes": {
+    "zh": "本队替补席：",
+    "en": "Team substitutes: "
+  },
+  "admin.events.event_roster.teams_to_adjust": {
+    "zh": "参与本次调整的队伍",
+    "en": "Teams to adjust"
+  },
+  "admin.events.event_roster.temp_team": {
+    "zh": "临时队",
+    "en": "Temp team"
+  },
+  "admin.events.event_roster.the_club_cannot_be_changed_after": {
+    "zh": "报名截止后不能更换俱乐部。",
+    "en": "The club cannot be changed after registration closes."
+  },
+  "admin.events.event_roster.unassigned": {
+    "zh": "待分配",
+    "en": "Unassigned"
+  },
+  "admin.events.event_roster.unverified_count_reserved_slot_s_awaiting": {
+    "zh": "还有 {unverified_count} 个预留席位待核实（须先在下方 B 区认领或释放）",
+    "en": "{unverified_count} reserved slot(s) awaiting review (claim or release in Section B below)"
+  },
+  "admin.events.event_roster.v_formation_revision": {
+    "zh": "第 {formation_revision} 版",
+    "en": "v{formation_revision}"
+  },
+  "admin.events.event_roster.view_registered_teams_registered_groups": {
+    "zh": "查看已报名的队伍（{registered_groups} 支）",
+    "en": "View registered teams ({registered_groups})"
+  },
+  "admin.events.events.actions": {
+    "zh": "操作",
+    "en": "Actions"
+  },
+  "admin.events.events.add_event": {
+    "zh": "添加赛事",
+    "en": "Add event"
+  },
+  "admin.events.events.all_events": {
+    "zh": "全部赛事",
+    "en": "All events"
+  },
+  "admin.events.events.bracket": {
+    "zh": "对阵图",
+    "en": "Bracket"
+  },
+  "admin.events.events.closes_deadline_iso": {
+    "zh": "截止 {deadline_iso}",
+    "en": "Closes {deadline_iso}"
+  },
+  "admin.events.events.completed": {
+    "zh": "已结束",
+    "en": "Completed"
+  },
+  "admin.events.events.delete_event": {
+    "zh": "删除赛事",
+    "en": "Delete event"
+  },
+  "admin.events.events.delete_event_name": {
+    "zh": "确定删除赛事【{name}】吗？",
+    "en": "Delete event \"{name}\"?"
+  },
+  "admin.events.events.delete_event_name_2": {
+    "zh": "删除赛事 {name}",
+    "en": "Delete event {name}"
+  },
+  "admin.events.events.edit": {
+    "zh": "编辑",
+    "en": "Edit"
+  },
+  "admin.events.events.events": {
+    "zh": "赛事",
+    "en": "Events"
+  },
+  "admin.events.events.filter_by_status": {
+    "zh": "按状态筛选",
+    "en": "Filter by status"
+  },
+  "admin.events.events.manage_events": {
+    "zh": "赛事管理",
+    "en": "Manage events"
+  },
+  "admin.events.events.matches_in_this_event": {
+    "zh": "本赛事的比赛",
+    "en": "Matches in this event"
+  },
+  "admin.events.events.no_events_yet": {
+    "zh": "还没有赛事",
+    "en": "No events yet"
+  },
+  "admin.events.events.ongoing": {
+    "zh": "进行中",
+    "en": "Ongoing"
+  },
+  "admin.events.events.registration": {
+    "zh": "报名",
+    "en": "Registration"
+  },
+  "admin.events.events.registration_open": {
+    "zh": "报名中",
+    "en": "Registration open"
+  },
+  "admin.events.events.registration_rosters": {
+    "zh": "报名与阵容",
+    "en": "Registration & Rosters"
+  },
+  "admin.events.events.schedule": {
+    "zh": "赛期",
+    "en": "Schedule"
+  },
+  "admin.events.events.search_event_name_or_abbreviation": {
+    "zh": "搜索赛事名、简称",
+    "en": "Search event name or abbreviation"
+  },
+  "admin.events.events.search_events": {
+    "zh": "搜索赛事",
+    "en": "Search events"
+  },
+  "admin.events.events.status": {
+    "zh": "状态",
+    "en": "Status"
+  },
+  "admin.events.events.status_all": {
+    "zh": "状态：全部",
+    "en": "Status: All"
+  },
+  "admin.events.events.upcoming": {
+    "zh": "即将开始",
+    "en": "Upcoming"
+  },
+  "admin.events.events.view_event_opens_in_a_new": {
+    "zh": "前台赛事页（新标签页）",
+    "en": "View event (opens in a new tab)"
+  },
+  "admin.events.events_form.14_days_2_weeks": {
+    "zh": "14天 (2周)",
+    "en": "14 days (2 weeks)"
+  },
+  "admin.events.events_form.1_day_single_day_event": {
+    "zh": "1天 (单日赛)",
+    "en": "1 day (single-day event)"
+  },
+  "admin.events.events_form.2_days_weekend_cup": {
+    "zh": "2天 (周末杯)",
+    "en": "2 days (weekend cup)"
+  },
+  "admin.events.events_form.30_days_monthly_event": {
+    "zh": "30天 (月赛)",
+    "en": "30 days (monthly event)"
+  },
+  "admin.events.events_form.7_days_1_week": {
+    "zh": "7天 (1周)",
+    "en": "7 days (1 week)"
+  },
+  "admin.events.events_form.add_event": {
+    "zh": "添加赛事",
+    "en": "Add event"
+  },
+  "admin.events.events_form.archive_this_event_after_saving": {
+    "zh": "（保存后归档本届赛事）",
+    "en": "(Archive this event after saving)"
+  },
+  "admin.events.events_form.archived_at": {
+    "zh": "归档于",
+    "en": "Archived at"
+  },
+  "admin.events.events_form.award_posters": {
+    "zh": "荣誉海报",
+    "en": "Award posters"
+  },
+  "admin.events.events_form.awards_overview": {
+    "zh": "荣誉总览",
+    "en": "Awards overview"
+  },
+  "admin.events.events_form.back_to_event_management": {
+    "zh": "← 返回赛事管理",
+    "en": "← Back to event management"
+  },
+  "admin.events.events_form.basic_information": {
+    "zh": "基本信息",
+    "en": "Basic information"
+  },
+  "admin.events.events_form.bilibili_live_room_url": {
+    "zh": "B站直播间地址",
+    "en": "Bilibili live room URL"
+  },
+  "admin.events.events_form.cancel": {
+    "zh": "取消",
+    "en": "Cancel"
+  },
+  "admin.events.events_form.champion_team": {
+    "zh": "冠军队伍",
+    "en": "Champion team"
+  },
+  "admin.events.events_form.closed": {
+    "zh": "已截止",
+    "en": "Closed"
+  },
+  "admin.events.events_form.completed": {
+    "zh": "已结束",
+    "en": "Completed"
+  },
+  "admin.events.events_form.description": {
+    "zh": "描述",
+    "en": "Description"
+  },
+  "admin.events.events_form.disable_managed_registration": {
+    "zh": "停用新报名管理",
+    "en": "Disable managed registration"
+  },
+  "admin.events.events_form.e_g_80cs_s1_or_freshman": {
+    "zh": "例如：80CS_S1 或 新生杯",
+    "en": "e.g. 80CS_S1 or Freshman Cup"
+  },
+  "admin.events.events_form.edit_bracket": {
+    "zh": "编辑对阵图",
+    "en": "Edit bracket"
+  },
+  "admin.events.events_form.edit_event": {
+    "zh": "编辑赛事",
+    "en": "Edit event"
+  },
+  "admin.events.events_form.enable_managed_registration": {
+    "zh": "启用新报名管理",
+    "en": "Enable managed registration"
+  },
+  "admin.events.events_form.enabled_at": {
+    "zh": "启用于",
+    "en": "Enabled at"
+  },
+  "admin.events.events_form.end_date_and_time": {
+    "zh": "结束时间",
+    "en": "End date and time"
+  },
+  "admin.events.events_form.event_awards": {
+    "zh": "赛后荣誉",
+    "en": "Event awards"
+  },
+  "admin.events.events_form.event_description": {
+    "zh": "赛事简介",
+    "en": "Event description"
+  },
+  "admin.events.events_form.event_evps_multiple": {
+    "zh": "赛事 EVP（可多选）",
+    "en": "Event EVPs (multiple)"
+  },
+  "admin.events.events_form.event_mvp": {
+    "zh": "赛事 MVP",
+    "en": "Event MVP"
+  },
+  "admin.events.events_form.event_name": {
+    "zh": "赛事名",
+    "en": "Event name"
+  },
+  "admin.events.events_form.event_short_name": {
+    "zh": "赛事简称",
+    "en": "Event short name"
+  },
+  "admin.events.events_form.example_campus_spring_cup": {
+    "zh": "例如：校园春季杯",
+    "en": "Example: Campus Spring Cup"
+  },
+  "admin.events.events_form.example_single_elimination_or_double_round": {
+    "zh": "如：单败淘汰、双循环积分",
+    "en": "Example: single elimination or double round robin"
+  },
+  "admin.events.events_form.existing_events_with_prior_records_remain": {
+    "zh": "往届或已有业务记录的赛事继续使用原流程，不提供迁移。",
+    "en": "Existing events with prior records remain on the legacy flow; no migration is available."
+  },
+  "admin.events.events_form.format": {
+    "zh": "赛制",
+    "en": "Format"
+  },
+  "admin.events.events_form.formed_at_iso_initial_roster_confirmed": {
+    "zh": "{formed_at_iso} · 已确认首五 {confirmed_entrants} / {active_entrants} 队",
+    "en": "{formed_at_iso} · Initial Roster confirmed for {confirmed_entrants} of {active_entrants} teams"
+  },
+  "admin.events.events_form.legacy_toggle_open_team_registration": {
+    "zh": "原报名开关：开放队伍报名",
+    "en": "Legacy toggle: open team registration"
+  },
+  "admin.events.events_form.loading": {
+    "zh": "加载中……",
+    "en": "Loading…"
+  },
+  "admin.events.events_form.managed_events_currently_support_pre_match": {
+    "zh": "新流程当前只开放赛前管理与归档，不可切换为进行中。",
+    "en": "Managed events currently support pre-match management and archiving only; Ongoing status is disabled."
+  },
+  "admin.events.events_form.managed_registration": {
+    "zh": "新报名管理",
+    "en": "Managed registration"
+  },
+  "admin.events.events_form.managed_registration_auto_form_after_deadline": {
+    "zh": "新报名管理（报名截止后自动分队）",
+    "en": "Managed registration (auto-form after deadline)"
+  },
+  "admin.events.events_form.managed_registration_disabled": {
+    "zh": "未启用新报名管理",
+    "en": "Managed registration disabled"
+  },
+  "admin.events.events_form.managed_registration_is_not_available_in": {
+    "zh": "此数据库尚未安装新报名管理结构，当前继续使用原报名流程。",
+    "en": "Managed registration is not available in this database. The existing registration process remains in use."
+  },
+  "admin.events.events_form.managed_registration_is_not_available_in_2": {
+    "zh": "（当前数据库未安装新报名结构）",
+    "en": "(Managed registration is not available in this database)"
+  },
+  "admin.events.events_form.managed_registration_opens_and_closes_based": {
+    "zh": "报名开关由上方「新报名管理」按截止时间自动控制。",
+    "en": "Managed registration opens and closes based on the deadline above."
+  },
+  "admin.events.events_form.managed_registration_schema_not_installed": {
+    "zh": "未安装新报名结构",
+    "en": "Managed registration schema not installed"
+  },
+  "admin.events.events_form.matches_in_this_event": {
+    "zh": "本赛事比赛",
+    "en": "Matches in this event"
+  },
+  "admin.events.events_form.more_settings": {
+    "zh": "更多设置",
+    "en": "More settings"
+  },
+  "admin.events.events_form.no_signups_matches_or_brackets_exist": {
+    "zh": "这届还没有报名、比赛和对阵图，可以改用新报名管理。",
+    "en": "No signups, matches, or brackets exist yet; managed registration can be enabled."
+  },
+  "admin.events.events_form.not_specified": {
+    "zh": "-- 未指定 --",
+    "en": "-- Not specified --"
+  },
+  "admin.events.events_form.once_enabled_signups_use_the_managed": {
+    "zh": "启用后本届报名改由新流程管理，截止时间不能再修改。产生报名或分队后不能退回原流程。",
+    "en": "Once enabled, signups use the managed flow and the deadline is locked. You cannot revert after signups or team formation begin."
+  },
+  "admin.events.events_form.ongoing": {
+    "zh": "进行中",
+    "en": "Ongoing"
+  },
+  "admin.events.events_form.open_registration_and_rosters": {
+    "zh": "打开报名与阵容",
+    "en": "Open registration and rosters"
+  },
+  "admin.events.events_form.open_team_registration": {
+    "zh": "开放队伍报名",
+    "en": "Open team registration"
+  },
+  "admin.events.events_form.player_awards": {
+    "zh": "个人荣誉",
+    "en": "Player awards"
+  },
+  "admin.events.events_form.post_event_awards_champion_mvp_evp": {
+    "zh": "赛后荣誉：冠军、MVP、EVP",
+    "en": "Post-event awards: champion, MVP, EVP"
+  },
+  "admin.events.events_form.quick_duration": {
+    "zh": "快捷赛期",
+    "en": "Quick duration"
+  },
+  "admin.events.events_form.quick_duration_2": {
+    "zh": "快捷赛期：",
+    "en": "Quick duration:"
+  },
+  "admin.events.events_form.registration": {
+    "zh": "报名",
+    "en": "Registration"
+  },
+  "admin.events.events_form.registration_closed": {
+    "zh": "不开放报名",
+    "en": "Registration closed"
+  },
+  "admin.events.events_form.registration_deadline": {
+    "zh": "报名截止时间",
+    "en": "Registration deadline"
+  },
+  "admin.events.events_form.registration_deadline_for_managed_flow": {
+    "zh": "启用新报名管理的报名截止时间",
+    "en": "Registration deadline for managed flow"
+  },
+  "admin.events.events_form.registration_open": {
+    "zh": "报名进行中",
+    "en": "Registration open"
+  },
+  "admin.events.events_form.registration_rosters": {
+    "zh": "报名与阵容",
+    "en": "Registration & Rosters"
+  },
+  "admin.events.events_form.save_changes": {
+    "zh": "保存修改",
+    "en": "Save changes"
+  },
+  "admin.events.events_form.schedule": {
+    "zh": "赛期",
+    "en": "Schedule"
+  },
+  "admin.events.events_form.start_date_and_time": {
+    "zh": "开始时间",
+    "en": "Start date and time"
+  },
+  "admin.events.events_form.status": {
+    "zh": "状态",
+    "en": "Status"
+  },
+  "admin.events.events_form.team_championship": {
+    "zh": "团队冠军",
+    "en": "Team championship"
+  },
+  "admin.events.events_form.team_formation": {
+    "zh": "正式分队",
+    "en": "Team formation"
+  },
+  "admin.events.events_form.teams_auto_form_by_cs2_playtime": {
+    "zh": "截止后按 Steam 时长自动分队；之后由管理员确认初始五人。启用后不能修改截止时间。",
+    "en": "Teams auto-form by CS2 playtime after the deadline, then admins confirm each Initial Roster. The deadline cannot be changed once enabled."
+  },
+  "admin.events.events_form.the_start_date_is_day_1": {
+    "zh": "按自然日计算：开始当天算第 1 天，最后一天 20:00 结束。",
+    "en": "The start date is day 1. The event ends at 20:00 on the final day."
+  },
+  "admin.events.events_form.this_event_cannot_switch_to_managed": {
+    "zh": "这届赛事不能改用新报名管理，原因：",
+    "en": "This event cannot switch to managed registration:"
+  },
+  "admin.events.events_form.this_event_has_finished_registration_cannot": {
+    "zh": "赛事已完赛，不可再开放报名。",
+    "en": "This event has finished; registration cannot be reopened."
+  },
+  "admin.events.events_form.this_event_only_supports_pre_match": {
+    "zh": "（本届只办理赛前管理与归档）",
+    "en": "(This event only supports pre-match management and archiving)"
+  },
+  "admin.events.events_form.upcoming": {
+    "zh": "即将开始",
+    "en": "Upcoming"
+  },
+  "admin.events.events_form.used_in_event_and_match_urls": {
+    "zh": "用于赛事和比赛网址；修改简称后，旧链接仍可访问。",
+    "en": "Used in event and match URLs. Old links still work if you change the short name."
+  },
+  "admin.home.dashboard.account_reviews": {
+    "zh": "账号审核",
+    "en": "Account reviews"
+  },
+  "admin.home.dashboard.actions": {
+    "zh": "操作",
+    "en": "Actions"
+  },
+  "admin.home.dashboard.add_match": {
+    "zh": "添加比赛",
+    "en": "Add match"
+  },
+  "admin.home.dashboard.all_matches": {
+    "zh": "全部比赛",
+    "en": "All matches"
+  },
+  "admin.home.dashboard.beta": {
+    "zh": "测试",
+    "en": "Beta"
+  },
+  "admin.home.dashboard.events": {
+    "zh": "赛事",
+    "en": "Events"
+  },
+  "admin.home.dashboard.feedback_to_review": {
+    "zh": "待处理反馈",
+    "en": "Feedback to review"
+  },
+  "admin.home.dashboard.live": {
+    "zh": "直播中",
+    "en": "Live"
+  },
+  "admin.home.dashboard.live_and_upcoming": {
+    "zh": "进行中与即将开始",
+    "en": "Live and upcoming"
+  },
+  "admin.home.dashboard.matches": {
+    "zh": "比赛",
+    "en": "Matches"
+  },
+  "admin.home.dashboard.matchup_event": {
+    "zh": "对阵 / 赛事",
+    "en": "Matchup / Event"
+  },
+  "admin.home.dashboard.news": {
+    "zh": "新闻",
+    "en": "News"
+  },
+  "admin.home.dashboard.no_accounts_awaiting_review": {
+    "zh": "没有待审核的账号",
+    "en": "No accounts awaiting review"
+  },
+  "admin.home.dashboard.no_feedback_awaiting_review": {
+    "zh": "没有待处理的反馈",
+    "en": "No feedback awaiting review"
+  },
+  "admin.home.dashboard.no_live_or_upcoming_matches": {
+    "zh": "没有进行中或即将开始的比赛",
+    "en": "No live or upcoming matches"
+  },
+  "admin.home.dashboard.open_account_reviews_pending_users_pending": {
+    "zh": "查看账号审核，共 {pending_users} 个待审核账号",
+    "en": "Open account reviews ({pending_users} pending)"
+  },
+  "admin.home.dashboard.open_event_management_events_events": {
+    "zh": "查看赛事管理，共 {events} 个赛事",
+    "en": "Open event management ({events} events)"
+  },
+  "admin.home.dashboard.open_match_management_matches_matches": {
+    "zh": "查看比赛管理，共 {matches} 场比赛",
+    "en": "Open match management ({matches} matches)"
+  },
+  "admin.home.dashboard.open_news_management_news_articles": {
+    "zh": "查看新闻管理，共 {news} 条新闻",
+    "en": "Open news management ({news} articles)"
+  },
+  "admin.home.dashboard.open_player_management_players_players": {
+    "zh": "查看选手管理，共 {players} 名选手",
+    "en": "Open player management ({players} players)"
+  },
+  "admin.home.dashboard.open_team_management_teams_teams": {
+    "zh": "查看队伍管理，共 {teams} 支队伍",
+    "en": "Open team management ({teams} teams)"
+  },
+  "admin.home.dashboard.other": {
+    "zh": "其他",
+    "en": "Other"
+  },
+  "admin.home.dashboard.overview": {
+    "zh": "工作台",
+    "en": "Overview"
+  },
+  "admin.home.dashboard.pending_accounts": {
+    "zh": "待审核账号",
+    "en": "Pending accounts"
+  },
+  "admin.home.dashboard.players": {
+    "zh": "选手",
+    "en": "Players"
+  },
+  "admin.home.dashboard.publish_news": {
+    "zh": "发布新闻",
+    "en": "Publish news"
+  },
+  "admin.home.dashboard.question": {
+    "zh": "问题",
+    "en": "Question"
+  },
+  "admin.home.dashboard.review_accounts": {
+    "zh": "去审核",
+    "en": "Review accounts"
+  },
+  "admin.home.dashboard.roster_locked": {
+    "zh": "阵容已冻结",
+    "en": "Roster locked"
+  },
+  "admin.home.dashboard.roster_unlocked": {
+    "zh": "阵容未冻结",
+    "en": "Roster unlocked"
+  },
+  "admin.home.dashboard.start_time": {
+    "zh": "开赛时间",
+    "en": "Start time"
+  },
+  "admin.home.dashboard.statistics": {
+    "zh": "数据统计",
+    "en": "Statistics"
+  },
+  "admin.home.dashboard.status": {
+    "zh": "状态",
+    "en": "Status"
+  },
+  "admin.home.dashboard.suggestion": {
+    "zh": "建议",
+    "en": "Suggestion"
+  },
+  "admin.home.dashboard.teams": {
+    "zh": "队伍",
+    "en": "Teams"
+  },
+  "admin.home.dashboard.upcoming": {
+    "zh": "未开始",
+    "en": "Upcoming"
+  },
+  "admin.home.dashboard.view_feedback": {
+    "zh": "去处理",
+    "en": "View feedback"
+  },
+  "admin.home.feedback.actions": {
+    "zh": "处理",
+    "en": "Actions"
+  },
+  "admin.home.feedback.all_feedback": {
+    "zh": "全部反馈",
+    "en": "All feedback"
+  },
+  "admin.home.feedback.anonymous": {
+    "zh": "匿名",
+    "en": "Anonymous"
+  },
+  "admin.home.feedback.content": {
+    "zh": "内容",
+    "en": "Content"
+  },
+  "admin.home.feedback.filter_by_status": {
+    "zh": "按处理状态筛选",
+    "en": "Filter by status"
+  },
+  "admin.home.feedback.filter_by_type": {
+    "zh": "按类型筛选",
+    "en": "Filter by type"
+  },
+  "admin.home.feedback.in_review": {
+    "zh": "处理中",
+    "en": "In review"
+  },
+  "admin.home.feedback.no_feedback": {
+    "zh": "暂无反馈",
+    "en": "No feedback"
+  },
+  "admin.home.feedback.other": {
+    "zh": "其他",
+    "en": "Other"
+  },
+  "admin.home.feedback.pending": {
+    "zh": "待处理",
+    "en": "Pending"
+  },
+  "admin.home.feedback.question": {
+    "zh": "问题",
+    "en": "Question"
+  },
+  "admin.home.feedback.reply": {
+    "zh": "回复：",
+    "en": "Reply:"
+  },
+  "admin.home.feedback.reply_optional": {
+    "zh": "回复（选填）",
+    "en": "Reply (optional)"
+  },
+  "admin.home.feedback.resolved": {
+    "zh": "已处理",
+    "en": "Resolved"
+  },
+  "admin.home.feedback.resolved_2": {
+    "zh": "已解决",
+    "en": "Resolved"
+  },
+  "admin.home.feedback.save": {
+    "zh": "保存",
+    "en": "Save"
+  },
+  "admin.home.feedback.search_content_user_or_page": {
+    "zh": "搜索内容、用户、页面",
+    "en": "Search content, user or page"
+  },
+  "admin.home.feedback.search_feedback": {
+    "zh": "搜索反馈",
+    "en": "Search feedback"
+  },
+  "admin.home.feedback.status": {
+    "zh": "处理状态",
+    "en": "Status"
+  },
+  "admin.home.feedback.status_all": {
+    "zh": "状态：全部",
+    "en": "Status: All"
+  },
+  "admin.home.feedback.suggestion": {
+    "zh": "建议",
+    "en": "Suggestion"
+  },
+  "admin.home.feedback.time": {
+    "zh": "时间",
+    "en": "Time"
+  },
+  "admin.home.feedback.type": {
+    "zh": "类型",
+    "en": "Type"
+  },
+  "admin.home.feedback.type_all": {
+    "zh": "类型：全部",
+    "en": "Type: All"
+  },
+  "admin.home.feedback.user_feedback": {
+    "zh": "用户反馈",
+    "en": "User feedback"
+  },
+  "admin.home.feedback.user_page": {
+    "zh": "用户 / 页面",
+    "en": "User / Page"
+  },
+  "admin.news.news.actions": {
+    "zh": "操作",
+    "en": "Actions"
+  },
+  "admin.news.news.add_news": {
+    "zh": "添加新闻",
+    "en": "Add news"
+  },
+  "admin.news.news.all_news": {
+    "zh": "全部新闻",
+    "en": "All news"
+  },
+  "admin.news.news.author": {
+    "zh": "作者",
+    "en": "Author"
+  },
+  "admin.news.news.comments": {
+    "zh": "评论数",
+    "en": "Comments"
+  },
+  "admin.news.news.delete_news": {
+    "zh": "删除新闻",
+    "en": "Delete news"
+  },
+  "admin.news.news.delete_news_title": {
+    "zh": "确定删除新闻【{title}】吗？",
+    "en": "Delete news \"{title}\"?"
+  },
+  "admin.news.news.delete_news_title_2": {
+    "zh": "删除新闻 {title}",
+    "en": "Delete news {title}"
+  },
+  "admin.news.news.edit": {
+    "zh": "编辑",
+    "en": "Edit"
+  },
+  "admin.news.news.manage_news": {
+    "zh": "新闻管理",
+    "en": "Manage news"
+  },
+  "admin.news.news.no_news_yet": {
+    "zh": "还没有新闻",
+    "en": "No news yet"
+  },
+  "admin.news.news.published_at": {
+    "zh": "发布时间",
+    "en": "Published at"
+  },
+  "admin.news.news.search_news": {
+    "zh": "搜索新闻",
+    "en": "Search news"
+  },
+  "admin.news.news.search_title_or_author": {
+    "zh": "搜索标题、作者",
+    "en": "Search title or author"
+  },
+  "admin.news.news.title": {
+    "zh": "标题",
+    "en": "Title"
+  },
+  "admin.news.news.view_on_site_opens_in_a": {
+    "zh": "前台查看（新标签页）",
+    "en": "View on site (opens in a new tab)"
+  },
+  "admin.news.news_form.add_news": {
+    "zh": "添加新闻",
+    "en": "Add news"
+  },
+  "admin.news.news_form.article_links": {
+    "zh": "新闻内链接",
+    "en": "Article links"
+  },
+  "admin.news.news_form.author": {
+    "zh": "作者",
+    "en": "Author"
+  },
+  "admin.news.news_form.author_name": {
+    "zh": "作者名称",
+    "en": "Author name"
+  },
+  "admin.news.news_form.back_to_news_management": {
+    "zh": "← 返回新闻管理",
+    "en": "← Back to news management"
+  },
+  "admin.news.news_form.body": {
+    "zh": "正文",
+    "en": "Body"
+  },
+  "admin.news.news_form.cancel": {
+    "zh": "取消",
+    "en": "Cancel"
+  },
+  "admin.news.news_form.clicking_the_news_item_opens": {
+    "zh": "点击新闻后跳转到",
+    "en": "Clicking the news item opens"
+  },
+  "admin.news.news_form.edit_news": {
+    "zh": "编辑新闻",
+    "en": "Edit news"
+  },
+  "admin.news.news_form.example_events": {
+    "zh": "例如：/events",
+    "en": "Example: /events"
+  },
+  "admin.news.news_form.example_events_80cs_summer_major": {
+    "zh": "例如：/events/80cs-summer-major",
+    "en": "Example: /events/80cs-summer-major"
+  },
+  "admin.news.news_form.insert_into_article": {
+    "zh": "插入正文",
+    "en": "Insert into article"
+  },
+  "admin.news.news_form.leave_blank_to_open_the_article": {
+    "zh": "留空打开新闻正文；只能填本站地址。",
+    "en": "Leave blank to open the article. Only URLs on this site are allowed."
+  },
+  "admin.news.news_form.leave_blank_to_use_the_current": {
+    "zh": "留空用当前时间。",
+    "en": "Leave blank to use the current time."
+  },
+  "admin.news.news_form.link_text": {
+    "zh": "链接文字",
+    "en": "Link text"
+  },
+  "admin.news.news_form.linked_match": {
+    "zh": "关联比赛",
+    "en": "Linked match"
+  },
+  "admin.news.news_form.listing_summary_author_and_publication_time": {
+    "zh": "列表展示：摘要、作者、发布时间",
+    "en": "Listing: summary, author and publication time"
+  },
+  "admin.news.news_form.news_body": {
+    "zh": "新闻正文内容...",
+    "en": "News body..."
+  },
+  "admin.news.news_form.news_title": {
+    "zh": "新闻标题",
+    "en": "News title"
+  },
+  "admin.news.news_form.not_linked": {
+    "zh": "-- 不关联 --",
+    "en": "-- Not linked --"
+  },
+  "admin.news.news_form.open_page": {
+    "zh": "打开页面",
+    "en": "Open page"
+  },
+  "admin.news.news_form.publish_news": {
+    "zh": "发布新闻",
+    "en": "Publish news"
+  },
+  "admin.news.news_form.published_at": {
+    "zh": "发布时间",
+    "en": "Published at"
+  },
+  "admin.news.news_form.read_page": {
+    "zh": "读取页面",
+    "en": "Read page"
+  },
+  "admin.news.news_form.reference_a_site_page": {
+    "zh": "引用本站页面",
+    "en": "Reference a site page"
+  },
+  "admin.news.news_form.related_pages_and_redirect": {
+    "zh": "关联与跳转",
+    "en": "Related pages and redirect"
+  },
+  "admin.news.news_form.save_changes": {
+    "zh": "保存修改",
+    "en": "Save changes"
+  },
+  "admin.news.news_form.shown_in_the_news_list": {
+    "zh": "显示在新闻列表",
+    "en": "Shown in the news list"
+  },
+  "admin.news.news_form.site_page_url": {
+    "zh": "本站页面链接",
+    "en": "Site page URL"
+  },
+  "admin.news.news_form.summary": {
+    "zh": "摘要",
+    "en": "Summary"
+  },
+  "admin.news.news_form.title": {
+    "zh": "标题",
+    "en": "Title"
+  },
+  "admin.news.news_form.title_and_body": {
+    "zh": "标题与正文",
+    "en": "Title and body"
+  },
+  "admin.news.news_form.view_on_site": {
+    "zh": "前台查看",
+    "en": "View on site"
+  },
+  "admin.operations.demo_panel.close_preview": {
+    "zh": "关闭预览",
+    "en": "Close preview"
+  },
+  "admin.operations.demo_panel.demo_analysis_preview_selective_adoption": {
+    "zh": "Demo 解析预览与选择性采纳",
+    "en": "Demo analysis preview & selective adoption"
+  },
+  "admin.operations.demo_panel.map_run": {
+    "zh": "实际开局",
+    "en": "Map run"
+  },
+  "admin.operations.demo_panel.must_bind_to_a_scheduled_map": {
+    "zh": "必须绑定到明确的排定赛图与实际开局，上传后原档不可覆盖",
+    "en": "Must bind to a scheduled map and map run; uploaded originals are immutable"
+  },
+  "admin.operations.demo_panel.raw_demo_file_dem": {
+    "zh": "原始录像文件（.dem）",
+    "en": "Raw demo file (.dem)"
+  },
+  "admin.operations.demo_panel.refresh_list": {
+    "zh": "刷新列表",
+    "en": "Refresh list"
+  },
+  "admin.operations.demo_panel.scheduled_map": {
+    "zh": "排定赛图",
+    "en": "Scheduled map"
+  },
+  "admin.operations.demo_panel.upload_demo": {
+    "zh": "上传 Demo",
+    "en": "Upload demo"
+  },
+  "admin.operations.demo_panel.upload_raw_demo_dem": {
+    "zh": "上传原始 Demo（.dem）",
+    "en": "Upload raw demo (.dem)"
+  },
+  "admin.operations.demo_panel.uploaded_demo_originals_analyses": {
+    "zh": "已上传 Demo 原档与解析记录",
+    "en": "Uploaded demo originals & analyses"
+  },
+  "admin.operations.import_demo.add_the_player_in_player_management": {
+    "zh": "请先在选手管理中添加",
+    "en": "Add the player in player management first"
+  },
+  "admin.operations.import_demo.auto_match": {
+    "zh": "自动匹配",
+    "en": "Auto match"
+  },
+  "admin.operations.import_demo.back": {
+    "zh": "返回",
+    "en": "Back"
+  },
+  "admin.operations.import_demo.back_to_match_stats": {
+    "zh": "← 返回录入比赛数据",
+    "en": "← Back to match stats"
+  },
+  "admin.operations.import_demo.demo_map": {
+    "zh": "Demo 地图",
+    "en": "Demo map"
+  },
+  "admin.operations.import_demo.demo_player": {
+    "zh": "Demo 中选手",
+    "en": "Demo player"
+  },
+  "admin.operations.import_demo.download": {
+    "zh": "下载",
+    "en": "Download"
+  },
+  "admin.operations.import_demo.events": {
+    "zh": "赛事",
+    "en": "Events"
+  },
+  "admin.operations.import_demo.import_all": {
+    "zh": "一键全部导入",
+    "en": "Import all"
+  },
+  "admin.operations.import_demo.import_stats_from_demo": {
+    "zh": "从 Demo 导入数据",
+    "en": "Import stats from demo"
+  },
+  "admin.operations.import_demo.import_stats_from_demos_up_to": {
+    "zh": "从 Demo 批量导入数据（最多 {demo_slot_count} 个）",
+    "en": "Import stats from demos (up to {demo_slot_count})"
+  },
+  "admin.operations.import_demo.import_this_demo_only": {
+    "zh": "单独导入此 Demo",
+    "en": "Import this Demo only"
+  },
+  "admin.operations.import_demo.map_index": {
+    "zh": "图{index}：",
+    "en": "Map {index}: "
+  },
+  "admin.operations.import_demo.map_value1": {
+    "zh": "图{value1}",
+    "en": "Map {value1}"
+  },
+  "admin.operations.import_demo.matched": {
+    "zh": "已匹配：",
+    "en": "Matched: "
+  },
+  "admin.operations.import_demo.matched_by_nickname": {
+    "zh": "按昵称匹配：",
+    "en": "Matched by nickname: "
+  },
+  "admin.operations.import_demo.matched_database_player": {
+    "zh": "对应数据库选手",
+    "en": "Matched database player"
+  },
+  "admin.operations.import_demo.matches": {
+    "zh": "比赛",
+    "en": "Matches"
+  },
+  "admin.operations.import_demo.preview_all_demos": {
+    "zh": "批量预览数据",
+    "en": "Preview all demos"
+  },
+  "admin.operations.import_demo.rounds_played": {
+    "zh": "回合数",
+    "en": "Rounds played"
+  },
+  "admin.operations.import_demo.saved_demo_files": {
+    "zh": "已保存的 Demo 文件",
+    "en": "Saved demo files"
+  },
+  "admin.operations.import_demo.score": {
+    "zh": "比分",
+    "en": "Score"
+  },
+  "admin.operations.import_demo.select_multiple_dem_files_for_batch": {
+    "zh": "选择多个 .dem 文件进行批量分析预览，每个 Demo 会自动匹配到比赛的地图槽位",
+    "en": "Select multiple .dem files for batch preview. Each Demo is matched to a map slot."
+  },
+  "admin.operations.import_demo.steamid_mismatch_matched_by_nickname": {
+    "zh": "SteamID 不匹配，按昵称匹配",
+    "en": "SteamID mismatch; matched by nickname"
+  },
+  "admin.operations.import_demo.team_mapping": {
+    "zh": "队伍对应",
+    "en": "Team mapping"
+  },
+  "admin.operations.import_demo.time": {
+    "zh": "时间",
+    "en": "Time"
+  },
+  "admin.operations.import_demo.unknown": {
+    "zh": "未知",
+    "en": "Unknown"
+  },
+  "admin.operations.import_demo.unknown_map": {
+    "zh": "未知地图",
+    "en": "Unknown map"
+  },
+  "admin.operations.import_demo.unmatched": {
+    "zh": "未匹配",
+    "en": "Unmatched"
+  },
+  "admin.operations.import_demo.upload_again": {
+    "zh": "重新上传",
+    "en": "Upload again"
+  },
+  "admin.operations.import_demo.upload_demo_files_up_to_demo": {
+    "zh": "上传 Demo 文件（最多 {demo_slot_count} 个）",
+    "en": "Upload demo files (up to {demo_slot_count})"
+  },
+  "admin.operations.live_status.active_matches": {
+    "zh": "未结束比赛",
+    "en": "Active matches"
+  },
+  "admin.operations.live_status.cancelled": {
+    "zh": "已取消",
+    "en": "Cancelled"
+  },
+  "admin.operations.live_status.completed": {
+    "zh": "已结束",
+    "en": "Completed"
+  },
+  "admin.operations.live_status.connection_status_appears_here_after_the": {
+    "zh": "启动观战账号后，这里会显示连接情况。",
+    "en": "Connection status appears here after the observer account starts."
+  },
+  "admin.operations.live_status.current_map": {
+    "zh": "当前地图",
+    "en": "Current map"
+  },
+  "admin.operations.live_status.data_source": {
+    "zh": "数据来源",
+    "en": "Data source"
+  },
+  "admin.operations.live_status.error": {
+    "zh": "异常",
+    "en": "Error"
+  },
+  "admin.operations.live_status.last_received_received_at": {
+    "zh": "最后收到：{received_at}",
+    "en": "Last received: {received_at}"
+  },
+  "admin.operations.live_status.last_update": {
+    "zh": "数据更新时间",
+    "en": "Last update"
+  },
+  "admin.operations.live_status.live": {
+    "zh": "直播中",
+    "en": "Live"
+  },
+  "admin.operations.live_status.live_connection_status": {
+    "zh": "直播连接状态",
+    "en": "Live connection status"
+  },
+  "admin.operations.live_status.map": {
+    "zh": "地图：",
+    "en": "Map: "
+  },
+  "admin.operations.live_status.match": {
+    "zh": "比赛：",
+    "en": "Match:"
+  },
+  "admin.operations.live_status.matches": {
+    "zh": "比赛",
+    "en": "Matches"
+  },
+  "admin.operations.live_status.no_active_matches": {
+    "zh": "暂无未结束比赛",
+    "en": "No active matches"
+  },
+  "admin.operations.live_status.no_live_data_received": {
+    "zh": "尚未收到直播数据",
+    "en": "No live data received"
+  },
+  "admin.operations.live_status.normal": {
+    "zh": "正常",
+    "en": "Normal"
+  },
+  "admin.operations.live_status.scheduled_time": {
+    "zh": "计划时间",
+    "en": "Scheduled time"
+  },
+  "admin.operations.live_status.status": {
+    "zh": "状态",
+    "en": "Status"
+  },
+  "admin.operations.live_status.upcoming": {
+    "zh": "未开始",
+    "en": "Upcoming"
+  },
+  "admin.operations.live_status.view_the_latest_observer_account_and": {
+    "zh": "查看观战账号和 GOTV Relay 最近一次推送结果。",
+    "en": "View the latest observer account and GOTV Relay push status."
+  },
+  "admin.operations.map_result_dialog.away_round_score": {
+    "zh": "客队回合分",
+    "en": "Away round score"
+  },
+  "admin.operations.map_result_dialog.cancel": {
+    "zh": "取消",
+    "en": "Cancel"
+  },
+  "admin.operations.map_result_dialog.close": {
+    "zh": "关闭",
+    "en": "Close"
+  },
+  "admin.operations.map_result_dialog.confirm_official_map_result": {
+    "zh": "确认单图正式赛果",
+    "en": "Confirm official map result"
+  },
+  "admin.operations.map_result_dialog.e_g_verified_final_server_score": {
+    "zh": "例如：核对服务器终局比分及录像无误",
+    "en": "e.g. Verified final server score and demo"
+  },
+  "admin.operations.map_result_dialog.home_round_score": {
+    "zh": "主队回合分",
+    "en": "Home round score"
+  },
+  "admin.operations.map_result_dialog.linked_map_run": {
+    "zh": "关联实际开局",
+    "en": "Linked map run"
+  },
+  "admin.operations.map_result_dialog.reason_required_when_overriding_an_official": {
+    "zh": "裁定原因（修改原正式比分或录入非常规/判负比分时必填）",
+    "en": "Reason (required when overriding an official score or recording a non-standard/forfeit score)"
+  },
+  "admin.operations.map_result_dialog.review_latest_result_without_discarding_edits": {
+    "zh": "核对最新裁定，保留输入",
+    "en": "Review latest result without discarding edits"
+  },
+  "admin.operations.map_result_dialog.save_official_result": {
+    "zh": "确认保存正式赛果",
+    "en": "Save official result"
+  },
+  "admin.operations.match_actions.copy_connect_command": {
+    "zh": "复制进服指令",
+    "en": "Copy connect command"
+  },
+  "admin.operations.match_actions.copy_connect_command_2": {
+    "zh": "复制进服",
+    "en": "Copy connect command"
+  },
+  "admin.operations.match_actions.edit": {
+    "zh": "编辑",
+    "en": "Edit"
+  },
+  "admin.operations.match_actions.enter_stats": {
+    "zh": "录入数据",
+    "en": "Enter stats"
+  },
+  "admin.operations.match_actions.match_operations": {
+    "zh": "比赛运营",
+    "en": "Match operations"
+  },
+  "admin.operations.match_actions.open_veto_room_new_tab": {
+    "zh": "打开 BP 房间（新标签页）",
+    "en": "Open veto room (new tab)"
+  },
+  "admin.operations.match_actions.undo_last_veto_step": {
+    "zh": "撤销上一步 BP",
+    "en": "Undo last veto step"
+  },
+  "admin.operations.match_actions.upload_demo": {
+    "zh": "上传 Demo",
+    "en": "Upload demo"
+  },
+  "admin.operations.match_actions.view_match_page_new_tab": {
+    "zh": "查看前台比赛页（新标签页）",
+    "en": "View match page (new tab)"
+  },
+  "admin.operations.match_operations.back_to_match_management": {
+    "zh": "← 返回比赛管理",
+    "en": "← Back to match management"
+  },
+  "admin.operations.match_operations.bracket": {
+    "zh": "晋级签表",
+    "en": "Bracket"
+  },
+  "admin.operations.match_operations.demos_adoption": {
+    "zh": "Demo 与数据采纳",
+    "en": "Demos & adoption"
+  },
+  "admin.operations.match_operations.event_roster": {
+    "zh": "赛事名单",
+    "en": "Event roster"
+  },
+  "admin.operations.match_operations.map_veto_room": {
+    "zh": "BP 房间",
+    "en": "Map veto room"
+  },
+  "admin.operations.match_operations.match_operations_id": {
+    "zh": "比赛运营 #{id}",
+    "en": "Match operations #{id}"
+  },
+  "admin.operations.match_operations.match_operations_overview": {
+    "zh": "比赛运营概览",
+    "en": "Match operations overview"
+  },
+  "admin.operations.match_operations.match_operations_sections": {
+    "zh": "比赛运营分区",
+    "en": "Match operations sections"
+  },
+  "admin.operations.match_operations.match_page": {
+    "zh": "前台比赛页",
+    "en": "Match page"
+  },
+  "admin.operations.match_operations.pre_match_setup": {
+    "zh": "赛前配置",
+    "en": "Pre-match setup"
+  },
+  "admin.operations.match_operations.refresh": {
+    "zh": "刷新状态",
+    "en": "Refresh"
+  },
+  "admin.operations.match_operations.results_settlement_predictions": {
+    "zh": "赛果、结算与竞猜",
+    "en": "Results, settlement & predictions"
+  },
+  "admin.operations.match_operations.start_map_runs": {
+    "zh": "开赛与局次",
+    "en": "Start & map runs"
+  },
+  "admin.operations.match_operations.stats_revision": {
+    "zh": "统计修订",
+    "en": "Stats revision"
+  },
+  "admin.operations.match_stats.back": {
+    "zh": "返回",
+    "en": "Back"
+  },
+  "admin.operations.match_stats.back_to_match_management": {
+    "zh": "← 返回比赛管理",
+    "en": "← Back to match management"
+  },
+  "admin.operations.match_stats.download": {
+    "zh": "下载",
+    "en": "Download"
+  },
+  "admin.operations.match_stats.enter_match_stats": {
+    "zh": "录入比赛数据",
+    "en": "Enter match stats"
+  },
+  "admin.operations.match_stats.events": {
+    "zh": "赛事",
+    "en": "Events"
+  },
+  "admin.operations.match_stats.has_data": {
+    "zh": "已有数据",
+    "en": "Has data"
+  },
+  "admin.operations.match_stats.import_update_stats_from_demos": {
+    "zh": "从 Demo 导入/更新数据",
+    "en": "Import/update stats from demos"
+  },
+  "admin.operations.match_stats.map_index": {
+    "zh": "图{index}：",
+    "en": "Map {index}: "
+  },
+  "admin.operations.match_stats.map_index_tba": {
+    "zh": "图{index}：TBA",
+    "en": "Map {index}: TBA"
+  },
+  "admin.operations.match_stats.matchup": {
+    "zh": "对阵",
+    "en": "Matchup"
+  },
+  "admin.operations.match_stats.player_stats": {
+    "zh": "选手数据",
+    "en": "Player stats"
+  },
+  "admin.operations.match_stats.players": {
+    "zh": "选手",
+    "en": "Players"
+  },
+  "admin.operations.match_stats.save_this_map_data": {
+    "zh": "保存此图数据",
+    "en": "Save this map data"
+  },
+  "admin.operations.match_stats.saved_demo": {
+    "zh": "已保存 Demo：",
+    "en": "Saved demo:"
+  },
+  "admin.operations.match_stats.saving_please_wait": {
+    "zh": "正在保存，请稍候……",
+    "en": "Saving, please wait..."
+  },
+  "admin.operations.match_stats.score": {
+    "zh": "比分",
+    "en": "Score"
+  },
+  "admin.operations.match_stats.tba_stats_entry_unlocks_after_the": {
+    "zh": "TBA，BP 结束后可录入数据",
+    "en": "TBA. Stats entry unlocks after the map veto completes."
+  },
+  "admin.operations.match_stats.time": {
+    "zh": "时间",
+    "en": "Time"
+  },
+  "admin.operations.matches.actions": {
+    "zh": "操作",
+    "en": "Actions"
+  },
+  "admin.operations.matches.add_match": {
+    "zh": "添加比赛",
+    "en": "Add match"
+  },
+  "admin.operations.matches.all_events": {
+    "zh": "全部赛事",
+    "en": "All events"
+  },
+  "admin.operations.matches.all_value1": {
+    "zh": "全部 ({value1})",
+    "en": "All ({value1})"
+  },
+  "admin.operations.matches.beta": {
+    "zh": "测试",
+    "en": "Beta"
+  },
+  "admin.operations.matches.cancelled": {
+    "zh": "已取消",
+    "en": "Cancelled"
+  },
+  "admin.operations.matches.clear_search": {
+    "zh": "清除搜索",
+    "en": "Clear search"
+  },
+  "admin.operations.matches.completed": {
+    "zh": "已结束",
+    "en": "Completed"
+  },
+  "admin.operations.matches.completed_value1": {
+    "zh": "已结束 ({value1})",
+    "en": "Completed ({value1})"
+  },
+  "admin.operations.matches.delete_match": {
+    "zh": "删除比赛",
+    "en": "Delete match"
+  },
+  "admin.operations.matches.delete_match_id": {
+    "zh": "删除比赛 #{id}",
+    "en": "Delete match #{id}"
+  },
+  "admin.operations.matches.delete_this_match_its_statistics_live": {
+    "zh": "确定删除比赛吗？相关统计、直播记录和评论也会一起删除。",
+    "en": "Delete this match? Its statistics, live records and comments will also be deleted."
+  },
+  "admin.operations.matches.events": {
+    "zh": "赛事",
+    "en": "Events"
+  },
+  "admin.operations.matches.finish_match": {
+    "zh": "结束比赛",
+    "en": "Finish match"
+  },
+  "admin.operations.matches.live": {
+    "zh": "直播中",
+    "en": "Live"
+  },
+  "admin.operations.matches.manage_matches": {
+    "zh": "比赛管理",
+    "en": "Manage matches"
+  },
+  "admin.operations.matches.mark_this_match_as_complete": {
+    "zh": "确定结束这场比赛吗？",
+    "en": "Mark this match as complete?"
+  },
+  "admin.operations.matches.match_roster_locked": {
+    "zh": "本场阵容已冻结",
+    "en": "Match roster locked"
+  },
+  "admin.operations.matches.match_roster_unlocked": {
+    "zh": "本场阵容未冻结",
+    "en": "Match roster unlocked"
+  },
+  "admin.operations.matches.match_status": {
+    "zh": "比赛状态",
+    "en": "Match status"
+  },
+  "admin.operations.matches.matches_matches_in_total": {
+    "zh": "共 {matches} 场比赛",
+    "en": "{matches} matches in total"
+  },
+  "admin.operations.matches.matchup_event": {
+    "zh": "对阵 / 赛事",
+    "en": "Matchup / Event"
+  },
+  "admin.operations.matches.no_matches_found": {
+    "zh": "没有找到符合条件的比赛",
+    "en": "No matches found"
+  },
+  "admin.operations.matches.ongoing_value1": {
+    "zh": "进行中 ({value1})",
+    "en": "Ongoing ({value1})"
+  },
+  "admin.operations.matches.reopen": {
+    "zh": "重新开启",
+    "en": "Reopen"
+  },
+  "admin.operations.matches.reopen_this_match": {
+    "zh": "确定重新开启这场比赛吗？",
+    "en": "Reopen this match?"
+  },
+  "admin.operations.matches.save_game_log": {
+    "zh": "保存比赛日志",
+    "en": "Save game log"
+  },
+  "admin.operations.matches.score": {
+    "zh": "比分",
+    "en": "Score"
+  },
+  "admin.operations.matches.search": {
+    "zh": "搜索",
+    "en": "Search"
+  },
+  "admin.operations.matches.search_teams_events_or_id": {
+    "zh": "搜索队伍名 / 赛事 / ID",
+    "en": "Search teams, events or ID"
+  },
+  "admin.operations.matches.start_time": {
+    "zh": "开赛时间",
+    "en": "Start time"
+  },
+  "admin.operations.matches.status": {
+    "zh": "状态",
+    "en": "Status"
+  },
+  "admin.operations.matches.try_clearing_the_filters": {
+    "zh": "，请尝试清除筛选条件",
+    "en": ". Try clearing the filters"
+  },
+  "admin.operations.matches.upcoming": {
+    "zh": "未开始",
+    "en": "Upcoming"
+  },
+  "admin.operations.matches.upcoming_value1": {
+    "zh": "未开始 ({value1})",
+    "en": "Upcoming ({value1})"
+  },
+  "admin.operations.matches_form.add_a_match": {
+    "zh": "添加新比赛",
+    "en": "Add a match"
+  },
+  "admin.operations.matches_form.add_match": {
+    "zh": "添加比赛",
+    "en": "Add match"
+  },
+  "admin.operations.matches_form.add_platform": {
+    "zh": "+ 添加平台",
+    "en": "+ Add platform"
+  },
+  "admin.operations.matches_form.adjust_or_swap_players_on_registration": {
+    "zh": "去「报名与阵容」页调整或赛前换人 →",
+    "en": "Adjust or swap players on Registration & Rosters →"
+  },
+  "admin.operations.matches_form.all_ten_players_are_recorded_read": {
+    "zh": "本场双方十人已记录为只读状态，可以继续进行 BP。注意：冻结本场阵容只记录参赛名单，不表示选手已到场或比赛已开始。",
+    "en": "All ten players are recorded (read-only) and the match is ready for Map Veto. Note: locking only records the lineup and does not mean players are present or the match has started."
+  },
+  "admin.operations.matches_form.archived": {
+    "zh": "已归档",
+    "en": "Archived"
+  },
+  "admin.operations.matches_form.back_to_match_management": {
+    "zh": "← 返回比赛管理",
+    "en": "← Back to match management"
+  },
+  "admin.operations.matches_form.basics_and_teams": {
+    "zh": "基础与对阵",
+    "en": "Basics and teams"
+  },
+  "admin.operations.matches_form.bilibili_live_room_link": {
+    "zh": "B站直播间链接",
+    "en": "Bilibili live room link"
+  },
+  "admin.operations.matches_form.bo1_best_of_1": {
+    "zh": "BO1 (单局定胜负)",
+    "en": "BO1 (Best of 1)"
+  },
+  "admin.operations.matches_form.bo3_best_of_3": {
+    "zh": "BO3 (三局两胜)",
+    "en": "BO3 (Best of 3)"
+  },
+  "admin.operations.matches_form.bo5_best_of_5": {
+    "zh": "BO5 (五局三胜)",
+    "en": "BO5 (Best of 5)"
+  },
+  "admin.operations.matches_form.cancel": {
+    "zh": "取消",
+    "en": "Cancel"
+  },
+  "admin.operations.matches_form.cancelled": {
+    "zh": "已取消",
+    "en": "Cancelled"
+  },
+  "admin.operations.matches_form.clear_shared_veto_passcode": {
+    "zh": "清除现有 BP 共享口令",
+    "en": "Clear shared veto passcode"
+  },
+  "admin.operations.matches_form.club": {
+    "zh": "俱乐部：",
+    "en": "Club: "
+  },
+  "admin.operations.matches_form.common_start_times": {
+    "zh": "常用开赛时间：",
+    "en": "Common start times:"
+  },
+  "admin.operations.matches_form.completed": {
+    "zh": "已结束",
+    "en": "Completed"
+  },
+  "admin.operations.matches_form.confirm_initial_rosters": {
+    "zh": "去报名与阵容确认首五",
+    "en": "Confirm Initial Rosters"
+  },
+  "admin.operations.matches_form.current_roster": {
+    "zh": "本届当前阵容",
+    "en": "Current Roster"
+  },
+  "admin.operations.matches_form.current_setting": {
+    "zh": "当前设定：",
+    "en": "Current setting: "
+  },
+  "admin.operations.matches_form.custom_players": {
+    "zh": "自选选手",
+    "en": "Custom players"
+  },
+  "admin.operations.matches_form.decider": {
+    "zh": "决胜图 (Decider)",
+    "en": "Decider"
+  },
+  "admin.operations.matches_form.edit_match": {
+    "zh": "编辑比赛",
+    "en": "Edit match"
+  },
+  "admin.operations.matches_form.edit_match_id_id": {
+    "zh": "编辑比赛 (ID: {id})",
+    "en": "Edit match (ID: {id})"
+  },
+  "admin.operations.matches_form.entrant_event_entrant_id_current_roster": {
+    "zh": "参赛身份 #{event_entrant_id} · 当前阵容",
+    "en": "Entrant #{event_entrant_id} · Current Roster"
+  },
+  "admin.operations.matches_form.entrant_player_value1": {
+    "zh": "参赛方 第{value1}位选手",
+    "en": "Entrant player {value1}"
+  },
+  "admin.operations.matches_form.event": {
+    "zh": "所属赛事",
+    "en": "Event"
+  },
+  "admin.operations.matches_form.event_cannot_be_changed_for_a": {
+    "zh": "托管比赛所属赛事不可更换。",
+    "en": "Event cannot be changed for a managed match."
+  },
+  "admin.operations.matches_form.event_entrant": {
+    "zh": "本届参赛队",
+    "en": "Event entrant"
+  },
+  "admin.operations.matches_form.event_entrant_event_entrant_id": {
+    "zh": "· 参赛身份 #{event_entrant_id}",
+    "en": "· Event Entrant #{event_entrant_id}"
+  },
+  "admin.operations.matches_form.format_locked": {
+    "zh": "赛制 (已锁定)",
+    "en": "Format (locked)"
+  },
+  "admin.operations.matches_form.go_to_registration_rosters": {
+    "zh": "前往报名与阵容",
+    "en": "Go to Registration & Rosters"
+  },
+  "admin.operations.matches_form.grand_final": {
+    "zh": "总决赛",
+    "en": "Grand final"
+  },
+  "admin.operations.matches_form.group_stage": {
+    "zh": "小组赛",
+    "en": "Group stage"
+  },
+  "admin.operations.matches_form.if_no_online_veto_was_used": {
+    "zh": "若未进行在线 BP，可在此手动记录各回合 Ban/Pick 流程（每行一步）",
+    "en": "If no online veto was used, record each step manually (one per line)"
+  },
+  "admin.operations.matches_form.initial_pending": {
+    "zh": "首五待确认",
+    "en": "Initial pending"
+  },
+  "admin.operations.matches_form.initial_roster": {
+    "zh": "本届初始五人",
+    "en": "Initial Roster"
+  },
+  "admin.operations.matches_form.initial_roster_not_confirmed_yet_on": {
+    "zh": "尚未在「报名与阵容」页确认初始五人。",
+    "en": "Initial Roster not confirmed yet on Registration & Rosters."
+  },
+  "admin.operations.matches_form.later_current_roster_changes_will_not": {
+    "zh": "本届当前阵容之后若有变动，不会改写本场已冻结名单。",
+    "en": "Later Current Roster changes will not overwrite this locked Match Roster."
+  },
+  "admin.operations.matches_form.leave_blank_to_keep_the_current": {
+    "zh": "留空则保持原口令",
+    "en": "Leave blank to keep the current passcode"
+  },
+  "admin.operations.matches_form.left": {
+    "zh": "左侧",
+    "en": "Left: "
+  },
+  "admin.operations.matches_form.left_entrant": {
+    "zh": "左侧参赛方",
+    "en": "Left entrant"
+  },
+  "admin.operations.matches_form.linked_entrant_not_found": {
+    "zh": "未找到绑定参赛方",
+    "en": "Linked entrant not found"
+  },
+  "admin.operations.matches_form.live_and_room_settings": {
+    "zh": "直播与房间信息",
+    "en": "Live and room settings"
+  },
+  "admin.operations.matches_form.lock_match_roster": {
+    "zh": "确认冻结本场阵容",
+    "en": "Lock Match Roster"
+  },
+  "admin.operations.matches_form.locked_at_value1": {
+    "zh": "冻结于 {value1}",
+    "en": "Locked at {value1}"
+  },
+  "admin.operations.matches_form.locking_captures_both_5_player_lineups": {
+    "zh": "冻结后将把当前双方的五人名单、队名与队标固定到本场比赛，之后才能开始 BP，且本场不可重新冻结。冻结只记录本场参赛名单，不表示选手已到场或比赛已开始。",
+    "en": "Locking captures both 5-player lineups, names, and logos for this match before Map Veto and cannot be redone. Note: locking only records the lineup and does not mean players are present or the match has started."
+  },
+  "admin.operations.matches_form.managed_match_open_match_operations_to": {
+    "zh": "托管比赛请前往“比赛运营”办理开赛授权与开局",
+    "en": "Managed match: open Match operations to authorize and start runs"
+  },
+  "admin.operations.matches_form.managed_match_open_match_operations_to_2": {
+    "zh": "托管比赛请前往“比赛运营”确认赛果并正式完赛",
+    "en": "Managed match: open Match operations to confirm results and settle"
+  },
+  "admin.operations.matches_form.managed_match_status_is_controlled_in": {
+    "zh": "托管比赛状态由比赛运营流转，此处不可直接切换",
+    "en": "Managed match status is controlled in Match operations"
+  },
+  "admin.operations.matches_form.managed_match_use_this_page_for": {
+    "zh": "新流程托管比赛：此处仅负责赛前配置、本场阵容冻结与 BP；开赛授权、实际开局、技术重赛、Demo 采纳、正式赛果、结算与统计修订请前往“比赛运营”。",
+    "en": "Managed match: use this page for pre-match setup, Match Roster locking, and Map Veto. Use Match operations for start authorization, map runs, technical rematches, demos, official results, settlement, and stats revisions."
+  },
+  "admin.operations.matches_form.manual_map_picks": {
+    "zh": "手动选图",
+    "en": "Manual map picks"
+  },
+  "admin.operations.matches_form.manual_map_veto_log": {
+    "zh": "Ban/Pick 流程补录",
+    "en": "Manual map veto log"
+  },
+  "admin.operations.matches_form.map": {
+    "zh": "图",
+    "en": "Map"
+  },
+  "admin.operations.matches_form.map_pick": {
+    "zh": "选图方",
+    "en": "Map pick"
+  },
+  "admin.operations.matches_form.map_selection_mode": {
+    "zh": "地图设置模式",
+    "en": "Map selection mode"
+  },
+  "admin.operations.matches_form.maps_and_format": {
+    "zh": "地图与赛制",
+    "en": "Maps and format"
+  },
+  "admin.operations.matches_form.match_date": {
+    "zh": "比赛日期",
+    "en": "Match date"
+  },
+  "admin.operations.matches_form.match_finished_the_score_comes_from": {
+    "zh": "比赛已结束：比分为直播记录，可补充 Ban/Pick 流程、直播和观赛链接。若非录入失误请勿切回“未开始”，以免统计数据产生混乱。",
+    "en": "Match finished: the score comes from the live record. You can add the Ban/Pick log, stream and watch links. Do not switch back to “Upcoming” unless it was set by mistake, or the stats may get mixed up."
+  },
+  "admin.operations.matches_form.match_in_progress_event_time_format": {
+    "zh": "比赛进行中：赛事、时间、赛制、地图和比分已锁定，比分只由数据直播更新。",
+    "en": "Match in progress: event, time, format, maps and score are locked; the score is only updated by live data."
+  },
+  "admin.operations.matches_form.match_roster": {
+    "zh": "本场阵容",
+    "en": "Match Roster"
+  },
+  "admin.operations.matches_form.match_roster_5_players": {
+    "zh": "出场名单 (5 人)",
+    "en": "Match roster (5 players)"
+  },
+  "admin.operations.matches_form.match_roster_locked": {
+    "zh": "本场阵容已冻结",
+    "en": "Match roster locked"
+  },
+  "admin.operations.matches_form.match_roster_locked_snapshot": {
+    "zh": "本场冻结阵容",
+    "en": "Match Roster (locked snapshot)"
+  },
+  "admin.operations.matches_form.match_roster_unlocked": {
+    "zh": "本场阵容未冻结",
+    "en": "Match roster unlocked"
+  },
+  "admin.operations.matches_form.match_server_address": {
+    "zh": "比赛服务器地址",
+    "en": "Match server address"
+  },
+  "admin.operations.matches_form.match_settings": {
+    "zh": "比赛详细设置",
+    "en": "Match settings"
+  },
+  "admin.operations.matches_form.match_stage": {
+    "zh": "比赛阶段",
+    "en": "Match stage"
+  },
+  "admin.operations.matches_form.match_start_time": {
+    "zh": "比赛开赛时间",
+    "en": "Match start time"
+  },
+  "admin.operations.matches_form.match_status": {
+    "zh": "比赛状态",
+    "en": "Match status"
+  },
+  "admin.operations.matches_form.matchup": {
+    "zh": "对阵双方",
+    "en": "Matchup"
+  },
+  "admin.operations.matches_form.matchup_linked_event_entrants": {
+    "zh": "对阵双方（已绑定本届参赛队）",
+    "en": "Matchup (linked Event Entrants)"
+  },
+  "admin.operations.matches_form.missing_steam_id": {
+    "zh": "（缺 Steam ID）",
+    "en": " (Missing Steam ID)"
+  },
+  "admin.operations.matches_form.no_entrant_assigned_to_side_side": {
+    "zh": "未绑定第 {side_num} 方参赛队",
+    "en": "No entrant assigned to side {side_num}"
+  },
+  "admin.operations.matches_form.no_entrants_have_confirmed_initial_rosters": {
+    "zh": "本届还没有确认初始五人的参赛队伍，暂时无法建立比赛。",
+    "en": "No entrants have confirmed Initial Rosters yet; matches cannot be created."
+  },
+  "admin.operations.matches_form.no_players": {
+    "zh": "暂无队员",
+    "en": "No players"
+  },
+  "admin.operations.matches_form.no_players_available_complete_team_or": {
+    "zh": "暂无可选选手，请先完善队伍或替补报名资料。",
+    "en": "No players available. Complete team or substitute registration first."
+  },
+  "admin.operations.matches_form.not_locked_yet_click_lock_match": {
+    "zh": "尚未冻结。点击上方「确认冻结本场阵容」后，将按上方「本届当前阵容」的五人记录到本场比赛。",
+    "en": "Not locked yet. Click \"Lock Match Roster\" above to record both Current Rosters for this match."
+  },
+  "admin.operations.matches_form.not_set": {
+    "zh": "未设置",
+    "en": "not set"
+  },
+  "admin.operations.matches_form.ongoing": {
+    "zh": "进行中",
+    "en": "Ongoing"
+  },
+  "admin.operations.matches_form.online_veto": {
+    "zh": "在线 BP",
+    "en": "Online veto"
+  },
+  "admin.operations.matches_form.open_match_operations": {
+    "zh": "进入比赛运营",
+    "en": "Open match operations"
+  },
+  "admin.operations.matches_form.open_veto_room": {
+    "zh": "打开 BP 房间",
+    "en": "Open veto room"
+  },
+  "admin.operations.matches_form.password_password_connect_server_ip_port": {
+    "zh": "password 密码;connect 服务器IP:端口",
+    "en": "password PASSWORD;connect SERVER_IP:PORT"
+  },
+  "admin.operations.matches_form.paste_a_tgpro_connect_command_it": {
+    "zh": "可直接粘贴 TGPro / connect 字符串。含口令，不会存进草稿。",
+    "en": "Paste a TGPro / connect command. It may contain a password and is not saved in drafts."
+  },
+  "admin.operations.matches_form.pick": {
+    "zh": "选图",
+    "en": "PICK"
+  },
+  "admin.operations.matches_form.player_value1": {
+    "zh": "选手 {value1}",
+    "en": "Player {value1}"
+  },
+  "admin.operations.matches_form.pre_match_settings_can_be_edited": {
+    "zh": "赛前设置可以修改；比分由数据直播自动同步。",
+    "en": "Pre-match settings can be edited; scores sync automatically from the live feed."
+  },
+  "admin.operations.matches_form.quarterfinal": {
+    "zh": "八强赛",
+    "en": "Quarterfinal"
+  },
+  "admin.operations.matches_form.read_only_confirmed_initial_confirmed_at": {
+    "zh": "只读 · 确认于 {initial_confirmed_at_iso}",
+    "en": "Read-only · Confirmed {initial_confirmed_at_iso}"
+  },
+  "admin.operations.matches_form.read_only_roster_locked": {
+    "zh": "只读 · 已冻结",
+    "en": "Read-only · Roster locked"
+  },
+  "admin.operations.matches_form.recorded_score": {
+    "zh": "直播记录比分：",
+    "en": "Recorded score:"
+  },
+  "admin.operations.matches_form.recorded_team_name": {
+    "zh": "本场记录队名：",
+    "en": "Recorded team name: "
+  },
+  "admin.operations.matches_form.registered_team_rosters_are_used_by": {
+    "zh": "默认使用战队报名名单；有人缺席时在对应位置换成已报名的替补，保存后网站和导播软件用同一份名单。",
+    "en": "Registered team rosters are used by default. Replace an absent player with a registered substitute; the saved roster is shared by the site and director."
+  },
+  "admin.operations.matches_form.resolve_these_blockers_before_locking_the": {
+    "zh": "冻结前检查发现以下问题（解决后才能冻结成功）：",
+    "en": "Resolve these blockers before locking the Match Roster:"
+  },
+  "admin.operations.matches_form.retains_kept_initial_count_5_initial": {
+    "zh": "保留初始成员 {kept_initial_count} / 5（至少 3）",
+    "en": "Retains {kept_initial_count}/5 initial (min 3)"
+  },
+  "admin.operations.matches_form.right": {
+    "zh": "右侧",
+    "en": "Right: "
+  },
+  "admin.operations.matches_form.right_entrant": {
+    "zh": "右侧参赛方",
+    "en": "Right entrant"
+  },
+  "admin.operations.matches_form.roster_and_substitutes": {
+    "zh": "出场名单与替补",
+    "en": "Roster and substitutes"
+  },
+  "admin.operations.matches_form.roster_locked": {
+    "zh": "已冻结",
+    "en": "Roster locked"
+  },
+  "admin.operations.matches_form.rostered_players_verify_the_passcode_to": {
+    "zh": "名单内选手验证口令后申请本队操作席；BP 由选手或管理员手动开始。口令不会存进草稿。",
+    "en": "Rostered players verify the passcode to claim their team's veto seat. Players or admins start the veto manually. Not saved in drafts."
+  },
+  "admin.operations.matches_form.save_changes": {
+    "zh": "保存修改",
+    "en": "Save changes"
+  },
+  "admin.operations.matches_form.saving_please_wait": {
+    "zh": "正在保存，请稍候……",
+    "en": "Saving, please wait..."
+  },
+  "admin.operations.matches_form.select_event": {
+    "zh": "选择赛事",
+    "en": "Select event"
+  },
+  "admin.operations.matches_form.select_event_entrant": {
+    "zh": "选择本届参赛队",
+    "en": "Select Event Entrant"
+  },
+  "admin.operations.matches_form.select_map": {
+    "zh": "选择地图",
+    "en": "Select map"
+  },
+  "admin.operations.matches_form.select_team": {
+    "zh": "选择队伍",
+    "en": "Select team"
+  },
+  "admin.operations.matches_form.semifinal": {
+    "zh": "半决赛",
+    "en": "Semifinal"
+  },
+  "admin.operations.matches_form.series_format_bo": {
+    "zh": "赛制 (BO 格式)",
+    "en": "Series format (BO)"
+  },
+  "admin.operations.matches_form.set_shared_veto_passcode_optional": {
+    "zh": "设置 BP 共享口令（可留空）",
+    "en": "Set shared veto passcode (optional)"
+  },
+  "admin.operations.matches_form.shared_online_veto_passcode": {
+    "zh": "在线选边 (BP) 共享口令",
+    "en": "Shared online veto passcode"
+  },
+  "admin.operations.matches_form.shown_on_the_public_page_as": {
+    "zh": "前台显示为可点击的平台按钮。",
+    "en": "Shown on the public page as a clickable platform button."
+  },
+  "admin.operations.matches_form.side_1": {
+    "zh": "第一方",
+    "en": "Side 1"
+  },
+  "admin.operations.matches_form.side_2": {
+    "zh": "第二方",
+    "en": "Side 2"
+  },
+  "admin.operations.matches_form.side_side_num": {
+    "zh": "第 {side_num} 方",
+    "en": "Side {side_num}"
+  },
+  "admin.operations.matches_form.sides_are_fixed_once_created_and": {
+    "zh": "比赛建立后双方已固定，不能互换或改绑；需要冻结本场五人请切到「本场阵容」页签。",
+    "en": "Sides are fixed once created and cannot be swapped. Switch to the \"Match Roster\" tab to lock lineups for this match."
+  },
+  "admin.operations.matches_form.stage_presets": {
+    "zh": "快捷阶段",
+    "en": "Stage presets"
+  },
+  "admin.operations.matches_form.start_time": {
+    "zh": "开赛时间",
+    "en": "Start time"
+  },
+  "admin.operations.matches_form.starting_ct_t_sides_follow_the": {
+    "zh": "开局 CT / T 以 BP 结果为准",
+    "en": "Starting CT / T sides follow the map veto result"
+  },
+  "admin.operations.matches_form.sub": {
+    "zh": "（换入）",
+    "en": " (Sub)"
+  },
+  "admin.operations.matches_form.subbed_in": {
+    "zh": "换入",
+    "en": "Subbed in"
+  },
+  "admin.operations.matches_form.subbed_out": {
+    "zh": "已换出",
+    "en": "Subbed out"
+  },
+  "admin.operations.matches_form.substitute": {
+    "zh": "替补",
+    "en": "Substitute"
+  },
+  "admin.operations.matches_form.substitute_2": {
+    "zh": "（替补队员）",
+    "en": " (Substitute)"
+  },
+  "admin.operations.matches_form.swap_participants": {
+    "zh": "互换参赛双方",
+    "en": "Swap participants"
+  },
+  "admin.operations.matches_form.teams": {
+    "zh": "参赛队伍",
+    "en": "Teams"
+  },
+  "admin.operations.matches_form.teams_are_optional_or_select_1": {
+    "zh": "参赛方可留空，或每边选 1–5 名测试选手。",
+    "en": "Teams are optional, or select 1–5 test players per side."
+  },
+  "admin.operations.matches_form.teams_locked_after_the_match_starts": {
+    "zh": "参赛队伍（比赛开始后已锁定）",
+    "en": "Teams (locked after the match starts)"
+  },
+  "admin.operations.matches_form.temp_team": {
+    "zh": "临时队",
+    "en": "Temp team"
+  },
+  "admin.operations.matches_form.test_mode": {
+    "zh": "测试模式",
+    "en": "Test mode"
+  },
+  "admin.operations.matches_form.third_place_match": {
+    "zh": "季军赛",
+    "en": "Third-place match"
+  },
+  "admin.operations.matches_form.this_is_a_test_match_teams": {
+    "zh": "这是一场测试比赛，不要求填写参赛队伍或选手。",
+    "en": "This is a test match; teams and players are optional."
+  },
+  "admin.operations.matches_form.this_match_was_cancelled_only_its": {
+    "zh": "比赛已取消：只能修改状态、直播链接和观赛信息。",
+    "en": "This match was cancelled. Only its status, stream links, and viewing information can be changed."
+  },
+  "admin.operations.matches_form.today": {
+    "zh": "今天",
+    "en": "Today"
+  },
+  "admin.operations.matches_form.tomorrow": {
+    "zh": "明天",
+    "en": "Tomorrow"
+  },
+  "admin.operations.matches_form.unassigned_slot_value1": {
+    "zh": "未指定 (位置 {value1})",
+    "en": "Unassigned (Slot {value1})"
+  },
+  "admin.operations.matches_form.unlocked": {
+    "zh": "未冻结",
+    "en": "Unlocked"
+  },
+  "admin.operations.matches_form.upcoming": {
+    "zh": "未开始",
+    "en": "Upcoming"
+  },
+  "admin.operations.matches_form.use_one_grand_final_with_no": {
+    "zh": "本届只能有一场总决赛，且不能连接下游席位。",
+    "en": "Use one grand final, with no outgoing bracket links."
+  },
+  "admin.operations.matches_form.watch_platform_links": {
+    "zh": "观赛平台链接",
+    "en": "Watch platform links"
+  },
+  "admin.operations.participation_dialogs.approved_lineup_player": {
+    "zh": "本局批准名单选手",
+    "en": "Approved lineup player"
+  },
+  "admin.operations.participation_dialogs.cancel": {
+    "zh": "取消",
+    "en": "Cancel"
+  },
+  "admin.operations.participation_dialogs.close": {
+    "zh": "关闭",
+    "en": "Close"
+  },
+  "admin.operations.participation_dialogs.confirm": {
+    "zh": "确认",
+    "en": "Confirm"
+  },
+  "admin.operations.participation_dialogs.confirm_participation": {
+    "zh": "确认登记出场",
+    "en": "Confirm participation"
+  },
+  "admin.operations.participation_dialogs.e_g_verified_player_active_in": {
+    "zh": "例如：管理员现场核对首回合上场",
+    "en": "e.g. Verified player active in round 1"
+  },
+  "admin.operations.participation_dialogs.example_1": {
+    "zh": "例如：1",
+    "en": "Example: 1"
+  },
+  "admin.operations.participation_dialogs.explain_why_participation_is_being_withdrawn": {
+    "zh": "说明撤回或恢复出场记录的原因",
+    "en": "Explain why participation is being withdrawn or restored"
+  },
+  "admin.operations.participation_dialogs.observed_round_optional": {
+    "zh": "观测回合号（可选）",
+    "en": "Observed round (optional)"
+  },
+  "admin.operations.participation_dialogs.reason_for_recording": {
+    "zh": "登记依据",
+    "en": "Reason for recording"
+  },
+  "admin.operations.participation_dialogs.reason_required": {
+    "zh": "登记依据（必填）",
+    "en": "Reason (required)"
+  },
+  "admin.operations.participation_dialogs.reason_required_2": {
+    "zh": "核准原因（必填）",
+    "en": "Reason (required)"
+  },
+  "admin.operations.participation_dialogs.record_multiple_appearances": {
+    "zh": "批量登记出场",
+    "en": "Record multiple appearances"
+  },
+  "admin.operations.participation_dialogs.record_player_participation": {
+    "zh": "登记本局选手出场",
+    "en": "Record player participation"
+  },
+  "admin.operations.participation_dialogs.review_participation": {
+    "zh": "核准选手出场",
+    "en": "Review participation"
+  },
+  "admin.operations.participation_dialogs.select_all": {
+    "zh": "全选",
+    "en": "Select all"
+  },
+  "admin.operations.participation_dialogs.select_the_players_who_played_in": {
+    "zh": "选择本局实际出场的选手",
+    "en": "Select the players who played in this map run"
+  },
+  "admin.operations.participation_dialogs.side_optional_with_round": {
+    "zh": "回合阵营（填回合号时可选）",
+    "en": "Side (optional with round)"
+  },
+  "admin.operations.participation_dialogs.unspecified": {
+    "zh": "不指定",
+    "en": "Unspecified"
+  },
+  "admin.operations.result_panel.clearly_separated_from_live_scorebot_feeds": {
+    "zh": "严格区分直播实时比分、Demo 候选比分与管理员确认的正式赛果",
+    "en": "Clearly separated from live scorebot feeds and demo candidate scores"
+  },
+  "admin.operations.result_panel.full_versioned_history_of_every_decision": {
+    "zh": "按版本号保留每一次修改与撤销历史",
+    "en": "Full versioned history of every decision and override"
+  },
+  "admin.operations.result_panel.official_map_results": {
+    "zh": "单图正式赛果（Official Map Results）",
+    "en": "Official Map Results"
+  },
+  "admin.operations.result_panel.pre_match_predictions": {
+    "zh": "赛前竞猜结算状态（Predictions）",
+    "en": "Pre-match Predictions"
+  },
+  "admin.operations.result_panel.result_bracket_settlement_audit_history": {
+    "zh": "赛果、签表与结算审计记录",
+    "en": "Result, bracket & settlement audit history"
+  },
+  "admin.operations.result_panel.series_settlement_downstream_advancement": {
+    "zh": "系列赛结算与下游联动（Series Settlement）",
+    "en": "Series Settlement & Downstream Advancement"
+  },
+  "admin.operations.run_dialogs.bind_director_session": {
+    "zh": "绑定独立导播会话",
+    "en": "Bind director session"
+  },
+  "admin.operations.run_dialogs.cancel": {
+    "zh": "取消",
+    "en": "Cancel"
+  },
+  "admin.operations.run_dialogs.close": {
+    "zh": "关闭",
+    "en": "Close"
+  },
+  "admin.operations.run_dialogs.confirm_binding": {
+    "zh": "确认绑定",
+    "en": "Confirm binding"
+  },
+  "admin.operations.run_dialogs.confirm_start": {
+    "zh": "确认登记开局",
+    "en": "Confirm start"
+  },
+  "admin.operations.run_dialogs.director_session_id_required": {
+    "zh": "导播会话编号（session_id，必填）",
+    "en": "Director session ID (required)"
+  },
+  "admin.operations.run_dialogs.director_terminal_receipts": {
+    "zh": "导播终图回执记录",
+    "en": "Director terminal receipts"
+  },
+  "admin.operations.run_dialogs.e_g_dir_session_map2_replay": {
+    "zh": "例如：dir-session-map2-replay",
+    "en": "e.g. dir-session-map2-replay"
+  },
+  "admin.operations.run_dialogs.e_g_verified_pistol_round_live": {
+    "zh": "例如：管理员核对首回合服务器已开打、双方十人已就位",
+    "en": "e.g. Verified pistol round live on server with all 10 players connected"
+  },
+  "admin.operations.run_dialogs.explain_how_this_director_session_was": {
+    "zh": "说明如何核对该导播会话对应此次实际开局",
+    "en": "Explain how this director session was verified for this map run"
+  },
+  "admin.operations.run_dialogs.restarting_the_director_with_the_same": {
+    "zh": "用相同配置重启导播不会产生新会话。请核对新的会话编号和实际开局。",
+    "en": "Restarting the director with the same settings does not create a new session. Verify the new session ID and map run."
+  },
+  "admin.operations.run_dialogs.start_evidence_required": {
+    "zh": "开局现场依据（必填）",
+    "en": "Start evidence (required)"
+  },
+  "admin.operations.run_dialogs.start_map_run": {
+    "zh": "登记实际开局",
+    "en": "Start map run"
+  },
+  "admin.operations.run_dialogs.verification_reason_required": {
+    "zh": "核对说明（必填）",
+    "en": "Verification reason (required)"
+  },
+  "admin.operations.run_panel.loading": {
+    "zh": "加载中",
+    "en": "Loading"
+  },
+  "admin.operations.run_panel.locked_roster_defines_eligibility_only_not": {
+    "zh": "冻结阵容仅代表本场批准资格，不等同于单局实际出场",
+    "en": "Locked roster defines eligibility only, not actual map participation"
+  },
+  "admin.operations.run_panel.match_roster_read_only": {
+    "zh": "本场固定阵容（Match Roster · 只读）",
+    "en": "Match Roster (read-only)"
+  },
+  "admin.operations.run_panel.scheduled_maps_and_runs_scheduled_maps": {
+    "zh": "排定赛图与实际开局（Scheduled Maps",
+    "en": "Scheduled maps and runs (Scheduled Maps"
+  },
+  "admin.operations.run_panel.start_eligibility_authorization": {
+    "zh": "开赛资格与授权",
+    "en": "Start eligibility & authorization"
+  },
+  "admin.operations.run_panel.void_runs_remain_archived_for_audit": {
+    "zh": "作废局保留审计留档，不计入正式赛果与统计",
+    "en": "Void runs remain archived for audit and do not count toward official results or stats"
+  },
+  "admin.operations.series_result_dialog.cancel": {
+    "zh": "取消",
+    "en": "Cancel"
+  },
+  "admin.operations.series_result_dialog.close": {
+    "zh": "关闭",
+    "en": "Close"
+  },
+  "admin.operations.series_result_dialog.confirm": {
+    "zh": "确认",
+    "en": "Confirm"
+  },
+  "admin.operations.series_result_dialog.enter_the_reason_for_settling_or": {
+    "zh": "填写本次结算或重开说明",
+    "en": "Enter the reason for settling or reopening"
+  },
+  "admin.operations.series_result_dialog.note_reason": {
+    "zh": "说明 / 原因",
+    "en": "Note / Reason"
+  },
+  "admin.operations.series_result_dialog.review_latest_result_without_discarding_edits": {
+    "zh": "核对最新裁定，保留输入",
+    "en": "Review latest result without discarding edits"
+  },
+  "admin.operations.series_result_dialog.series_settlement_action": {
+    "zh": "系列赛结算操作",
+    "en": "Series settlement action"
+  },
+  "admin.operations.stat_revision_panel.0_is_a_true_zero_and": {
+    "zh": "规则说明：0 表示真实零值，留空 / - 表示未知；系统不会自动把未知填成 0。保存时仅提交你实际改动的字段，且版本号按整局（all / ct / t 共享）校验。",
+    "en": "0 is a true zero and blank / - means unknown (unknowns are never filled as 0). Only touched fields are submitted, checked against the run-wide revision shared across all/ct/t."
+  },
+  "admin.operations.stat_revision_panel.ct_side_ct": {
+    "zh": "CT 阵营 (ct)",
+    "en": "CT side (ct)"
+  },
+  "admin.operations.stat_revision_panel.load_stats": {
+    "zh": "读取统计",
+    "en": "Load stats"
+  },
+  "admin.operations.stat_revision_panel.map_run": {
+    "zh": "实际开局（Map Run）",
+    "en": "Map run"
+  },
+  "admin.operations.stat_revision_panel.not_loaded": {
+    "zh": "未加载",
+    "en": "Not loaded"
+  },
+  "admin.operations.stat_revision_panel.overall_all": {
+    "zh": "全场 (all)",
+    "en": "Overall (all)"
+  },
+  "admin.operations.stat_revision_panel.participated_player": {
+    "zh": "出场选手",
+    "en": "Participated player"
+  },
+  "admin.operations.stat_revision_panel.revise_player_stats_by_run_player": {
+    "zh": "按开局 / 选手 / 阵营修订统计字段",
+    "en": "Revise player stats by run, player & side"
+  },
+  "admin.operations.stat_revision_panel.stat_scope": {
+    "zh": "统计阵营（Scope）",
+    "en": "Stat scope"
+  },
+  "admin.operations.stat_revision_panel.stat_scope_switcher": {
+    "zh": "统计阵营切换",
+    "en": "Stat scope switcher"
+  },
+  "admin.operations.stat_revision_panel.t_side_t": {
+    "zh": "T 阵营 (t)",
+    "en": "T side (t)"
+  },
+  "admin.operations.tech_replay_dialog.approve_technical_rematch": {
+    "zh": "批准技术重赛",
+    "en": "Approve technical rematch"
+  },
+  "admin.operations.tech_replay_dialog.approve_technical_rematch_2": {
+    "zh": "确认批准技术重赛",
+    "en": "Approve technical rematch"
+  },
+  "admin.operations.tech_replay_dialog.approving_a_technical_rematch_marks_the": {
+    "zh": "批准技术重赛会将当前局次标记为",
+    "en": "Approving a technical rematch marks the current run as "
+  },
+  "admin.operations.tech_replay_dialog.cancel": {
+    "zh": "取消",
+    "en": "Cancel"
+  },
+  "admin.operations.tech_replay_dialog.clearing_it_from_scorebot_any_official": {
+    "zh": "，清除其站内直播画面；若该图已有正式赛果或本场已结算，将同步撤销原裁定。原局与录像仍保留供审计查看。",
+    "en": ", clearing it from Scorebot. Any official result for the map or settlement for the match is revoked. The original run and its Demo remain available for review."
+  },
+  "admin.operations.tech_replay_dialog.close": {
+    "zh": "关闭",
+    "en": "Close"
+  },
+  "admin.operations.tech_replay_dialog.e_g_server_crashed_on_round": {
+    "zh": "例如：第 8 回合服务器崩服且无法恢复备份，经双方队长确认重赛",
+    "en": "e.g. Server crashed on round 8 with no recoverable backup; captains confirmed rematch"
+  },
+  "admin.operations.tech_replay_dialog.include_a_technical_substitute_assigned_team": {
+    "zh": "同时办理技术替补（换入已获该队替补席的候补选手，且后续赛图继续沿用）",
+    "en": "Include a technical substitute (assigned team reserve; carries over to subsequent maps)"
+  },
+  "admin.operations.tech_replay_dialog.incoming_substitute_assigned_team_reserve": {
+    "zh": "换入替补（该队已分配候补席）",
+    "en": "Incoming substitute (assigned team reserve)"
+  },
+  "admin.operations.tech_replay_dialog.outgoing_player_effective_roster": {
+    "zh": "换出选手（当前有效阵容）",
+    "en": "Outgoing player (effective roster)"
+  },
+  "admin.operations.tech_replay_dialog.review_latest_result_without_discarding_edits": {
+    "zh": "核对最新裁定，保留输入",
+    "en": "Review latest result without discarding edits"
+  },
+  "admin.operations.tech_replay_dialog.technical_fault_reason_required": {
+    "zh": "故障与无法原局继续的原因（必填）",
+    "en": "Technical fault reason (required)"
+  },
+  "admin.operations.tech_replay_dialog.void": {
+    "zh": "作废（void）",
+    "en": "void"
+  }
+}

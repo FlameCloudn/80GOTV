@@ -1,0 +1,46 @@
+{% extends "layouts/admin.html" %}
+{% import "components/_icons.html" as ui %}
+{% block title %}{{ msg('admin.news.news.manage_news') }}{% endblock %}
+{% block main %}
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>NEWS</span><h1>{{ msg('admin.news.news.manage_news') }}</h1></div>
+  <div class="page-actions"><a href="{{ url_for('admin.admin_news_add') }}" class="btn btn-primary">{{ ui.icon('plus') }}{{ msg('admin.news.news.add_news') }}</a></div>
+</header>
+
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">{{ msg('admin.news.news.all_news') }} <span class="panel-count" data-list-count="#newsTable">{{ news|length }}</span></h2></div>
+  {% if news %}
+  <div class="admin-toolbar list-filters">
+    <label class="filter-search-box">{{ ui.icon('search') }}<input type="search" data-list-search="#newsTable" placeholder="{{ msg('admin.news.news.search_title_or_author') }}" aria-label="{{ msg('admin.news.news.search_news') }}"></label>
+  </div>
+  <div class="table-wrap">
+    <table class="table admin-table" id="newsTable">
+      <thead><tr><th class="col-id">ID</th><th>{{ msg('admin.news.news.title') }}</th><th>{{ msg('admin.news.news.author') }}</th><th>{{ msg('admin.news.news.published_at') }}</th><th class="num">{{ msg('admin.news.news.comments') }}</th><th class="col-actions">{{ msg('admin.news.news.actions') }}</th></tr></thead>
+      <tbody>
+        {% for n in news %}
+        <tr id="news-{{ n.id }}" data-search="{{ n.title }} {{ n.author or '' }} #{{ n.id }}">
+          <td class="col-id">{{ n.id }}</td>
+          <td><a class="cell-title" href="{{ url_for('admin.admin_news_edit', news_id=n.id) }}" data-i18n-ignore>{{ n.title }}</a></td>
+          <td data-i18n-ignore>{{ n.author }}</td>
+          <td class="nowrap">{{ n.publish_time|datetime_display }}</td>
+          <td class="num">{{ n.comment_count }}</td>
+          <td class="col-actions">
+            <div class="row-actions">
+              <a href="{{ url_for('admin.admin_news_edit', news_id=n.id) }}" class="btn btn-sm">{{ ui.icon('edit') }}{{ msg('admin.news.news.edit') }}</a>
+              {{ ui.icon_link('external', news_path(n), msg('admin.news.news.view_on_site_opens_in_a'), target='_blank') }}
+              <form method="post" action="{{ url_for('admin.admin_news_delete', news_id=n.id) }}" data-confirm="{{ msg('admin.news.news.delete_news_title', title=n.title) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit" class="btn btn-sm btn-icon btn-danger" title="{{ msg('admin.news.news.delete_news') }}" aria-label="{{ msg('admin.news.news.delete_news_title_2', title=n.title) }}">{{ ui.icon('trash') }}</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">{{ msg('admin.news.news.no_news_yet') }}</div>
+  {% endif %}
+</section>
+{% endblock %}

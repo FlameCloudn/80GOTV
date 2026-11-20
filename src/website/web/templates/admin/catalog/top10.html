@@ -1,0 +1,55 @@
+{% extends "layouts/admin.html" %}
+{% import "components/_icons.html" as ui %}
+{% block title %}{{ msg('admin.catalog.top10.yearly_top_10') }}{% endblock %}
+{% block main %}
+<header class="page-head">
+  <div>
+    <span class="page-head-kicker" data-i18n-ignore>TOP 10</span><h1>{{ msg('admin.catalog.top10.yearly_top_10') }}</h1>
+    <p class="page-head-sub">{{ msg('admin.catalog.top10.the_list_becomes_public_only_after') }}</p>
+  </div>
+  <form method="get" class="top10-year-form">
+    <label for="year" class="field-label">{{ msg('admin.catalog.top10.year') }}</label>
+    <select id="year" name="year" data-auto-submit>
+      {% for item_year in range(current_year, 2025, -1) %}
+      <option value="{{ item_year }}" {% if item_year == year %}selected{% endif %}>{{ item_year }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn" type="submit" data-js-hidden>{{ msg('admin.catalog.top10.switch') }}</button>
+  </form>
+</header>
+
+<section class="panel">
+  <div class="panel-head">
+    <h2 class="panel-title">{{ msg('admin.catalog.top10.year_rankings', year=year) }}</h2>
+    {% if published_years %}<span class="top10-years">{{ msg('admin.catalog.top10.published') }}<span data-i18n-ignore>{{ published_years|join('、') }}</span></span>{% endif %}
+  </div>
+  <form method="post" action="{{ url_for('admin.admin_top10_save') }}" class="admin-form" id="top10Form-{{ year }}" data-guard data-draft>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="year" value="{{ year }}">
+    <div class="top10-grid">
+      {% for rank in range(1, 11) %}
+      <div class="top10-rank">
+        <label for="rank_{{ rank }}">{{ msg('admin.catalog.top10.rank', rank=rank) }}</label>
+        <select id="rank_{{ rank }}" name="rank_{{ rank }}" required>
+          <option value="">{{ msg('admin.catalog.top10.select_player') }}</option>
+          {% for player in players %}
+          <option value="{{ player.id }}" data-i18n-ignore {% if existing.get(rank) == player.id %}selected{% endif %}>#{{ player.id }} {{ player.nickname }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endfor %}
+    </div>
+    {# “保存”放在表单里第一个按钮的位置：在表单里按回车时默认触发的是保存，不会误清空 #}
+    <div class="form-actions top10-actions">
+      <button class="btn btn-primary" type="submit" name="action" value="save">{{ ui.icon('check') }}{{ msg('admin.catalog.top10.save_and_publish') }}</button>
+      {% if existing %}
+      <button class="btn btn-danger" type="submit" name="action" value="clear" formnovalidate data-confirm="{{ msg('admin.catalog.top10.clear_the_year_top_10', year=year) }}">{{ ui.icon('trash') }}{{ msg('admin.catalog.top10.clear_this_year') }}</button>
+      {% endif %}
+    </div>
+  </form>
+</section>
+{% endblock %}
+
+{% block scripts %}
+{{ frontend_entry('admin-auto-submit') }}
+{% endblock %}

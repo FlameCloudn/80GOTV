@@ -1,0 +1,86 @@
+{
+  "public.teams.team_detail.all_teams": {
+    "zh": "全部队伍",
+    "en": "All teams"
+  },
+  "public.teams.team_detail.cancelled": {
+    "zh": "已取消",
+    "en": "Cancelled"
+  },
+  "public.teams.team_detail.completed": {
+    "zh": "已结束",
+    "en": "Completed"
+  },
+  "public.teams.team_detail.current_roster": {
+    "zh": "现役阵容",
+    "en": "Current roster"
+  },
+  "public.teams.team_detail.live": {
+    "zh": "直播中",
+    "en": "Live"
+  },
+  "public.teams.team_detail.maps_maps": {
+    "zh": "{maps} 张地图",
+    "en": "{maps} maps"
+  },
+  "public.teams.team_detail.no_match_data": {
+    "zh": "暂无比赛数据",
+    "en": "No match data"
+  },
+  "public.teams.team_detail.no_matches": {
+    "zh": "暂无比赛",
+    "en": "No matches"
+  },
+  "public.teams.team_detail.no_players": {
+    "zh": "暂无队员",
+    "en": "No players"
+  },
+  "public.teams.team_detail.players": {
+    "zh": "阵容人数",
+    "en": "Players"
+  },
+  "public.teams.team_detail.results": {
+    "zh": "比赛结果",
+    "en": "Results"
+  },
+  "public.teams.team_detail.upcoming": {
+    "zh": "未开始",
+    "en": "Upcoming"
+  },
+  "public.teams.team_detail.upcoming_matches": {
+    "zh": "即将进行",
+    "en": "Upcoming matches"
+  },
+  "public.teams.team_detail.win_rate": {
+    "zh": "胜率",
+    "en": "Win rate"
+  },
+  "public.teams.team_detail.wins_draws_losses": {
+    "zh": "胜 / 平 / 负",
+    "en": "Wins / draws / losses"
+  },
+  "public.teams.teams_public.no_players": {
+    "zh": "暂无队员",
+    "en": "No players"
+  },
+  "public.teams.teams_public.no_teams": {
+    "zh": "暂无队伍",
+    "en": "No teams"
+  },
+  "public.teams.teams_public.roster_players": {
+    "zh": "{roster} 名队员",
+    "en": "{roster} players"
+  },
+  "public.teams.teams_public.teams": {
+    "zh": "队伍",
+    "en": "Teams"
+  },
+  "public.teams.teams_public.teams_80gotv": {
+    "zh": "队伍 - 80GOTV",
+    "en": "Teams - 80GOTV"
+  },
+  "public.teams.teams_public.teams_teams": {
+    "zh": "共 {teams} 支队伍",
+    "en": "{teams} teams"
+  }
+}

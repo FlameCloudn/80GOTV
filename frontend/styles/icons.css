@@ -1,0 +1,11 @@
+.site-svg-icon {
+  display: inline-block;
+  width: 1.08em;
+  height: 1.08em;
+  vertical-align: -.16em;
+  flex: 0 0 auto;
+  color: currentColor;
+  overflow: visible;
+}
+.icon, .award-icon, .like-icon, .stream-play-icon { line-height: 1; }
+.icon > .site-svg-icon, .award-icon > .site-svg-icon { width: 1em; height: 1em; }

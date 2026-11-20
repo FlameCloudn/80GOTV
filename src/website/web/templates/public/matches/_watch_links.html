@@ -1,0 +1,19 @@
+  <section class="panel mh-col mh-watch">
+    <div class="panel-head"><h2 class="panel-title mh-sec-head">{{ msg('public.matches.watch_links.stream_vods') }}</h2></div>
+    <div class="list">
+      {% if demo_list %}
+      {% for df in demo_list %}
+      {% if df %}
+      {% set demo_map = map_scores[loop.index0] if loop.index0 < map_scores|length else None %}
+      <a class="list-row mh-watch-row is-demo" href="{{ url_for('download_demo', slug=match.slug or match.id) }}?slot={{ loop.index0 }}"><span class="grow">{{ msg('public.matches.watch_links.demo_download_map_index', index=loop.index) }}</span>{% if demo_map and demo_map.name %}<span class="meta">{{ demo_map.name|map_display }}</span>{% endif %}</a>
+      {% endif %}
+      {% endfor %}
+      {% endif %}
+      {% for w in watch_urls %}
+      <a class="list-row mh-watch-row is-stream" href="{{ w.url }}" target="_blank" rel="noopener" data-i18n-ignore>{{ w.name }}</a>
+      {% endfor %}
+    </div>
+    {% if not demo_list and not watch_urls %}
+    <div class="empty-state mh-note">{{ msg('public.matches.watch_links.no_streams_or_vods') }}</div>
+    {% endif %}
+  </section>

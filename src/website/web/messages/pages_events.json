@@ -1,0 +1,678 @@
+{
+  "event.bracket.format.4de": {"zh": "4 队双败淘汰", "en": "4-team double elimination"},
+  "event.bracket.format.4se": {"zh": "4 队单败淘汰", "en": "4-team single elimination"},
+  "event.bracket.format.8de": {"zh": "8 队双败淘汰", "en": "8-team double elimination"},
+  "event.bracket.format.8se": {"zh": "8 队单败淘汰", "en": "8-team single elimination"},
+  "public.events.event_detail.admin_accounts_cannot_register_use_a": {
+    "zh": "管理员账号不能报名，请使用选手账号登录",
+    "en": "Admin accounts cannot register; use a player account"
+  },
+  "public.events.event_detail.award_display_name_type_stats_image": {
+    "zh": "{award_display_name} {type} 数据图",
+    "en": "{award_display_name} {type} stats image"
+  },
+  "public.events.event_detail.back_to_events": {
+    "zh": "返回赛事列表",
+    "en": "Back to events"
+  },
+  "public.events.event_detail.bracket": {
+    "zh": "对阵图",
+    "en": "Bracket"
+  },
+  "public.events.event_detail.cancel": {
+    "zh": "取消",
+    "en": "Cancel"
+  },
+  "public.events.event_detail.choose_your_slot": {
+    "zh": "选择你的位置：",
+    "en": "Choose your slot:"
+  },
+  "public.events.event_detail.completed": {
+    "zh": "已结束",
+    "en": "Completed"
+  },
+  "public.events.event_detail.create_a_team_and_choose_your": {
+    "zh": "创建队伍并选择你的位置（可预填队友信息）",
+    "en": "Create a team and choose your slot. Teammate info can be prefilled."
+  },
+  "public.events.event_detail.create_team_registration": {
+    "zh": "创建队伍报名",
+    "en": "Create team registration"
+  },
+  "public.events.event_detail.double_elimination": {
+    "zh": "双败淘汰",
+    "en": "Double elimination"
+  },
+  "public.events.event_detail.event_information": {
+    "zh": "赛事信息",
+    "en": "Event information"
+  },
+  "public.events.event_detail.event_stats": {
+    "zh": "赛事数据 →",
+    "en": "Event stats →"
+  },
+  "public.events.event_detail.format": {
+    "zh": "赛制：",
+    "en": "Format: "
+  },
+  "public.events.event_detail.grand_final": {
+    "zh": "总决赛",
+    "en": "Grand final"
+  },
+  "public.events.event_detail.link_steam": {
+    "zh": "去绑定",
+    "en": "Link Steam"
+  },
+  "public.events.event_detail.link_steam_before_registering": {
+    "zh": "报名需要先绑定 Steam",
+    "en": "Link Steam before registering"
+  },
+  "public.events.event_detail.log_in_for_veto": {
+    "zh": "登录后进入 BP",
+    "en": "Log in for veto"
+  },
+  "public.events.event_detail.log_in_to_register": {
+    "zh": "登录后报名",
+    "en": "Log in to register"
+  },
+  "public.events.event_detail.log_out_admin": {
+    "zh": "退出管理员",
+    "en": "Log out admin"
+  },
+  "public.events.event_detail.lower_bracket": {
+    "zh": "败者组",
+    "en": "Lower bracket"
+  },
+  "public.events.event_detail.map_pool": {
+    "zh": "赛事图池",
+    "en": "Map pool"
+  },
+  "public.events.event_detail.matches": {
+    "zh": "比赛数：",
+    "en": "Matches: "
+  },
+  "public.events.event_detail.matches_2": {
+    "zh": "比赛列表",
+    "en": "Matches"
+  },
+  "public.events.event_detail.matchup": {
+    "zh": "对阵",
+    "en": "Matchup"
+  },
+  "public.events.event_detail.mvp_evp_chart": {
+    "zh": "MVP / EVP 数据图",
+    "en": "MVP / EVP chart"
+  },
+  "public.events.event_detail.no_matches": {
+    "zh": "暂无比赛",
+    "en": "No matches"
+  },
+  "public.events.event_detail.no_teams_yet": {
+    "zh": "暂无参赛队伍",
+    "en": "No teams yet"
+  },
+  "public.events.event_detail.ongoing": {
+    "zh": "进行中",
+    "en": "Ongoing"
+  },
+  "public.events.event_detail.open_veto": {
+    "zh": "进入 BP",
+    "en": "Open veto"
+  },
+  "public.events.event_detail.player_value1_nickname_optional": {
+    "zh": "选手{value1}昵称(可选)",
+    "en": "Player {value1} nickname (optional)"
+  },
+  "public.events.event_detail.playoffs": {
+    "zh": "淘汰赛",
+    "en": "Playoffs"
+  },
+  "public.events.event_detail.png_jpg_jpeg_or_gif_up": {
+    "zh": "支持 PNG、JPG、JPEG、GIF，最大 10MB；报名后队长仍可更换。",
+    "en": "PNG, JPG, JPEG or GIF, up to 10MB. Captains can replace it after registration."
+  },
+  "public.events.event_detail.registration_is_closed_substitute_registration_remains": {
+    "zh": "正式报名已截止，仅保留替补报名",
+    "en": "Registration is closed; substitute registration remains open"
+  },
+  "public.events.event_detail.registration_open": {
+    "zh": "报名开放中",
+    "en": "Registration open"
+  },
+  "public.events.event_detail.scroll_horizontally_to_view_the_full": {
+    "zh": "左右滑动查看完整淘汰赛对阵",
+    "en": "Scroll horizontally to view the full playoff bracket"
+  },
+  "public.events.event_detail.single_elimination": {
+    "zh": "单败淘汰",
+    "en": "Single elimination"
+  },
+  "public.events.event_detail.slot_value1": {
+    "zh": "位置{value1}",
+    "en": "Slot {value1}"
+  },
+  "public.events.event_detail.slot_value1_player_nickname": {
+    "zh": "位置{value1}选手昵称",
+    "en": "Slot {value1} player nickname"
+  },
+  "public.events.event_detail.slot_value1_steam_id": {
+    "zh": "位置{value1} Steam ID",
+    "en": "Slot {value1} Steam ID"
+  },
+  "public.events.event_detail.submit_registration": {
+    "zh": "提交报名",
+    "en": "Submit registration"
+  },
+  "public.events.event_detail.swiss": {
+    "zh": "瑞士轮",
+    "en": "Swiss"
+  },
+  "public.events.event_detail.team_logo_optional": {
+    "zh": "队标（可选）",
+    "en": "Team logo (optional)"
+  },
+  "public.events.event_detail.team_name": {
+    "zh": "队伍名称",
+    "en": "Team name"
+  },
+  "public.events.event_detail.team_registration_name": {
+    "zh": "队伍报名 — {name}",
+    "en": "Team registration — {name}"
+  },
+  "public.events.event_detail.teammate_info_fill_your_slot_others": {
+    "zh": "队友信息（至少填自己的位置，其他可选填）：",
+    "en": "Teammate info. Fill your slot; others are optional."
+  },
+  "public.events.event_detail.teams": {
+    "zh": "队伍数：",
+    "en": "Teams: "
+  },
+  "public.events.event_detail.teams_2": {
+    "zh": "参赛队伍",
+    "en": "Teams"
+  },
+  "public.events.event_detail.total_teams_teams": {
+    "zh": "{total_teams} 队",
+    "en": "{total_teams} teams"
+  },
+  "public.events.event_detail.upcoming": {
+    "zh": "即将开始",
+    "en": "Upcoming"
+  },
+  "public.events.event_detail.upper_bracket": {
+    "zh": "胜者组",
+    "en": "Upper bracket"
+  },
+  "public.events.event_detail.you_can_also_register_individually_below": {
+    "zh": "也可以在下方直接选择个人报名",
+    "en": "You can also register individually below"
+  },
+  "public.events.event_detail_card.based_on_performance_in_this_match": {
+    "zh": "由当前比赛表现所得",
+    "en": "Based on performance in this match"
+  },
+  "public.events.event_detail_card.based_on_recent_stats": {
+    "zh": "由近期数据统计所得",
+    "en": "Based on recent stats"
+  },
+  "public.events.event_detail_card.lineups": {
+    "zh": "出场阵容",
+    "en": "Lineups"
+  },
+  "public.events.event_detail_card.map_score": {
+    "zh": "地图比分",
+    "en": "Map score"
+  },
+  "public.events.event_detail_card.rating_based_on_current_event_stats": {
+    "zh": "Rating 按当前赛事数据计算",
+    "en": "Rating based on current event stats"
+  },
+  "public.events.event_detail_card.view_match_details": {
+    "zh": "查看比赛详情",
+    "en": "View match details"
+  },
+  "public.events.event_registration_list.admin_actions": {
+    "zh": "管理员操作",
+    "en": "Admin actions"
+  },
+  "public.events.event_registration_list.admins_cannot_join": {
+    "zh": "管理员不可加入",
+    "en": "Admins cannot join"
+  },
+  "public.events.event_registration_list.assigned_team_name": {
+    "zh": "指定：{team_name}",
+    "en": "Assigned: {team_name}"
+  },
+  "public.events.event_registration_list.available_to_substitute_for_any_team": {
+    "zh": "可替补任意队伍",
+    "en": "Available to substitute for any team"
+  },
+  "public.events.event_registration_list.balanced_team_number": {
+    "zh": "平衡队伍 {number}",
+    "en": "Balanced team {number}"
+  },
+  "public.events.event_registration_list.balanced_teams_have_been_created": {
+    "zh": "你已完成平衡分队",
+    "en": "Balanced teams have been created"
+  },
+  "public.events.event_registration_list.cancel_individual_registration": {
+    "zh": "取消个人报名",
+    "en": "Cancel individual registration"
+  },
+  "public.events.event_registration_list.cancel_substitute_registration": {
+    "zh": "取消替补报名",
+    "en": "Cancel substitute registration"
+  },
+  "public.events.event_registration_list.cancel_your_solo_registration": {
+    "zh": "确定取消个人报名吗？",
+    "en": "Cancel your solo registration?"
+  },
+  "public.events.event_registration_list.cancel_your_substitute_registration": {
+    "zh": "确定取消替补报名吗？",
+    "en": "Cancel your substitute registration?"
+  },
+  "public.events.event_registration_list.captain": {
+    "zh": "队长",
+    "en": "Captain"
+  },
+  "public.events.event_registration_list.captain_actions": {
+    "zh": "队长操作",
+    "en": "Captain actions"
+  },
+  "public.events.event_registration_list.captain_creator_display_name": {
+    "zh": "队长：{creator_display_name}",
+    "en": "Captain: {creator_display_name}"
+  },
+  "public.events.event_registration_list.change": {
+    "zh": "修改",
+    "en": "Change"
+  },
+  "public.events.event_registration_list.change_team_logo": {
+    "zh": "更换队标",
+    "en": "Change team logo"
+  },
+  "public.events.event_registration_list.choose_substitute_team": {
+    "zh": "选择替补队伍",
+    "en": "Choose substitute team"
+  },
+  "public.events.event_registration_list.disband_team": {
+    "zh": "解散队伍",
+    "en": "Disband team"
+  },
+  "public.events.event_registration_list.disband_team_name_its_roster_slots": {
+    "zh": "确定解散 {team_name} 吗？队员位置也会一并移除。",
+    "en": "Disband {team_name}? Its roster slots will also be removed."
+  },
+  "public.events.event_registration_list.empty": {
+    "zh": "空位",
+    "en": "Empty"
+  },
+  "public.events.event_registration_list.existing_teams_will_be_filled_and": {
+    "zh": "将按 CS2 游戏时长补满现有队伍，并创建新的正式队伍。完成后只能由管理员手动调整，确定继续吗？",
+    "en": "Existing teams will be filled and new teams formed using CS2 playtime. Only admins can adjust teams afterward. Continue?"
+  },
+  "public.events.event_registration_list.finalize_teams": {
+    "zh": "一键完成分队",
+    "en": "Finalize teams"
+  },
+  "public.events.event_registration_list.general_substitute_any_team": {
+    "zh": "公共替补（任意队伍）",
+    "en": "General substitute (any team)"
+  },
+  "public.events.event_registration_list.individual_count_players": {
+    "zh": "{individual_count} 人",
+    "en": "{individual_count} players"
+  },
+  "public.events.event_registration_list.individual_registrations_have_already_been_assigned": {
+    "zh": "本次个人报名已经完成分队",
+    "en": "Individual registrations have already been assigned"
+  },
+  "public.events.event_registration_list.join_this_slot": {
+    "zh": "加入此位置",
+    "en": "Join this slot"
+  },
+  "public.events.event_registration_list.leave_slot": {
+    "zh": "退出位置",
+    "en": "Leave slot"
+  },
+  "public.events.event_registration_list.link_steam": {
+    "zh": "绑定 Steam",
+    "en": "Link Steam"
+  },
+  "public.events.event_registration_list.link_steam_to_register_as_a": {
+    "zh": "绑定 Steam 后报名替补",
+    "en": "Link Steam to register as a substitute"
+  },
+  "public.events.event_registration_list.link_steam_to_register_individually": {
+    "zh": "绑定 Steam 后个人报名",
+    "en": "Link Steam to register individually"
+  },
+  "public.events.event_registration_list.log_in_to_join": {
+    "zh": "登录加入",
+    "en": "Log in to join"
+  },
+  "public.events.event_registration_list.log_in_to_register_as_a": {
+    "zh": "登录后报名替补",
+    "en": "Log in to register as a substitute"
+  },
+  "public.events.event_registration_list.log_in_to_register_individually": {
+    "zh": "登录后个人报名",
+    "en": "Log in to register individually"
+  },
+  "public.events.event_registration_list.make_captain": {
+    "zh": "任命队长",
+    "en": "Make captain"
+  },
+  "public.events.event_registration_list.make_slot_display_name_captain_the": {
+    "zh": "确定将队长权限转交给 {slot_display_name} 吗？原队长将变为普通队员。",
+    "en": "Make {slot_display_name} captain? The current captain will become a regular member."
+  },
+  "public.events.event_registration_list.member": {
+    "zh": "队员",
+    "en": "Member"
+  },
+  "public.events.event_registration_list.no_individual_registrations_yet": {
+    "zh": "暂时还没有选手个人报名",
+    "en": "No individual registrations yet"
+  },
+  "public.events.event_registration_list.no_substitute_registrations_yet": {
+    "zh": "暂时还没有选手报名替补",
+    "en": "No substitute registrations yet"
+  },
+  "public.events.event_registration_list.no_teams_have_registered_yet": {
+    "zh": "暂时还没有队伍报名",
+    "en": "No teams have registered yet"
+  },
+  "public.events.event_registration_list.player_name": {
+    "zh": "选手名称",
+    "en": "Player name"
+  },
+  "public.events.event_registration_list.players_without_a_fixed_team_may": {
+    "zh": "没有固定队伍也可以报名。管理员会参考公开的 CS2 游戏时长尽量平衡分队，每 5 人组成一队；时长不可见时按公开选手的中位时长参与。",
+    "en": "Players without a fixed team may register individually. Admins use public CS2 playtime to balance teams of five. Private playtime uses the public-player median."
+  },
+  "public.events.event_registration_list.png_jpg_jpeg_gif_up_to": {
+    "zh": "PNG / JPG / JPEG / GIF，最大 10MB",
+    "en": "PNG / JPG / JPEG / GIF, up to 10MB"
+  },
+  "public.events.event_registration_list.register_as_substitute": {
+    "zh": "报名替补",
+    "en": "Register as substitute"
+  },
+  "public.events.event_registration_list.register_individually": {
+    "zh": "选择个人报名",
+    "en": "Register individually"
+  },
+  "public.events.event_registration_list.registered": {
+    "zh": "已报名",
+    "en": "Registered"
+  },
+  "public.events.event_registration_list.registered_teams": {
+    "zh": "已报名队伍",
+    "en": "Registered teams"
+  },
+  "public.events.event_registration_list.remove": {
+    "zh": "移除",
+    "en": "Remove"
+  },
+  "public.events.event_registration_list.remove_logo": {
+    "zh": "移除队标",
+    "en": "Remove logo"
+  },
+  "public.events.event_registration_list.remove_player_name_s_individual_registration": {
+    "zh": "确定移除 {player_name} 的个人报名吗？",
+    "en": "Remove {player_name}'s individual registration?"
+  },
+  "public.events.event_registration_list.remove_player_name_s_substitute_registration": {
+    "zh": "确定移除 {player_name} 的替补报名吗？",
+    "en": "Remove {player_name}'s substitute registration?"
+  },
+  "public.events.event_registration_list.remove_player_name_this_will_clear": {
+    "zh": "确定移除 {player_name} 吗？当前分队结果会被清空。",
+    "en": "Remove {player_name}? This will clear the current team formation."
+  },
+  "public.events.event_registration_list.remove_slot_display_name": {
+    "zh": "确定移除 {slot_display_name} 吗？",
+    "en": "Remove {slot_display_name}?"
+  },
+  "public.events.event_registration_list.remove_the_logo_for_team_name": {
+    "zh": "确定移除 {team_name} 的队标吗？",
+    "en": "Remove the logo for {team_name}?"
+  },
+  "public.events.event_registration_list.reserved": {
+    "zh": "预留位置",
+    "en": "Reserved"
+  },
+  "public.events.event_registration_list.save": {
+    "zh": "保存",
+    "en": "Save"
+  },
+  "public.events.event_registration_list.save_team_name": {
+    "zh": "保存队名",
+    "en": "Save team name"
+  },
+  "public.events.event_registration_list.select_any_team_or_a_specific": {
+    "zh": "可以选择任意队伍，也可以指定一支队伍；替补不占五人名额。",
+    "en": "Select any team or a specific team. Substitutes do not count toward the five roster slots."
+  },
+  "public.events.event_registration_list.slot_index": {
+    "zh": "位置 {index}",
+    "en": "Slot {index}"
+  },
+  "public.events.event_registration_list.slot_value1": {
+    "zh": "位置 {value1}",
+    "en": "Slot {value1}"
+  },
+  "public.events.event_registration_list.solo_signup": {
+    "zh": "个人报名",
+    "en": "Solo signup"
+  },
+  "public.events.event_registration_list.steamid_optional": {
+    "zh": "SteamID（可选）",
+    "en": "SteamID (optional)"
+  },
+  "public.events.event_registration_list.substitute_count_players": {
+    "zh": "{substitute_count} 人",
+    "en": "{substitute_count} players"
+  },
+  "public.events.event_registration_list.substitute_for_preferred_team_name": {
+    "zh": "指定替补：{preferred_team_name}",
+    "en": "Substitute for {preferred_team_name}"
+  },
+  "public.events.event_registration_list.substitute_registration": {
+    "zh": "替补报名",
+    "en": "Substitute registration"
+  },
+  "public.events.event_registration_list.substitute_registration_opens_after_team_formation": {
+    "zh": "正式分队完成后可报名替补。",
+    "en": "Substitute registration opens after team formation."
+  },
+  "public.events.event_registration_list.team_logo": {
+    "zh": "队标图片",
+    "en": "Team logo"
+  },
+  "public.events.event_registration_list.team_name": {
+    "zh": "队伍名称",
+    "en": "Team name"
+  },
+  "public.events.event_registration_list.team_name_logo": {
+    "zh": "{team_name} 队标",
+    "en": "{team_name} logo"
+  },
+  "public.events.event_registration_list.unknown_account": {
+    "zh": "未知账号",
+    "en": "Unknown account"
+  },
+  "public.events.event_registration_list.update_substitute_team": {
+    "zh": "修改替补队伍",
+    "en": "Update substitute team"
+  },
+  "public.events.event_registration_list.upload_a_team_logo_from_captain": {
+    "zh": "可在“队长操作”中上传队标",
+    "en": "Upload a team logo from captain actions"
+  },
+  "public.events.event_registration_list.upload_team_logo": {
+    "zh": "上传队标",
+    "en": "Upload team logo"
+  },
+  "public.events.event_registration_list.waiting_for_player": {
+    "zh": "等待加入",
+    "en": "Waiting for player"
+  },
+  "public.events.event_registration_list.waiting_for_team_assignment": {
+    "zh": "等待分队",
+    "en": "Waiting for team assignment"
+  },
+  "public.events.event_registration_list.you_are_on_an_official_roster": {
+    "zh": "你已进入正式队伍",
+    "en": "You are on an official roster"
+  },
+  "public.events.event_registration_list.you_are_registered_as_an_event": {
+    "zh": "你已报名赛事替补",
+    "en": "You are registered as an event substitute"
+  },
+  "public.events.event_stats.appearances": {
+    "zh": "出场次数",
+    "en": "Appearances"
+  },
+  "public.events.event_stats.average_k_d": {
+    "zh": "场均 K/D",
+    "en": "Average K/D"
+  },
+  "public.events.event_stats.average_score": {
+    "zh": "场均得分",
+    "en": "Average score"
+  },
+  "public.events.event_stats.avg_rating": {
+    "zh": "场均 Rating",
+    "en": "Avg. Rating"
+  },
+  "public.events.event_stats.back_to_event": {
+    "zh": "返回赛事",
+    "en": "Back to event"
+  },
+  "public.events.event_stats.bracket": {
+    "zh": "对阵图 →",
+    "en": "Bracket →"
+  },
+  "public.events.event_stats.click_a_header_to_sort": {
+    "zh": "点表头可排序",
+    "en": "Click a header to sort"
+  },
+  "public.events.event_stats.event_information": {
+    "zh": "赛事信息",
+    "en": "Event information"
+  },
+  "public.events.event_stats.format": {
+    "zh": "赛制：",
+    "en": "Format: "
+  },
+  "public.events.event_stats.map_stats": {
+    "zh": "地图统计",
+    "en": "Map stats"
+  },
+  "public.events.event_stats.maps": {
+    "zh": "地图",
+    "en": "Maps"
+  },
+  "public.events.event_stats.maps_played": {
+    "zh": "地图数",
+    "en": "Maps played"
+  },
+  "public.events.event_stats.matches": {
+    "zh": "比赛数",
+    "en": "Matches"
+  },
+  "public.events.event_stats.name_event_stats_80gotv": {
+    "zh": "{name} 赛事数据 - 80GOTV",
+    "en": "{name} event stats - 80GOTV"
+  },
+  "public.events.event_stats.no_stats_for_this_event": {
+    "zh": "该赛事暂无统计数据",
+    "en": "No stats for this event"
+  },
+  "public.events.event_stats.player_rankings": {
+    "zh": "选手排行榜",
+    "en": "Player rankings"
+  },
+  "public.events.event_stats.players": {
+    "zh": "选手",
+    "en": "Players"
+  },
+  "public.events.event_stats.team_standings": {
+    "zh": "队伍排名",
+    "en": "Team standings"
+  },
+  "public.events.event_stats.teams": {
+    "zh": "队伍数：",
+    "en": "Teams: "
+  },
+  "public.events.event_stats.teams_2": {
+    "zh": "队伍",
+    "en": "Teams"
+  },
+  "public.events.event_stats.win_rate": {
+    "zh": "胜率",
+    "en": "Win rate"
+  },
+  "public.events.event_stats.wins": {
+    "zh": "胜场",
+    "en": "Wins"
+  },
+  "public.events.events.all_events": {
+    "zh": "全部赛事",
+    "en": "All events"
+  },
+  "public.events.events.archived": {
+    "zh": "历史赛事",
+    "en": "Archived"
+  },
+  "public.events.events.calendar": {
+    "zh": "日历",
+    "en": "Calendar"
+  },
+  "public.events.events.completed": {
+    "zh": "已结束",
+    "en": "Completed"
+  },
+  "public.events.events.event_filter": {
+    "zh": "赛事筛选",
+    "en": "Event filter"
+  },
+  "public.events.events.events": {
+    "zh": "赛事列表",
+    "en": "Events"
+  },
+  "public.events.events.events_2": {
+    "zh": "赛事",
+    "en": "Events"
+  },
+  "public.events.events.events_events": {
+    "zh": "共 {events} 个赛事",
+    "en": "{events} events"
+  },
+  "public.events.events.format_team_count_teams_match_count": {
+    "zh": "{format} · {team_count} 支队伍 · {match_count} 场比赛",
+    "en": "{format} · {team_count} teams · {match_count} matches"
+  },
+  "public.events.events.no_events": {
+    "zh": "暂无赛事",
+    "en": "No events"
+  },
+  "public.events.events.ongoing": {
+    "zh": "进行中",
+    "en": "Ongoing"
+  },
+  "public.events.events.ongoing_events": {
+    "zh": "进行中赛事",
+    "en": "Ongoing events"
+  },
+  "public.events.events.unknown_date": {
+    "zh": "未知",
+    "en": "Date unknown"
+  },
+  "public.events.events.upcoming": {
+    "zh": "即将开始",
+    "en": "Upcoming"
+  }
+}

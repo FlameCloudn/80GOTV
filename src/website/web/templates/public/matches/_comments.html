@@ -1,0 +1,24 @@
+{% from 'components/_comment_macros.html' import render_comment with context %}
+<section class="panel comment-section">
+  <h3 class="comments-title">{{ msg('public.matches.comments.comments') }}</h3>
+
+  {% if session.user_id %}
+  <form method="post" action="/comment/match/{{ match.id }}" class="comment-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <textarea name="content" rows="3" placeholder="{{ msg('public.matches.comments.write_a_comment') }}" required class="comment-textarea"></textarea>
+    <div class="comment-form-footer">
+      <button type="submit" class="btn btn-primary comment-submit">{{ msg('public.matches.comments.post_comment') }}</button>
+    </div>
+  </form>
+  {% else %}
+  <div class="comment-login-prompt"><a href="/login">{{ msg('public.matches.comments.log_in') }}</a> {{ msg('public.matches.comments.to_comment') }}</div>
+  {% endif %}
+
+  {% if comments %}
+  <div class="comment-list">
+    {% for c in comments %}{{ render_comment(c, session, 'match', match.id) }}{% endfor %}
+  </div>
+  {% else %}
+  <p class="empty-state">{{ msg('public.matches.comments.no_comments') }}</p>
+  {% endif %}
+</section>

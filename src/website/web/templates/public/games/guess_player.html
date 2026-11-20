@@ -1,0 +1,164 @@
+{% extends 'layouts/public.html' %}
+{% block title %}{{ msg('public.games.guess_player.practice') if mode == 'practice' else msg('public.games.guess_player.daily_guess_the_player') }} - 80GOTV{% endblock %}
+{% block head %}
+{{ frontend_entry('guess-player-style') }}
+{% endblock %}
+{% block layout_class %}no-side-layout guess-player-layout{% endblock %}
+{% block main %}
+<div class="guess-game">
+  <nav class="segmented guess-mode-tabs" aria-label="{{ msg('public.games.guess_player.game_mode') }}">
+    <a href="{{ url_for('guess_player_page') }}" class="{{ 'active' if mode == 'daily' else '' }}">{{ msg('public.games.guess_player.daily_challenge') }}</a>
+    <a href="{{ url_for('guess_player_practice_page') }}" class="{{ 'active' if mode == 'practice' else '' }}">{{ msg('public.games.guess_player.free_play') }}</a>
+    <a href="{{ url_for('guess_player_multiplayer_page') }}">{{ msg('public.games.guess_player.online_battle') }}</a>
+  </nav>
+  <header class="guess-heading panel">
+    <div>
+      <span class="guess-kicker">{{ msg('public.games.guess_player.unlimited_practice') if mode == 'practice' else msg('public.games.guess_player.daily_challenge_2') ~ game.challenge_number }}</span>
+      <h1>{{ msg('public.games.guess_player.80go_guess_the_player') }}</h1>
+      <p>{{ msg('game.guess.practice_intro' if mode == 'practice' else 'game.guess.daily_intro') }}</p>
+    </div>
+    <div class="guess-source">
+      {% if mode == 'practice' and pool_mode == 'noob' %}{{ msg('public.games.guess_player.noob_yearly_top_20_rosters_of') }}
+      {% elif mode == 'practice' %}{{ msg('public.games.guess_player.pro_full_player_database') }}
+      {% else %}{{ msg('public.games.guess_player.full_daily_pool') }}{% endif %}
+    </div>
+  </header>
+
+  {% if mode == 'practice' %}
+  <nav class="guess-difficulty" aria-label="{{ msg('public.games.guess_player.free_play_difficulty') }}">
+    <a href="{{ url_for('guess_player_practice_page', difficulty='noob') }}" class="{{ 'active' if pool_mode == 'noob' else '' }}">
+      <strong data-i18n-ignore>Noob</strong><span>{{ msg('public.games.guess_player.noob_well_known_players', noob=pool_counts.noob) }}</span>
+    </a>
+    <a href="{{ url_for('guess_player_practice_page', difficulty='pro') }}" class="{{ 'active' if pool_mode == 'pro' else '' }}">
+      <strong data-i18n-ignore>Pro</strong><span>{{ msg('public.games.guess_player.pro_players_in_total', pro=pool_counts.pro) }}</span>
+    </a>
+  </nav>
+  {% endif %}
+
+  <section class="guess-play-panel panel">
+    {% if not game.finished %}
+    <form class="guess-search-form" method="post" action="{{ url_for('guess_player_practice_submit') if mode == 'practice' else url_for('guess_player_submit') }}" id="guessPlayerForm">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      {% if mode == 'practice' %}<input type="hidden" name="pool_mode" value="{{ pool_mode }}">{% endif %}
+      <input type="hidden" name="player_id" id="guessPlayerId">
+      <div class="guess-search-field">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+        <input type="text" name="player_query" id="guessPlayerQuery" list="guessPlayerOptions"
+               autocomplete="off" required placeholder="{{ msg('public.games.guess_player.enter_a_pro_player_nickname') }}" aria-label="{{ msg('public.games.guess_player.pro_player_nickname') }}">
+        <datalist id="guessPlayerOptions" data-i18n-ignore>
+          {% for player in players %}
+          <option value="{{ player.nickname }}" data-player-id="{{ player.id }}">{{ player.full_name }}</option>
+          {% endfor %}
+        </datalist>
+      </div>
+      <button type="submit" class="btn btn-primary guess-submit">{{ msg('public.games.guess_player.submit_guess') }}</button>
+    </form>
+    {% endif %}
+
+    {% if game.results %}
+    <div class="guess-results-scroll">
+      <table class="guess-results-table">
+        <thead>
+          <tr>
+            <th>{{ msg('public.games.guess_player.players') }}</th>
+            <th>{{ msg('public.games.guess_player.teams') }}</th>
+            <th>{{ msg('public.games.guess_player.nationality') }}</th>
+            <th>{{ msg('public.games.guess_player.age') }}</th>
+            <th>{{ msg('public.games.guess_player.slot') }}</th>
+            <th>{{ msg('public.games.guess_player.major_appearances') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for result in game.results %}
+          <tr>
+            <td class="clue-{{ result.name_state }}" title="{{ msg('public.games.guess_player.correct_player') }}"><b data-i18n-ignore>{{ result.player.nickname }}</b></td>
+            <td class="clue-{{ result.team_state }}" title="{{ msg('public.games.guess_player.same_team') }}">{% if result.affiliation %}<span data-i18n-ignore>{{ result.affiliation }}</span>{% else %}{{ msg('public.games.guess_player.unknown') }}{% endif %}</td>
+            <td class="clue-{{ result.country_state }}" title="{{ msg('public.games.guess_player.country_name_orange_means_the_same', country_name=result.player.country_name) }}">
+              {% if result.country_flag %}<span class="guess-country-flag" aria-label="{{ result.player.country_name }}">{{ result.country_flag }}</span>{% else %}{{ msg('public.games.guess_player.unknown') }}{% endif %}
+            </td>
+            <td class="clue-{{ result.age_feedback.state }}" title="{{ msg('public.games.guess_player.the_arrow_points_toward_the_correct') }}">
+              {{ result.age if result.age is not none else msg('public.games.guess_player.unknown') }}{% if result.age_feedback.direction %}<span class="guess-arrow is-{{ result.age_feedback.direction }}" aria-label="{{ msg('game.guess.answer_higher' if result.age_feedback.direction == 'up' else 'game.guess.answer_lower') }}"></span>{% endif %}
+            </td>
+            <td class="clue-{{ result.role_state }}" title="{{ msg('public.games.guess_player.hltv_player_role') }}">{{ 'AWPer' if result.player.role == 'awper' else ('Hybrid' if result.player.role == 'hybrid' else ('Rifler' if result.player.role == 'rifler' else msg('public.games.guess_player.unknown'))) }}</td>
+            <td class="clue-{{ result.major_feedback.state }}" title="{{ msg('public.games.guess_player.the_arrow_points_toward_the_correct_2') }}">
+              {{ result.player.major_appearances if result.player.major_appearances >= 0 else msg('public.games.guess_player.unknown') }}{% if result.major_feedback.direction %}<span class="guess-arrow is-{{ result.major_feedback.direction }}" aria-label="{{ msg('game.guess.answer_higher' if result.major_feedback.direction == 'up' else 'game.guess.answer_lower') }}"></span>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="guess-empty">{{ msg('public.games.guess_player.enter_a_player_to_reveal_the') }}</div>
+    {% endif %}
+
+    <div class="guess-progress" aria-label="{{ msg('public.games.guess_player.guess_progress') }}">
+      <div class="guess-progress-track">
+        {% for index in range(max_guesses) %}
+        <span class="guess-progress-dot{% if index < game.results|length %} used{% endif %}{% if game.won and index == game.results|length - 1 %} won{% endif %}" title="{{ msg('public.games.guess_player.attempt_value1', value1=index + 1) }}"></span>
+        {% endfor %}
+      </div>
+      <strong>{{ msg('public.games.guess_player.remaining_guesses_left', remaining=game.remaining) }}</strong>
+    </div>
+
+    <div class="guess-legend">
+      <span><i class="legend-correct"></i>{{ msg('public.games.guess_player.correct') }}</span>
+      <span><i class="legend-close"></i>{{ msg('public.games.guess_player.close') }}</span>
+      <span><i class="legend-wrong"></i>{{ msg('public.games.guess_player.incorrect') }}</span>
+      <span><i class="legend-neutral"></i>{{ msg('public.games.guess_player.unknown_2') }}</span>
+      <span><i class="guess-arrow is-up"></i>{{ msg('public.games.guess_player.answer_is_higher') }}</span>
+      <span><i class="guess-arrow is-down"></i>{{ msg('public.games.guess_player.answer_is_lower') }}</span>
+    </div>
+  </section>
+
+  {% if game.finished and game.answer %}
+  <section class="guess-answer panel {{ 'is-win' if game.won else 'is-loss' }}"
+           id="guessResult" data-challenge="{{ game.challenge_number if mode == 'daily' else '' }}"
+           data-attempts="{{ game.results|length }}" data-won="{{ '1' if game.won else '0' }}">
+    <div class="guess-result-player">
+      <span>{{ msg('public.games.guess_player.correct_2') if game.won else (msg('public.games.guess_player.not_guessed_this_round') if mode == 'practice' else msg('public.games.guess_player.not_guessed_today')) }}</span>
+      <strong data-i18n-ignore>{{ game.answer.nickname }}</strong>
+      <small data-i18n-ignore>{{ game.answer.full_name }}{% if game.answer_affiliation %} · {{ game.answer_affiliation }}{% endif %}</small>
+    </div>
+    {% if mode == 'daily' %}
+    <div class="guess-result-actions">
+      <span>{{ msg('public.games.guess_player.next_challenge') }}</span>
+      <strong id="guessCountdown">--:--:--</strong>
+      <button type="button" class="btn btn-sm" id="guessShareScore">{{ msg('public.games.guess_player.share_result') }}</button>
+    </div>
+    {% endif %}
+    {% if mode == 'practice' %}
+    <form method="post" action="{{ url_for('guess_player_practice_new') }}" class="guess-replay-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="pool_mode" value="{{ pool_mode }}">
+      <button type="submit" class="btn btn-primary guess-replay">{{ msg('public.games.guess_player.play_again') }}</button>
+    </form>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  {% if mode == 'daily' %}
+  <section class="guess-stats panel">
+    <div class="panel-head"><h2 class="panel-title">{{ msg('public.games.guess_player.my_record') }}</h2></div>
+    <div class="guess-stat-grid">
+      <div><strong>{{ statistics.games }}</strong><span>{{ msg('public.games.guess_player.days_played') }}</span></div>
+      <div><strong>{{ statistics.win_rate }}%</strong><span>{{ msg('public.games.guess_player.win_rate') }}</span></div>
+      <div><strong>{{ statistics.current_streak }}</strong><span>{{ msg('public.games.guess_player.current_streak') }}</span></div>
+      <div><strong>{{ statistics.longest_streak }}</strong><span>{{ msg('public.games.guess_player.best_streak') }}</span></div>
+    </div>
+  </section>
+  {% elif not game.finished %}
+  <form method="post" action="{{ url_for('guess_player_practice_new') }}" class="guess-new-round-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="pool_mode" value="{{ pool_mode }}">
+    <button type="submit" class="btn">{{ msg('public.games.guess_player.new_player') }}</button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}
+{% block side %}{% endblock %}
+{% block extra_js %}
+
+<script type="application/json" data-site-messages>{{ client_messages('guess_player')|tojson }}</script>
+{{ frontend_entry('guess-player') }}
+{% endblock %}

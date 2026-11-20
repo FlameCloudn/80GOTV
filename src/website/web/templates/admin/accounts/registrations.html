@@ -1,0 +1,76 @@
+{% extends "layouts/admin.html" %}
+{% import "components/_icons.html" as ui %}
+{% from "components/_playtime_macros.html" import playtime_cell %}
+{% block title %}{{ msg('admin.accounts.registrations.account_reviews') }}{% endblock %}
+{% block main %}
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>ACCOUNTS</span><h1>{{ msg('admin.accounts.registrations.account_reviews') }}</h1></div>
+  <div class="page-actions"><a class="btn account-create-link" href="{{ url_for('admin.admin_players_add') }}">{{ ui.icon('plus') }}{{ msg('admin.accounts.registrations.add_player_account') }}</a></div>
+</header>
+
+<section class="panel">
+  <div class="admin-toolbar">
+  <nav class="segmented review-filters" aria-label="{{ msg('admin.accounts.registrations.review_status') }}">
+    <a href="?status=pending" class="{% if current_status == 'pending' %}active{% endif %}"{% if current_status == 'pending' %} aria-current="page"{% endif %}>{{ msg('admin.accounts.registrations.pending') }}</a>
+    <a href="?status=approved" class="{% if current_status == 'approved' %}active{% endif %}"{% if current_status == 'approved' %} aria-current="page"{% endif %}>{{ msg('admin.accounts.registrations.approved') }}</a>
+    <a href="?status=rejected" class="{% if current_status == 'rejected' %}active{% endif %}"{% if current_status == 'rejected' %} aria-current="page"{% endif %}>{{ msg('admin.accounts.registrations.rejected') }}</a>
+    <a href="?status=all" class="{% if current_status == 'all' %}active{% endif %}"{% if current_status == 'all' %} aria-current="page"{% endif %}>{{ msg('admin.accounts.registrations.all') }}</a>
+  </nav>
+  {% if users %}<label class="filter-search-box">{{ ui.icon('search') }}<input type="search" data-list-search="#reviewTable" placeholder="{{ msg('admin.accounts.registrations.search_username_group_nickname_email_or') }}" aria-label="{{ msg('admin.accounts.registrations.search_applications') }}"></label>{% endif %}
+  <span class="panel-count" data-list-count="#reviewTable">{{ users|length }}</span>
+  </div>
+  {% if users %}
+  <div class="table-wrap">
+    <table class="table admin-table review-table" id="reviewTable">
+      <thead><tr><th>{{ msg('admin.accounts.registrations.applicant_group_nickname') }}</th><th>{{ msg('admin.accounts.registrations.email_steam_id') }}</th><th>{{ msg('admin.accounts.registrations.cs2_playtime') }}</th><th>{{ msg('admin.accounts.registrations.submitted') }}</th><th>{{ msg('admin.accounts.registrations.status_notes') }}</th><th class="col-actions">{{ msg('admin.accounts.registrations.actions') }}</th></tr></thead>
+      <tbody>
+        {% for user in users %}
+        <tr id="user-{{ user.id }}" data-search="{{ user.username }} {{ user.group_username or '' }} {{ user.email or '' }} {{ user.steam_id64 or '' }}">
+          <td>
+            <b data-i18n-ignore>{{ user.username }}</b>
+            <small class="cell-sub">
+              <span>{%- if user.is_bashizhong_student == 1 %}{{ msg('admin.accounts.registrations.no_80_high_school') }}{% elif user.is_bashizhong_student == 0 %}{{ msg('admin.accounts.registrations.other_school') }}{% else %}{{ msg('admin.accounts.registrations.school_not_set') }}{% endif -%}</span>
+              {%- if user.is_bashizhong_student != 0 %} · {% if user.group_username %}<span data-i18n-ignore>{{ user.group_username }}</span>{% else %}<span>{{ msg('admin.accounts.registrations.group_nickname_not_set') }}</span>{% endif %}{% endif -%}
+            </small>
+          </td>
+          <td>
+            <span class="cell-break" data-i18n-ignore>{{ user.email or '-' }}</span>{% if user.email_verified_at %} <span class="badge badge-green">{{ msg('admin.accounts.registrations.verified') }}</span>{% endif %}
+            <small class="cell-sub">{{ user.steam_id64 or '-' }}</small>
+          </td>
+          <td>{{ playtime_cell(user.cs2_playtime_minutes, user.playtime_status, user.playtime_checked_at) }}</td>
+          <td class="cell-datetime">{{ user.created_at|datetime_display if user.created_at else '-' }}</td>
+          <td>
+            {% if user.approval_status == 'approved' %}<span class="badge badge-green">{{ msg('admin.accounts.registrations.approved') }}</span>
+            {% elif user.approval_status == 'rejected' %}<span class="badge badge-red">{{ msg('admin.accounts.registrations.rejected') }}</span>
+            {% elif user.approval_status == 'pending' %}<span class="badge badge-gold">{{ msg('admin.accounts.registrations.pending') }}</span>
+            {% else %}<span class="badge">{{ user.approval_status }}</span>{% endif %}
+            {% if user.approval_note %}<small class="review-note" data-i18n-ignore>{{ user.approval_note }}</small>{% endif %}
+          </td>
+          <td class="col-actions">
+            {% if user.approval_status != 'approved' %}
+            {# 第一行“通过 / 拒绝”，第二行拒绝原因（属于“拒绝”那张表单） #}
+            <div class="review-actions">
+              <form method="post" action="/admin/registrations/{{ user.id }}/approve" class="review-approve">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button class="btn btn-sm btn-success review-action approve" type="submit">{{ ui.icon('check') }}{{ msg('admin.accounts.registrations.approve') }}</button>
+              </form>
+              <form method="post" action="/admin/registrations/{{ user.id }}/reject" class="review-reject">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button class="btn btn-sm btn-danger review-action reject" type="submit">{{ ui.icon('close') }}{{ msg('admin.accounts.registrations.reject') }}</button>
+                <input type="text" name="approval_note" maxlength="300" placeholder="{{ msg('admin.accounts.registrations.rejection_reason_optional') }}" aria-label="{{ msg('admin.accounts.registrations.rejection_reason_optional') }}">
+              </form>
+            </div>
+            {% else %}
+            <span class="muted">{{ msg('admin.accounts.registrations.completed') }}</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">{{ msg('admin.accounts.registrations.there_are_no_account_applications_here') }}</div>
+  {% endif %}
+</section>
+{% endblock %}

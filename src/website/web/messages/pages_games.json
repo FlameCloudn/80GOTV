@@ -1,0 +1,754 @@
+{
+  "public.games.games.3_playable_games": {
+    "zh": "3 个可玩项目",
+    "en": "3 playable games"
+  },
+  "public.games.games.anubis_map_screenshot": {
+    "zh": "Anubis 地图截图",
+    "en": "Anubis map screenshot"
+  },
+  "public.games.games.battle": {
+    "zh": "对战",
+    "en": "Battle"
+  },
+  "public.games.games.complete_a_row_and_column_condition": {
+    "zh": "用九名不同选手完成横纵条件交叉题板。",
+    "en": "Complete a row-and-column condition board with nine different players."
+  },
+  "public.games.games.daily": {
+    "zh": "每日",
+    "en": "Daily"
+  },
+  "public.games.games.find_the_player_from_team_nationality": {
+    "zh": "根据队伍、国籍、年龄、位置和 Major 次数找出答案。",
+    "en": "Find the player from team, nationality, age, role, and Major appearances."
+  },
+  "public.games.games.free_play": {
+    "zh": "自由",
+    "en": "Free play"
+  },
+  "public.games.games.games": {
+    "zh": "游戏",
+    "en": "Games"
+  },
+  "public.games.games.games_2": {
+    "zh": "游戏列表",
+    "en": "Games"
+  },
+  "public.games.games.games_80gotv": {
+    "zh": "游戏 - 80GOTV",
+    "en": "Games - 80GOTV"
+  },
+  "public.games.games.guess_the_player": {
+    "zh": "猜选手",
+    "en": "Guess the player"
+  },
+  "public.games.games.guess_the_player_mode": {
+    "zh": "猜选手模式",
+    "en": "Guess the Player mode"
+  },
+  "public.games.games.identify_the_map_and_location_from": {
+    "zh": "从 CS2 场景截图判断地图与具体位置。",
+    "en": "Identify the map and location from a CS2 screenshot."
+  },
+  "public.games.games.map_location_modes": {
+    "zh": "地图点位模式",
+    "en": "Map location modes"
+  },
+  "public.games.games.map_locations": {
+    "zh": "地图点位",
+    "en": "Map locations"
+  },
+  "public.games.games.player_bingo": {
+    "zh": "选手 Bingo",
+    "en": "Player Bingo"
+  },
+  "public.games.games.player_bingo_modes": {
+    "zh": "选手 Bingo 模式",
+    "en": "Player Bingo modes"
+  },
+  "public.games.guess_player.80go_guess_the_player": {
+    "zh": "80GO 猜选手",
+    "en": "80GO Guess the Player"
+  },
+  "public.games.guess_player.age": {
+    "zh": "年龄",
+    "en": "Age"
+  },
+  "public.games.guess_player.answer_is_higher": {
+    "zh": "答案更高",
+    "en": "Answer is higher"
+  },
+  "public.games.guess_player.answer_is_lower": {
+    "zh": "答案更低",
+    "en": "Answer is lower"
+  },
+  "public.games.guess_player.attempt_value1": {
+    "zh": "第 {value1} 次",
+    "en": "Attempt {value1}"
+  },
+  "public.games.guess_player.best_streak": {
+    "zh": "最长连续",
+    "en": "Best streak"
+  },
+  "public.games.guess_player.close": {
+    "zh": "接近",
+    "en": "Close"
+  },
+  "public.games.guess_player.correct": {
+    "zh": "完全正确",
+    "en": "Correct"
+  },
+  "public.games.guess_player.correct_2": {
+    "zh": "猜对了",
+    "en": "Correct"
+  },
+  "public.games.guess_player.correct_player": {
+    "zh": "是否为正确选手",
+    "en": "Correct player"
+  },
+  "public.games.guess_player.country_name_orange_means_the_same": {
+    "zh": "{country_name}；橙色表示属于同一区域",
+    "en": "{country_name}; orange means the same region"
+  },
+  "public.games.guess_player.current_streak": {
+    "zh": "当前连续",
+    "en": "Current streak"
+  },
+  "public.games.guess_player.daily_challenge": {
+    "zh": "每日挑战",
+    "en": "Daily challenge"
+  },
+  "public.games.guess_player.daily_challenge_2": {
+    "zh": "每日挑战 #",
+    "en": "Daily challenge #"
+  },
+  "public.games.guess_player.daily_guess_the_player": {
+    "zh": "每日猜选手",
+    "en": "Daily guess the player"
+  },
+  "public.games.guess_player.days_played": {
+    "zh": "参与天数",
+    "en": "Days played"
+  },
+  "public.games.guess_player.enter_a_player_to_reveal_the": {
+    "zh": "输入一名选手，第一条线索就会出现在这里。",
+    "en": "Enter a player to reveal the first clue."
+  },
+  "public.games.guess_player.enter_a_pro_player_nickname": {
+    "zh": "输入职业选手昵称...",
+    "en": "Enter a pro player nickname..."
+  },
+  "public.games.guess_player.free_play": {
+    "zh": "自由游玩",
+    "en": "Free play"
+  },
+  "public.games.guess_player.free_play_difficulty": {
+    "zh": "自由游玩难度",
+    "en": "Free-play difficulty"
+  },
+  "public.games.guess_player.full_daily_pool": {
+    "zh": "每日完整题库",
+    "en": "Full daily pool"
+  },
+  "public.games.guess_player.game_mode": {
+    "zh": "游戏模式",
+    "en": "Game mode"
+  },
+  "public.games.guess_player.guess_progress": {
+    "zh": "猜测进度",
+    "en": "Guess progress"
+  },
+  "public.games.guess_player.higher": {
+    "zh": "高",
+    "en": "higher"
+  },
+  "public.games.guess_player.hltv_player_role": {
+    "zh": "HLTV 选手位置",
+    "en": "HLTV player role"
+  },
+  "public.games.guess_player.incorrect": {
+    "zh": "不正确",
+    "en": "Incorrect"
+  },
+  "public.games.guess_player.lower": {
+    "zh": "低",
+    "en": "lower"
+  },
+  "public.games.guess_player.major_appearances": {
+    "zh": "Major 次数",
+    "en": "Major appearances"
+  },
+  "public.games.guess_player.my_record": {
+    "zh": "我的记录",
+    "en": "My record"
+  },
+  "public.games.guess_player.nationality": {
+    "zh": "国籍",
+    "en": "Nationality"
+  },
+  "public.games.guess_player.new_player": {
+    "zh": "换一题",
+    "en": "New player"
+  },
+  "public.games.guess_player.next_challenge": {
+    "zh": "下次挑战",
+    "en": "Next challenge"
+  },
+  "public.games.guess_player.noob_well_known_players": {
+    "zh": "{noob} 名常见选手",
+    "en": "{noob} well-known players"
+  },
+  "public.games.guess_player.noob_yearly_top_20_rosters_of": {
+    "zh": "Noob：年度 Top 20 + 世界前 5 战队阵容",
+    "en": "Noob: yearly Top 20 + rosters of the world top 5 teams"
+  },
+  "public.games.guess_player.not_guessed_this_round": {
+    "zh": "本局未猜中",
+    "en": "Not guessed this round"
+  },
+  "public.games.guess_player.not_guessed_today": {
+    "zh": "今天未猜中",
+    "en": "Not guessed today"
+  },
+  "public.games.guess_player.online_battle": {
+    "zh": "在线对战",
+    "en": "Online battle"
+  },
+  "public.games.guess_player.play_again": {
+    "zh": "再来一局",
+    "en": "Play again"
+  },
+  "public.games.guess_player.players": {
+    "zh": "选手",
+    "en": "Players"
+  },
+  "public.games.guess_player.practice": {
+    "zh": "自由游玩",
+    "en": "Practice"
+  },
+  "public.games.guess_player.pro_full_player_database": {
+    "zh": "Pro：完整选手数据库",
+    "en": "Pro: full player database"
+  },
+  "public.games.guess_player.pro_player": {
+    "zh": "的职业选手",
+    "en": " pro player"
+  },
+  "public.games.guess_player.pro_player_nickname": {
+    "zh": "职业选手昵称",
+    "en": "Pro player nickname"
+  },
+  "public.games.guess_player.pro_players_in_total": {
+    "zh": "{pro} 名全部选手",
+    "en": "{pro} players in total"
+  },
+  "public.games.guess_player.remaining_guesses_left": {
+    "zh": "{remaining} 次机会",
+    "en": "{remaining} guesses left"
+  },
+  "public.games.guess_player.same_team": {
+    "zh": "是否效力于同一队伍",
+    "en": "Same team"
+  },
+  "public.games.guess_player.share_result": {
+    "zh": "分享结果",
+    "en": "Share result"
+  },
+  "public.games.guess_player.slot": {
+    "zh": "位置",
+    "en": "Slot"
+  },
+  "public.games.guess_player.submit_guess": {
+    "zh": "提交猜测",
+    "en": "Submit guess"
+  },
+  "public.games.guess_player.teams": {
+    "zh": "队伍",
+    "en": "Teams"
+  },
+  "public.games.guess_player.the_answer_is": {
+    "zh": "答案更",
+    "en": "The answer is "
+  },
+  "public.games.guess_player.the_arrow_points_toward_the_correct": {
+    "zh": "箭头指向正确答案的年龄",
+    "en": "The arrow points toward the correct age"
+  },
+  "public.games.guess_player.the_arrow_points_toward_the_correct_2": {
+    "zh": "箭头指向正确答案的 Major 参赛次数",
+    "en": "The arrow points toward the correct number of Major appearances"
+  },
+  "public.games.guess_player.this_round": {
+    "zh": "本局",
+    "en": "this round"
+  },
+  "public.games.guess_player.today": {
+    "zh": "今天",
+    "en": "Today"
+  },
+  "public.games.guess_player.unknown": {
+    "zh": "未知",
+    "en": "Unknown"
+  },
+  "public.games.guess_player.unknown_2": {
+    "zh": "资料未知",
+    "en": "Unknown"
+  },
+  "public.games.guess_player.unlimited_practice": {
+    "zh": "无限重玩",
+    "en": "Unlimited practice"
+  },
+  "public.games.guess_player.win_rate": {
+    "zh": "胜率",
+    "en": "Win rate"
+  },
+  "public.games.guess_player.you_have_8_guesses_to_identify": {
+    "zh": "在 8 次机会内猜出",
+    "en": "You have 8 guesses to identify a "
+  },
+  "public.games.guess_player_multiplayer.8_guesses_join_with_a_room": {
+    "zh": "8 次机会 · 房间码加入",
+    "en": "8 guesses · Join with a room code"
+  },
+  "public.games.guess_player_multiplayer.annual_top_20_players_and_rosters": {
+    "zh": "年度 Top 20 与世界前 5 战队阵容",
+    "en": "Annual Top 20 players and rosters from world top-five teams"
+  },
+  "public.games.guess_player_multiplayer.create_battle": {
+    "zh": "创建对战",
+    "en": "Create battle"
+  },
+  "public.games.guess_player_multiplayer.create_room": {
+    "zh": "创建房间",
+    "en": "Create room"
+  },
+  "public.games.guess_player_multiplayer.daily_challenge": {
+    "zh": "每日挑战",
+    "en": "Daily challenge"
+  },
+  "public.games.guess_player_multiplayer.example_a7k9px": {
+    "zh": "例如 A7K9PX",
+    "en": "Example: A7K9PX"
+  },
+  "public.games.guess_player_multiplayer.free_play": {
+    "zh": "自由游玩",
+    "en": "Free play"
+  },
+  "public.games.guess_player_multiplayer.full_player_database": {
+    "zh": "完整选手数据库",
+    "en": "Full player database"
+  },
+  "public.games.guess_player_multiplayer.game_mode": {
+    "zh": "游戏模式",
+    "en": "Game mode"
+  },
+  "public.games.guess_player_multiplayer.join_battle": {
+    "zh": "加入对战",
+    "en": "Join battle"
+  },
+  "public.games.guess_player_multiplayer.join_room": {
+    "zh": "加入房间",
+    "en": "Join room"
+  },
+  "public.games.guess_player_multiplayer.multiplayer_80gotv": {
+    "zh": "在线对战 - 80GOTV",
+    "en": "Multiplayer - 80GOTV"
+  },
+  "public.games.guess_player_multiplayer.online_battle": {
+    "zh": "在线对战",
+    "en": "Online battle"
+  },
+  "public.games.guess_player_multiplayer.online_guess_the_player": {
+    "zh": "在线猜选手",
+    "en": "Online Guess the Player"
+  },
+  "public.games.guess_player_multiplayer.player_pool": {
+    "zh": "题库",
+    "en": "Player pool"
+  },
+  "public.games.guess_player_multiplayer.room_code": {
+    "zh": "房间码",
+    "en": "Room code"
+  },
+  "public.games.guess_player_multiplayer.two_players_get_the_same_answer": {
+    "zh": "两名玩家使用同一道题，先猜中者获胜",
+    "en": "Two players get the same answer; the first correct guess wins"
+  },
+  "public.games.guess_player_room.age": {
+    "zh": "年龄",
+    "en": "Age"
+  },
+  "public.games.guess_player_room.back_to_battle_lobby": {
+    "zh": "返回对战大厅",
+    "en": "Back to battle lobby"
+  },
+  "public.games.guess_player_room.close": {
+    "zh": "接近",
+    "en": "Close"
+  },
+  "public.games.guess_player_room.copy_room_code": {
+    "zh": "复制房间码",
+    "en": "Copy room code"
+  },
+  "public.games.guess_player_room.correct": {
+    "zh": "完全正确",
+    "en": "Correct"
+  },
+  "public.games.guess_player_room.daily_challenge": {
+    "zh": "每日挑战",
+    "en": "Daily challenge"
+  },
+  "public.games.guess_player_room.enter_a_pro_player_nickname": {
+    "zh": "输入职业选手昵称...",
+    "en": "Enter a pro player nickname..."
+  },
+  "public.games.guess_player_room.free_play": {
+    "zh": "自由游玩",
+    "en": "Free play"
+  },
+  "public.games.guess_player_room.game_mode": {
+    "zh": "游戏模式",
+    "en": "Game mode"
+  },
+  "public.games.guess_player_room.incorrect": {
+    "zh": "不正确",
+    "en": "Incorrect"
+  },
+  "public.games.guess_player_room.major_appearances": {
+    "zh": "Major 次数",
+    "en": "Major appearances"
+  },
+  "public.games.guess_player_room.match_complete": {
+    "zh": "比赛结束",
+    "en": "Match complete"
+  },
+  "public.games.guess_player_room.match_in_progress": {
+    "zh": "比赛进行中",
+    "en": "Match in progress"
+  },
+  "public.games.guess_player_room.max_guesses": {
+    "zh": "/ {max_guesses} 次",
+    "en": "/ {max_guesses}"
+  },
+  "public.games.guess_player_room.nationality": {
+    "zh": "国籍",
+    "en": "Nationality"
+  },
+  "public.games.guess_player_room.once_your_opponent_joins_enter_a": {
+    "zh": "对手加入后，输入一名选手开始对战。",
+    "en": "Once your opponent joins, enter a player to begin."
+  },
+  "public.games.guess_player_room.online_battle": {
+    "zh": "在线对战",
+    "en": "Online battle"
+  },
+  "public.games.guess_player_room.players": {
+    "zh": "对战双方",
+    "en": "Players"
+  },
+  "public.games.guess_player_room.players_2": {
+    "zh": "选手",
+    "en": "Players"
+  },
+  "public.games.guess_player_room.remaining_guesses_left": {
+    "zh": "{remaining} 次机会",
+    "en": "{remaining} guesses left"
+  },
+  "public.games.guess_player_room.room_room_code": {
+    "zh": "房间 {room_code}",
+    "en": "Room {room_code}"
+  },
+  "public.games.guess_player_room.room_room_code_multiplayer_guess_the": {
+    "zh": "房间 {room_code} - 在线猜选手",
+    "en": "Room {room_code} - Multiplayer guess the player"
+  },
+  "public.games.guess_player_room.send_the_room_code": {
+    "zh": "把房间码",
+    "en": "Send the room code"
+  },
+  "public.games.guess_player_room.slot": {
+    "zh": "位置",
+    "en": "Slot"
+  },
+  "public.games.guess_player_room.submit_guess": {
+    "zh": "提交猜测",
+    "en": "Submit guess"
+  },
+  "public.games.guess_player_room.teams": {
+    "zh": "队伍",
+    "en": "Teams"
+  },
+  "public.games.guess_player_room.to_your_opponent": {
+    "zh": "发给对方",
+    "en": "to your opponent"
+  },
+  "public.games.guess_player_room.unknown": {
+    "zh": "资料未知",
+    "en": "Unknown"
+  },
+  "public.games.guess_player_room.waiting_for_opponent": {
+    "zh": "等待对手加入",
+    "en": "Waiting for opponent"
+  },
+  "public.games.map_quiz.best_streak": {
+    "zh": "最长连续",
+    "en": "Best streak"
+  },
+  "public.games.map_quiz.correct": {
+    "zh": "猜对了",
+    "en": "Correct"
+  },
+  "public.games.map_quiz.correct_callout": {
+    "zh": "点位正确",
+    "en": "Correct callout"
+  },
+  "public.games.map_quiz.correct_map": {
+    "zh": "地图正确",
+    "en": "Correct map"
+  },
+  "public.games.map_quiz.cs2_map_callout_screenshot": {
+    "zh": "CS2 地图点位题目截图",
+    "en": "CS2 map callout screenshot"
+  },
+  "public.games.map_quiz.current_streak": {
+    "zh": "当前连续",
+    "en": "Current streak"
+  },
+  "public.games.map_quiz.daily_challenge": {
+    "zh": "每日挑战",
+    "en": "Daily challenge"
+  },
+  "public.games.map_quiz.daily_challenge_2": {
+    "zh": "每日挑战 #",
+    "en": "Daily challenge #"
+  },
+  "public.games.map_quiz.days_played": {
+    "zh": "参与天数",
+    "en": "Days played"
+  },
+  "public.games.map_quiz.example_a_site_window": {
+    "zh": "例如：A 包点 / Window",
+    "en": "Example: A site / Window"
+  },
+  "public.games.map_quiz.free_play": {
+    "zh": "自由游玩",
+    "en": "Free play"
+  },
+  "public.games.map_quiz.games": {
+    "zh": "游戏",
+    "en": "Games"
+  },
+  "public.games.map_quiz.guesses_this_round": {
+    "zh": "本局猜测记录",
+    "en": "Guesses this round"
+  },
+  "public.games.map_quiz.identify_the_map_and_exact_spot": {
+    "zh": "看截图，猜出地图和具体位置。每局有 3 次机会。",
+    "en": "Identify the map and exact spot from the screenshot. You have three guesses."
+  },
+  "public.games.map_quiz.images_from": {
+    "zh": "题图来自",
+    "en": "Images from"
+  },
+  "public.games.map_quiz.incorrect_callout": {
+    "zh": "点位不对",
+    "en": "Incorrect callout"
+  },
+  "public.games.map_quiz.incorrect_map": {
+    "zh": "地图不对",
+    "en": "Incorrect map"
+  },
+  "public.games.map_quiz.location": {
+    "zh": "点位",
+    "en": "Location"
+  },
+  "public.games.map_quiz.map_callouts_80gotv": {
+    "zh": "- 地图点位 - 80GOTV",
+    "en": "- Map callouts - 80GOTV"
+  },
+  "public.games.map_quiz.map_location_modes": {
+    "zh": "地图点位模式",
+    "en": "Map location modes"
+  },
+  "public.games.map_quiz.map_locations": {
+    "zh": "地图点位",
+    "en": "Map locations"
+  },
+  "public.games.map_quiz.maps": {
+    "zh": "地图",
+    "en": "Maps"
+  },
+  "public.games.map_quiz.my_record": {
+    "zh": "我的记录",
+    "en": "My record"
+  },
+  "public.games.map_quiz.new_puzzle": {
+    "zh": "换一题",
+    "en": "New puzzle"
+  },
+  "public.games.map_quiz.not_guessed_this_round": {
+    "zh": "本局未猜中",
+    "en": "Not guessed this round"
+  },
+  "public.games.map_quiz.play_again": {
+    "zh": "再来一局",
+    "en": "Play again"
+  },
+  "public.games.map_quiz.practice": {
+    "zh": "自由游玩",
+    "en": "Practice"
+  },
+  "public.games.map_quiz.prosettings_map_screenshots": {
+    "zh": "ProSettings 地图截图",
+    "en": "ProSettings map screenshots"
+  },
+  "public.games.map_quiz.remaining_guesses_left": {
+    "zh": "{remaining} 次机会",
+    "en": "{remaining} guesses left"
+  },
+  "public.games.map_quiz.screenshot_attempts_max_attempts": {
+    "zh": "截图 {attempts}/{max_attempts}",
+    "en": "Screenshot {attempts}/{max_attempts}"
+  },
+  "public.games.map_quiz.select_map": {
+    "zh": "选择地图",
+    "en": "Select map"
+  },
+  "public.games.map_quiz.submit_answer": {
+    "zh": "提交答案",
+    "en": "Submit answer"
+  },
+  "public.games.map_quiz.the_site_uses_only_local_copies": {
+    "zh": "，网站运行时只读取本地副本。",
+    "en": "; the site uses only local copies at runtime."
+  },
+  "public.games.map_quiz.the_view_zooms_out_after_each": {
+    "zh": "答错后会逐步放大视野",
+    "en": "The view zooms out after each wrong guess"
+  },
+  "public.games.map_quiz.unlimited_practice": {
+    "zh": "无限重玩",
+    "en": "Unlimited practice"
+  },
+  "public.games.map_quiz.view_screenshot_source": {
+    "zh": "查看截图来源",
+    "en": "View screenshot source"
+  },
+  "public.games.map_quiz.win_rate": {
+    "zh": "胜率",
+    "en": "Win rate"
+  },
+  "public.games.player_bingo.3_x_3_player_bingo_board": {
+    "zh": "3 乘 3 选手 Bingo 题板",
+    "en": "3 x 3 Player Bingo board"
+  },
+  "public.games.player_bingo.9_9_cells_lines_lines": {
+    "zh": "9/9 格 · {lines} 条连线",
+    "en": "9/9 cells · {lines} lines"
+  },
+  "public.games.player_bingo.boards_completed": {
+    "zh": "完成题板",
+    "en": "Boards completed"
+  },
+  "public.games.player_bingo.conditions_use_the_locally_saved_hltv": {
+    "zh": "选手条件取自本站保存的 HLTV 职业选手资料快照。",
+    "en": "Conditions use the locally saved HLTV pro player snapshot."
+  },
+  "public.games.player_bingo.criteria": {
+    "zh": "条件",
+    "en": "Criteria"
+  },
+  "public.games.player_bingo.current_streak": {
+    "zh": "当前连续",
+    "en": "Current streak"
+  },
+  "public.games.player_bingo.daily_board": {
+    "zh": "每日题板 #",
+    "en": "Daily board #"
+  },
+  "public.games.player_bingo.daily_challenge": {
+    "zh": "每日挑战",
+    "en": "Daily challenge"
+  },
+  "public.games.player_bingo.days_played": {
+    "zh": "参与天数",
+    "en": "Days played"
+  },
+  "public.games.player_bingo.enter_a_player_nickname": {
+    "zh": "输入选手昵称...",
+    "en": "Enter a player nickname..."
+  },
+  "public.games.player_bingo.fewest_mistakes": {
+    "zh": "最少失误",
+    "en": "Fewest mistakes"
+  },
+  "public.games.player_bingo.fill_cell": {
+    "zh": "填入格子",
+    "en": "Fill cell"
+  },
+  "public.games.player_bingo.fill_each_cell_with_a_player": {
+    "zh": "每格填入一名同时符合横向与纵向条件的选手，同一人不能重复。",
+    "en": "Fill each cell with a player matching both its row and column conditions. Players cannot be reused."
+  },
+  "public.games.player_bingo.free_play": {
+    "zh": "自由游玩",
+    "en": "Free play"
+  },
+  "public.games.player_bingo.games": {
+    "zh": "游戏",
+    "en": "Games"
+  },
+  "public.games.player_bingo.lines": {
+    "zh": "连线",
+    "en": "Lines"
+  },
+  "public.games.player_bingo.mistakes": {
+    "zh": "失误",
+    "en": "Mistakes"
+  },
+  "public.games.player_bingo.mistakes_mistakes": {
+    "zh": "{mistakes} 次失误",
+    "en": "{mistakes} mistakes"
+  },
+  "public.games.player_bingo.my_record": {
+    "zh": "我的记录",
+    "en": "My record"
+  },
+  "public.games.player_bingo.new_board": {
+    "zh": "换一张题板",
+    "en": "New board"
+  },
+  "public.games.player_bingo.pick_an_empty_cell_first": {
+    "zh": "先选择一个空格",
+    "en": "Pick an empty cell first"
+  },
+  "public.games.player_bingo.play_again": {
+    "zh": "再来一盘",
+    "en": "Play again"
+  },
+  "public.games.player_bingo.player_bingo": {
+    "zh": "选手 Bingo",
+    "en": "Player Bingo"
+  },
+  "public.games.player_bingo.player_bingo_80gotv": {
+    "zh": "- 选手 Bingo - 80GOTV",
+    "en": "- Player Bingo - 80GOTV"
+  },
+  "public.games.player_bingo.player_bingo_modes": {
+    "zh": "选手 Bingo 模式",
+    "en": "Player Bingo modes"
+  },
+  "public.games.player_bingo.practice": {
+    "zh": "自由游玩",
+    "en": "Practice"
+  },
+  "public.games.player_bingo.select_player": {
+    "zh": "选择选手",
+    "en": "Select player"
+  },
+  "public.games.player_bingo.unlimited_boards": {
+    "zh": "无限题板",
+    "en": "Unlimited boards"
+  }
+}

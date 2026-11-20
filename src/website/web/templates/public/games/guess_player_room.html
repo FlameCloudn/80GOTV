@@ -1,0 +1,97 @@
+{% extends 'layouts/public.html' %}
+{% block title %}{{ msg('public.games.guess_player_room.room_room_code_multiplayer_guess_the', room_code=room_code) }}{% endblock %}
+{% block head %}
+{{ frontend_entry('guess-player-style') }}
+{% endblock %}
+{% block layout_class %}no-side-layout guess-player-layout{% endblock %}
+{% block main %}
+<div class="guess-game guess-room"
+     data-room-code="{{ room_code }}"
+     data-state-url="{{ url_for('guess_player_multiplayer_state', room_code=room_code) }}"
+     data-guess-url="{{ url_for('guess_player_multiplayer_guess', room_code=room_code) }}">
+  <nav class="segmented guess-mode-tabs" aria-label="{{ msg('public.games.guess_player_room.game_mode') }}">
+    <a href="{{ url_for('guess_player_page') }}">{{ msg('public.games.guess_player_room.daily_challenge') }}</a>
+    <a href="{{ url_for('guess_player_practice_page') }}">{{ msg('public.games.guess_player_room.free_play') }}</a>
+    <a href="{{ url_for('guess_player_multiplayer_page') }}" class="active">{{ msg('public.games.guess_player_room.online_battle') }}</a>
+  </nav>
+
+  <header class="guess-room-head panel">
+    <div>
+      <span class="guess-kicker" data-i18n-ignore>{{ pool_mode|upper }} ROOM</span>
+      <h1>{{ msg('public.games.guess_player_room.room_room_code', room_code=room_code) }}</h1>
+    </div>
+    <button type="button" class="btn btn-sm guess-copy-code" id="copyRoomCode" title="{{ msg('public.games.guess_player_room.copy_room_code') }}">{{ msg('public.games.guess_player_room.copy_room_code') }}</button>
+  </header>
+
+  <section class="guess-versus panel" aria-label="{{ msg('public.games.guess_player_room.players') }}">
+    <div class="guess-contender is-me">
+      <span data-i18n-ignore>YOU</span>
+      <strong id="roomMeName" data-i18n-ignore>{{ state.me.username }}</strong>
+      <small><b id="roomMeAttempts">{{ state.me.attempts }}</b> {{ msg('public.games.guess_player_room.max_guesses', max_guesses=max_guesses) }}</small>
+    </div>
+    <div class="guess-versus-mark" data-i18n-ignore>VS</div>
+    <div class="guess-contender is-opponent">
+      <span data-i18n-ignore>OPPONENT</span>
+      {#- 对手没进来时这里是界面文字“等待对手”，要跟着翻译；进来后是用户名，不翻译 -#}
+      <strong id="roomOpponentName"{% if state.opponent.joined %} data-i18n-ignore{% endif %}>{{ state.opponent.username }}</strong>
+      <small><b id="roomOpponentAttempts">{{ state.opponent.attempts }}</b> {{ msg('public.games.guess_player_room.max_guesses', max_guesses=max_guesses) }}</small>
+    </div>
+  </section>
+
+  <section class="guess-waiting panel" id="roomWaiting"{% if state.status != 'waiting' %} hidden{% endif %}>
+    <span class="guess-waiting-pulse" aria-hidden="true"></span>
+    <strong>{{ msg('public.games.guess_player_room.waiting_for_opponent') }}</strong>
+    <p>{{ msg('public.games.guess_player_room.send_the_room_code') }} <b>{{ room_code }}</b> {{ msg('public.games.guess_player_room.to_your_opponent') }}</p>
+  </section>
+
+  <section class="guess-play-panel panel" id="roomPlay"{% if state.status == 'waiting' %} hidden{% endif %}>
+    <div class="guess-live-strip">
+      <span id="roomStatusText">{{ msg('public.games.guess_player_room.match_complete') if state.status == 'finished' else msg('public.games.guess_player_room.match_in_progress') }}</span>
+      <strong id="roomRemaining">{{ msg('public.games.guess_player_room.remaining_guesses_left', remaining=state.remaining) }}</strong>
+    </div>
+
+    <form class="guess-search-form" id="guessRoomForm"{% if not state.can_guess %} hidden{% endif %}>
+      <input type="hidden" name="player_id" id="guessPlayerId">
+      <div class="guess-search-field">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+        <input type="text" id="guessPlayerQuery" list="guessPlayerOptions" autocomplete="off" required placeholder="{{ msg('public.games.guess_player_room.enter_a_pro_player_nickname') }}">
+        <datalist id="guessPlayerOptions" data-i18n-ignore>
+          {% for player in players %}
+          <option value="{{ player.nickname }}" data-player-id="{{ player.id }}">{{ player.full_name }}</option>
+          {% endfor %}
+        </datalist>
+      </div>
+      <button type="submit" class="btn btn-primary guess-submit">{{ msg('public.games.guess_player_room.submit_guess') }}</button>
+    </form>
+
+    <div class="guess-results-scroll" id="roomResultsWrap"{% if not state.results %} hidden{% endif %}>
+      <table class="guess-results-table">
+        <thead><tr><th>{{ msg('public.games.guess_player_room.players_2') }}</th><th>{{ msg('public.games.guess_player_room.teams') }}</th><th>{{ msg('public.games.guess_player_room.nationality') }}</th><th>{{ msg('public.games.guess_player_room.age') }}</th><th>{{ msg('public.games.guess_player_room.slot') }}</th><th>{{ msg('public.games.guess_player_room.major_appearances') }}</th></tr></thead>
+        <tbody id="roomResults"></tbody>
+      </table>
+    </div>
+    <div class="guess-empty" id="roomEmpty"{% if state.results %} hidden{% endif %}>{{ msg('public.games.guess_player_room.once_your_opponent_joins_enter_a') }}</div>
+
+    <div class="guess-legend">
+      <span><i class="legend-correct"></i>{{ msg('public.games.guess_player_room.correct') }}</span>
+      <span><i class="legend-close"></i>{{ msg('public.games.guess_player_room.close') }}</span>
+      <span><i class="legend-wrong"></i>{{ msg('public.games.guess_player_room.incorrect') }}</span>
+      <span><i class="legend-neutral"></i>{{ msg('public.games.guess_player_room.unknown') }}</span>
+    </div>
+  </section>
+
+  <section class="guess-answer panel" id="roomOutcome" hidden>
+    <span id="roomOutcomeLabel"></span>
+    <strong id="roomAnswerName" data-i18n-ignore></strong>
+    <small id="roomAnswerDetail" data-i18n-ignore></small>
+    <a href="{{ url_for('guess_player_multiplayer_page') }}" class="btn btn-primary guess-replay">{{ msg('public.games.guess_player_room.back_to_battle_lobby') }}</a>
+  </section>
+</div>
+{% endblock %}
+{% block side %}{% endblock %}
+{% block extra_js %}
+<script type="application/json" id="guessRoomData">{{ state|tojson }}</script>
+
+<script type="application/json" data-site-messages>{{ client_messages('guess_player_room')|tojson }}</script>
+{{ frontend_entry('guess-player-room') }}
+{% endblock %}

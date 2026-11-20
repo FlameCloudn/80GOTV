@@ -1,0 +1,12 @@
+{% if match.effective_status not in ('completed', 'cancelled') and embed_url %}
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title mh-sec-head standalone">{{ msg('public.matches.stream.live') }}</h2></div>
+  <div class="match-stream" id="streamWrap" data-stream-url="{{ embed_url }}">
+    <button class="stream-placeholder" type="button" title="{{ msg('public.matches.stream.click_to_play_live_stream') }}">
+      <span class="stream-play-icon" aria-hidden="true"></span>
+      <span class="stream-play-text">{{ msg('public.matches.stream.click_to_play_live_stream') }}</span>
+      <span class="stream-play-hint">{{ msg('public.matches.stream.the_stream_will_not_load_automatically') }}</span>
+    </button>
+  </div>
+</section>
+{% endif %}

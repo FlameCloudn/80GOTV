@@ -1,0 +1,154 @@
+{% extends 'layouts/public.html' %}
+{% block head %}{{ frontend_entry('home-style') }}{% endblock %}
+{% block layout_class %}home-layout-shell no-side-layout{% endblock %}
+{% block main %}
+<div class="home-grid" data-front-home>
+  {# 左栏：队伍排行 / 赛事 / 选手（手机上不显示） #}
+  <aside class="home-left-col">
+    <section class="panel">
+      <div class="panel-head"><h2 class="panel-title">{{ msg('public.home.index.ranking') }}</h2><a class="panel-link" href="/teams">{{ msg('public.home.index.all') }}</a></div>
+      <div class="list h-rank-list">
+        {% for t in team_ranking %}
+        <a class="list-row h-rank-row" href="{{ url_for('team_detail', team_id=t.id) }}">
+          <span class="h-rank-num{% if loop.index <= 3 %} top{% endif %}">{{ loop.index }}</span>
+          {% if t.logo %}<img class="team-logo sm" src="{{ t.logo|team_logo_url }}" alt="" loading="lazy">{% else %}<span class="logo-fallback sm" aria-hidden="true">{{ t.name|team_abbr(t.short_name) }}</span>{% endif %}
+          <span class="grow truncate h-rank-name" data-i18n-ignore>{{ t.short_name or t.name }}</span>
+          <span class="meta h-rank-score">{{ msg('public.home.index.one_win' if t.wins == 1 else 'public.home.index.wins', wins=t.wins or 0) }}</span>
+        </a>
+        {% endfor %}
+        {% if not team_ranking %}<div class="h-empty">{{ msg('public.home.index.no_data') }}</div>{% endif %}
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h2 class="panel-title">{{ msg('public.home.index.events') }}</h2><a class="panel-link" href="/events">{{ msg('public.home.index.all') }}</a></div>
+      <div class="list h-side-list">
+        {% for e in active_events %}
+        <a class="list-row h-side-row h-event-row" href="{{ event_path(e) }}">
+          <span class="grow">
+            <span class="title h-side-main" data-i18n-ignore>{{ e.name }}</span>
+            <small class="meta">{{ e.start_date|relative_date_display if e.start_date else '' }}</small>
+          </span>
+        </a>
+        {% endfor %}
+        {% if not active_events %}<div class="h-empty">{{ msg('public.home.index.no_events') }}</div>{% endif %}
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h2 class="panel-title">{{ msg('public.home.index.players') }}</h2><a class="panel-link" href="/stats?tab=players">{{ msg('public.home.index.all') }}</a></div>
+      <div class="list h-side-list">
+        {% for p in top_players %}
+        {% set player_name = private_name_for_player(p.id, p.nickname) %}
+        <a class="list-row h-side-row h-player-row" href="/players/{{ p.id }}">
+          {% if p.avatar %}<img class="avatar xs" src="{{ avatar_thumbnail_url(p.avatar) }}" alt="" loading="lazy">{% else %}<span class="avatar xs" aria-hidden="true">{{ player_name[:1] }}</span>{% endif %}
+          <span class="grow">
+            <span class="title h-side-main" data-i18n-ignore>{{ player_name }}</span>
+            {% if p.team %}<small class="meta" data-i18n-ignore>{{ p.team }}</small>{% endif %}
+          </span>
+          <b class="num {{ p.avg_rating|rating_class }}">{{ "%.2f"|format(p.avg_rating) if p.avg_rating is not none else '-' }}</b>
+        </a>
+        {% endfor %}
+        {% if not top_players %}<div class="h-empty">{{ msg('public.home.index.no_data') }}</div>{% endif %}
+      </div>
+    </section>
+  </aside>
+
+  {# 中间：焦点新闻 + 新闻列表 #}
+  <section class="home-main-col">
+    {% set featured = news[0] if news else None %}
+    {% if featured %}
+    <article class="panel home-feature">
+      <a href="{{ news_path(featured) }}" class="home-feature-link" aria-label="{{ featured.title }}" data-i18n-ignore></a>
+      <span class="badge badge-accent home-feature-tag">{{ msg('public.home.index.featured_news') }}</span>
+      <h1 data-i18n-ignore>{{ featured.title }}</h1>
+      {% if featured.summary %}<p data-i18n-ignore>{{ featured.summary }}</p>{% endif %}
+      <div class="home-feature-foot">
+        {% if featured.redirect_url %}<span class="btn btn-primary btn-sm home-feature-cta">{{ msg('public.home.index.open_event_registration') }}</span>{% endif %}
+        <span class="home-feature-meta">{{ msg('public.home.index.publish_time_comments_comment_count', publish_time=featured.publish_time|datetime_display, comment_count=featured.comment_count) }}</span>
+      </div>
+      <span class="home-feature-mark" aria-hidden="true"></span>
+    </article>
+    {% else %}
+    <section class="panel empty-state home-empty-feature">{{ msg('public.home.index.no_featured_news') }}</section>
+    {% endif %}
+
+    <section class="panel">
+      <div class="panel-head"><h2 class="panel-title">{{ msg('public.home.index.today_s_news') }}</h2><a class="panel-link" href="/news">{{ msg('public.home.index.view_all') }}</a></div>
+      <div class="list h-news-list">
+        {% for n in news[1:] %}
+        <a class="list-row h-news-row" href="{{ news_path(n) }}">
+          <span class="grow title h-news-title" data-i18n-ignore>{{ n.title }}</span>
+          <span class="meta h-news-meta">
+            <span class="h-news-time">{{ n.publish_time|datetime_display }}</span>
+            <span class="h-news-comments">{{ msg('public.home.index.comment_count_comments', comment_count=n.comment_count) }}</span>
+          </span>
+        </a>
+        {% endfor %}
+        {% if news|length <= 1 %}<div class="h-empty">{{ msg('public.home.index.no_more_news') }}</div>{% endif %}
+      </div>
+    </section>
+  </section>
+
+  {# 右栏：今日比赛 / 论坛动态 / 近期赛果 #}
+  <aside class="home-right-col{% if not matches %} is-empty-mobile{% endif %}">
+    <section class="panel home-today">
+      <div class="panel-head"><h2 class="panel-title">{{ msg('public.home.index.today_s_matches') }}</h2><a class="panel-link" href="/matches">{{ msg('public.home.index.all') }}</a></div>
+      <div class="list h-match-mini-list">
+        {% for m in matches %}
+        {% set live = m.effective_status == 'live' %}
+        {% set left, right = match_opponents(m) %}
+        <a class="list-row h-match-mini" href="/matches/{{ m.slug or m.id }}" title="{{ left.name }} vs {{ right.name }}">
+          <span class="h-mini-status{% if live %} live{% endif %}">
+            {% if live %}{{ msg('public.home.index.live') }}{% elif m.match_time %}{{ m.match_time|time_display }}{% else %}TBD{% endif %}
+          </span>
+          <span class="h-mini-teams">
+            <b data-match-side="{{ left.side }}" data-i18n-ignore>{{ left.short }}</b>
+            <b data-match-side="{{ right.side }}" data-i18n-ignore>{{ right.short }}</b>
+          </span>
+          <span class="h-mini-bo">{{ m.bo_format }}</span>
+        </a>
+        {% endfor %}
+        {% if not matches %}<div class="h-empty">{{ msg('public.home.index.no_matches') }}</div>{% endif %}
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h2 class="panel-title">{{ msg('public.home.index.recent_activity') }}</h2><a class="panel-link" href="{{ url_for('forum_index') }}">{{ msg('public.home.index.forum') }}</a></div>
+      <div class="list h-activity-list">
+        {% for thread in forum_activity %}
+        <a class="list-row h-activity-row" href="{{ url_for('forum_thread', thread_id=thread.id) }}">
+          <span class="grow title" data-i18n-ignore>{{ thread.title }}</span>
+          <small class="h-activity-count">{{ thread.reply_count or 0 }}</small>
+        </a>
+        {% endfor %}
+        {% if not forum_activity %}<a class="h-empty" href="{{ url_for('forum_index') }}">{{ msg('public.home.index.no_forum_activity_yet') }}</a>{% endif %}
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h2 class="panel-title">{{ msg('public.home.index.recent_results') }}</h2><a class="panel-link" href="/results">{{ msg('public.home.index.all') }}</a></div>
+      <div class="list h-result-mini-list">
+        {% for r in recent %}
+        {% set left, right = match_opponents(r) %}
+        {% set s1 = left.score or 0 %}{% set s2 = right.score or 0 %}
+        <a class="list-row h-result-mini" href="/matches/{{ r.slug or r.id }}" title="{{ left.name }} {{ left.score }} : {{ right.score }} {{ right.name }}" data-i18n-ignore>
+          <span class="h-result-team{% if s1 > s2 %} win{% elif s2 > s1 %} lose{% endif %}">
+            {% if left.logo %}<img class="team-logo sm" src="{{ left.logo|team_logo_url }}" alt="" loading="lazy">{% endif %}
+            <span class="truncate" data-i18n-ignore>{{ left.short }}</span>
+          </span>
+          <b class="h-result-score">{{ left.score if left.score is not none else '-' }} : {{ right.score if right.score is not none else '-' }}</b>
+          <span class="h-result-team right{% if s2 > s1 %} win{% elif s1 > s2 %} lose{% endif %}">
+            <span class="truncate" data-i18n-ignore>{{ right.short }}</span>
+            {% if right.logo %}<img class="team-logo sm" src="{{ right.logo|team_logo_url }}" alt="" loading="lazy">{% endif %}
+          </span>
+        </a>
+        {% endfor %}
+        {% if not recent %}<div class="h-empty">{{ msg('public.home.index.no_results') }}</div>{% endif %}
+      </div>
+    </section>
+  </aside>
+</div>
+{% endblock %}
+
+{% block side %}{% endblock %}

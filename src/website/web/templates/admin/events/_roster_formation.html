@@ -1,0 +1,98 @@
+{#- 3. A 区：截止与正式分队 -#}
+{% if not control.formed %}
+<section class="panel" id="sectionFormation">
+  <div class="panel-head">
+    <h2 class="panel-title">{{ msg('admin.events.event_roster.a_deadline_team_formation') }}</h2>
+    <span class="muted">{{ msg('admin.events.event_roster.ready_to_form_teams') if precheck.can_form_due else msg('admin.events.event_roster.team_formation_requirements_not_met') }}</span>
+  </div>
+  <div class="panel-body roster-section-body">
+    <div class="roster-precheck-card">
+      <h3>{{ msg('admin.events.event_roster.pre_formation_check_reference') }}</h3>
+      <ul class="roster-check-list">
+        <li class="{{ 'is-ok' if control.is_due else 'is-warn' }}">
+          {{ ui.icon('check' if control.is_due else 'alert') }}
+          <span>{% if control.is_due %}{{ msg('admin.events.event_roster.registration_deadline_passed_deadline_iso', deadline_iso=control.deadline_iso|datetime_display) }}{% else %}{{ msg('admin.events.event_roster.registration_deadline_not_reached_deadline_iso', deadline_iso=control.deadline_iso|datetime_display) }}{% endif %}</span>
+        </li>
+        <li class="{{ 'is-ok' if precheck.unverified_count == 0 else 'is-warn' }}">
+          {{ ui.icon('check' if precheck.unverified_count == 0 else 'alert') }}
+          <span>{% if precheck.unverified_count == 0 %}{{ msg('admin.events.event_roster.no_reservations_awaiting_review') }}{% else %}{{ msg('admin.events.event_roster.unverified_count_reserved_slot_s_awaiting', unverified_count=precheck.unverified_count) }}{% endif %}</span>
+        </li>
+        <li>
+          <span>{{ msg('admin.events.event_roster.group_count_registered_team_s_incomplete', group_count=precheck.group_count, incomplete_group_count=precheck.incomplete_group_count) }} <b>{{ precheck.vacancies }}</b> {{ msg('admin.events.event_roster.player_s') }}</span>
+        </li>
+        <li class="{{ 'is-ok' if precheck.enough_individuals else 'is-warn' }}">
+          {{ ui.icon('check' if precheck.enough_individuals else 'alert') }}
+          <span>{{ msg('admin.events.event_roster.individual_count_solo_signup_s', individual_count=precheck.individual_count) }}{% if precheck.vacancies > 0 %}（{% if precheck.enough_individuals %}{{ msg('admin.events.event_roster.registered_teams_have_enough_players_to') }}{% else %}{{ msg('admin.events.event_roster.not_enough_players_to_fill_vacancies', vacancies=precheck.vacancies) }}{% endif %}）{% endif %}</span>
+        </li>
+        <li>
+          <span>{{ msg('admin.events.event_roster.independent_reserve_count_independent_reserve_s', independent_reserve_count=precheck.independent_reserve_count) }}</span>
+        </li>
+      </ul>
+    </div>
+
+    {% if precheck.registered_groups %}
+    <details class="optional" {% if not control.is_due and not control.archived_at %}open{% endif %}>
+      <summary>{{ msg('admin.events.event_roster.view_registered_teams_registered_groups', registered_groups=precheck.registered_groups|length) }}</summary>
+      <div class="details-body">
+        <div class="roster-group-preview-list">
+          {% for g in precheck.registered_groups %}
+          <div class="roster-group-preview-item">
+            <div class="roster-group-preview-head">
+              <div>
+                <strong data-i18n-ignore>{{ g.team_name }}</strong>
+                <span class="muted"><span>{{ msg('admin.events.event_roster.claimed') }}</span> {{ g.claimed_count }} / 5{% if g.reservations %} · <span>{{ msg('admin.events.event_roster.reserved_slots') }}</span> {{ g.reservations|length }}{% endif %}{% if g.club_name %} · <span>{{ msg('admin.events.event_roster.club') }}</span>: <span data-i18n-ignore>{{ g.club_name }}</span>{% endif %}</span>
+              </div>
+              {% if not control.is_due and not control.archived_at and clubs %}
+              <button type="button" class="btn btn-sm"
+                      data-open-link-club
+                      data-reg-id="{{ g.registration_id }}"
+                      data-team-name="{{ g.team_name }}"
+                      data-club-id="{{ g.club_id or '' }}">{{ msg('admin.events.event_roster.change_linked_club') if g.club_id else msg('admin.events.event_roster.link_club_2') }}</button>
+              {% endif %}
+            </div>
+            <div class="readonly-teams" data-i18n-ignore>
+              {% for m in g.members %}
+              <span class="player-tag">{{ m.roster_slot + 1 }}. {{ m.nickname }}</span>
+              {% endfor %}
+              {% for r in g.reservations %}
+              <span class="player-tag is-reserved">{{ r.roster_slot + 1 }}. {{ r.display_label }}<span data-i18n-translate>{{ msg('admin.events.event_roster.pending_review') }}</span></span>
+              {% endfor %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </details>
+    {% elif not precheck.individual_count and not precheck.independent_reserve_count %}
+    <p class="empty-state">{{ msg('admin.events.event_roster.no_signups_yet_form_teams_here') }}</p>
+    {% endif %}
+
+    <div class="roster-action-bar">
+      {% set form_due_disabled = (not control.is_due) or (precheck.unverified_count > 0) or (control.archived_at is not none) %}
+      <button type="button" class="btn btn-primary" id="formDueBtn"
+              data-action-url="{{ url_for('admin.admin_registration_action', event_id=event.id, action='form-due') }}"
+              {% if form_due_disabled %}disabled{% endif %}>{{ ui.icon('check') }}{{ msg('admin.events.event_roster.form_teams') }}</button>
+      {% if control.archived_at %}
+      <span class="field-hint">{{ msg('admin.events.event_roster.event_archived_team_formation_disabled') }}</span>
+      {% elif not control.is_due %}
+      <span class="field-hint">{{ msg('admin.events.event_roster.team_formation_unlocks_after_the_registration') }}</span>
+      {% elif precheck.unverified_count > 0 %}
+      <span class="field-hint">{{ msg('admin.events.event_roster.claim_or_release_all_reserved_slots') }}</span>
+      {% endif %}
+    </div>
+    <div id="formDueResult" class="roster-inline-error" role="alert" hidden></div>
+  </div>
+</section>
+{% else %}
+<section class="panel">
+  <details class="roster-formed-summary">
+    <summary>
+      <span class="roster-formed-summary-title">{{ ui.icon('check') }} {{ msg('admin.events.event_roster.a_team_formation_complete') }}</span>
+      <span class="muted">{{ msg('admin.events.event_roster.formed_on_formed_at_iso_entrants', formed_at_iso=control.formed_at_iso|datetime_display, entrants=entrants|length, reserve_candidates=reserve_candidates|length) }}</span>
+    </summary>
+    <div class="roster-formed-summary-body">
+      <p class="field-hint">{{ msg('admin.events.event_roster.team_formation_runs_once_and_will') }}</p>
+    </div>
+  </details>
+</section>
+{% endif %}

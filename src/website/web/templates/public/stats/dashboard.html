@@ -1,0 +1,47 @@
+{% extends 'layouts/public.html' %}
+{% block title %}{{ msg('public.stats.dashboard.dashboard_80gotv') }}{% endblock %}
+{% block head %}{{ frontend_entry('dashboard-style') }}{% endblock %}
+{% block layout_class %}no-side-layout{% endblock %}
+{% block main %}
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>DASHBOARD</span><h1>{{ msg('public.stats.dashboard.dashboard') }}</h1></div>
+</header>
+
+<div class="stat-grid dashboard-summary">
+  <div class="stat"><span class="stat-label">{{ msg('public.stats.dashboard.mvp_count') }}</span><span class="stat-value">{{ medal_totals.mvp_count or 0 }}</span></div>
+  <div class="stat"><span class="stat-label">{{ msg('public.stats.dashboard.evp_count') }}</span><span class="stat-value">{{ medal_totals.evp_count or 0 }}</span></div>
+</div>
+
+{#- 四张图：Rating 分布、MVP 排行、EVP 排行、各赛事比赛数 -#}
+<div class="dashboard-grid">
+  <section class="panel chart-card">
+    <div class="panel-head"><h2 class="panel-title">{{ msg('public.stats.dashboard.player_rating_distribution') }}</h2></div>
+    <div class="chart-canvas-wrap"><canvas id="chartRating"></canvas></div>
+  </section>
+  <section class="panel chart-card">
+    <div class="panel-head"><h2 class="panel-title">{{ msg('public.stats.dashboard.top_5_by_mvps') }}</h2></div>
+    <div class="chart-canvas-wrap"><canvas id="chartMvpMedals"></canvas></div>
+  </section>
+  <section class="panel chart-card">
+    <div class="panel-head"><h2 class="panel-title">{{ msg('public.stats.dashboard.top_5_by_evps') }}</h2></div>
+    <div class="chart-canvas-wrap"><canvas id="chartEvpMedals"></canvas></div>
+  </section>
+  <section class="panel chart-card">
+    <div class="panel-head"><h2 class="panel-title">{{ msg('public.stats.dashboard.matches_per_event') }}</h2></div>
+    <div class="chart-canvas-wrap"><canvas id="chartEvents"></canvas></div>
+  </section>
+</div>
+{% endblock %}
+{% block side %}{% endblock %}
+
+{% block extra_js %}
+<script src="{{ versioned_url('static/vendor/chartjs/chart.umd.min.js') }}"></script>
+<script type="application/json" data-site-messages>{{ client_messages('inline_dashboard')|tojson }}</script>
+<script id="dashboardChartData" type="application/json">{{ {
+  'ratingBuckets': rating_buckets,
+  'topMvps': top_mvps,
+  'topEvps': top_evps,
+  'eventMatches': event_matches
+}|tojson }}</script>
+{{ frontend_entry('dashboard-charts') }}
+{% endblock %}

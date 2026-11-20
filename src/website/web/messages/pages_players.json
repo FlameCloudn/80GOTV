@@ -1,0 +1,470 @@
+{
+  "public.players.not_found": {
+    "zh": "选手不存在",
+    "en": "Player not found"
+  },
+  "public.players.player_compare.add_player": {
+    "zh": "添加选手",
+    "en": "Add player"
+  },
+  "public.players.player_compare.better_in_lead_stats": {
+    "zh": "领先 {lead} 项",
+    "en": "Better in {lead} stats"
+  },
+  "public.players.player_compare.compare": {
+    "zh": "对比",
+    "en": "Compare"
+  },
+  "public.players.player_compare.compare_players": {
+    "zh": "选手对比",
+    "en": "Compare players"
+  },
+  "public.players.player_compare.compare_players_80gotv": {
+    "zh": "选手对比 - 80GOTV",
+    "en": "Compare players - 80GOTV"
+  },
+  "public.players.player_compare.free_agent": {
+    "zh": "自由选手",
+    "en": "Free agent"
+  },
+  "public.players.player_compare.maps_maps": {
+    "zh": "{maps} 张地图",
+    "en": "{maps} maps"
+  },
+  "public.players.player_compare.player_a": {
+    "zh": "选手 A",
+    "en": "Player A"
+  },
+  "public.players.player_compare.player_b": {
+    "zh": "选手 B",
+    "en": "Player B"
+  },
+  "public.players.player_compare.please_select_two_players_to_compare": {
+    "zh": "请选择两名选手进行对比",
+    "en": "Please select two players to compare"
+  },
+  "public.players.player_compare.select_player_a": {
+    "zh": "选择选手 A...",
+    "en": "Select player A…"
+  },
+  "public.players.player_compare.select_player_b": {
+    "zh": "选择选手 B...",
+    "en": "Select player B…"
+  },
+  "public.players.player_compare.swap_players": {
+    "zh": "交换左右",
+    "en": "Swap players"
+  },
+  "public.players.player_coverage.maps_played": {
+    "zh": "出场地图",
+    "en": "Maps played"
+  },
+  "public.players.player_coverage.maps_with_data": {
+    "zh": "覆盖地图",
+    "en": "Maps with data"
+  },
+  "public.players.player_coverage.recorded_kills": {
+    "zh": "已知击杀",
+    "en": "Recorded kills"
+  },
+  "public.players.player_coverage.recorded_rounds": {
+    "zh": "已知回合",
+    "en": "Recorded rounds"
+  },
+  "public.players.player_detail.achievements": {
+    "zh": "荣誉",
+    "en": "Achievements"
+  },
+  "public.players.player_detail.banned_for_cheating": {
+    "zh": "作弊封禁",
+    "en": "Banned for cheating"
+  },
+  "public.players.player_detail.champion": {
+    "zh": "冠军",
+    "en": "Champion"
+  },
+  "public.players.player_detail.complete_stats": {
+    "zh": "的完整数据",
+    "en": "complete stats"
+  },
+  "public.players.player_detail.cs2_match_history_and_player_stats": {
+    "zh": "{nickname} 的 CS2 比赛记录与选手数据。",
+    "en": "CS2 match history and player stats for {nickname}."
+  },
+  "public.players.player_detail.current_team": {
+    "zh": "当前队伍",
+    "en": "Current team"
+  },
+  "public.players.player_detail.date": {
+    "zh": "日期",
+    "en": "Date"
+  },
+  "public.players.player_detail.delete": {
+    "zh": "删除",
+    "en": "Delete"
+  },
+  "public.players.player_detail.events": {
+    "zh": "赛事",
+    "en": "Events"
+  },
+  "public.players.player_detail.external_player": {
+    "zh": "外校选手",
+    "en": "External player"
+  },
+  "public.players.player_detail.external_player_2": {
+    "zh": "外校选手",
+    "en": "External player"
+  },
+  "public.players.player_detail.group_nickname": {
+    "zh": "群内昵称",
+    "en": "Group nickname"
+  },
+  "public.players.player_detail.info": {
+    "zh": "资料",
+    "en": "Info"
+  },
+  "public.players.player_detail.maps_played": {
+    "zh": "地图数",
+    "en": "Maps played"
+  },
+  "public.players.player_detail.matches": {
+    "zh": "比赛数",
+    "en": "Matches"
+  },
+  "public.players.player_detail.matches_2": {
+    "zh": "比赛",
+    "en": "Matches"
+  },
+  "public.players.player_detail.matchup": {
+    "zh": "对阵",
+    "en": "Matchup"
+  },
+  "public.players.player_detail.my_note": {
+    "zh": "我的备注",
+    "en": "My note"
+  },
+  "public.players.player_detail.no_awards": {
+    "zh": "暂无荣誉",
+    "en": "No awards"
+  },
+  "public.players.player_detail.no_match_data": {
+    "zh": "暂无比赛数据",
+    "en": "No match data"
+  },
+  "public.players.player_detail.no_matches": {
+    "zh": "暂无比赛",
+    "en": "No matches"
+  },
+  "public.players.player_detail.no_team": {
+    "zh": "无队伍",
+    "en": "No team"
+  },
+  "public.players.player_detail.no_trophies": {
+    "zh": "暂无冠军记录",
+    "en": "No trophies"
+  },
+  "public.players.player_detail.only_you_can_see_this": {
+    "zh": "仅你可见",
+    "en": "Only you can see this"
+  },
+  "public.players.player_detail.player_achievements": {
+    "zh": "选手荣誉",
+    "en": "Player achievements"
+  },
+  "public.players.player_detail.player_profile_navigation": {
+    "zh": "选手资料导航",
+    "en": "Player profile navigation"
+  },
+  "public.players.player_detail.players": {
+    "zh": "选手",
+    "en": "Players"
+  },
+  "public.players.player_detail.previous_nicknames": {
+    "zh": "历史昵称",
+    "en": "Previous nicknames"
+  },
+  "public.players.player_detail.recent_matches": {
+    "zh": "近期比赛",
+    "en": "Recent matches"
+  },
+  "public.players.player_detail.save": {
+    "zh": "保存",
+    "en": "Save"
+  },
+  "public.players.player_detail.score": {
+    "zh": "比分",
+    "en": "Score"
+  },
+  "public.players.player_detail.skill_radar": {
+    "zh": "能力雷达图",
+    "en": "Skill radar"
+  },
+  "public.players.player_detail.statistics": {
+    "zh": "数据统计",
+    "en": "Statistics"
+  },
+  "public.players.player_detail.teammates": {
+    "zh": "队友",
+    "en": "Teammates"
+  },
+  "public.players.player_detail.teams": {
+    "zh": "队伍",
+    "en": "Teams"
+  },
+  "public.players.player_detail.view": {
+    "zh": "查看",
+    "en": "View"
+  },
+  "public.players.player_detail.win_loss": {
+    "zh": "胜负",
+    "en": "Win - Loss"
+  },
+  "public.players.player_stats.all": {
+    "zh": "全部",
+    "en": "All"
+  },
+  "public.players.player_stats.back_to_player_profile": {
+    "zh": "返回选手资料",
+    "en": "Back to player profile"
+  },
+  "public.players.player_stats.career": {
+    "zh": "生涯",
+    "en": "Career"
+  },
+  "public.players.player_stats.clutches": {
+    "zh": "残局",
+    "en": "Clutches"
+  },
+  "public.players.player_stats.cs2_match_and_performance_stats_for": {
+    "zh": "{nickname} 的 CS2 比赛统计与表现数据。",
+    "en": "CS2 match and performance stats for {nickname}."
+  },
+  "public.players.player_stats.date": {
+    "zh": "日期",
+    "en": "Date"
+  },
+  "public.players.player_stats.events": {
+    "zh": "赛事",
+    "en": "Events"
+  },
+  "public.players.player_stats.external_player": {
+    "zh": "外校选手",
+    "en": "External player"
+  },
+  "public.players.player_stats.group_nickname": {
+    "zh": "群内昵称",
+    "en": "Group nickname"
+  },
+  "public.players.player_stats.map_filter": {
+    "zh": "地图筛选",
+    "en": "Map filter"
+  },
+  "public.players.player_stats.maps_maps": {
+    "zh": "{maps} 张地图",
+    "en": "{maps} maps"
+  },
+  "public.players.player_stats.maps_played": {
+    "zh": "地图数",
+    "en": "Maps played"
+  },
+  "public.players.player_stats.matches": {
+    "zh": "比赛",
+    "en": "Matches"
+  },
+  "public.players.player_stats.matchup": {
+    "zh": "对阵",
+    "en": "Matchup"
+  },
+  "public.players.player_stats.multi_kills": {
+    "zh": "多杀",
+    "en": "Multi-kills"
+  },
+  "public.players.player_stats.nickname_stats_80gotv": {
+    "zh": "{nickname} 数据 - 80GOTV",
+    "en": "{nickname} stats - 80GOTV"
+  },
+  "public.players.player_stats.no_clutch_data": {
+    "zh": "暂无残局数据",
+    "en": "No clutch data"
+  },
+  "public.players.player_stats.no_event_data": {
+    "zh": "暂无赛事数据",
+    "en": "No event data"
+  },
+  "public.players.player_stats.no_match_data": {
+    "zh": "暂无比赛数据",
+    "en": "No match data"
+  },
+  "public.players.player_stats.no_matches": {
+    "zh": "暂无比赛",
+    "en": "No matches"
+  },
+  "public.players.player_stats.no_trend_data": {
+    "zh": "暂无趋势数据",
+    "en": "No trend data"
+  },
+  "public.players.player_stats.overview": {
+    "zh": "总览",
+    "en": "Overview"
+  },
+  "public.players.player_stats.per_round": {
+    "zh": "按每回合计算",
+    "en": "Per round"
+  },
+  "public.players.player_stats.player_display_name_stats_80gotv": {
+    "zh": "{player_display_name} 数据 - 80GOTV",
+    "en": "{player_display_name} stats - 80GOTV"
+  },
+  "public.players.player_stats.player_stats": {
+    "zh": "选手数据",
+    "en": "Player stats"
+  },
+  "public.players.player_stats.player_stats_navigation": {
+    "zh": "选手数据导航",
+    "en": "Player stats navigation"
+  },
+  "public.players.player_stats.rating_timeline": {
+    "zh": "RATING 趋势",
+    "en": "Rating timeline"
+  },
+  "public.players.player_stats.recent_matches": {
+    "zh": "近期比赛",
+    "en": "Recent matches"
+  },
+  "public.players.player_stats.rounds_played": {
+    "zh": "回合数",
+    "en": "Rounds played"
+  },
+  "public.players.player_stats.score": {
+    "zh": "比分",
+    "en": "Score"
+  },
+  "public.players.player_stats.side": {
+    "zh": "阵营：",
+    "en": "Side: "
+  },
+  "public.players.player_stats.time_filter": {
+    "zh": "时间筛选",
+    "en": "Time filter"
+  },
+  "public.players.players.1st": {
+    "zh": "第 1",
+    "en": "1st"
+  },
+  "public.players.players.2nd": {
+    "zh": "第 2",
+    "en": "2nd"
+  },
+  "public.players.players.3rd": {
+    "zh": "第 3",
+    "en": "3rd"
+  },
+  "public.players.players.4th_5th": {
+    "zh": "第 4-5",
+    "en": "4th-5th"
+  },
+  "public.players.players.6th_10th": {
+    "zh": "第 6-10",
+    "en": "6th-10th"
+  },
+  "public.players.players.80gotv_kind_player": {
+    "zh": "80GOTV {kind} 选手",
+    "en": "80GOTV {kind} player"
+  },
+  "public.players.players.all_80gotv_kind": {
+    "zh": "所有 80GOTV {kind}",
+    "en": "All 80GOTV {kind}"
+  },
+  "public.players.players.all_80gotv_top_10_players": {
+    "zh": "所有 80GOTV TOP 10 选手",
+    "en": "All 80GOTV Top 10 Players"
+  },
+  "public.players.players.all_teams": {
+    "zh": "全部队伍",
+    "en": "All teams"
+  },
+  "public.players.players.banned_for_cheating": {
+    "zh": "作弊封禁",
+    "en": "Banned for cheating"
+  },
+  "public.players.players.confirmed_and_published_by_administrators_after": {
+    "zh": "由管理员在每个自然年结束后确认并公布",
+    "en": "Confirmed and published by administrators after each calendar year"
+  },
+  "public.players.players.count": {
+    "zh": " 数量",
+    "en": " count"
+  },
+  "public.players.players.counted_by_year_starting_in_2026": {
+    "zh": "按年度统计，始于 2026 年",
+    "en": "Counted by year, starting in 2026"
+  },
+  "public.players.players.counter_strike_2_players": {
+    "zh": "Counter-Strike 2 选手",
+    "en": "Counter-Strike 2 Players"
+  },
+  "public.players.players.evp_players": {
+    "zh": "EVP 选手",
+    "en": "EVP players"
+  },
+  "public.players.players.external_player": {
+    "zh": "外校选手",
+    "en": "External player"
+  },
+  "public.players.players.filter_by_nickname_initial": {
+    "zh": "按昵称首字符筛选",
+    "en": "Filter by nickname initial"
+  },
+  "public.players.players.kind_summary": {
+    "zh": "{kind} 摘要",
+    "en": "{kind} summary"
+  },
+  "public.players.players.mvp_players": {
+    "zh": "MVP 选手",
+    "en": "MVP players"
+  },
+  "public.players.players.no_data": {
+    "zh": "暂无数据",
+    "en": "No data"
+  },
+  "public.players.players.no_players": {
+    "zh": "暂无选手",
+    "en": "No players"
+  },
+  "public.players.players.players": {
+    "zh": "选手列表",
+    "en": "Players"
+  },
+  "public.players.players.players_2": {
+    "zh": "选手",
+    "en": "Players"
+  },
+  "public.players.players.recent_kind": {
+    "zh": "最近的 {kind}",
+    "en": "Recent {kind}"
+  },
+  "public.players.players.teams": {
+    "zh": "队伍",
+    "en": "Teams"
+  },
+  "public.players.players.the_yearly_top_10_has_not": {
+    "zh": "管理员尚未公布年度 TOP 10",
+    "en": "The yearly Top 10 has not been published yet"
+  },
+  "public.players.players.top_10_players": {
+    "zh": "TOP 10 选手",
+    "en": "Top 10 players"
+  },
+  "public.players.players.top_10_summary": {
+    "zh": "TOP 10 摘要",
+    "en": "Top 10 summary"
+  },
+  "public.players.players.total": {
+    "zh": "总计",
+    "en": "Total"
+  },
+  "public.players.players.total_2": {
+    "zh": " 总数",
+    "en": " total"
+  }
+}

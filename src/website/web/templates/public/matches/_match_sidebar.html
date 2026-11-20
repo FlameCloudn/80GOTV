@@ -1,0 +1,54 @@
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">{{ msg('public.matches.match_sidebar.events') }}</h2></div>
+  <div class="list sidebar-status-list">
+    {% if sidebar_events %}
+      {% for ev in sidebar_events %}
+      <a href="{{ event_path(ev) }}" class="list-row sidebar-event-item">
+        <span class="badge sidebar-event-status {{ ev.effective_event_status }}{% if ev.effective_event_status == 'ongoing' %} badge-live{% endif %}">{{
+          msg('public.matches.match_sidebar.ongoing') if ev.effective_event_status == 'ongoing' else
+          msg('public.matches.match_sidebar.upcoming') if ev.effective_event_status == 'upcoming' else
+          msg('public.matches.match_sidebar.completed') }}</span>
+        <span class="sidebar-event-name truncate">{{ ev.name }}</span>
+      </a>
+      {% endfor %}
+    {% else %}
+    <div class="empty-state">{{ msg('public.matches.match_sidebar.no_events') }}</div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">{{ msg('public.matches.match_sidebar.matches') }}</h2></div>
+  <div class="list sidebar-status-list">
+    {% if sidebar_matches %}
+      {% for m in sidebar_matches %}
+      <a href="/matches/{{ m.slug or m.id }}" class="list-row sidebar-event-item">
+        <span class="badge sidebar-event-status {{ m.effective_status }}{% if m.effective_status == 'live' %} badge-live{% endif %}">{{
+          msg('public.matches.match_sidebar.upcoming') if m.effective_status == 'upcoming' else
+          msg('public.matches.match_sidebar.ongoing') if m.effective_status == 'live' else
+          msg('public.matches.match_sidebar.cancelled') if m.effective_status == 'cancelled' else
+          msg('public.matches.match_sidebar.completed') }}</span>
+        {% set sidebar_left, sidebar_right = match_opponents(m) %}
+        <span class="sidebar-event-name truncate" data-i18n-ignore>{{ sidebar_left.name }} vs {{ sidebar_right.name }}</span>
+      </a>
+      {% endfor %}
+    {% else %}
+    <div class="empty-state">{{ msg('public.matches.match_sidebar.no_matches') }}</div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">{{ msg('public.matches.match_sidebar.news') }}</h2></div>
+  <div class="list">
+    {% if sidebar_news %}
+      {% for n in sidebar_news %}
+      <a href="{{ news_path(n) }}" class="list-row sidebar-event-item">
+        <span class="sidebar-event-name truncate">{{ n.title }}</span>
+      </a>
+      {% endfor %}
+    {% else %}
+    <div class="empty-state">{{ msg('public.matches.match_sidebar.no_news') }}</div>
+    {% endif %}
+  </div>
+</section>

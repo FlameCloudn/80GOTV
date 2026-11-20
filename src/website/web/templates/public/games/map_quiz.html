@@ -1,0 +1,109 @@
+{% extends 'layouts/public.html' %}
+{% block title %}{{ msg('public.games.map_quiz.practice') if mode == 'practice' else msg('public.games.map_quiz.daily_challenge') }} {{ msg('public.games.map_quiz.map_callouts_80gotv') }}{% endblock %}
+{% block head %}
+{{ frontend_entry('games-style') }}
+{% endblock %}
+{% block layout_class %}no-side-layout games-layout{% endblock %}
+{% block main %}
+<div class="game-page map-quiz">
+  <div class="game-breadcrumb"><a href="{{ url_for('games_page') }}">{{ msg('public.games.map_quiz.games') }}</a><span>/</span><strong>{{ msg('public.games.map_quiz.map_locations') }}</strong></div>
+  <nav class="segmented game-mode-tabs" aria-label="{{ msg('public.games.map_quiz.map_location_modes') }}">
+    <a href="{{ url_for('map_quiz_page') }}" class="{{ 'active' if mode == 'daily' else '' }}">{{ msg('public.games.map_quiz.daily_challenge') }}</a>
+    <a href="{{ url_for('map_quiz_practice_page') }}" class="{{ 'active' if mode == 'practice' else '' }}">{{ msg('public.games.map_quiz.free_play') }}</a>
+  </nav>
+
+  <header class="game-heading panel">
+    <div>
+      <span class="game-kicker">{{ msg('public.games.map_quiz.unlimited_practice') if mode == 'practice' else msg('public.games.map_quiz.daily_challenge_2') ~ game.challenge_number }}</span>
+      <h1>{{ msg('public.games.map_quiz.map_locations') }}</h1>
+      <p>{{ msg('public.games.map_quiz.identify_the_map_and_exact_spot') }}</p>
+    </div>
+    <strong class="game-counter">{{ msg('public.games.map_quiz.remaining_guesses_left', remaining=game.remaining) }}</strong>
+  </header>
+
+  <section class="map-quiz-panel panel">
+    <figure class="map-quiz-figure reveal-{{ game.attempts|length }}{% if game.finished %} is-finished{% endif %}">
+      <picture>
+        <source media="(max-width:760px)" type="image/webp"
+                srcset="{{ url_for('map_quiz_image', question_key=game.question_key, variant='mobile') }}">
+        <img src="{{ url_for('map_quiz_image', question_key=game.question_key) }}"
+             alt="{{ game.answer.map_name ~ ' ' ~ game.answer.spot if game.finished else msg('public.games.map_quiz.cs2_map_callout_screenshot') }}"
+             width="1920" height="1080" fetchpriority="high">
+      </picture>
+      <figcaption>
+        <span>{{ msg('public.games.map_quiz.screenshot_attempts_max_attempts', attempts=game.attempts|length + 1 if not game.finished else game.attempts|length, max_attempts=max_attempts) }}</span>
+        {% if not game.finished %}<span>{{ msg('public.games.map_quiz.the_view_zooms_out_after_each') }}</span>{% endif %}
+      </figcaption>
+    </figure>
+
+    {% if not game.finished %}
+    <form class="map-quiz-form" method="post" action="{{ url_for('map_quiz_practice_submit') if mode == 'practice' else url_for('map_quiz_submit') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label>
+        <span>{{ msg('public.games.map_quiz.maps') }}</span>
+        <select name="map_name" required>
+          <option value="">{{ msg('public.games.map_quiz.select_map') }}</option>
+          {% for map_key, map_name in maps %}<option value="{{ map_key }}" data-i18n-ignore>{{ map_name }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>
+        <span>{{ msg('public.games.map_quiz.location') }}</span>
+        <input type="text" name="spot_name" list="mapSpotOptions" maxlength="80" autocomplete="off" required placeholder="{{ msg('public.games.map_quiz.example_a_site_window') }}">
+        <datalist id="mapSpotOptions" data-i18n-ignore>
+          {% for spot in spot_options %}<option value="{{ spot }}">{% endfor %}
+        </datalist>
+      </label>
+      <button type="submit" class="btn btn-primary">{{ msg('public.games.map_quiz.submit_answer') }}</button>
+    </form>
+    {% endif %}
+
+    {% if game.attempts %}
+    <div class="map-attempts" aria-label="{{ msg('public.games.map_quiz.guesses_this_round') }}">
+      {% for attempt in game.attempts %}
+      <article>
+        <strong>#{{ attempt.attempt_number }}</strong>
+        <span class="{{ 'is-correct' if attempt.map_correct else 'is-wrong' }}">
+          <b data-i18n-ignore>{{ map_names.get(attempt.guessed_map, attempt.guessed_map) }}</b>
+          <small>{{ msg('public.games.map_quiz.correct_map') if attempt.map_correct else msg('public.games.map_quiz.incorrect_map') }}</small>
+        </span>
+        <span class="{{ 'is-correct' if attempt.spot_correct else 'is-wrong' }}">
+          <b data-i18n-ignore>{{ attempt.guessed_spot }}</b>
+          <small>{{ msg('public.games.map_quiz.correct_callout') if attempt.spot_correct else msg('public.games.map_quiz.incorrect_callout') }}</small>
+        </span>
+      </article>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </section>
+
+  {% if game.finished and game.answer %}
+  <section class="game-result panel {{ 'is-win' if game.won else 'is-loss' }}">
+    <div>
+      <span>{{ msg('public.games.map_quiz.correct') if game.won else msg('public.games.map_quiz.not_guessed_this_round') }}</span>
+      <strong data-i18n-ignore>{{ game.answer.map_name }} · {{ game.answer.spot }}</strong>
+    </div>
+    <a href="{{ game.answer.source_url }}" target="_blank" rel="noopener noreferrer">{{ msg('public.games.map_quiz.view_screenshot_source') }}</a>
+  </section>
+  {% endif %}
+
+  {% if mode == 'practice' %}
+  <form method="post" action="{{ url_for('map_quiz_practice_new') }}" class="game-new-round">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit" class="btn{{ ' btn-primary' if game.finished else '' }}">{{ msg('public.games.map_quiz.play_again') if game.finished else msg('public.games.map_quiz.new_puzzle') }}</button>
+  </form>
+  {% else %}
+  <section class="game-stats panel">
+    <div class="panel-head"><h2 class="panel-title">{{ msg('public.games.map_quiz.my_record') }}</h2></div>
+    <div class="game-stat-grid">
+      <div><strong>{{ statistics.games }}</strong><span>{{ msg('public.games.map_quiz.days_played') }}</span></div>
+      <div><strong>{{ statistics.win_rate }}%</strong><span>{{ msg('public.games.map_quiz.win_rate') }}</span></div>
+      <div><strong>{{ statistics.current_streak }}</strong><span>{{ msg('public.games.map_quiz.current_streak') }}</span></div>
+      <div><strong>{{ statistics.longest_streak }}</strong><span>{{ msg('public.games.map_quiz.best_streak') }}</span></div>
+    </div>
+  </section>
+  {% endif %}
+
+  <p class="game-source-note">{{ msg('public.games.map_quiz.images_from') }} <a href="{{ source_collection }}" target="_blank" rel="noopener noreferrer">{{ msg('public.games.map_quiz.prosettings_map_screenshots') }}</a>{{ msg('public.games.map_quiz.the_site_uses_only_local_copies') }}</p>
+</div>
+{% endblock %}
+{% block side %}{% endblock %}

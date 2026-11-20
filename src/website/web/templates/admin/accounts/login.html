@@ -1,0 +1,46 @@
+{#- 后台登录：不带导航的独立页面，和前台同一套颜色与输入框 -#}
+<!doctype html>
+<html lang="{{ site_language_tag }}">
+<head>
+  {% include "layouts/_standalone_head.html" %}
+  <title>{{ msg('admin.accounts.login.admin_login_80gotv') }}</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="16x16 32x32 48x48">
+  {{ frontend_entry('site-styles') }}
+
+  {{ frontend_entry('admin-style') }}
+</head>
+<body class="admin-body admin-login-body">
+<main class="admin-login-card">
+  <div class="admin-login-brand">
+    <img src="{{ url_for('static', filename='logos/80gotv-mark.png') }}" class="site-logo-mark" alt="" width="28" height="28">
+    <span data-i18n-ignore>80GOTV</span>
+    <span class="admin-brand-tag">{{ msg('admin.accounts.login.admin') }}</span>
+  </div>
+  <h1>{{ msg('admin.accounts.login.admin_login') }}</h1>
+
+  {% include "components/_flashes.html" %}
+
+  <form method="post" class="form" data-busy-text="登录中……">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label class="field">
+      <span class="field-label">{{ msg('admin.accounts.login.username') }}</span>
+      <input type="text" name="username" required autofocus autocomplete="username" placeholder="{{ msg('admin.accounts.login.enter_your_username') }}">
+    </label>
+    <label class="field">
+      <span class="field-label">{{ msg('admin.accounts.login.password') }}</span>
+      <input type="password" name="password" required autocomplete="current-password" placeholder="{{ msg('admin.accounts.login.enter_your_password') }}">
+    </label>
+    <button type="submit" class="btn btn-primary btn-lg btn-block">{{ msg('admin.accounts.login.log_in') }}</button>
+  </form>
+
+  <div class="admin-login-foot">
+    <a href="/" class="back-link">{{ msg('admin.accounts.login.back_to_site') }}</a>
+    {% include "components/_language_picker.html" %}
+  </div>
+</main>
+<script type="application/json" data-site-messages>{{ client_messages('site_dialogs')|tojson }}</script>
+{{ frontend_entry('site-dialogs') }}
+<script type="application/json" data-site-messages>{{ client_messages('admin')|tojson }}</script>
+{{ frontend_entry('admin-login') }}
+</body>
+</html>

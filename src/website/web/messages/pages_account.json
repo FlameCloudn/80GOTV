@@ -1,0 +1,538 @@
+{
+  "public.account.change_password.at_least_8_characters": {
+    "zh": "至少 8 位",
+    "en": "At least 8 characters"
+  },
+  "public.account.change_password.auto": {
+    "zh": "跟随系统",
+    "en": "Auto"
+  },
+  "public.account.change_password.back_to_login": {
+    "zh": "返回登录",
+    "en": "Back to login"
+  },
+  "public.account.change_password.change_password": {
+    "zh": "修改密码",
+    "en": "Change password"
+  },
+  "public.account.change_password.change_password_80gotv": {
+    "zh": "修改密码 - 80GOTV",
+    "en": "Change password - 80GOTV"
+  },
+  "public.account.change_password.change_password_after_steam_verification": {
+    "zh": "通过 Steam 验证后修改密码",
+    "en": "Change password after Steam verification"
+  },
+  "public.account.change_password.chinese": {
+    "zh": "中文",
+    "en": "Chinese"
+  },
+  "public.account.change_password.confirm_account_ownership_through_steam_this": {
+    "zh": "请先前往 Steam 确认账号归属。本站不会接触你的 Steam 密码。",
+    "en": "Confirm account ownership through Steam. This site never sees your Steam password."
+  },
+  "public.account.change_password.confirm_new_password": {
+    "zh": "确认新密码",
+    "en": "Confirm new password"
+  },
+  "public.account.change_password.enter_the_new_password_again": {
+    "zh": "再次输入新密码",
+    "en": "Enter the new password again"
+  },
+  "public.account.change_password.language": {
+    "zh": "语言",
+    "en": "Language"
+  },
+  "public.account.change_password.new_password": {
+    "zh": "新密码",
+    "en": "New password"
+  },
+  "public.account.change_password.toggle_light_dark_theme": {
+    "zh": "切换明暗主题",
+    "en": "Toggle light/dark theme"
+  },
+  "public.account.change_password.verified_steamid": {
+    "zh": "已验证的 SteamID",
+    "en": "Verified SteamID"
+  },
+  "public.account.change_password.verify_with_steam": {
+    "zh": "使用 Steam 验证身份",
+    "en": "Verify with Steam"
+  },
+  "public.account.login.2_20_characters": {
+    "zh": "2-20 个字符",
+    "en": "2-20 characters"
+  },
+  "public.account.login.80gotv_is_available_to_approved_members": {
+    "zh": "80GOTV 仅限已审核成员访问",
+    "en": "80GOTV is available to approved members only"
+  },
+  "public.account.login.a_group_nickname_is_also_required": {
+    "zh": "还需填写群内用户名",
+    "en": "A group nickname is also required"
+  },
+  "public.account.login.about_80gotv": {
+    "zh": "80GOTV 介绍",
+    "en": "About 80GOTV"
+  },
+  "public.account.login.admin_accounts_can_leave_the_captcha": {
+    "zh": "后台账号可不填验证码",
+    "en": "Admin accounts can leave the captcha blank"
+  },
+  "public.account.login.apply_for_an_account": {
+    "zh": "申请账号",
+    "en": "Apply for an account"
+  },
+  "public.account.login.are_you_or_were_you_a": {
+    "zh": "你是否是或曾经是八十中学生？",
+    "en": "Are you, or were you, a No. 80 High School student?"
+  },
+  "public.account.login.at_least_10_characters_including_letters": {
+    "zh": "至少 10 位，含字母和数字",
+    "en": "At least 10 characters, including letters and numbers"
+  },
+  "public.account.login.auto": {
+    "zh": "跟随系统",
+    "en": "Auto"
+  },
+  "public.account.login.avatar": {
+    "zh": "头像",
+    "en": "Avatar"
+  },
+  "public.account.login.captcha": {
+    "zh": "验证码",
+    "en": "Captcha"
+  },
+  "public.account.login.chinese": {
+    "zh": "中文",
+    "en": "Chinese"
+  },
+  "public.account.login.confirm_password": {
+    "zh": "确认密码",
+    "en": "Confirm password"
+  },
+  "public.account.login.email": {
+    "zh": "邮箱",
+    "en": "Email"
+  },
+  "public.account.login.email_verified": {
+    "zh": "邮箱已验证",
+    "en": "Email verified"
+  },
+  "public.account.login.enter_again": {
+    "zh": "再次输入",
+    "en": "Enter again"
+  },
+  "public.account.login.enter_the_characters_in_the_image": {
+    "zh": "输入图片字符",
+    "en": "Enter the characters in the image"
+  },
+  "public.account.login.enter_the_six_digit_code": {
+    "zh": "输入六位验证码",
+    "en": "Enter the six-digit code"
+  },
+  "public.account.login.enter_your_password": {
+    "zh": "请输入密码",
+    "en": "Enter your password"
+  },
+  "public.account.login.enter_your_username": {
+    "zh": "请输入用户名",
+    "en": "Enter your username"
+  },
+  "public.account.login.forgot_password": {
+    "zh": "忘记密码？",
+    "en": "Forgot password?"
+  },
+  "public.account.login.get_a_new_captcha": {
+    "zh": "换一个验证码",
+    "en": "Get a new captcha"
+  },
+  "public.account.login.group_nickname": {
+    "zh": "群内用户名",
+    "en": "Group nickname"
+  },
+  "public.account.login.guest_registration_is_closed_only_player": {
+    "zh": "访客注册已关闭。目前仅接受选手申请，必须验证 Steam，并由管理员审核。",
+    "en": "Guest registration is closed. Only player applications are accepted; Steam verification and admin approval are required."
+  },
+  "public.account.login.language": {
+    "zh": "语言",
+    "en": "Language"
+  },
+  "public.account.login.log_in": {
+    "zh": "登录",
+    "en": "Log in"
+  },
+  "public.account.login.log_in_and_register": {
+    "zh": "登录和注册",
+    "en": "Log in and register"
+  },
+  "public.account.login.log_in_register_80gotv": {
+    "zh": "登录 / 注册 - 80GOTV",
+    "en": "Log in / Register - 80GOTV"
+  },
+  "public.account.login.log_in_to_view_data": {
+    "zh": "登录以查看数据",
+    "en": "Log in to view data"
+  },
+  "public.account.login.name_used_in_the_group_chat": {
+    "zh": "群聊中使用的名字",
+    "en": "Name used in the group chat"
+  },
+  "public.account.login.no": {
+    "zh": "不是",
+    "en": "No"
+  },
+  "public.account.login.password": {
+    "zh": "密码",
+    "en": "Password"
+  },
+  "public.account.login.register": {
+    "zh": "注册",
+    "en": "Register"
+  },
+  "public.account.login.security_check": {
+    "zh": "安全验证",
+    "en": "Security check"
+  },
+  "public.account.login.send_code": {
+    "zh": "发送验证码",
+    "en": "Send code"
+  },
+  "public.account.login.show_password": {
+    "zh": "显示密码",
+    "en": "Show password"
+  },
+  "public.account.login.stats_website": {
+    "zh": "数据统计网站",
+    "en": "Stats website"
+  },
+  "public.account.login.steam_identity_is_used_to_match": {
+    "zh": "Steam 身份用于匹配比赛数据，并防止重复申请",
+    "en": "Steam identity is used to match game data and prevent duplicate applications"
+  },
+  "public.account.login.steam_verification": {
+    "zh": "Steam 身份验证",
+    "en": "Steam verification"
+  },
+  "public.account.login.submit_application": {
+    "zh": "提交审核申请",
+    "en": "Submit application"
+  },
+  "public.account.login.the_code_is_valid_for_10": {
+    "zh": "验证码 10 分钟内有效",
+    "en": "The code is valid for 10 minutes"
+  },
+  "public.account.login.toggle_light_dark_theme": {
+    "zh": "切换明暗主题",
+    "en": "Toggle light/dark theme"
+  },
+  "public.account.login.used_to_receive_a_six_digit": {
+    "zh": "用于接收六位验证码",
+    "en": "Used to receive a six-digit verification code"
+  },
+  "public.account.login.username": {
+    "zh": "用户名",
+    "en": "Username"
+  },
+  "public.account.login.verified_steam_id_steam_verified_id": {
+    "zh": "已验证 SteamID：{steam_verified_id}",
+    "en": "Verified Steam ID: {steam_verified_id}"
+  },
+  "public.account.login.verify_email": {
+    "zh": "验证邮箱",
+    "en": "Verify email"
+  },
+  "public.account.login.verify_with_steam": {
+    "zh": "使用 Steam 验证身份",
+    "en": "Verify with Steam"
+  },
+  "public.account.login.verify_with_steam_submit_your_application": {
+    "zh": "完成 Steam 验证后提交，管理员审核通过即可登录",
+    "en": "Verify with Steam, submit your application, and log in after admin approval"
+  },
+  "public.account.login.website": {
+    "zh": "网站",
+    "en": "Website"
+  },
+  "public.account.login.welcome_back": {
+    "zh": "欢迎回来",
+    "en": "Welcome back"
+  },
+  "public.account.login.yes": {
+    "zh": "是",
+    "en": "Yes"
+  },
+  "public.account.login.your_profile_shows_the_globe_badge": {
+    "zh": "选手资料显示世界标识",
+    "en": "Your profile shows the globe badge"
+  },
+  "public.account.notifications.mark_all_read": {
+    "zh": "全部已读",
+    "en": "Mark all read"
+  },
+  "public.account.notifications.mark_as_read": {
+    "zh": "标记已读",
+    "en": "Mark as read"
+  },
+  "public.account.notifications.no_notifications": {
+    "zh": "暂无通知",
+    "en": "No notifications"
+  },
+  "public.account.notifications.notifications": {
+    "zh": "通知",
+    "en": "Notifications"
+  },
+  "public.account.notifications.notifications_80gotv": {
+    "zh": "通知 - 80GOTV",
+    "en": "Notifications - 80GOTV"
+  },
+  "public.account.predictions.80go_guess_the_player_8_guesses": {
+    "zh": "80GO 猜选手：每天 8 次机会 →",
+    "en": "80GO Guess the player: 8 guesses a day →"
+  },
+  "public.account.predictions.accuracy": {
+    "zh": "准确率",
+    "en": "Accuracy"
+  },
+  "public.account.predictions.correct": {
+    "zh": "正确",
+    "en": "Correct"
+  },
+  "public.account.predictions.exact": {
+    "zh": "精确",
+    "en": "Exact"
+  },
+  "public.account.predictions.exact_score_predictions": {
+    "zh": "猜中过精确比分",
+    "en": "Exact score predictions"
+  },
+  "public.account.predictions.no_prediction_data_yet_join_predictions": {
+    "zh": "暂无预测数据，去比赛详情页参与预测吧！",
+    "en": "No prediction data yet. Join predictions on match detail pages."
+  },
+  "public.account.predictions.popular_prediction_matches": {
+    "zh": "热门预测比赛",
+    "en": "Popular prediction matches"
+  },
+  "public.account.predictions.predictions": {
+    "zh": "预测排行",
+    "en": "Predictions"
+  },
+  "public.account.predictions.predictions_2": {
+    "zh": "预测场次",
+    "en": "Predictions"
+  },
+  "public.account.predictions.predictions_80gotv": {
+    "zh": "预测排行 - 80GOTV",
+    "en": "Predictions - 80GOTV"
+  },
+  "public.account.predictions.season_standings_top_10": {
+    "zh": "赛季积分 TOP 10",
+    "en": "Season standings Top 10"
+  },
+  "public.account.predictions.there_are_no_matches_available_for": {
+    "zh": "当前没有可以预测的比赛",
+    "en": "There are no matches available for prediction"
+  },
+  "public.account.predictions.total_points": {
+    "zh": "总积分",
+    "en": "Total points"
+  },
+  "public.account.predictions.user": {
+    "zh": "用户",
+    "en": "User"
+  },
+  "public.account.predictions.vote_count_predictions": {
+    "zh": "{vote_count} 人预测",
+    "en": "{vote_count} predictions"
+  },
+  "public.account.search.enter_keywords_to_search_the_site": {
+    "zh": "输入关键词搜索全站内容",
+    "en": "Enter keywords to search the site"
+  },
+  "public.account.search.events": {"zh": "赛事", "en": "Events"},
+  "public.account.search.external_player": {
+    "zh": "外校选手",
+    "en": "External player"
+  },
+  "public.account.search.matches": {
+    "zh": "比赛",
+    "en": "Matches"
+  },
+  "public.account.search.news": {"zh": "新闻", "en": "News"},
+  "public.account.search.no_results_related_to_query": {
+    "zh": "未找到与“{query}”相关的结果",
+    "en": "No results related to “{query}”"
+  },
+  "public.account.search.players": {"zh": "选手", "en": "Players"},
+  "public.account.search.results_for_query": {
+    "zh": "搜索“{query}”的结果",
+    "en": "Results for “{query}”"
+  },
+  "public.account.search.search": {
+    "zh": "搜索",
+    "en": "Search"
+  },
+  "public.account.search.teams": {"zh": "队伍", "en": "Teams"},
+  "public.account.search.search_query_80gotv": {
+    "zh": "搜索：{query} - 80GOTV",
+    "en": "Search: {query} - 80GOTV"
+  },
+  "public.account.user_profile.a_group_nickname_is_required_before": {
+    "zh": "群昵称为必填项，填写后才能继续使用其他网站功能。",
+    "en": "A group nickname is required before you can continue using other site features."
+  },
+  "public.account.user_profile.account_information": {
+    "zh": "账户信息",
+    "en": "Account information"
+  },
+  "public.account.user_profile.banned_for_cheating": {
+    "zh": "作弊封禁",
+    "en": "Banned for cheating"
+  },
+  "public.account.user_profile.change_avatar": {
+    "zh": "修改头像",
+    "en": "Change avatar"
+  },
+  "public.account.user_profile.change_group_nickname": {
+    "zh": "修改群昵称",
+    "en": "Change group nickname"
+  },
+  "public.account.user_profile.change_nickname": {
+    "zh": "修改昵称",
+    "en": "Change nickname"
+  },
+  "public.account.user_profile.change_password": {
+    "zh": "修改密码",
+    "en": "Change password"
+  },
+  "public.account.user_profile.confirm_new_password": {
+    "zh": "确认新密码",
+    "en": "Confirm new password"
+  },
+  "public.account.user_profile.current_password": {
+    "zh": "当前密码",
+    "en": "Current password"
+  },
+  "public.account.user_profile.entrant_player": {
+    "zh": "参赛选手",
+    "en": "Entrant player"
+  },
+  "public.account.user_profile.example_crinia": {
+    "zh": "例如：Crinia_",
+    "en": "Example: Crinia_"
+  },
+  "public.account.user_profile.flags": {
+    "zh": "标记",
+    "en": "Flags"
+  },
+  "public.account.user_profile.group_nickname": {
+    "zh": "群昵称",
+    "en": "Group nickname"
+  },
+  "public.account.user_profile.guest": {
+    "zh": "游客",
+    "en": "Guest"
+  },
+  "public.account.user_profile.in_game_nickname": {
+    "zh": "游戏昵称",
+    "en": "In-game nickname"
+  },
+  "public.account.user_profile.it_will_be_shown_as_player": {
+    "zh": "保存后显示为“选手昵称 @群昵称”；可以随时修改，但不能留空。",
+    "en": "It will be shown as “player nickname @group nickname”. You can change it at any time, but it cannot be empty."
+  },
+  "public.account.user_profile.joined": {
+    "zh": "注册时间",
+    "en": "Joined"
+  },
+  "public.account.user_profile.my_events": {
+    "zh": "我的赛事",
+    "en": "My events"
+  },
+  "public.account.user_profile.new_nickname": {
+    "zh": "新昵称",
+    "en": "New nickname"
+  },
+  "public.account.user_profile.new_password": {
+    "zh": "新密码",
+    "en": "New password"
+  },
+  "public.account.user_profile.no_80_high_school": {
+    "zh": "八十中",
+    "en": "No. 80 High School"
+  },
+  "public.account.user_profile.no_team": {
+    "zh": "无队伍",
+    "en": "No team"
+  },
+  "public.account.user_profile.none": {
+    "zh": "无",
+    "en": "None"
+  },
+  "public.account.user_profile.not_linked": {
+    "zh": "未绑定",
+    "en": "Not linked"
+  },
+  "public.account.user_profile.not_set": {
+    "zh": "待设置",
+    "en": "Not set"
+  },
+  "public.account.user_profile.ongoing": {
+    "zh": "进行中",
+    "en": "Ongoing"
+  },
+  "public.account.user_profile.other_school": {
+    "zh": "外校",
+    "en": "Other school"
+  },
+  "public.account.user_profile.player_information": {
+    "zh": "选手信息",
+    "en": "Player information"
+  },
+  "public.account.user_profile.profile_80gotv": {
+    "zh": "个人主页 - 80GOTV",
+    "en": "Profile - 80GOTV"
+  },
+  "public.account.user_profile.role": {
+    "zh": "身份",
+    "en": "Role"
+  },
+  "public.account.user_profile.save_group_nickname": {
+    "zh": "保存群昵称",
+    "en": "Save group nickname"
+  },
+  "public.account.user_profile.source": {
+    "zh": "来源",
+    "en": "Source"
+  },
+  "public.account.user_profile.start_date_match_count_matches": {
+    "zh": "{start_date} · {match_count} 场比赛",
+    "en": "{start_date} · {match_count} matches"
+  },
+  "public.account.user_profile.team": {
+    "zh": "所属队伍",
+    "en": "Team"
+  },
+  "public.account.user_profile.upload_avatar": {
+    "zh": "上传头像",
+    "en": "Upload avatar"
+  },
+  "public.account.user_profile.username": {
+    "zh": "用户名",
+    "en": "Username"
+  },
+  "public.account.user_profile.view_event": {
+    "zh": "查看赛事",
+    "en": "View event"
+  },
+  "public.account.user_profile.view_player_stats": {
+    "zh": "查看选手数据 →",
+    "en": "View player stats →"
+  },
+  "public.account.user_profile.view_veto": {
+    "zh": "查看/BP",
+    "en": "View / Veto"
+  }
+}

@@ -1,0 +1,34 @@
+{% extends 'layouts/public.html' %}
+{% block title %}{{ msg('public.news.news.news_80gotv') }}{% endblock %}
+{% block head %}{{ frontend_entry('news-style') }}{% endblock %}
+{% block layout_class %}narrow-layout no-side-layout{% endblock %}
+{% block main %}
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>NEWS</span><h1>{{ msg('public.news.news.news') }}</h1></div>
+</header>
+
+{% if news %}
+<div class="panel list news-list">
+  {% for n in news %}
+  <article class="list-row news-card full-click-news-card">
+    <a class="news-card-link" href="{{ news_path(n) }}" aria-label="{{ n.title }}" data-i18n-ignore></a>
+    <div class="grow">
+      <h2 class="news-title" data-i18n-ignore>{{ n.title }}</h2>
+      {% if n.summary %}<p class="news-summary" data-i18n-ignore>{{ n.summary }}</p>{% endif %}
+      <div class="meta news-meta"><span data-i18n-ignore>{{ n.author }}</span> {{ msg('public.news.news.publish_time_comments_comment_count', publish_time=n.publish_time|datetime_display, comment_count=n.comment_count) }}</div>
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% else %}
+<div class="panel empty-state">{{ msg('public.news.news.no_news') }}</div>
+{% endif %}
+
+{% if total_pages > 1 %}
+<nav class="pager" aria-label="{{ msg('public.news.news.pagination') }}">
+  {% if page > 1 %}<a href="?page={{ page - 1 }}">&laquo; {{ msg('public.news.news.previous') }}</a>{% endif %}
+  <span class="current">{{ msg('public.news.news.page_page_of_total_pages', page=page, total_pages=total_pages) }}</span>
+  {% if page < total_pages %}<a href="?page={{ page + 1 }}">{{ msg('public.news.news.next') }} &raquo;</a>{% endif %}
+</nav>
+{% endif %}
+{% endblock %}

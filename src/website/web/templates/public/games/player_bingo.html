@@ -1,0 +1,115 @@
+{% extends 'layouts/public.html' %}
+{% block title %}{{ msg('public.games.player_bingo.practice') if mode == 'practice' else msg('public.games.player_bingo.daily_challenge') }} {{ msg('public.games.player_bingo.player_bingo_80gotv') }}{% endblock %}
+{% block head %}
+{{ frontend_entry('games-style') }}
+{% endblock %}
+{% block layout_class %}no-side-layout games-layout{% endblock %}
+{% block main %}
+<div class="game-page player-bingo">
+  <div class="game-breadcrumb"><a href="{{ url_for('games_page') }}">{{ msg('public.games.player_bingo.games') }}</a><span>/</span><strong>{{ msg('public.games.player_bingo.player_bingo') }}</strong></div>
+  <nav class="segmented game-mode-tabs" aria-label="{{ msg('public.games.player_bingo.player_bingo_modes') }}">
+    <a href="{{ url_for('player_bingo_page') }}" class="{{ 'active' if mode == 'daily' else '' }}">{{ msg('public.games.player_bingo.daily_challenge') }}</a>
+    <a href="{{ url_for('player_bingo_practice_page') }}" class="{{ 'active' if mode == 'practice' else '' }}">{{ msg('public.games.player_bingo.free_play') }}</a>
+  </nav>
+
+  <header class="game-heading panel">
+    <div>
+      <span class="game-kicker">{{ msg('public.games.player_bingo.unlimited_boards') if mode == 'practice' else msg('public.games.player_bingo.daily_board') ~ game.challenge_number }}</span>
+      <h1>{{ msg('public.games.player_bingo.player_bingo') }}</h1>
+      <p>{{ msg('public.games.player_bingo.fill_each_cell_with_a_player') }}</p>
+    </div>
+    <div class="bingo-score"><strong>{{ game.lines }}</strong><span>{{ msg('public.games.player_bingo.lines') }}</span><b>{{ game.mistakes }}</b><span>{{ msg('public.games.player_bingo.mistakes') }}</span></div>
+  </header>
+
+  <section class="bingo-panel panel">
+    <div class="bingo-scroll">
+      <table class="bingo-board" aria-label="{{ msg('public.games.player_bingo.3_x_3_player_bingo_board') }}">
+        <thead>
+          <tr>
+            <th class="bingo-corner">{{ msg('public.games.player_bingo.criteria') }}</th>
+            {% for criterion in game.columns %}
+            <th title="{{ msg('bingo.criteria.' ~ criterion.key ~ '.description') }}">{{ msg('bingo.criteria.' ~ criterion.key ~ '.label') }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in range(3) %}
+          {% set row_criterion = game.rows[row].key %}
+          {% set row_label = msg('bingo.criteria.' ~ row_criterion ~ '.label') %}
+          <tr>
+            <th title="{{ msg('bingo.criteria.' ~ row_criterion ~ '.description') }}">{{ row_label }}</th>
+            {% for column in range(3) %}
+            {% set player = game.cells.get((row, column)) %}
+            <td class="{% if (row, column) in game.line_cells %}is-line {% endif %}{% if player %}is-filled{% endif %}">
+              {% if player %}
+              <div class="bingo-player">
+                <span aria-label="{{ player.country_name }}" data-i18n-ignore>{{ player.country_flag }}</span>
+                <strong data-i18n-ignore>{{ player.nickname }}</strong>
+                <small data-i18n-ignore>{{ player.full_name }}</small>
+              </div>
+              {% elif not game.finished %}
+              <button type="button" class="bingo-cell-pick"
+                      data-row="{{ row }}" data-column="{{ column }}"
+                      data-row-label="{{ row_label }}"
+                      data-column-label="{{ msg('bingo.criteria.' ~ game.columns[column].key ~ '.label') }}">
+                <span>+</span><small>{{ msg('public.games.player_bingo.select_player') }}</small>
+              </button>
+              {% endif %}
+            </td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if not game.finished %}
+    <form class="bingo-pick-form" method="post" action="{{ url_for('player_bingo_practice_submit') if mode == 'practice' else url_for('player_bingo_submit') }}" id="bingoPickForm">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="row_index" id="bingoRowIndex">
+      <input type="hidden" name="column_index" id="bingoColumnIndex">
+      <input type="hidden" name="player_id" id="bingoPlayerId">
+      <label for="bingoPlayerQuery">
+        <span id="bingoSelectionLabel">{{ msg('public.games.player_bingo.pick_an_empty_cell_first') }}</span>
+        <input type="text" name="player_query" id="bingoPlayerQuery" list="bingoPlayerOptions" autocomplete="off" maxlength="80" placeholder="{{ msg('public.games.player_bingo.enter_a_player_nickname') }}" disabled>
+      </label>
+      <datalist id="bingoPlayerOptions" data-i18n-ignore>
+        {% for player in players %}<option value="{{ player.nickname }}" data-player-id="{{ player.id }}">{{ player.full_name }}</option>{% endfor %}
+      </datalist>
+      <button type="submit" class="btn btn-primary" id="bingoSubmit" disabled>{{ msg('public.games.player_bingo.fill_cell') }}</button>
+    </form>
+    {% endif %}
+  </section>
+
+  {% if game.finished %}
+  <section class="game-result panel is-win">
+    <div><span>{{ msg('public.games.player_bingo.boards_completed') }}</span><strong>{{ msg('public.games.player_bingo.9_9_cells_lines_lines', lines=game.lines) }}</strong></div>
+    <small>{{ msg('public.games.player_bingo.mistakes_mistakes', mistakes=game.mistakes) }}</small>
+  </section>
+  {% endif %}
+
+  {% if mode == 'practice' %}
+  <form method="post" action="{{ url_for('player_bingo_practice_new') }}" class="game-new-round">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit" class="btn{{ ' btn-primary' if game.finished else '' }}">{{ msg('public.games.player_bingo.play_again') if game.finished else msg('public.games.player_bingo.new_board') }}</button>
+  </form>
+  {% else %}
+  <section class="game-stats panel">
+    <div class="panel-head"><h2 class="panel-title">{{ msg('public.games.player_bingo.my_record') }}</h2></div>
+    <div class="game-stat-grid">
+      <div><strong>{{ statistics.games }}</strong><span>{{ msg('public.games.player_bingo.days_played') }}</span></div>
+      <div><strong>{{ statistics.completed }}</strong><span>{{ msg('public.games.player_bingo.boards_completed') }}</span></div>
+      <div><strong>{{ statistics.best_mistakes }}</strong><span>{{ msg('public.games.player_bingo.fewest_mistakes') }}</span></div>
+      <div><strong>{{ statistics.current_streak }}</strong><span>{{ msg('public.games.player_bingo.current_streak') }}</span></div>
+    </div>
+  </section>
+  {% endif %}
+
+  <p class="game-source-note">{{ msg('public.games.player_bingo.conditions_use_the_locally_saved_hltv') }}</p>
+</div>
+{% endblock %}
+{% block side %}{% endblock %}
+{% block extra_js %}
+<script type="application/json" data-site-messages>{{ client_messages('player_bingo')|tojson }}</script>
+{{ frontend_entry('player-bingo') }}
+{% endblock %}

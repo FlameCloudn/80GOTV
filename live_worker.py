@@ -7,10 +7,9 @@ import threading
 from contextlib import closing
 
 from config import validate_production_config
-from models import init_tables
-from site_core.database import get_db
-from site_core.events.public import run_due_events_once
-from utils.live_poller import start_poller, stop_poller
+from src.website.domains.events.formation import run_due_events_once
+from src.website.runtime.database import get_db
+from src.website.runtime.live_poller import start_poller, stop_poller
 
 
 def run_background(shutdown):
@@ -33,7 +32,6 @@ def run_background(shutdown):
 
 def main():
     validate_production_config()
-    init_tables()
     shutdown = threading.Event()
 
     def request_shutdown(_signum, _frame):

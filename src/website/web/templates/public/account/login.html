@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="{{ site_language_tag }}">
+<head>
+  {% include "layouts/_standalone_head.html" %}
+  <title>{{ msg('public.account.login.log_in_register_80gotv') }}</title>
+  {{ frontend_entry('auth-style') }}
+
+</head>
+<body>
+  {% set active_tab = tab or 'login' %}
+  {% set next_value = next_target or request.args.get('next', '') %}
+
+  <div class="page-actions">
+    <button type="button" class="theme-button" id="themeButton" aria-label="{{ msg('public.account.login.toggle_light_dark_theme') }}" title="{{ msg('public.account.login.toggle_light_dark_theme') }}">
+      <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20.4 15.1A8.5 8.5 0 0 1 8.9 3.6 8.5 8.5 0 1 0 20.4 15.1Z"/></svg>
+      <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3.5"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+    {% include "components/_language_picker.html" %}
+  </div>
+
+  <main class="auth-shell">
+    <section class="brand-panel" aria-label="{{ msg('public.account.login.about_80gotv') }}">
+      <div class="brand-top">
+        <img class="brand-mark" src="{{ url_for('static', filename='logos/80gotv-mark.png') }}" alt="80GOTV">
+        <span>80GOTV</span>
+      </div>
+      <div class="brand-copy">
+        <h1><span class="brand-title-en">80GO Counter-Strike 2</span><span class="brand-title-cn">{{ msg('public.account.login.stats_website') }}</span></h1>
+      </div>
+    </section>
+
+    <section class="form-panel">
+      <div class="form-heading">
+        {% if active_tab == 'login' %}
+        <h2>{{ msg('public.account.login.welcome_back') }}</h2>
+        <p>{{ msg('public.account.login.log_in_to_view_data') }}</p>
+        {% else %}
+        <h2>{{ msg('public.account.login.apply_for_an_account') }}</h2>
+        <p>{{ msg('public.account.login.verify_with_steam_submit_your_application') }}</p>
+        {% endif %}
+      </div>
+
+      {% include "components/_flash_toasts.html" %}
+
+      <nav class="tabs" aria-label="{{ msg('public.account.login.log_in_and_register') }}">
+        <a class="tab {% if active_tab == 'login' %}active{% endif %}" href="/login{% if next_value %}?next={{ next_value|urlencode }}{% endif %}" {% if active_tab == 'login' %}aria-current="page"{% endif %}>{{ msg('public.account.login.log_in') }}</a>
+        <a class="tab {% if active_tab == 'register' %}active{% endif %}" href="/register" {% if active_tab == 'register' %}aria-current="page"{% endif %}>{{ msg('public.account.login.register') }}</a>
+      </nav>
+
+      {% if active_tab == 'login' %}
+      <div class="tab-content active">
+        <form method="post" action="/login">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="hidden" name="next" value="{{ next_value }}">
+
+          <div class="form-group">
+            <label class="form-label" for="loginUsername">{{ msg('public.account.login.username') }}</label>
+            <input class="text-input" id="loginUsername" type="text" name="username" required autofocus autocomplete="username" placeholder="{{ msg('public.account.login.enter_your_username') }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="loginPassword">{{ msg('public.account.login.password') }}</label>
+            <div class="password-wrap">
+              <input class="text-input" id="loginPassword" type="password" name="password" required autocomplete="current-password" placeholder="{{ msg('public.account.login.enter_your_password') }}">
+              <button type="button" class="password-toggle" data-password-target="loginPassword" aria-label="{{ msg('public.account.login.show_password') }}" title="{{ msg('public.account.login.show_password') }}"><svg class="pw-icon pw-icon-show" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="pw-icon pw-icon-hide" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.9 17.9A10 10 0 0 1 12 19c-6.4 0-10-7-10-7a18.5 18.5 0 0 1 5.1-5.9"/><path d="M9.9 4.2A9 9 0 0 1 12 4c6.4 0 10 7 10 7a18.5 18.5 0 0 1-2.2 3.2"/><path d="M14.1 14.1a3 3 0 1 1-4.2-4.2"/><path d="M2 2l20 20"/></svg></button>
+            </div>
+          </div>
+          <div class="captcha-block">
+            <label class="form-label" for="loginCaptcha">{{ msg('public.account.login.security_check') }}</label>
+            <div class="captcha-row">
+              <img class="captcha-image" id="captchaImage" src="/captcha/image?t={{ range(100000, 999999)|random }}" alt="{{ msg('public.account.login.captcha') }}">
+              <input class="text-input" id="loginCaptcha" type="text" name="captcha" placeholder="{{ msg('public.account.login.enter_the_characters_in_the_image') }}" autocomplete="off" autocapitalize="characters" maxlength="5">
+              <button type="button" class="captcha-refresh" data-reload-captcha aria-label="{{ msg('public.account.login.get_a_new_captcha') }}" title="{{ msg('public.account.login.get_a_new_captcha') }}">↻</button>
+            </div>
+          </div>
+          <div class="form-meta">
+            <span>{{ msg('public.account.login.admin_accounts_can_leave_the_captcha') }}</span>
+            <a href="/change-password" class="form-link">{{ msg('public.account.login.forgot_password') }}</a>
+          </div>
+          <button type="submit" class="primary-button">{{ msg('public.account.login.log_in') }}</button>
+        </form>
+      </div>
+      {% else %}
+      <div class="tab-content active">
+        <form method="post" action="/register" enctype="multipart/form-data" id="registerForm" novalidate>
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <div class="form-trap" aria-hidden="true">
+            <label for="registerWebsite">{{ msg('public.account.login.website') }}</label>
+            <input id="registerWebsite" type="text" name="website" tabindex="-1" autocomplete="off">
+          </div>
+
+          <div class="application-notice">{{ msg('public.account.login.guest_registration_is_closed_only_player') }}</div>
+
+          <div class="form-group">
+            <span class="form-label">{{ msg('public.account.login.are_you_or_were_you_a') }} <span class="required">*</span></span>
+            {% set submitted_school_status = request.form.get('is_bashizhong_student', '') %}
+            <div class="school-status-options">
+              <label class="school-status-option">
+                <input type="radio" name="is_bashizhong_student" value="1"
+                       {% if submitted_school_status == '1' %}checked{% endif %} required>
+                <span><strong>{{ msg('public.account.login.yes') }}</strong><small>{{ msg('public.account.login.a_group_nickname_is_also_required') }}</small></span>
+              </label>
+              <label class="school-status-option">
+                <input type="radio" name="is_bashizhong_student" value="0"
+                       {% if submitted_school_status == '0' %}checked{% endif %} required>
+                <span><strong>{{ msg('public.account.login.no') }}</strong><small>{{ msg('public.account.login.your_profile_shows_the_globe_badge') }}</small></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="registerEmail">{{ msg('public.account.login.email') }} <span class="required">*</span></label>
+            <div class="email-action-row">
+              <input class="text-input" id="registerEmail" type="email" name="email" required maxlength="254" autocomplete="email" value="{{ registration_email or '' }}" data-verified-email="{{ verified_email or '' }}" placeholder="{{ msg('public.account.login.used_to_receive_a_six_digit') }}">
+              <button class="email-action-button" id="sendEmailCode" type="button">{{ msg('public.account.login.send_code') }}</button>
+            </div>
+            <div class="email-action-row">
+              <input class="text-input" id="registerEmailCode" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="{{ msg('public.account.login.enter_the_six_digit_code') }}">
+              <button class="email-action-button" id="verifyEmailCode" type="button">{{ msg('public.account.login.verify_email') }}</button>
+            </div>
+            <small class="email-status {% if verified_email %}success{% endif %}" id="emailStatus">{% if verified_email %}{{ msg('public.account.login.email_verified') }}{% else %}{{ msg('public.account.login.the_code_is_valid_for_10') }}{% endif %}</small>
+          </div>
+
+          <div class="field-row">
+            <div class="form-group">
+              <label class="form-label" for="registerUsername">{{ msg('public.account.login.username') }} <span class="required">*</span></label>
+              <input class="text-input" id="registerUsername" type="text" name="username" required minlength="2" maxlength="20" autocomplete="username" value="{{ request.form.get('username', '') }}" placeholder="{{ msg('public.account.login.2_20_characters') }}">
+            </div>
+            <div class="form-group" id="registerGroupUsernameField">
+              <label class="form-label" for="registerGroupUsername">{{ msg('public.account.login.group_nickname') }} <span class="required">*</span></label>
+              <input class="text-input" id="registerGroupUsername" type="text" name="group_username" maxlength="40" autocomplete="nickname" value="{{ request.form.get('group_username', '') }}" placeholder="{{ msg('public.account.login.name_used_in_the_group_chat') }}">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="registerAvatar">{{ msg('public.account.login.avatar') }}</label>
+            <input class="file-input" id="registerAvatar" type="file" name="avatar" accept="image/png,image/jpeg,image/gif">
+          </div>
+
+          <div class="field-row">
+            <div class="form-group">
+              <label class="form-label" for="registerPassword">{{ msg('public.account.login.password') }} <span class="required">*</span></label>
+              <div class="password-wrap">
+                <input class="text-input" id="registerPassword" type="password" name="password" required minlength="10" autocomplete="new-password" placeholder="{{ msg('public.account.login.at_least_10_characters_including_letters') }}">
+                <button type="button" class="password-toggle" data-password-target="registerPassword" aria-label="{{ msg('public.account.login.show_password') }}" title="{{ msg('public.account.login.show_password') }}"><svg class="pw-icon pw-icon-show" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="pw-icon pw-icon-hide" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.9 17.9A10 10 0 0 1 12 19c-6.4 0-10-7-10-7a18.5 18.5 0 0 1 5.1-5.9"/><path d="M9.9 4.2A9 9 0 0 1 12 4c6.4 0 10 7 10 7a18.5 18.5 0 0 1-2.2 3.2"/><path d="M14.1 14.1a3 3 0 1 1-4.2-4.2"/><path d="M2 2l20 20"/></svg></button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="registerPassword2">{{ msg('public.account.login.confirm_password') }} <span class="required">*</span></label>
+              <div class="password-wrap">
+                <input class="text-input" id="registerPassword2" type="password" name="password2" required minlength="10" autocomplete="new-password" placeholder="{{ msg('public.account.login.enter_again') }}">
+                <button type="button" class="password-toggle" data-password-target="registerPassword2" aria-label="{{ msg('public.account.login.show_password') }}" title="{{ msg('public.account.login.show_password') }}"><svg class="pw-icon pw-icon-show" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="pw-icon pw-icon-hide" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.9 17.9A10 10 0 0 1 12 19c-6.4 0-10-7-10-7a18.5 18.5 0 0 1 5.1-5.9"/><path d="M9.9 4.2A9 9 0 0 1 12 4c6.4 0 10 7 10 7a18.5 18.5 0 0 1-2.2 3.2"/><path d="M14.1 14.1a3 3 0 1 1-4.2-4.2"/><path d="M2 2l20 20"/></svg></button>
+              </div>
+            </div>
+          </div>
+
+          <div class="captcha-block">
+            <label class="form-label" for="registerCaptcha">{{ msg('public.account.login.security_check') }} <span class="required">*</span></label>
+            <div class="captcha-row">
+              <img class="captcha-image" id="captchaImageReg" src="/captcha/image?t={{ range(100000, 999999)|random }}" alt="{{ msg('public.account.login.captcha') }}">
+              <input class="text-input" id="registerCaptcha" type="text" name="captcha" required placeholder="{{ msg('public.account.login.enter_the_characters_in_the_image') }}" autocomplete="off" autocapitalize="characters" maxlength="5">
+              <button type="button" class="captcha-refresh" data-reload-captcha aria-label="{{ msg('public.account.login.get_a_new_captcha') }}" title="{{ msg('public.account.login.get_a_new_captcha') }}">↻</button>
+            </div>
+          </div>
+
+          <div id="steamFields">
+            <div class="form-group">
+              <label class="form-label">{{ msg('public.account.login.steam_verification') }} <span class="required">*</span></label>
+              {% if steam_verified_id %}
+              <div class="verified-steam">{{ msg('public.account.login.verified_steam_id_steam_verified_id', steam_verified_id=steam_verified_id) }}</div>
+              {% else %}
+              <a href="/auth/steam/start?purpose=register" class="steam-verify-btn">
+                <svg class="steam-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-9.87 8.4l5.3 2.2a2.85 2.85 0 0 1 1.6-.64l2.35-3.4v-.05a3.85 3.85 0 1 1 3.85 3.85h-.09l-3.37 2.4a2.9 2.9 0 0 1-5.74.58L1.4 13.42A10 10 0 1 0 12 2Zm-3.13 14.73-1.28-.53a2.18 2.18 0 0 0 1.16 1.07 2.13 2.13 0 0 0 2.79-1.15 2.13 2.13 0 0 0-1.15-2.78 2.09 2.09 0 0 0-1.61-.01l1.32.55a1.57 1.57 0 1 1-1.23 2.85Zm6.36-5.66a2.56 2.56 0 1 0 0-5.12 2.56 2.56 0 0 0 0 5.12Zm0-.64a1.92 1.92 0 1 1 0-3.84 1.92 1.92 0 0 1 0 3.84Z"/></svg>
+                {{ msg('public.account.login.verify_with_steam') }}
+              </a>
+              {% endif %}
+              <small class="field-note">{{ msg('public.account.login.steam_identity_is_used_to_match') }}</small>
+            </div>
+          </div>
+
+          <button type="submit" class="primary-button" data-submit-label="提交审核申请">{{ msg('public.account.login.submit_application') }}</button>
+          <small class="email-status" id="registerSubmitStatus" aria-live="polite"></small>
+        </form>
+      </div>
+      {% endif %}
+
+      <span class="back-link">{{ msg('public.account.login.80gotv_is_available_to_approved_members') }}</span>
+    </section>
+  </main>
+
+  <script type="application/json" data-site-messages>{{ client_messages('inline_login')|tojson }}</script>
+{{ frontend_entry('account-login') }}
+  <script type="application/json" data-site-messages>{{ client_messages('site_dialogs')|tojson }}</script>
+{{ frontend_entry('site-dialogs') }}
+</body>
+</html>

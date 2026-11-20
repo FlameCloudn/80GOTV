@@ -1,0 +1,58 @@
+{% extends 'layouts/public.html' %}
+{% block title %}{{ msg('public.games.guess_player_multiplayer.multiplayer_80gotv') }}{% endblock %}
+{% block head %}
+{{ frontend_entry('guess-player-style') }}
+{% endblock %}
+{% block layout_class %}no-side-layout guess-player-layout{% endblock %}
+{% block main %}
+<div class="guess-game guess-multiplayer">
+  <nav class="segmented guess-mode-tabs" aria-label="{{ msg('public.games.guess_player_multiplayer.game_mode') }}">
+    <a href="{{ url_for('guess_player_page') }}">{{ msg('public.games.guess_player_multiplayer.daily_challenge') }}</a>
+    <a href="{{ url_for('guess_player_practice_page') }}">{{ msg('public.games.guess_player_multiplayer.free_play') }}</a>
+    <a href="{{ url_for('guess_player_multiplayer_page') }}" class="active">{{ msg('public.games.guess_player_multiplayer.online_battle') }}</a>
+  </nav>
+
+  <header class="guess-heading panel">
+    <div>
+      <span class="guess-kicker" data-i18n-ignore>MULTIPLAYER</span>
+      <h1>{{ msg('public.games.guess_player_multiplayer.online_guess_the_player') }}</h1>
+      <p>{{ msg('public.games.guess_player_multiplayer.two_players_get_the_same_answer') }}</p>
+    </div>
+    <div class="guess-source">{{ msg('public.games.guess_player_multiplayer.8_guesses_join_with_a_room') }}</div>
+  </header>
+
+  <div class="guess-lobby-grid">
+    <section class="guess-lobby-section panel">
+      <div class="panel-head"><h2 class="panel-title">{{ msg('public.games.guess_player_multiplayer.create_room') }}</h2></div>
+      <form method="post" action="{{ url_for('guess_player_multiplayer_create') }}" class="guess-lobby-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <fieldset class="guess-pool-picker">
+          <legend>{{ msg('public.games.guess_player_multiplayer.player_pool') }}</legend>
+          <label>
+            <input type="radio" name="pool_mode" value="noob" checked>
+            <span><strong data-i18n-ignore>Noob</strong><small>{{ msg('public.games.guess_player_multiplayer.annual_top_20_players_and_rosters') }}</small></span>
+          </label>
+          <label>
+            <input type="radio" name="pool_mode" value="pro">
+            <span><strong data-i18n-ignore>Pro</strong><small>{{ msg('public.games.guess_player_multiplayer.full_player_database') }}</small></span>
+          </label>
+        </fieldset>
+        <button type="submit" class="btn btn-primary guess-primary-action">{{ msg('public.games.guess_player_multiplayer.create_battle') }}</button>
+      </form>
+    </section>
+
+    <section class="guess-lobby-section panel">
+      <div class="panel-head"><h2 class="panel-title">{{ msg('public.games.guess_player_multiplayer.join_room') }}</h2></div>
+      <form method="post" action="{{ url_for('guess_player_multiplayer_join') }}" class="guess-lobby-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label class="guess-room-code-field">
+          <span>{{ msg('public.games.guess_player_multiplayer.room_code') }}</span>
+          <input name="room_code" inputmode="text" maxlength="6" autocomplete="off" required placeholder="{{ msg('public.games.guess_player_multiplayer.example_a7k9px') }}">
+        </label>
+        <button type="submit" class="btn btn-primary guess-primary-action">{{ msg('public.games.guess_player_multiplayer.join_battle') }}</button>
+      </form>
+    </section>
+  </div>
+</div>
+{% endblock %}
+{% block side %}{% endblock %}

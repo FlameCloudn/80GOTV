@@ -1,0 +1,10 @@
+<form class="language-picker" data-site-language action="{{ url_for('set_site_language') }}" method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <input type="hidden" name="next" value="{{ request.full_path if request.query_string else request.path }}">
+  <select id="languageSelect" class="language-select" name="language" aria-label="{{ msg('language.label') }}">
+    <option value="auto"{% if site_language_mode == 'auto' %} selected{% endif %}>{{ msg('language.auto') }}</option>
+    <option value="zh" lang="zh-CN"{% if site_language_mode == 'zh' %} selected{% endif %}>中文</option>
+    <option value="en" lang="en"{% if site_language_mode == 'en' %} selected{% endif %}>English</option>
+  </select>
+  <button type="submit" class="btn btn-sm" data-language-submit>{{ msg('language.apply') }}</button>
+</form>

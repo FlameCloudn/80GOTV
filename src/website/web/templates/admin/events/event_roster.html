@@ -1,0 +1,52 @@
+{% extends "layouts/admin.html" %}
+{% import "components/_icons.html" as ui %}
+{% block title %}{{ msg('admin.events.event_roster.name_registration_rosters', name=event.name) }}{% endblock %}
+{% block main %}
+<a href="{{ url_for('admin.admin_events') }}" class="back-link">{{ msg('admin.events.event_roster.back_to_event_management') }}</a>
+<header class="page-head">
+  <div>
+    <span class="page-head-kicker" data-i18n-ignore>EVENTS · ROSTER</span>
+    <h1><span data-i18n-ignore>{{ event.name }}</span> {{ msg('admin.events.event_roster.registration_rosters') }}</h1>
+  </div>
+  <div class="page-actions">
+    <a class="btn" href="{{ url_for('admin.admin_events_edit', event_id=event.id) }}">{{ ui.icon('edit') }}{{ msg('admin.events.event_roster.edit_event') }}</a>
+    <a class="btn" href="{{ url_for('admin.admin_matches', event=event.id) }}">{{ ui.icon('match') }}{{ msg('admin.events.event_roster.matches_in_this_event') }}</a>
+    <a class="btn" href="{{ url_for('admin.admin_event_bracket', event_id=event.id) }}">{{ ui.icon('bracket') }}{{ msg('admin.events.event_roster.bracket') }}</a>
+    <a class="btn" href="{{ event_path(event) }}" target="_blank" rel="noopener">{{ ui.icon('external') }}{{ msg('admin.events.event_roster.event_page') }}</a>
+  </div>
+</header>
+
+{% include 'admin/events/_roster_stage.html' %}
+
+{#- 2. 版本冲突横条（平时隐藏） -#}
+<div id="revisionConflictBanner" class="roster-conflict-banner" role="alert" hidden>
+  <div class="roster-conflict-text">
+    {{ ui.icon('alert') }}
+    <div>
+      <strong>{{ msg('admin.events.event_roster.another_admin_updated_this_roster_you', value1=control.formation_revision or 0) }}</strong>
+      <p>{{ msg('admin.events.event_roster.roster_actions_are_paused_to_prevent') }}</p>
+    </div>
+  </div>
+  <button type="button" class="btn btn-primary" data-roster-reload>{{ msg('admin.events.event_roster.reload_page') }}</button>
+</div>
+
+{% include 'admin/events/_roster_formation.html' %}
+
+{% include 'admin/events/_roster_reservations.html' %}
+
+{#- 5. C 区：参赛队伍 -#}
+{% if control.formed %}
+{% include 'admin/events/_roster_entrants.html' %}
+
+{% include 'admin/events/_roster_reserves.html' %}
+{% endif %}
+
+{% include 'admin/events/_roster_dialogs.html' %}
+
+<script id="eventRosterData" type="application/json">{{ roster_payload|tojson }}</script>
+{% endblock %}
+
+{% block scripts %}
+<script type="application/json" data-site-messages>{{ client_messages('admin_event_roster', keys=('roster.reserve.player_label',))|tojson }}</script>
+{{ frontend_entry('admin-roster') }}
+{% endblock %}

@@ -1,0 +1,92 @@
+{% from 'public/matches/_match_stat_value.html' import stat_value %}
+
+{% macro metric(value, digits=0, suffix='') -%}
+{{ (('%.' ~ digits ~ 'f')|format(value)) ~ suffix if value is not none else '-' }}
+{%- endmacro %}
+
+{#- 一支队伍的选手数据表（全部地图 / 单张地图、两种页面共用）。
+    rating_label：比赛页写“Rating”，数据页写“RATING”（术语不翻译）。 -#}
+{% macro team_stats_table(rows, logo, short_name, team_name, rating_label) %}
+<div class="stats-table">
+  <table class="table">
+    <thead>
+      <tr>
+        <th class="stats-team-head"><span class="stats-team-label">{% if logo %}<img class="team-logo sm" loading="lazy" src="{{ logo|team_logo_url }}" alt="">{% else %}<span class="logo-fallback sm" data-i18n-ignore>{{ team_name|team_abbr(short_name) }}</span>{% endif %}<span data-i18n-ignore>{{ team_name }}</span></span></th>
+        <th class="col-overall">K-D</th><th class="col-t">T K-D</th><th class="col-ct">CT K-D</th>
+        <th class="col-overall sortable" data-sort="kd">K/D</th><th class="col-t">T K/D</th><th class="col-ct">CT K/D</th>
+        <th class="col-overall sortable" data-sort="adr">ADR</th><th class="col-t">T ADR</th><th class="col-ct">CT ADR</th>
+        <th class="sortable" data-sort="kast">KAST</th><th class="sortable" data-sort="imp">IMP</th>
+        <th class="col-overall sortable sort-desc" data-sort="rating">{{ rating_label }}</th><th class="col-t">T-RT</th><th class="col-ct">CT-RT</th>
+        <th class="sortable" data-sort="hs">HS%</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in rows %}
+      {% set kd = s.kills / s.deaths if s.kills is not none and s.deaths is not none and s.deaths > 0 else none %}
+      {% set t_kd = s.t_kills / s.t_deaths if s.t_kills is not none and s.t_deaths is not none and s.t_deaths > 0 else none %}
+      {% set ct_kd = s.ct_kills / s.ct_deaths if s.ct_kills is not none and s.ct_deaths is not none and s.ct_deaths > 0 else none %}
+      <tr data-side-values="{{ s.side_views|tojson|forceescape }}">
+        <td><a href="/players/{{ s.player_id }}" data-i18n-ignore>{{ private_name_for_player(s.player_id, s.nickname) }}</a></td>
+        <td class="kd-cell col-overall">{{ metric(s.kills) }}-{{ metric(s.deaths) }}</td>
+        <td class="kd-cell col-t">{{ metric(s.t_kills) }}-{{ metric(s.t_deaths) }}</td>
+        <td class="kd-cell col-ct">{{ metric(s.ct_kills) }}-{{ metric(s.ct_deaths) }}</td>
+        <td class="kd-cell col-overall {% if kd is not none and kd > 1.0 %}kd-pos{% elif kd is not none and kd < 1.0 %}kd-neg{% endif %}">{{ metric(kd, 2) }}</td>
+        <td class="kd-cell col-t {% if t_kd is not none and t_kd > 1.0 %}kd-pos{% elif t_kd is not none and t_kd < 1.0 %}kd-neg{% endif %}">{{ metric(t_kd, 2) }}</td>
+        <td class="kd-cell col-ct {% if ct_kd is not none and ct_kd > 1.0 %}kd-pos{% elif ct_kd is not none and ct_kd < 1.0 %}kd-neg{% endif %}">{{ metric(ct_kd, 2) }}</td>
+        <td class="col-overall">{{ metric(s.adr, 1) }}</td>
+        <td class="col-t">{{ metric(s.t_adr, 1) }}</td>
+        <td class="col-ct">{{ metric(s.ct_adr, 1) }}</td>
+        <td>{{ stat_value('kast', s.kast, 1, '%') }}</td>
+        <td>{{ stat_value('impact', s.impact, 2) }}</td>
+        <td class="rt-cell col-overall" title="T: {{ metric(s.t_rating, 2) }} / CT: {{ metric(s.ct_rating, 2) }}"><b>{{ metric(s.rating, 2) }}</b></td>
+        <td class="rt-cell col-t">{{ metric(s.t_rating, 2) }}</td>
+        <td class="rt-cell col-ct">{{ metric(s.ct_rating, 2) }}</td>
+        <td>{{ stat_value('headshot_percentage', s.headshot_percentage, 1, '%') }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endmacro %}
+
+{#- 比赛数据：双方 / T / CT 切换 + 全部地图 / 单张地图切换 + 两队的数据表。
+    overall_teams：两队按简称排序，数据仍取各自原始比赛位置。 -#}
+{% macro match_stats_block(map_list, overall_teams, side_labels, rating_label) %}
+<section class="panel match-data-panel">
+  <div class="panel-head">
+    <h2 class="panel-title mh-sec-head">{{ msg('public.matches.stats_tables.match_stats') }}</h2>
+    <div class="segmented side-toggle" role="tablist" aria-label="{{ msg('public.matches.stats_tables.data_view_switcher') }}">
+      <button class="side-toggle-btn active" type="button" role="tab" aria-selected="true" data-side="overall">{{ side_labels[0] }}</button>
+      <button class="side-toggle-btn" type="button" role="tab" aria-selected="false" data-side="t">{{ side_labels[1] }}</button>
+      <button class="side-toggle-btn" type="button" role="tab" aria-selected="false" data-side="ct">{{ side_labels[2] }}</button>
+    </div>
+  </div>
+
+  <div class="tabs detail-tabs" role="tablist" aria-label="{{ msg('public.matches.stats_tables.map_data_switcher') }}">
+    <button class="tab detail-tab active" type="button" role="tab" aria-selected="true" id="tab-0" aria-controls="panel-0" data-detail-index="0">{{ msg('public.matches.stats_tables.all_maps') }}</button>
+    {% for ms in map_list %}
+    <button class="tab detail-tab" type="button" role="tab" aria-selected="false" id="tab-{{ loop.index }}" aria-controls="panel-{{ loop.index }}" data-detail-index="{{ loop.index }}">{{ ms.name|map_display }}</button>
+    {% endfor %}
+    <a href="/matches/{{ match.slug or match.id }}/detailed?map=all" class="tab detail-tab detail-tab-link">{{ msg('public.matches.stats_tables.detailed_stats') }}</a>
+  </div>
+
+  <div class="detail-panel active" id="panel-0" role="tabpanel" aria-labelledby="tab-0">
+    <div class="detail-panel-body">
+      {% for rows, logo, short_name, team_name in overall_teams %}
+      {% if rows %}{{ team_stats_table(rows, logo, short_name, team_name, rating_label) }}{% else %}<p class="empty-state">{{ msg('public.matches.stats_tables.no_data') }}</p>{% endif %}
+      {% endfor %}
+    </div>
+  </div>
+
+  {% for ms in map_list %}
+  <div class="detail-panel" id="panel-{{ loop.index }}" role="tabpanel" aria-labelledby="tab-{{ loop.index }}">
+    <div class="detail-panel-body">
+      {% for opponent in opponents %}
+      {% set rows = ms.team1_stats if opponent.side == 't1' else ms.team2_stats %}
+      {% if rows %}{{ team_stats_table(rows, opponent.logo, opponent.short, opponent.name, rating_label) }}{% else %}<p class="empty-state">{{ msg('public.matches.stats_tables.no_data_for_this_map') }}</p>{% endif %}
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</section>
+{% endmacro %}

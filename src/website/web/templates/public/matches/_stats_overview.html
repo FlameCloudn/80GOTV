@@ -1,0 +1,172 @@
+<section class="panel match-stats-hero-card">
+  <div class="match-stats-hero-team">
+    {% if left_team.logo %}
+    <img class="team-logo xl match-stats-hero-logo" src="{{ left_team.logo|team_logo_url }}" alt="{{ left_team.name }}" loading="lazy">
+    {% else %}
+    <span class="logo-fallback xl match-stats-hero-logo match-stats-hero-fallback" data-i18n-ignore>{{ left_team.name|team_abbr(left_team.short) }}</span>
+    {% endif %}
+    <strong data-i18n-ignore>{{ left_team.name }}</strong>
+  </div>
+  <div class="match-stats-hero-center">
+    <a class="match-stats-hero-event" href="{{ event_path(match) }}" data-i18n-ignore>{{ match.event_name or '80GOTV' }}</a>
+    {% set hero_scored = match.team1_score is not none and match.team2_score is not none %}
+    <div class="match-stats-hero-score">
+      <span class="{% if hero_scored and left_team.score > right_team.score %}score-win{% elif hero_scored and left_team.score < right_team.score %}score-lose{% endif %}">{{ left_team.score if left_team.score is not none else '-' }}</span>
+      <span class="sep">:</span>
+      <span class="{% if hero_scored and right_team.score > left_team.score %}score-win{% elif hero_scored and right_team.score < left_team.score %}score-lose{% endif %}">{{ right_team.score if right_team.score is not none else '-' }}</span>
+    </div>
+    <div class="match-stats-hero-meta">{{ match.bo_format or 'BO1' }} · {{ match.match_time|datetime_display if match.match_time else 'TBD' }}</div>
+    <div class="match-stats-hero-actions">
+      <a class="btn btn-sm" href="/matches/{{ match.slug or match.id }}">{{ msg('public.matches.stats_overview.back_to_match') }}</a>
+      <a class="btn btn-sm" href="/matches/{{ match.slug or match.id }}/poster">{{ msg('public.matches.stats_overview.download_result_poster') }}</a>
+    </div>
+  </div>
+  <div class="match-stats-hero-team match-stats-hero-team-right">
+    {% if right_team.logo %}
+    <img class="team-logo xl match-stats-hero-logo" src="{{ right_team.logo|team_logo_url }}" alt="{{ right_team.name }}" loading="lazy">
+    {% else %}
+    <span class="logo-fallback xl match-stats-hero-logo match-stats-hero-fallback" data-i18n-ignore>{{ right_team.name|team_abbr(right_team.short) }}</span>
+    {% endif %}
+    <strong data-i18n-ignore>{{ right_team.name }}</strong>
+  </div>
+</section>
+
+{% set any_played = shown_map_scores|length > 0 %}
+{% if any_played %}
+<section class="panel match-stats-page">
+  <div class="tabs match-stats-tabs" role="tablist" aria-label="{{ msg('public.matches.stats_overview.match_stats') }}">
+    <button class="tab match-stats-tab active" type="button" role="tab" aria-selected="true" data-match-stat="overview">{{ msg('public.matches.stats_overview.overview') }}</button>
+    <button class="tab match-stats-tab" type="button" role="tab" aria-selected="false" data-match-stat="performance">{{ msg('public.matches.stats_overview.performance') }}</button>
+    <button class="tab match-stats-tab" type="button" role="tab" aria-selected="false" data-match-stat="economy">{{ msg('public.matches.stats_overview.economy') }} <small class="badge badge-accent">{{ msg('match.stats.economy_beta') }}</small></button>
+    <button class="tab match-stats-tab" type="button" role="tab" aria-selected="false" data-match-stat="heatmaps">{{ msg('public.matches.stats_overview.heatmaps') }}</button>
+  </div>
+
+  <div class="match-stats-content active" id="match-stat-overview" role="tabpanel">
+    <div class="match-stats-map-strip">
+      {% for ms in shown_map_scores %}
+      <button id="map-{{ ms.index }}" class="match-stat-map-card{% if loop.first %} active{% endif %}" type="button" style="--map-bg: url('{{ ms.name|map_background }}')" data-detail-index="{{ loop.index }}">
+        <span class="match-stat-map-meta">
+          <b>{{ ms[left_team.side] }} - {{ ms[right_team.side] }}</b>
+          <small>{{ ms.name|map_display }}</small>
+        </span>
+      </button>
+      {% endfor %}
+    </div>
+
+    <div class="match-stats-overview-grid">
+      <article class="match-stat-summary-card">
+        <div class="match-stat-event" data-i18n-ignore>{{ match.event_name or '80GOTV' }}</div>
+        <div class="match-stat-date">{{ match.match_time|datetime_display if match.match_time else 'TBD' }}</div>
+        {% if shown_map_scores %}
+        <div class="match-stat-mini-score">
+          <div>
+            <b data-i18n-ignore>{{ left_team.short }}</b>
+            <strong class="{% if shown_map_scores[0][left_team.side] > shown_map_scores[0][right_team.side] %}score-win{% elif shown_map_scores[0][left_team.side] < shown_map_scores[0][right_team.side] %}score-lose{% endif %}">{{ shown_map_scores[0][left_team.side] }}</strong>
+          </div>
+          <span>{{ shown_map_scores[0].name|map_display }}</span>
+          <div>
+            <b data-i18n-ignore>{{ right_team.short }}</b>
+            <strong class="{% if shown_map_scores[0][right_team.side] > shown_map_scores[0][left_team.side] %}score-win{% elif shown_map_scores[0][right_team.side] < shown_map_scores[0][left_team.side] %}score-lose{% endif %}">{{ shown_map_scores[0][right_team.side] }}</strong>
+          </div>
+        </div>
+        {% endif %}
+        <dl class="facts match-stat-breakdown">
+          <div><dt>{{ msg('public.matches.stats_overview.team_rating_2_0') }}</dt><dd>{{ metric(match_breakdown[left_team.side ~ '_rating'], 2) }} : {{ metric(match_breakdown[right_team.side ~ '_rating'], 2) }}</dd></div>
+          <div><dt>{{ msg('public.matches.stats_overview.opening_kills') }}</dt><dd>{{ match_breakdown[left_team.side ~ '_first_kills'] }} : {{ match_breakdown[right_team.side ~ '_first_kills'] }}</dd></div>
+          <div><dt>{{ msg('public.matches.stats_overview.clutches_won') }}</dt><dd>{{ match_breakdown[left_team.side ~ '_clutches'] }} : {{ match_breakdown[right_team.side ~ '_clutches'] }}</dd></div>
+        </dl>
+      </article>
+
+      <div class="match-stat-highlight-grid">
+        {% for h in match_highlights %}
+        {% if h.player %}
+        <a class="match-stat-highlight" href="/players/{{ h.player.player_id }}">
+          <span class="match-stat-highlight-team" data-i18n-ignore>{{ h.player.team_short }}</span>
+          <span class="match-stat-highlight-name" data-i18n-ignore>{{ private_name_for_player(h.player.player_id, h.player.nickname) }}</span>
+          <b class="{% if h.key == 'rating' %}rt-cell{% endif %}">{{ metric(h.player.get(h.key), 2 if h.key in ['rating', 'adr'] else 0) }}</b>
+          <small>{{ h.label }}</small>
+        </a>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="match-stat-rounds">
+      <div class="match-stat-rounds-head">
+        <h3>{{ msg('public.matches.stats_overview.map_record') }}</h3>
+        {% for opponent in opponents %}<span class="match-stat-legend {{ opponent.side }}-win" data-i18n-ignore>{{ opponent.short }}</span>{% endfor %}
+      </div>
+      <div class="match-stat-roundline">
+        {% for ms in shown_map_scores %}
+        <span class="{% if ms.t1 > ms.t2 %}t1-win{% elif ms.t2 > ms.t1 %}t2-win{% endif %}" title="{{ ms.name|map_display }} {{ ms[left_team.side] }}:{{ ms[right_team.side] }}">{{ ms.index }}</span>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="match-stat-performance">
+      <h3>{{ msg('public.matches.stats_overview.performance_rating_2_0') }}</h3>
+      <div class="match-rating-bars" style="--rating-average:{{ match_rating_scale.average_pct }}%">
+        {% for p in match_performance_rows %}
+        <a class="match-rating-row" href="/players/{{ p.player_id }}">
+          <span data-i18n-ignore>{{ private_name_for_player(p.player_id, p.nickname) }}</span>
+          <i><em class="{{ p.rating|rating_class }}" style="width:{{ p.rating_bar }}%"></em></i>
+          <b class="rt-cell">{{ metric(p.rating, 2) }}</b>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="match-stat-team-tables">
+      {% for opponent in opponents %}
+      {% set team_name = opponent.name %}
+      {% set team_rows = overall_t1 if opponent.side == 't1' else overall_t2 %}
+      <section>
+        <h3 data-i18n-ignore>{{ team_name }}</h3>
+        <div class="table-wrap match-mini-table-wrap">
+          <table class="table table-dense match-mini-table">
+            <thead><tr><th>{{ msg('public.matches.stats_overview.players') }}</th><th class="num">K-D</th><th class="num">KAST</th><th class="num">ADR</th><th class="num">FK</th><th class="num">RATING</th></tr></thead>
+            <tbody>
+              {% for s in team_rows %}
+              <tr>
+                <td><a href="/players/{{ s.player_id }}" data-i18n-ignore>{{ private_name_for_player(s.player_id, s.nickname) }}</a></td>
+                <td class="num">{{ metric(s.kills) }}-{{ metric(s.deaths) }}</td>
+                <td class="num">{{ metric(s.kast, 1, '%') }}</td>
+                <td class="num">{{ metric(s.adr, 1) }}</td>
+                <td class="num">{{ metric(s.first_kills) }}</td>
+                <td class="num rt-cell"><b>{{ metric(s.rating, 2) }}</b></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="match-stats-content" id="match-stat-performance" role="tabpanel">
+    <div class="match-stat-performance solo">
+      <h3>{{ msg('public.matches.stats_overview.performance_rating_2_0') }}</h3>
+      <div class="match-rating-bars">
+        {% for p in match_performance_rows %}
+        <a class="match-rating-row" href="/players/{{ p.player_id }}">
+          <span data-i18n-ignore>{{ private_name_for_player(p.player_id, p.nickname) }}</span>
+          <i><em class="{{ p.rating|rating_class }}" style="width:{{ p.rating_bar }}%"></em></i>
+          <b class="rt-cell">{{ metric(p.rating, 2) }}</b>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="match-stats-content" id="match-stat-economy" role="tabpanel">
+    <p class="empty-state">{{ msg('public.matches.stats_overview.no_data') }}</p>
+  </div>
+
+  <div class="match-stats-content" id="match-stat-heatmaps" role="tabpanel">
+    <p class="empty-state">{{ msg('public.matches.stats_overview.no_data') }}</p>
+  </div>
+</section>
+
+{{ match_stats_block(shown_map_scores, overall_teams, [msg('public.matches.stats_overview.both_sides'), msg('public.matches.stats_overview.t_side'), msg('public.matches.stats_overview.ct_side')], 'RATING') }}
+{% endif %}

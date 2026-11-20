@@ -1,0 +1,15 @@
+{% set event_login_next = event_path(event) %}
+{% set entrant_event = entrant_slice_event|default(false) %}
+{% set regular_actions = not entrant_event or event.registration_open %}
+{% if not entrant_reserve_only|default(false) %}
+{% include 'public/events/_registered_teams.html' %}
+
+{% set show_individual_signup = individual_registration_open and (event.registration_open or individual_registration.individual_count) %}
+{% if show_individual_signup %}
+{% include 'public/events/_individual_registration.html' %}
+{% endif %}
+{% endif %}
+
+{% if entrant_reserve_signup_open|default(false) or (not entrant_event and show_individual_signup and (individual_registration.has_formal_members or individual_registration.reserves)) %}
+{% include 'public/events/_substitute_registration.html' %}
+{% endif %}

@@ -1,0 +1,70 @@
+{% if editing %}
+<section class="panel managed-control-panel">
+  <div class="panel-head">
+    <h2 class="panel-title">{{ msg('admin.events.events_form.managed_registration') }}</h2>
+    {% if not rc.get('schema_ready') %}
+    <span class="muted">{{ msg('admin.events.events_form.managed_registration_schema_not_installed') }}</span>
+    {% elif managed %}
+    <span class="badge {{ rc.phase_badge }}">{{ rc.phase_label }}</span>
+    {% else %}
+    <span class="muted">{{ msg('admin.events.events_form.managed_registration_disabled') }}</span>
+    {% endif %}
+  </div>
+  <div class="panel-body managed-control-body">
+    {% if not rc.get('schema_ready') %}
+    <p class="lock-note">{{ ui.icon('lock') }}{{ msg('admin.events.events_form.managed_registration_is_not_available_in') }}</p>
+    {% elif managed %}
+    <dl class="managed-facts">
+      <div>
+        <dt>{{ msg('admin.events.events_form.registration_deadline') }}</dt>
+        <dd>{{ rc.deadline_iso|datetime_display }} <span class="muted">({{ msg('admin.events.events_form.closed') if rc.is_due else msg('admin.events.events_form.registration_open') }})</span></dd>
+      </div>
+      <div>
+        <dt>{{ msg('admin.events.events_form.enabled_at') }}</dt>
+        <dd>{{ rc.enabled_at_iso|datetime_display }}</dd>
+      </div>
+      {% if rc.formed %}
+      <div>
+        <dt>{{ msg('admin.events.events_form.team_formation') }}</dt>
+        <dd>{{ msg('admin.events.events_form.formed_at_iso_initial_roster_confirmed', formed_at_iso=rc.formed_at_iso|datetime_display, confirmed_entrants=rc.confirmed_entrants, active_entrants=rc.active_entrants) }}</dd>
+      </div>
+      {% endif %}
+      {% if rc.archived_at %}
+      <div>
+        <dt>{{ msg('admin.events.events_form.archived_at') }}</dt>
+        <dd>{{ rc.archived_at_iso|datetime_display }}</dd>
+      </div>
+      {% endif %}
+    </dl>
+    <div class="managed-control-actions">
+      <a class="btn btn-primary" href="{{ url_for('admin.admin_event_roster', event_id=event.id) }}">{{ ui.icon('team') }}{{ msg('admin.events.events_form.open_registration_and_rosters') }}</a>
+      {% if rc.can_disable %}
+      <button type="button" class="btn btn-danger" id="disableManagedBtn" data-action-url="{{ url_for('admin.admin_registration_action', event_id=event.id, action='disable') }}">{{ msg('admin.events.events_form.disable_managed_registration') }}</button>
+      {% else %}
+      <span class="field-hint lock-hint">{{ ui.icon('lock') }}{{ rc.disable_block_reason }}</span>
+      {% endif %}
+    </div>
+    <p class="field-error" id="managedControlError" role="alert" hidden></p>
+    {% elif rc.get('can_enable') %}
+    <p class="lock-note">{{ msg('admin.events.events_form.no_signups_matches_or_brackets_exist') }}</p>
+    <div class="managed-enable-row">
+      <label class="field">
+        <span class="field-label">{{ msg('admin.events.events_form.registration_deadline') }} <span class="field-required">*</span></span>
+        <input type="datetime-local" id="enableDeadlineLocal" aria-label="{{ msg('admin.events.events_form.registration_deadline_for_managed_flow') }}">
+      </label>
+      <button type="button" class="btn btn-primary" id="enableManagedBtn" data-action-url="{{ url_for('admin.admin_registration_action', event_id=event.id, action='enable') }}">{{ ui.icon('check') }}{{ msg('admin.events.events_form.enable_managed_registration') }}</button>
+    </div>
+    <p class="field-hint">{{ msg('admin.events.events_form.once_enabled_signups_use_the_managed') }}</p>
+    <p class="field-error" id="managedControlError" role="alert" hidden></p>
+    {% else %}
+    <p class="lock-note">{{ ui.icon('lock') }}{{ msg('admin.events.events_form.this_event_cannot_switch_to_managed') }}</p>
+    <ul class="managed-blocker-list">
+      {% for reason in rc.get('blockers', []) %}
+      <li>{{ reason }}</li>
+      {% endfor %}
+    </ul>
+    <p class="field-hint">{{ msg('admin.events.events_form.existing_events_with_prior_records_remain') }}</p>
+    {% endif %}
+  </div>
+</section>
+{% endif %}

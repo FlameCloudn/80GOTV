@@ -1,0 +1,58 @@
+      {# ---------- 标签 2：地图与赛制 ---------- #}
+      <div id="pane-maps" class="tab-pane">
+        {% if is_new_match or setup_editable %}
+        <label class="field form-narrow">
+          <span class="field-label">{{ msg('admin.operations.matches_form.series_format_bo') }}</span>
+          <select name="bo_format" id="boFormat">
+            <option value="BO1" {% if match and match.bo_format=='BO1' %}selected{% endif %}>{{ msg('admin.operations.matches_form.bo1_best_of_1') }}</option>
+            <option value="BO3" {% if not match or match.bo_format=='BO3' %}selected{% endif %}>{{ msg('admin.operations.matches_form.bo3_best_of_3') }}</option>
+            <option value="BO5" {% if match and match.bo_format=='BO5' %}selected{% endif %}>{{ msg('admin.operations.matches_form.bo5_best_of_5') }}</option>
+          </select>
+        </label>
+        {% else %}
+        <input type="hidden" name="bo_format" id="boFormat" value="{{ match.bo_format }}">
+        <label class="field form-narrow">
+          <span class="field-label">{{ msg('admin.operations.matches_form.format_locked') }}</span>
+          <input type="text" value="{{ match.bo_format }}" disabled>
+        </label>
+        {% endif %}
+
+        {% if is_new_match %}
+        <div class="field" id="mapModeToggleGroup">
+          <span class="field-label">{{ msg('admin.operations.matches_form.map_selection_mode') }}</span>
+          <div class="mode-tabs" id="mapModeTabs">
+            <button type="button" class="mode-tab active" data-map-mode="manual">{{ msg('admin.operations.matches_form.manual_map_picks') }}</button>
+            <button type="button" class="mode-tab" data-map-mode="bp">{{ msg('admin.operations.matches_form.online_veto') }}</button>
+          </div>
+        </div>
+        {% endif %}
+
+        <div id="manualMapSection" class="map-rows">
+          {% for i in range(1, 6) %}
+          {% set map_val = match['map' ~ i] if match else '' %}
+          {% set pb_val = match['map' ~ i ~ '_picked_by'] if match else '' %}
+          <div class="map-row{% if not is_new_match %} with-results{% endif %}" id="map{{ i }}Row" {% if i > 3 %}hidden{% endif %}>
+            <label class="field">
+              <span class="field-label">{{ msg('match.map_number', map=i) }}</span>
+              <select name="map{{ i }}" {% if not setup_editable %}disabled{% endif %}>
+                <option value="">{{ msg('admin.operations.matches_form.select_map') }}</option>
+                {% for value, label in map_choices %}
+                <option value="{{ value }}" {% if map_val == value %}selected{% endif %}>{{ label if site_locale == 'zh' else value|map_display }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            {% if not is_new_match %}
+            <label class="field">
+              <span class="field-label">{{ msg('admin.operations.matches_form.map_pick') }}</span>
+              <select name="map{{ i }}_picked_by" {% if not setup_editable %}disabled{% endif %}>
+                <option value="">—</option>
+                <option value="t1" {% if pb_val=='t1' %}selected{% endif %}>{{ match.team1_name if match and match.team1_name and match.team1_name != 'TBD' else msg('admin.operations.matches_form.left_entrant') }} {{ msg('admin.operations.matches_form.pick') }}</option>
+                <option value="t2" {% if pb_val=='t2' %}selected{% endif %}>{{ match.team2_name if match and match.team2_name and match.team2_name != 'TBD' else msg('admin.operations.matches_form.right_entrant') }} {{ msg('admin.operations.matches_form.pick') }}</option>
+                <option value="decider" {% if pb_val=='decider' %}selected{% endif %}>{{ msg('admin.operations.matches_form.decider') }}</option>
+              </select>
+            </label>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>

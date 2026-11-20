@@ -1,0 +1,161 @@
+      {# ---------- 标签 3：托管比赛本场阵容 / 旧赛事出场名单与替补 ---------- #}
+      {% if managed_info %}
+      <div id="pane-roster" class="tab-pane">
+        <div class="roster-freeze-banner {{ 'is-frozen' if managed_info.rosters_frozen else 'is-unfrozen' }}">
+          <div class="roster-freeze-banner-main">
+            <div class="roster-freeze-title-row">
+              {% if managed_info.rosters_frozen %}
+              <span class="badge badge-accent">{{ ui.icon('lock') }}{{ msg('admin.operations.matches_form.match_roster_locked') }}</span>
+              {% if managed_info.sides[1] and managed_info.sides[1].frozen_at_iso %}
+              <span class="muted">{{ msg('admin.operations.matches_form.locked_at_value1', value1=managed_info.sides[1].frozen_at_iso|datetime_display) }}{% if managed_info.sides[1].frozen_by_name %}（{{ managed_info.sides[1].frozen_by_name }}）{% endif %}</span>
+              {% endif %}
+              {% else %}
+              <span class="badge badge-gold">{{ msg('admin.operations.matches_form.match_roster_unlocked') }}</span>
+              {% endif %}
+            </div>
+            {% if managed_info.rosters_frozen %}
+            <p class="lock-note">{{ msg('admin.operations.matches_form.all_ten_players_are_recorded_read') }}</p>
+            {% else %}
+            <p class="lock-note">{{ msg('admin.operations.matches_form.locking_captures_both_5_player_lineups') }}</p>
+            {% endif %}
+          </div>
+          <div class="roster-freeze-banner-actions">
+            {% if managed_info.rosters_frozen %}
+            <a class="btn btn-primary" href="{{ managed_info.bp_url }}" target="_blank" rel="noopener">{{ ui.icon('flag') }}{{ msg('admin.operations.matches_form.open_veto_room') }}</a>
+            {% else %}
+            <button type="button" class="btn btn-primary" id="freezeMatchRostersBtn"
+                    data-freeze-url="{{ url_for('admin.admin_match_freeze_rosters', match_id=match.id) }}"
+                    {% if managed_info.bp_started or managed_info.has_started %}disabled{% endif %}>{{ ui.icon('lock') }}{{ msg('admin.operations.matches_form.lock_match_roster') }}</button>
+            {% endif %}
+          </div>
+        </div>
+
+        {% if not managed_info.rosters_frozen and managed_info.freeze_blockers %}
+        <div class="roster-precheck-box" role="status">
+          <strong>{{ msg('admin.operations.matches_form.resolve_these_blockers_before_locking_the') }}</strong>
+          <ul>
+            {% for reason in managed_info.freeze_blockers %}
+            <li>{{ reason }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+
+        <div id="freezeRosterError" class="roster-inline-error" role="alert" hidden></div>
+
+        <div class="match-roster-grid">
+          {% for side_num in (1, 2) %}
+          {% set s = managed_info.sides.get(side_num) %}
+          <div class="field-section match-side-roster-card">
+            {% if s %}
+            <div class="match-side-roster-head">
+              <div>
+                <h3 data-i18n-ignore>{{ s.name }}</h3>
+                <span class="cell-sub">{% if s.club_name %}{{ msg('admin.operations.matches_form.club') }}<span data-i18n-ignore>{{ s.club_name }}</span>{% else %}{{ msg('admin.operations.matches_form.temp_team') }}{% endif %} {{ msg('admin.operations.matches_form.event_entrant_event_entrant_id', event_entrant_id=s.event_entrant_id) }}</span>
+              </div>
+              {% if s.team_archived %}<span class="badge badge-done">{{ msg('admin.operations.matches_form.archived') }}</span>{% endif %}
+            </div>
+
+            <div class="roster-subbox is-initial">
+              <div class="roster-subbox-head">
+                <span class="roster-subbox-title">{{ ui.icon('lock') }}{{ msg('admin.operations.matches_form.initial_roster') }}</span>
+                <span class="muted">{% if s.initial_confirmed %}{{ msg('admin.operations.matches_form.read_only_confirmed_initial_confirmed_at', initial_confirmed_at_iso=s.initial_confirmed_at_iso|datetime_display) }}{% else %}{{ msg('admin.operations.matches_form.initial_pending') }}{% endif %}</span>
+              </div>
+              {% if s.initial_confirmed %}
+              <ol class="roster-player-list" data-i18n-ignore>
+                {% for p in s.initial_players %}
+                <li class="{% if p.swapped_out %}is-out{% endif %}">
+                  <span class="roster-slot-num">{{ loop.index }}</span>
+                  <span class="roster-player-name">{{ p.nickname }}</span>
+                  {% if p.swapped_out %}<span class="badge badge-done" data-i18n-translate>{{ msg('admin.operations.matches_form.subbed_out') }}</span>{% endif %}
+                </li>
+                {% endfor %}
+              </ol>
+              {% else %}
+              <p class="field-hint">{{ msg('admin.operations.matches_form.initial_roster_not_confirmed_yet_on') }}</p>
+              {% endif %}
+            </div>
+
+            <div class="roster-subbox is-current">
+              <div class="roster-subbox-head">
+                <span class="roster-subbox-title">{{ msg('admin.operations.matches_form.current_roster') }}</span>
+                {% if s.initial_confirmed %}
+                <span class="roster-keep-count {% if s.kept_initial_count < 3 %}is-invalid{% endif %}">{{ msg('admin.operations.matches_form.retains_kept_initial_count_5_initial', kept_initial_count=s.kept_initial_count) }}</span>
+                {% endif %}
+              </div>
+              <ol class="roster-player-list" data-i18n-ignore>
+                {% for p in s.current_players %}
+                <li>
+                  <span class="roster-slot-num">{{ loop.index }}</span>
+                  <span class="roster-player-name">{{ p.nickname }}</span>
+                  {% if p.is_added_sub %}<span class="badge badge-accent" data-i18n-translate>{{ msg('admin.operations.matches_form.subbed_in') }}</span>{% endif %}
+                </li>
+                {% else %}
+                <li class="muted" data-i18n-translate>{{ msg('admin.operations.matches_form.no_players') }}</li>
+                {% endfor %}
+              </ol>
+              {% if not managed_info.rosters_frozen and not managed_info.bp_started %}
+              <a class="panel-link" href="{{ managed_info.roster_url }}#entrant-{{ s.event_entrant_id }}">{{ msg('admin.operations.matches_form.adjust_or_swap_players_on_registration') }}</a>
+              {% else %}
+              <span class="field-hint">{{ msg('admin.operations.matches_form.later_current_roster_changes_will_not') }}</span>
+              {% endif %}
+            </div>
+
+            <div class="roster-subbox {{ 'is-frozen' if s.frozen else 'is-unfrozen' }}">
+              <div class="roster-subbox-head">
+                <span class="roster-subbox-title">{% if s.frozen %}{{ ui.icon('lock') }}{% endif %}{{ msg('admin.operations.matches_form.match_roster_locked_snapshot') }}</span>
+                <span class="badge {{ 'badge-accent' if s.frozen else 'badge-gold' }}">{{ msg('admin.operations.matches_form.read_only_roster_locked') if s.frozen else msg('admin.operations.matches_form.unlocked') }}</span>
+              </div>
+              {% if s.frozen %}
+              <p class="field-hint">{{ msg('admin.operations.matches_form.recorded_team_name') }}<span data-i18n-ignore>{{ s.frozen_team_name }}</span></p>
+              <ol class="roster-player-list" data-i18n-ignore>
+                {% for p in s.frozen_players %}
+                <li>
+                  <span class="roster-slot-num">{{ p.slot }}</span>
+                  <span class="roster-player-name">{{ p.nickname }}</span>
+                  {% if p.is_substitute %}<span class="badge badge-purple" data-i18n-translate>{{ msg('admin.operations.matches_form.substitute') }}</span>{% endif %}
+                </li>
+                {% endfor %}
+              </ol>
+              {% else %}
+              <p class="field-hint">{{ msg('admin.operations.matches_form.not_locked_yet_click_lock_match') }}</p>
+              {% endif %}
+            </div>
+            {% else %}
+            <p class="empty-state">{{ msg('admin.operations.matches_form.no_entrant_assigned_to_side_side', side_num=side_num) }}</p>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% elif setup_editable %}
+      <div id="pane-roster" class="tab-pane">
+        <p class="lock-note">{{ msg('admin.operations.matches_form.registered_team_rosters_are_used_by') }}</p>
+        <div class="match-roster-grid">
+          {% for side in (1, 2) %}
+          {% set side_options = match_roster_options.get(side, []) %}
+          {% set side_selected = match_roster_selected.get(side, []) %}
+          <div class="field-section">
+            <h3>{% if match %}{{ side_name(side) }}{% else %}<span data-i18n-ignore>TBD</span>{% endif %} <span data-i18n-translate>{{ msg('admin.operations.matches_form.match_roster_5_players') }}</span></h3>
+            {% if side_options %}
+            <div class="roster-slots">
+              {% for slot in range(5) %}
+              <label class="roster-slot">
+                <span>{{ msg('admin.operations.matches_form.player_value1', value1=slot + 1) }}</span>
+                <select name="match_team{{ side }}_p{{ slot }}" aria-label="{{ msg('admin.operations.matches_form.left') if side == 1 else msg('admin.operations.matches_form.right') }}{{ msg('admin.operations.matches_form.entrant_player_value1', value1=slot + 1) }}">
+                  <option value="">{{ msg('match.slot.unassigned', slot=slot + 1) }}</option>
+                  {% for p in side_options %}
+                  <option value="{{ p.id }}" data-i18n-ignore {% if side_selected|length > slot and side_selected[slot]|string == p.id|string %}selected{% endif %}>{{ p.nickname }}{% if p.is_substitute %}{{ msg('admin.operations.matches_form.substitute_2') }}{% endif %}{% if not p.has_steam_id %}{{ msg('admin.operations.matches_form.missing_steam_id') }}{% endif %}</option>
+                  {% endfor %}
+                </select>
+              </label>
+              {% endfor %}
+            </div>
+            {% else %}
+            <span class="field-hint">{{ msg('admin.operations.matches_form.no_players_available_complete_team_or') }}</span>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}

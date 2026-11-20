@@ -1,0 +1,40 @@
+{# ================= Tab 4: 统计修订 ================= #}
+<section class="ops-tab-pane" id="ops-pane-stats" role="tabpanel" aria-labelledby="ops-tab-stats" data-ops-pane="stats" hidden>
+  <div class="ops-section-stack">
+    <section class="panel">
+      <div class="panel-head">
+        <h2 class="panel-title">{{ msg('admin.operations.stat_revision_panel.revise_player_stats_by_run_player') }}</h2>
+        <span class="badge" id="statsRevBadge">{{ msg('admin.operations.stat_revision_panel.not_loaded') }}</span>
+      </div>
+      <div class="ops-panel-body">
+        <div class="ops-stats-toolbar">
+          <label class="field">
+            <span class="field-label">{{ msg('admin.operations.stat_revision_panel.map_run') }}</span>
+            <select id="statsRunSelect"></select>
+          </label>
+          <label class="field">
+            <span class="field-label">{{ msg('admin.operations.stat_revision_panel.participated_player') }}</span>
+            <select id="statsPlayerSelect"></select>
+          </label>
+          <div class="field">
+            <span class="field-label">{{ msg('admin.operations.stat_revision_panel.stat_scope') }}</span>
+            <div class="segmented ops-scope-toggle" role="group" aria-label="{{ msg('admin.operations.stat_revision_panel.stat_scope_switcher') }}">
+              <button type="button" class="btn btn-sm active" aria-pressed="true" data-stats-scope="all">{{ msg('admin.operations.stat_revision_panel.overall_all') }}</button>
+              <button type="button" class="btn btn-sm" aria-pressed="false" data-stats-scope="ct">{{ msg('admin.operations.stat_revision_panel.ct_side_ct') }}</button>
+              <button type="button" class="btn btn-sm" aria-pressed="false" data-stats-scope="t">{{ msg('admin.operations.stat_revision_panel.t_side_t') }}</button>
+            </div>
+          </div>
+          <div class="ops-form-btn-slot">
+            <button type="button" class="btn btn-sm" id="statsReloadBtn">{{ ui.icon('reopen') }}{{ msg('admin.operations.stat_revision_panel.load_stats') }}</button>
+          </div>
+        </div>
+        <div class="ops-callout-note">{{ msg('admin.operations.stat_revision_panel.0_is_a_true_zero_and') }}</div>
+        <div id="statsStatusBanner" class="ops-status-banner" hidden></div>
+        <div id="statsInlineError" class="roster-inline-error" role="alert" hidden></div>
+        <div id="statsEditorArea"></div>
+        <div id="statsPreviewArea" hidden></div>
+        <div id="statsHistoryArea"></div>
+      </div>
+    </section>
+  </div>
+</section>

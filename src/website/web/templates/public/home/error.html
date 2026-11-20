@@ -1,0 +1,25 @@
+{% extends 'layouts/public.html' %}
+{# 错误页面：根据 HTTP 状态码显示不同提示 #}
+{% block title %}{{ msg('public.home.error.page_not_found_80gotv') }}{% endblock %}
+{% block layout_class %}no-side-layout narrow-layout{% endblock %}
+{% block main %}
+<section class="panel error-page">
+  {# 大号错误码 #}
+  <div class="error-code" data-i18n-ignore>{{ code }}</div>
+  {# 根据错误码显示不同标题，默认为通用提示 #}
+  <h1 class="error-title">{% if code == 404 %}{{ msg('public.home.error.page_not_found') }}{% elif code == 500 %}{{ msg('public.home.error.server_error') }}{% else %}{{ msg('public.home.error.something_went_wrong') }}{% endif %}</h1>
+  {# 根据错误码显示不同说明文案 #}
+  <p class="error-text">{% if code == 404 %}{{ msg('public.home.error.this_page_does_not_exist_it') }}{% elif code == 500 %}{{ msg('public.home.error.the_server_ran_into_an_error') }}{% else %}{{ msg('public.home.error.sorry_something_went_wrong_please_try') }}{% endif %}</p>
+  {# 返回首页按钮 #}
+  <a href="/" class="btn btn-primary">{{ msg('public.home.error.back_to_home') }}</a>
+  {# 开发模式下显示 traceback，方便调试 #}
+  {% if debug_info %}
+  <details class="error-debug">
+    <summary>{{ msg('public.home.error.error_details_development_mode_only') }}</summary>
+    <pre data-i18n-ignore>{{ debug_info }}</pre>
+  </details>
+  {% endif %}
+</section>
+{% endblock %}
+{# 错误页不需要侧边栏 #}
+{% block side %}{% endblock %}

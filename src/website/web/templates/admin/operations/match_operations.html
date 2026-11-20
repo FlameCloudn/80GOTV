@@ -1,0 +1,67 @@
+{% extends "layouts/admin.html" %}
+{% import "components/_icons.html" as ui %}
+{% block title %}{{ msg('admin.operations.match_operations.match_operations_id', id=match.id) }}{% endblock %}
+{% block main %}
+{% set home = participants|selectattr('side_key', 'equalto', 'home')|first %}
+{% set away = participants|selectattr('side_key', 'equalto', 'away')|first %}
+<a href="{{ url_for('admin.admin_matches') }}" class="back-link">{{ msg('admin.operations.match_operations.back_to_match_management') }}</a>
+
+<header class="page-head ops-page-head">
+  <div>
+    <span class="page-head-kicker" data-i18n-ignore>MATCH OPERATIONS · #{{ match.id }}</span>
+    <h1>
+      <span data-i18n-ignore>{{ home.name if home else 'TBD' }}</span>
+      <span class="ops-vs" data-i18n-ignore>vs</span>
+      <span data-i18n-ignore>{{ away.name if away else 'TBD' }}</span>
+    </h1>
+    <p class="page-sub">
+      <span data-i18n-ignore>{{ match.event_name }}</span>
+      {% if match.stage %} · <span data-i18n-ignore>{{ match.stage }}</span>{% endif %}
+      · <span>{{ match.bo_format }}</span>
+      {% if match.match_time %} · <span>{{ match.match_time|datetime_display }}</span>{% endif %}
+    </p>
+  </div>
+  <div class="page-actions ops-head-actions">
+    <a class="btn btn-sm" href="{{ match.edit_url }}">{{ ui.icon('edit') }}{{ msg('admin.operations.match_operations.pre_match_setup') }}</a>
+    <a class="btn btn-sm" href="{{ match.bp_url }}" target="_blank" rel="noopener">{{ ui.icon('flag') }}{{ msg('admin.operations.match_operations.map_veto_room') }}</a>
+    <a class="btn btn-sm" href="{{ match.event_roster_url }}">{{ ui.icon('player') }}{{ msg('admin.operations.match_operations.event_roster') }}</a>
+    <a class="btn btn-sm" href="{{ match.event_bracket_url }}">{{ ui.icon('bracket') }}{{ msg('admin.operations.match_operations.bracket') }}</a>
+    <a class="btn btn-sm" href="{{ match.public_url }}" target="_blank" rel="noopener">{{ ui.icon('external') }}{{ msg('admin.operations.match_operations.match_page') }}</a>
+    <button type="button" class="btn btn-sm" id="opsRefreshBtn">{{ ui.icon('reopen') }}{{ msg('admin.operations.match_operations.refresh') }}</button>
+  </div>
+</header>
+
+<section class="panel ops-summary-panel" id="opsSummaryPanel" aria-label="{{ msg('admin.operations.match_operations.match_operations_overview') }}">
+  <div class="ops-summary-top" id="opsSummaryTop"></div>
+  <div class="ops-gate-grid" id="opsGateGrid"></div>
+</section>
+
+<div id="opsFeedback" class="ops-feedback" role="status" hidden></div>
+
+<div class="match-tabs ops-tabs" role="tablist" aria-label="{{ msg('admin.operations.match_operations.match_operations_sections') }}">
+  <button type="button" class="match-tab active" role="tab" id="ops-tab-runs" aria-controls="ops-pane-runs" aria-selected="true" data-ops-tab="runs">{{ msg('admin.operations.match_operations.start_map_runs') }}</button>
+  <button type="button" class="match-tab" role="tab" id="ops-tab-demos" aria-controls="ops-pane-demos" aria-selected="false" data-ops-tab="demos">{{ msg('admin.operations.match_operations.demos_adoption') }}</button>
+  <button type="button" class="match-tab" role="tab" id="ops-tab-results" aria-controls="ops-pane-results" aria-selected="false" data-ops-tab="results">{{ msg('admin.operations.match_operations.results_settlement_predictions') }}</button>
+  <button type="button" class="match-tab" role="tab" id="ops-tab-stats" aria-controls="ops-pane-stats" aria-selected="false" data-ops-tab="stats">{{ msg('admin.operations.match_operations.stats_revision') }}</button>
+</div>
+
+{% include "admin/operations/_run_panel.html" %}
+{% include "admin/operations/_demo_panel.html" %}
+{% include "admin/operations/_result_panel.html" %}
+{% include "admin/operations/_stat_revision_panel.html" %}
+{% include "admin/operations/_run_dialogs.html" %}
+{% include "admin/operations/_participation_dialogs.html" %}
+{% include "admin/operations/_tech_replay_dialog.html" %}
+{% include "admin/operations/_map_result_dialog.html" %}
+{% include "admin/operations/_series_result_dialog.html" %}
+
+{% endblock %}
+
+{% block scripts %}
+<script id="matchOpsData" type="application/json"
+        data-match-id="{{ match_id }}"
+        data-refresh-url="{{ url_for('admin.managed_operations_panel_context', match_id=match_id) }}"
+        data-confirm-map-url="{{ url_for('admin.managed_operation', match_id=match_id, action='confirm-map') }}">{{ panel_bundle|tojson }}</script>
+<script type="application/json" data-site-messages>{{ client_messages('ops_context', 'ops_stat-fields', 'ops_runs', 'ops_demos', 'ops_results', 'ops_statistics', 'ops_run-dialogs', 'ops_result-dialogs')|tojson }}</script>
+{{ frontend_entry('admin-operations') }}
+{% endblock %}

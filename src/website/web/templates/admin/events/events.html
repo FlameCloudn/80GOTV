@@ -1,0 +1,74 @@
+{% extends "layouts/admin.html" %}
+{% import "components/_icons.html" as ui %}
+{% block title %}{{ msg('admin.events.events.manage_events') }}{% endblock %}
+{% block main %}
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>EVENTS</span><h1>{{ msg('admin.events.events.manage_events') }}</h1></div>
+  <div class="page-actions"><a href="{{ url_for('admin.admin_events_add') }}" class="btn btn-primary">{{ ui.icon('plus') }}{{ msg('admin.events.events.add_event') }}</a></div>
+</header>
+
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">{{ msg('admin.events.events.all_events') }} <span class="panel-count" data-list-count="#eventsTable">{{ events|length }}</span></h2></div>
+  {% if events %}
+  <div class="admin-toolbar list-filters">
+    <label class="filter-search-box">{{ ui.icon('search') }}<input type="search" data-list-search="#eventsTable" placeholder="{{ msg('admin.events.events.search_event_name_or_abbreviation') }}" aria-label="{{ msg('admin.events.events.search_events') }}"></label>
+    <select data-list-filter="#eventsTable" data-filter-key="status" aria-label="{{ msg('admin.events.events.filter_by_status') }}">
+      <option value="">{{ msg('admin.events.events.status_all') }}</option>
+      <option value="upcoming">{{ msg('admin.events.events.upcoming') }}</option>
+      <option value="ongoing">{{ msg('admin.events.events.ongoing') }}</option>
+      <option value="completed">{{ msg('admin.events.events.completed') }}</option>
+    </select>
+  </div>
+  <div class="table-wrap">
+    <table class="table admin-table" id="eventsTable">
+      <thead><tr><th class="col-id">ID</th><th>{{ msg('admin.events.events.events') }}</th><th>{{ msg('admin.events.events.schedule') }}</th><th>{{ msg('admin.events.events.status') }}</th><th>{{ msg('admin.events.events.registration') }}</th><th class="col-actions">{{ msg('admin.events.events.actions') }}</th></tr></thead>
+      <tbody>
+        {% for e in events %}
+        {% set event_status = e.effective_event_status if e.effective_event_status in ('upcoming', 'ongoing') else 'completed' %}
+        <tr id="event-{{ e.id }}" data-status="{{ event_status }}" data-search="{{ e.name }} {{ e.short_name or '' }} #{{ e.id }}">
+          <td class="col-id">{{ e.id }}</td>
+          <td>
+            <a class="cell-title" href="{{ url_for('admin.admin_events_edit', event_id=e.id) }}" data-i18n-ignore>{{ e.name }}</a>
+            <span class="cell-sub" data-i18n-ignore>{{ e.short_name or '' }}{% if e.short_name and e.format %} · {% endif %}{{ event_format_label(e) or '' }}</span>
+          </td>
+          <td class="nowrap">{{ e.start_date|date_range_display(e.end_date) or '-' }}</td>
+          <td>
+            {% if event_status == 'upcoming' %}<span class="badge badge-upcoming status-badge status-upcoming">{{ msg('admin.events.events.upcoming') }}</span>
+            {% elif event_status == 'ongoing' %}<span class="badge badge-live status-badge status-ongoing">{{ msg('admin.events.events.ongoing') }}</span>
+            {% else %}<span class="badge badge-done status-badge status-completed">{{ msg('admin.events.events.completed') }}</span>{% endif %}
+          </td>
+          <td>
+            {% if e.registration_control and e.registration_control.enabled %}
+            <span class="badge {{ e.registration_control.phase_badge }}">{{ e.registration_control.phase_label }}</span>
+            <span class="cell-sub">{{ msg('admin.events.events.closes_deadline_iso', deadline_iso=e.registration_control.deadline_iso|datetime_display) }}</span>
+            {% elif e.registration_open and event_status != 'completed' %}
+            <span class="badge badge-green">{{ msg('admin.events.events.registration_open') }}</span>
+            {% else %}
+            <span class="muted">-</span>
+            {% endif %}
+          </td>
+          <td class="col-actions">
+            <div class="row-actions">
+              {% if e.registration_control and e.registration_control.enabled %}
+              <a href="{{ url_for('admin.admin_event_roster', event_id=e.id) }}" class="btn btn-sm">{{ ui.icon('team') }}{{ msg('admin.events.events.registration_rosters') }}</a>
+              {% endif %}
+              <a href="{{ url_for('admin.admin_events_edit', event_id=e.id) }}" class="btn btn-sm">{{ ui.icon('edit') }}{{ msg('admin.events.events.edit') }}</a>
+              <a href="{{ url_for('admin.admin_event_bracket', event_id=e.id) }}" class="btn btn-sm">{{ ui.icon('bracket') }}{{ msg('admin.events.events.bracket') }}</a>
+              {{ ui.icon_link('match', url_for('admin.admin_matches', event=e.id), msg('admin.events.events.matches_in_this_event')) }}
+              {{ ui.icon_link('external', event_path(e), msg('admin.events.events.view_event_opens_in_a_new'), target='_blank') }}
+              <form method="post" action="{{ url_for('admin.admin_events_delete', event_id=e.id) }}" data-confirm="{{ msg('admin.events.delete_confirm', name=e.name) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit" class="btn btn-sm btn-icon btn-danger" title="{{ msg('admin.events.events.delete_event') }}" aria-label="{{ msg('admin.events.events.delete_event_name_2', name=e.name) }}">{{ ui.icon('trash') }}</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">{{ msg('admin.events.events.no_events_yet') }}</div>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,145 @@
+{% extends "layouts/admin.html" %}
+{% import "components/_icons.html" as ui %}
+{% block title %}{{ msg('admin.operations.import_demo.import_stats_from_demo') }}{% endblock %}
+{% block main %}
+<a href="{{ url_for('admin.admin_match_stats', match_id=match.id) }}" class="back-link">{{ msg('admin.operations.import_demo.back_to_match_stats') }}</a>
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>DEMO</span><h1>{{ msg('admin.operations.import_demo.import_stats_from_demos_up_to', demo_slot_count=demo_slot_count) }}</h1></div>
+</header>
+
+<section class="panel">
+  <dl class="match-facts">
+    {% set left_team, right_team = match_opponents(match) %}
+    <div><dt>{{ msg('admin.operations.import_demo.matches') }}</dt><dd data-i18n-ignore>{{ left_team.name }} VS {{ right_team.name }}</dd></div>
+    <div><dt>{{ msg('admin.operations.import_demo.events') }}</dt><dd data-i18n-ignore>{{ match.event_name or '-' }}</dd></div>
+    <div><dt>{{ msg('admin.operations.import_demo.time') }}</dt><dd>{{ match.match_time|datetime_display if match.match_time else '-' }}</dd></div>
+  </dl>
+</section>
+
+{% if not previews %}
+{# 第 1 步：选择 Demo 文件，预览分析结果 #}
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">{{ msg('admin.operations.import_demo.upload_demo_files_up_to_demo', demo_slot_count=demo_slot_count) }}</h2></div>
+  <form method="post" enctype="multipart/form-data" id="uploadForm" class="admin-form demo-action-form" data-busy-text="分析中……" data-guard>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="step" value="analyze">
+    <p class="field-hint">{{ msg('admin.operations.import_demo.select_multiple_dem_files_for_batch') }}</p>
+
+    {% set demo_maps = [
+      (match.map1, match.map1_t1, match.map1_t2),
+      (match.map2, match.map2_t1, match.map2_t2),
+      (match.map3, match.map3_t1, match.map3_t2),
+      (match.map4, match.map4_t1, match.map4_t2),
+      (match.map5, match.map5_t1, match.map5_t2)
+    ] %}
+    <div class="demo-maps">
+      {% for demo_map in demo_maps[:demo_slot_count] %}
+      <span class="badge badge-square">{{ msg('admin.operations.import_demo.map_index', index=loop.index) }}<b data-i18n-ignore>{{ demo_map[0]|map_display if demo_map[0] else 'TBA' }}</b>{% if demo_map[0] %}（{{ demo_map[1] if demo_map[1] is not none else '-' }}:{{ demo_map[2] if demo_map[2] is not none else '-' }}）{% endif %}</span>
+      {% endfor %}
+    </div>
+
+    <div class="demo-slots">
+      {% for i in range(demo_slot_count) %}
+      <label class="file-slot" id="slot{{ i }}">
+        <span class="file-slot-label">Demo #{{ i + 1 }}</span>
+        <input type="file" name="demo_file_{{ i }}" accept=".dem" data-file-slot>
+      </label>
+      {% endfor %}
+    </div>
+
+    <div class="form-actions">
+      <a href="{{ url_for('admin.admin_match_stats', match_id=match.id) }}" class="btn">{{ msg('admin.operations.import_demo.back') }}</a>
+      <button type="submit" class="btn btn-primary">{{ ui.icon('upload') }}{{ msg('admin.operations.import_demo.preview_all_demos') }}</button>
+    </div>
+  </form>
+</section>
+
+{% else %}
+{# 第 2 步：核对每个 Demo 的分析结果，再导入（可以单独导入，也可以一键全部导入） #}
+{% for pv in previews %}
+<section class="panel demo-preview-section">
+  <div class="panel-head"><h2 class="panel-title">Demo #{{ loop.index }} — <span data-i18n-ignore>{{ pv.map_name|map_display if pv.map_name else msg('admin.operations.import_demo.unknown_map') }}</span></h2></div>
+  <div class="preview-info">
+    <div class="preview-item"><span class="label">{{ msg('admin.operations.import_demo.demo_map') }}</span><span class="value" data-i18n-ignore>{{ pv.map_name|map_display if pv.map_name else msg('admin.operations.import_demo.unknown') }}</span></div>
+    <div class="preview-item"><span class="label">{{ msg('admin.operations.import_demo.score') }}</span><span class="value">{{ pv.team_a_score }} : {{ pv.team_b_score }}</span></div>
+    <div class="preview-item"><span class="label">{{ msg('admin.operations.import_demo.rounds_played') }}</span><span class="value">{{ pv.rounds_count }}</span></div>
+    <div class="preview-item"><span class="label">{{ msg('admin.operations.import_demo.auto_match') }}</span><span class="value {{ 'ok' if pv.map_slot >= 0 else 'bad' }}">{% if pv.map_slot >= 0 %}{{ msg('admin.operations.import_demo.map_value1', value1=pv.map_slot + 1) }}{% else %}{{ msg('admin.operations.import_demo.unmatched') }}{% endif %}</span></div>
+    <div class="preview-item"><span class="label">{{ msg('admin.operations.import_demo.team_mapping') }}</span><span class="value small {{ 'ok' if pv.team_order_ok else 'bad' }}" data-i18n-ignore>{{ pv.team_map }}</span></div>
+  </div>
+
+  <div class="table-wrap">
+    <table class="table admin-table">
+      <thead>
+        <tr><th>{{ msg('admin.operations.import_demo.demo_player') }}</th><th>SteamID</th><th>{{ msg('admin.operations.import_demo.matched_database_player') }}</th><th class="num">K</th><th class="num">D</th><th class="num">A</th><th class="num" data-i18n-ignore>ADR</th><th class="num" data-i18n-ignore>KAST%</th><th class="num" data-i18n-ignore>Impact</th><th class="num" data-i18n-ignore>RATING 2.0</th><th class="num" data-i18n-ignore>HS%</th></tr>
+      </thead>
+      <tbody>
+        {% for stat in pv.players %}
+        <tr>
+          <td><b data-i18n-ignore>{{ stat.name }}</b><small class="cell-sub" data-i18n-ignore>{{ stat.team_name or stat.team_letter }}</small></td>
+          <td class="muted text-sm">{{ stat.steam_id }}</td>
+          <td>
+            {% if stat.db_player %}
+            <span class="match-found">{{ msg('admin.operations.import_demo.matched') }}<span data-i18n-ignore>{{ stat.db_player.nickname }}</span><small data-i18n-ignore>{{ stat.db_player.team_name }}</small></span>
+            {% elif stat.db_player_by_name %}
+            <span class="match-partial">{{ msg('admin.operations.import_demo.matched_by_nickname') }}<span data-i18n-ignore>{{ stat.db_player_by_name.nickname }}</span><small>{{ msg('admin.operations.import_demo.steamid_mismatch_matched_by_nickname') }}</small></span>
+            {% else %}
+            <span class="match-none">{{ msg('admin.operations.import_demo.unmatched') }}<small>{{ msg('admin.operations.import_demo.add_the_player_in_player_management') }}</small></span>
+            {% endif %}
+          </td>
+          <td class="num">{{ stat.kills }}</td>
+          <td class="num">{{ stat.deaths }}</td>
+          <td class="num">{{ stat.assists }}</td>
+          <td class="num">{{ stat.adr }}</td>
+          <td class="num">{{ stat.kast }}%</td>
+          <td class="num">{{ "%.2f"|format(stat.impact) if stat.impact is not none else '-' }}</td>
+          <td class="num">{{ stat.rating }}</td>
+          <td class="num">{{ stat.headshot_percentage }}%</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <form method="post" class="panel-foot form-actions start demo-action-form" data-busy-text="导入中……">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="step" value="import_single">
+    <input type="hidden" name="demo_index" value="{{ loop.index0 }}">
+    <input type="hidden" name="demo_data" value="{{ pv.demo_data }}">
+    <input type="hidden" name="map_slot" value="{{ pv.map_slot }}">
+    <button type="submit" class="btn btn-primary">{{ ui.icon('check') }}{{ msg('admin.operations.import_demo.import_this_demo_only') }}</button>
+  </form>
+</section>
+{% endfor %}
+
+<section class="panel">
+  <div class="panel-body form-actions start">
+    <form method="post" class="demo-action-form" data-busy-text="导入中……">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="step" value="import_all">
+      <input type="hidden" name="all_demo_data" value="{{ all_demo_data }}">
+      <button type="submit" class="btn btn-primary btn-lg">{{ ui.icon('check') }}{{ msg('admin.operations.import_demo.import_all') }}</button>
+    </form>
+    <a href="{{ url_for('admin.admin_import_demo', match_id=match.id) }}" class="btn btn-lg">{{ ui.icon('upload') }}{{ msg('admin.operations.import_demo.upload_again') }}</a>
+    <a href="{{ url_for('admin.admin_match_stats', match_id=match.id) }}" class="btn btn-lg">{{ msg('admin.operations.import_demo.back') }}</a>
+  </div>
+</section>
+{% endif %}
+
+{% if match.demo_file %}
+{% set dl = match.demo_file|json_loads %}
+{% if dl %}
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">{{ msg('admin.operations.import_demo.saved_demo_files') }}</h2></div>
+  <div class="download-row">
+    {% for df in dl %}
+    <a href="/matches/{{ match.slug or match.id }}/download-demo?slot={{ loop.index0 }}" class="btn btn-sm">{{ ui.icon('download') }}{{ msg('admin.operations.import_demo.download') }} <span data-i18n-ignore>{{ df }}</span></a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{{ frontend_entry('admin-import-demo') }}
+{% endblock %}

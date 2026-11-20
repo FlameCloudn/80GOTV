@@ -1,0 +1,58 @@
+{% extends "layouts/admin.html" %}
+{% import "components/_icons.html" as ui %}
+{% set editing = event and event.id %}
+{% set rc = registration_control or {} %}
+{% set managed = rc.get('enabled') %}
+{% block title %}{% if editing %}{{ msg('admin.events.events_form.edit_event') }}{% else %}{{ msg('admin.events.events_form.add_event') }}{% endif %}{% endblock %}
+{% block main %}
+<a href="{{ url_for('admin.admin_events') }}" class="back-link">{{ msg('admin.events.events_form.back_to_event_management') }}</a>
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>EVENTS</span><h1>{% if editing %}{{ msg('admin.events.events_form.edit_event') }}{% else %}{{ msg('admin.events.events_form.add_event') }}{% endif %}</h1></div>
+  {% if editing %}
+  <div class="page-actions">
+    {% if managed %}
+    <a class="btn btn-primary" href="{{ url_for('admin.admin_event_roster', event_id=event.id) }}">{{ ui.icon('team') }}{{ msg('admin.events.events_form.registration_rosters') }}</a>
+    <a class="btn" href="#managedAwardsPanel">{{ ui.icon('event') }}{{ msg('admin.events.events_form.event_awards') }}</a>
+    {% endif %}
+    <a class="btn" href="{{ url_for('admin.admin_matches', event=event.id) }}">{{ ui.icon('match') }}{{ msg('admin.events.events_form.matches_in_this_event') }}</a>
+    <a class="btn" href="{{ url_for('admin.admin_event_bracket', event_id=event.id) }}">{{ ui.icon('bracket') }}{{ msg('admin.events.events_form.edit_bracket') }}</a>
+  </div>
+  {% endif %}
+</header>
+
+{% include 'admin/events/_event_registration_controls.html' %}
+
+{#- 分组：必填的“基本信息”“赛期”直接展开；报名单独一组；网址、描述、直播间、赛后荣誉折叠。
+    data-guard / data-draft：未保存离开提醒、草稿（见 static/js/admin_form_draft.js） -#}
+<section class="panel">
+  <form method="post" id="eventForm" data-busy-text="保存中……" data-guard data-draft>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <div class="admin-form">
+      {% include 'admin/events/_event_details_fields.html' %}
+
+      {% include 'admin/events/_event_registration_fields.html' %}
+
+      {% include 'admin/events/_event_presentation_fields.html' %}
+    </div>
+
+    <div class="sticky-form-actions">
+      <div class="form-actions">
+        <a href="{{ url_for('admin.admin_events') }}" class="btn" data-discard>{{ msg('admin.events.events_form.cancel') }}</a>
+        <button type="submit" class="btn btn-primary">{{ ui.icon('check') }}{% if editing %}{{ msg('admin.events.events_form.save_changes') }}{% else %}{{ msg('admin.events.events_form.add_event') }}{% endif %}</button>
+      </div>
+    </div>
+  </form>
+</section>
+
+{% include 'admin/events/_event_honors.html' %}
+{% endblock %}
+
+{% block scripts %}
+<script type="application/json" data-site-messages>{{ client_messages('inline_events_form')|tojson }}</script>
+<script type="application/json" id="eventFormIcons">{{ {
+  'image': ui.icon('image')|string,
+  'close': ui.icon('close')|string,
+  'plus': ui.icon('plus')|string
+}|tojson }}</script>
+{{ frontend_entry('admin-event-form') }}
+{% endblock %}

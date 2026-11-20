@@ -1,0 +1,62 @@
+<section class="event-individual-registration event-substitute-registration" data-registration-kind="substitute">
+  <div class="event-individual-head">
+    <div>
+      <h3 class="section-title">{{ msg('public.events.event_registration_list.substitute_registration') }}</h3>
+      <p>{% if not entrant_event %}{{ msg('public.events.event_registration_list.substitute_registration_opens_after_team_formation') }}{% endif %}{{ msg('public.events.event_registration_list.select_any_team_or_a_specific') }}</p>
+    </div>
+    <span class="event-individual-count">{{ msg('public.events.event_registration_list.substitute_count_players', substitute_count=individual_registration.substitute_count) }}</span>
+  </div>
+  <div class="event-individual-actions">
+    {% if substitute_registration_open and session.user_id and current_user and current_user.steam_id64 %}
+      {% if individual_registration.current_entry and individual_registration.current_entry.assignment_status == 'reserve' %}
+      <form class="event-reg-ajax-form event-substitute-choice" action="/events/{{ event.id }}/register-substitute" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <select name="preferred_registration_id" aria-label="{{ msg('public.events.event_registration_list.choose_substitute_team') }}">
+          <option value="">{{ msg('public.events.event_registration_list.general_substitute_any_team') }}</option>
+          {% for reg in registrations %}
+          <option value="{{ reg.info.id }}"{% if individual_registration.current_entry.preferred_registration_id == reg.info.id %} selected{% endif %}>{{ msg('public.events.event_registration_list.assigned_team_name', team_name=reg.info.team_name) }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="event-reg-control-btn">{{ msg('public.events.event_registration_list.update_substitute_team') }}</button>
+      </form>
+      <form class="event-reg-ajax-form" action="/events/{{ event.id }}/individual-registration/withdraw" method="POST" data-confirm="{{ msg('public.events.event_registration_list.cancel_your_substitute_registration') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="event-reg-control-btn is-danger">{{ msg('public.events.event_registration_list.cancel_substitute_registration') }}</button>
+      </form>
+      {% elif individual_registration.current_entry and individual_registration.current_entry.is_formal_member %}
+      <span class="event-individual-state">{{ msg('public.events.event_registration_list.you_are_on_an_official_roster') }}</span>
+      {% elif not individual_registration.current_entry %}
+      <form class="event-reg-ajax-form" action="/events/{{ event.id }}/register-substitute" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <select name="preferred_registration_id" aria-label="{{ msg('public.events.event_registration_list.choose_substitute_team') }}">
+          <option value="">{{ msg('public.events.event_registration_list.general_substitute_any_team') }}</option>
+          {% for reg in registrations %}<option value="{{ reg.info.id }}">{{ msg('public.events.event_registration_list.assigned_team_name', team_name=reg.info.team_name) }}</option>{% endfor %}
+        </select>
+        <button type="submit" class="event-reg-control-btn">{{ msg('public.events.event_registration_list.register_as_substitute') }}</button>
+      </form>
+      {% endif %}
+    {% elif substitute_registration_open and session.user_id %}
+      <a href="/profile" class="event-reg-action-link">{{ msg('public.events.event_registration_list.link_steam_to_register_as_a') }}</a>
+    {% elif substitute_registration_open and not session.admin_id %}
+      <a href="{{ url_for('user_login', next=event_login_next) }}" class="event-reg-action-link">{{ msg('public.events.event_registration_list.log_in_to_register_as_a') }}</a>
+    {% endif %}
+  </div>
+  {% if individual_registration.reserves %}
+  <div class="event-individual-player-grid">
+    {% for entry in individual_registration.reserves %}
+    {% set entry_private_remark = private_remark_for_user(entry.user_id) if private_remark_for_user is defined else None %}
+    {% set entry_display_name = entry_private_remark or entry.website_name %}
+    <div class="event-individual-player">
+      {% if entry.avatar %}<img src="{{ avatar_thumbnail_url(entry.avatar) or '/static/avatars/default.png' }}" alt="" loading="lazy" data-fallback-src="/static/avatars/default.png">{% else %}<span class="event-individual-avatar-fallback" aria-hidden="true">{{ entry_display_name[:1]|upper }}</span>{% endif %}
+      <span>{{ entry_display_name }}{% if not entry_private_remark and entry.group_username %} <b>@{{ entry.group_username }}</b>{% endif %}</span>
+      <small>{% if entry.preferred_team_name %}{{ msg('public.events.event_registration_list.substitute_for_preferred_team_name', preferred_team_name=entry.preferred_team_name) }}{% else %}{{ msg('public.events.event_registration_list.available_to_substitute_for_any_team') }}{% endif %}</small>
+      {% if not entrant_event and session.admin_id %}
+      <form class="event-reg-ajax-form" action="/events/{{ event.id }}/individual-registration/{{ entry.id }}/remove" method="POST" data-confirm="{{ msg('public.events.event_registration_list.remove_player_name_s_substitute_registration', player_name=entry.player_name) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="event-individual-remove">{{ msg('public.events.event_registration_list.remove') }}</button>
+      </form>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}<div class="event-reg-empty">{{ msg('public.events.event_registration_list.no_substitute_registrations_yet') }}</div>{% endif %}
+</section>

@@ -1,0 +1,802 @@
+{
+  "public.matches.banner.bo_label_cancelled": {
+    "zh": "{bo_label} · 已取消",
+    "en": "{bo_label} · Cancelled"
+  },
+  "public.matches.banner.bo_label_match_over": {
+    "zh": "{bo_label} · 比赛结束",
+    "en": "{bo_label} · Match over"
+  },
+  "public.matches.banner.bo_label_upcoming": {
+    "zh": "{bo_label} · 即将开始",
+    "en": "{bo_label} · Upcoming"
+  },
+  "public.matches.banner.download_result_poster": {
+    "zh": "下载赛果海报",
+    "en": "Download result poster"
+  },
+  "public.matches.banner.live": {
+    "zh": "直播中",
+    "en": "Live"
+  },
+  "public.matches.banner.match_report": {
+    "zh": "比赛战报",
+    "en": "Match report"
+  },
+  "public.matches.banner.substitute": {
+    "zh": "（替补）",
+    "en": " (substitute)"
+  },
+  "public.matches.bp_room.admin_mode": {
+    "zh": "管理员模式",
+    "en": "Admin mode"
+  },
+  "public.matches.bp_room.enter_shared_veto_passcode": {
+    "zh": "输入 BP 共享口令",
+    "en": "Enter shared veto passcode"
+  },
+  "public.matches.bp_room.loading": {
+    "zh": "加载中...",
+    "en": "Loading..."
+  },
+  "public.matches.bp_room.map_veto_room_value1_vs_value2": {
+    "zh": "BP 房间 - {value1} 对 {value2}",
+    "en": "Map veto room - {value1} vs {value2}"
+  },
+  "public.matches.bp_room.picked_maps": {
+    "zh": "已选地图",
+    "en": "Picked maps"
+  },
+  "public.matches.bp_room.reset_veto": {
+    "zh": "重置 BP",
+    "en": "Reset veto"
+  },
+  "public.matches.bp_room.shared_veto_passcode": {
+    "zh": "BP 共享口令",
+    "en": "Shared veto passcode"
+  },
+  "public.matches.bp_room.verify": {
+    "zh": "验证口令",
+    "en": "Verify"
+  },
+  "public.matches.bp_room.you_can_claim_your_team_s": {
+    "zh": "你可以申请本队 BP 操作席",
+    "en": "You can claim your team’s veto seat"
+  },
+  "public.matches.bp_room.your_team": {
+    "zh": "你的队伍",
+    "en": "Your team"
+  },
+  "public.matches.comments.comments": {
+    "zh": "评论",
+    "en": "Comments"
+  },
+  "public.matches.comments.log_in": {
+    "zh": "登录",
+    "en": "Log in"
+  },
+  "public.matches.comments.no_comments": {
+    "zh": "暂无评论",
+    "en": "No comments"
+  },
+  "public.matches.comments.post_comment": {
+    "zh": "发表评论",
+    "en": "Post comment"
+  },
+  "public.matches.comments.to_comment": {
+    "zh": "后即可发表评论",
+    "en": "to comment"
+  },
+  "public.matches.comments.write_a_comment": {
+    "zh": "写下你的评论...",
+    "en": "Write a comment..."
+  },
+  "public.matches.map_scores.first_half_second_half_blue_ct": {
+    "zh": "上半场 / 下半场（蓝色 CT、橙色 T）",
+    "en": "First half / second half (blue = CT, orange = T)"
+  },
+  "public.matches.map_scores.maps": {
+    "zh": "地图",
+    "en": "Maps"
+  },
+  "public.matches.map_scores.overtime": {
+    "zh": "加时",
+    "en": "Overtime"
+  },
+  "public.matches.map_scores.pick": {
+    "zh": "选图",
+    "en": "PICK"
+  },
+  "public.matches.map_scores.stats": {
+    "zh": "数据",
+    "en": "Stats"
+  },
+  "public.matches.match_data_live.armor": {
+    "zh": "护甲",
+    "en": "Armor"
+  },
+  "public.matches.match_data_live.bomb_status": {
+    "zh": "炸弹状态：-",
+    "en": "Bomb status: -"
+  },
+  "public.matches.match_data_live.game_log": {
+    "zh": "比赛日志",
+    "en": "Game log"
+  },
+  "public.matches.match_data_live.hp": {
+    "zh": "血量",
+    "en": "HP"
+  },
+  "public.matches.match_data_live.match_events": {
+    "zh": "比赛事件",
+    "en": "Match events"
+  },
+  "public.matches.match_data_live.money": {
+    "zh": "金钱",
+    "en": "Money"
+  },
+  "public.matches.match_data_live.no_data_received": {
+    "zh": "尚未收到数据",
+    "en": "No data received"
+  },
+  "public.matches.match_data_live.pistol": {
+    "zh": "手枪",
+    "en": "Pistol"
+  },
+  "public.matches.match_data_live.primary": {
+    "zh": "主武器",
+    "en": "Primary"
+  },
+  "public.matches.match_data_live.scorebot": {
+    "zh": "比赛数据直播",
+    "en": "Scorebot"
+  },
+  "public.matches.match_data_live.waiting_for_data": {
+    "zh": "等待数据",
+    "en": "Waiting for data"
+  },
+  "public.matches.match_data_live.waiting_for_observer_account": {
+    "zh": "等待观战账号连接",
+    "en": "Waiting for observer account"
+  },
+  "public.matches.match_data_live.waiting_for_round_data": {
+    "zh": "等待回合数据",
+    "en": "Waiting for round data"
+  },
+  "public.matches.match_detail.back_to_event": {
+    "zh": "返回赛事",
+    "en": "Back to event"
+  },
+  "public.matches.match_detail.both_sides": {
+    "zh": "双方",
+    "en": "Both sides"
+  },
+  "public.matches.match_detail.h2h_matches_matches": {
+    "zh": "{h2h_matches} 场",
+    "en": "{h2h_matches} matches"
+  },
+  "public.matches.match_detail.head_to_head": {
+    "zh": "历史交锋",
+    "en": "Head-to-head"
+  },
+  "public.matches.match_detail.name_vs_value2_value3_match_information": {
+    "zh": "{name} 对阵 {value2}，{value3} 比赛信息、比分与数据。",
+    "en": "{name} vs {value2}: {value3} match information, scores, and stats."
+  },
+  "public.matches.match_detailed.1vx_clutches": {
+    "zh": "1vX 残局",
+    "en": "1vX clutches"
+  },
+  "public.matches.match_detailed.all": {
+    "zh": "全部",
+    "en": "All"
+  },
+  "public.matches.match_detailed.all_maps": {
+    "zh": "全部地图",
+    "en": "All maps"
+  },
+  "public.matches.match_detailed.assists": {
+    "zh": "助攻",
+    "en": "Assists"
+  },
+  "public.matches.match_detailed.assists_flash": {
+    "zh": "助攻(闪白)",
+    "en": "Assists (flash)"
+  },
+  "public.matches.match_detailed.avg": {
+    "zh": "平均",
+    "en": "Avg"
+  },
+  "public.matches.match_detailed.back_to_match_details": {
+    "zh": "返回比赛详情",
+    "en": "Back to match details"
+  },
+  "public.matches.match_detailed.both_sides": {
+    "zh": "双方",
+    "en": "Both sides"
+  },
+  "public.matches.match_detailed.ct_side": {
+    "zh": "CT 方",
+    "en": "CT side"
+  },
+  "public.matches.match_detailed.deaths": {
+    "zh": "死亡",
+    "en": "Deaths"
+  },
+  "public.matches.match_detailed.deaths_traded": {
+    "zh": "死亡(被补)",
+    "en": "Deaths (traded)"
+  },
+  "public.matches.match_detailed.from_demo": {
+    "zh": "来自 Demo",
+    "en": "From demo"
+  },
+  "public.matches.match_detailed.good": {
+    "zh": "优秀",
+    "en": "Good"
+  },
+  "public.matches.match_detailed.k_d": {
+    "zh": "击杀-死亡",
+    "en": "K-D"
+  },
+  "public.matches.match_detailed.kill_matrix": {
+    "zh": "对位击杀",
+    "en": "Kill matrix"
+  },
+  "public.matches.match_detailed.kill_matrix_type": {
+    "zh": "对位击杀类型",
+    "en": "Kill matrix type"
+  },
+  "public.matches.match_detailed.kills": {
+    "zh": "击杀",
+    "en": "Kills"
+  },
+  "public.matches.match_detailed.kills_hs": {
+    "zh": "击杀(爆头)",
+    "en": "Kills (HS)"
+  },
+  "public.matches.match_detailed.longer_bars_are_better_the_line": {
+    "zh": "条越长越好，竖线是平均水平",
+    "en": "Longer bars are better · the line marks the average"
+  },
+  "public.matches.match_detailed.map_index": {
+    "zh": "图 {index}",
+    "en": "Map {index}"
+  },
+  "public.matches.match_detailed.map_selection": {
+    "zh": "地图选择",
+    "en": "Map selection"
+  },
+  "public.matches.match_detailed.maps": {
+    "zh": "地图",
+    "en": "Maps"
+  },
+  "public.matches.match_detailed.match_stats": {
+    "zh": "比赛数据",
+    "en": "Match stats"
+  },
+  "public.matches.match_detailed.name_vs_value2_stats_80gotv": {
+    "zh": "{name} vs {value2} 数据 - 80GOTV",
+    "en": "{name} vs {value2} stats - 80GOTV"
+  },
+  "public.matches.match_detailed.no_data": {
+    "zh": "暂无数据",
+    "en": "No data"
+  },
+  "public.matches.match_detailed.no_demo_kill_data_is_available": {
+    "zh": "这个地图暂时没有可用于矩阵的 Demo 击杀数据",
+    "en": "No demo kill data is available for this map matrix yet"
+  },
+  "public.matches.match_detailed.no_matched_kills": {
+    "zh": "暂无可匹配击杀",
+    "en": "No matched kills"
+  },
+  "public.matches.match_detailed.no_performance_data": {
+    "zh": "暂无表现数据",
+    "en": "No performance data"
+  },
+  "public.matches.match_detailed.no_player_performance_data": {
+    "zh": "暂无选手表现数据",
+    "en": "No player performance data"
+  },
+  "public.matches.match_detailed.no_player_stats": {
+    "zh": "暂无选手数据",
+    "en": "No player stats"
+  },
+  "public.matches.match_detailed.no_player_stats_have_been_entered": {
+    "zh": "这场比赛还没有录入选手数据",
+    "en": "No player stats have been entered for this match yet"
+  },
+  "public.matches.match_detailed.opening_k_d": {
+    "zh": "首杀-首死",
+    "en": "Opening K-D"
+  },
+  "public.matches.match_detailed.opening_kills": {
+    "zh": "首杀",
+    "en": "Opening kills"
+  },
+  "public.matches.match_detailed.overview": {
+    "zh": "总览",
+    "en": "Overview"
+  },
+  "public.matches.match_detailed.performance": {
+    "zh": "表现",
+    "en": "Performance"
+  },
+  "public.matches.match_detailed.performance_overview": {
+    "zh": "表现总览",
+    "en": "Performance overview"
+  },
+  "public.matches.match_detailed.performance_rating": {
+    "zh": "表现 - Rating",
+    "en": "Performance - Rating"
+  },
+  "public.matches.match_detailed.player_performance_overview": {
+    "zh": "选手表现总览",
+    "en": "Player performance overview"
+  },
+  "public.matches.match_detailed.players": {
+    "zh": "选手",
+    "en": "Players"
+  },
+  "public.matches.match_detailed.poor": {
+    "zh": "偏低",
+    "en": "Poor"
+  },
+  "public.matches.match_detailed.side_switch": {
+    "zh": "阵营切换",
+    "en": "Side switch"
+  },
+  "public.matches.match_detailed.t1s_pick": {
+    "zh": "{t1s} 选图",
+    "en": "{t1s} pick"
+  },
+  "public.matches.match_detailed.t2s_pick": {
+    "zh": "{t2s} 选图",
+    "en": "{t2s} pick"
+  },
+  "public.matches.match_detailed.t_side": {
+    "zh": "T 方",
+    "en": "T side"
+  },
+  "public.matches.match_detailed.team_rating": {
+    "zh": "队伍 Rating",
+    "en": "Team Rating"
+  },
+  "public.matches.match_report.average_adr": {
+    "zh": "场均 ADR",
+    "en": "Average ADR"
+  },
+  "public.matches.match_report.average_rating": {
+    "zh": "场均 RATING",
+    "en": "Average Rating"
+  },
+  "public.matches.match_report.back_to_match": {
+    "zh": "返回比赛",
+    "en": "Back to match"
+  },
+  "public.matches.match_report.copied": {
+    "zh": "已复制",
+    "en": "Copied"
+  },
+  "public.matches.match_report.copy_bbcode": {
+    "zh": "复制 BBcode",
+    "en": "Copy BBcode"
+  },
+  "public.matches.match_report.copy_markdown": {
+    "zh": "复制 Markdown",
+    "en": "Copy Markdown"
+  },
+  "public.matches.match_report.download_result_poster": {
+    "zh": "下载赛果海报",
+    "en": "Download result poster"
+  },
+  "public.matches.match_report.game_log": {
+    "zh": "比赛日志",
+    "en": "Game log"
+  },
+  "public.matches.match_report.map_idx": {
+    "zh": "图{idx}",
+    "en": "Map {idx}"
+  },
+  "public.matches.match_report.map_results": {
+    "zh": "地图战况",
+    "en": "Map results"
+  },
+  "public.matches.match_report.match_report": {
+    "zh": "比赛战报",
+    "en": "Match report"
+  },
+  "public.matches.match_report.name_vs_value2_match_report_80gotv": {
+    "zh": "{name} vs {value2} 战报 - 80GOTV",
+    "en": "{name} vs {value2} match report - 80GOTV"
+  },
+  "public.matches.match_report.tbd": {
+    "zh": "待定",
+    "en": "TBD"
+  },
+  "public.matches.match_report.team_comparison": {
+    "zh": "队伍数据对比",
+    "en": "Team comparison"
+  },
+  "public.matches.match_report.total_deaths": {
+    "zh": "总死亡",
+    "en": "Total deaths"
+  },
+  "public.matches.match_report.total_kills": {
+    "zh": "总击杀",
+    "en": "Total kills"
+  },
+  "public.matches.match_report.view_full_stats": {
+    "zh": "查看完整数据",
+    "en": "View full stats"
+  },
+  "public.matches.match_sidebar.cancelled": {
+    "zh": "已取消",
+    "en": "Cancelled"
+  },
+  "public.matches.match_sidebar.completed": {
+    "zh": "已结束",
+    "en": "Completed"
+  },
+  "public.matches.match_sidebar.events": {
+    "zh": "赛事",
+    "en": "Events"
+  },
+  "public.matches.match_sidebar.matches": {
+    "zh": "比赛",
+    "en": "Matches"
+  },
+  "public.matches.match_sidebar.news": {
+    "zh": "新闻",
+    "en": "News"
+  },
+  "public.matches.match_sidebar.no_events": {
+    "zh": "暂无赛事",
+    "en": "No events"
+  },
+  "public.matches.match_sidebar.no_matches": {
+    "zh": "暂无比赛",
+    "en": "No matches"
+  },
+  "public.matches.match_sidebar.no_news": {
+    "zh": "暂无新闻",
+    "en": "No news"
+  },
+  "public.matches.match_sidebar.ongoing": {
+    "zh": "进行中",
+    "en": "Ongoing"
+  },
+  "public.matches.match_sidebar.upcoming": {
+    "zh": "即将",
+    "en": "Upcoming"
+  },
+  "public.matches.matches.all_dates": {
+    "zh": "全部日期",
+    "en": "All dates"
+  },
+  "public.matches.matches.all_events": {
+    "zh": "全部赛事",
+    "en": "All events"
+  },
+  "public.matches.matches.events": {
+    "zh": "赛事",
+    "en": "Events"
+  },
+  "public.matches.matches.for_scores": {
+    "zh": "查看。",
+    "en": " for scores."
+  },
+  "public.matches.matches.fri": {
+    "zh": "周五",
+    "en": "Fri"
+  },
+  "public.matches.matches.live": {
+    "zh": "直播中",
+    "en": "Live"
+  },
+  "public.matches.matches.live_and_upcoming": {
+    "zh": "直播中与即将开始",
+    "en": "Live and upcoming"
+  },
+  "public.matches.matches.match_filters": {
+    "zh": "比赛筛选",
+    "en": "Match filters"
+  },
+  "public.matches.matches.matches": {
+    "zh": "比赛",
+    "en": "Matches"
+  },
+  "public.matches.matches.matches_80gotv": {
+    "zh": "比赛 - 80GOTV",
+    "en": "Matches - 80GOTV"
+  },
+  "public.matches.matches.matches_matches": {
+    "zh": "{matches} 场",
+    "en": "{matches} matches"
+  },
+  "public.matches.matches.matches_on_selected_date": {
+    "zh": "{selected_date} 的比赛",
+    "en": "Matches on {selected_date}"
+  },
+  "public.matches.matches.matches_on_this_date_are_complete": {
+    "zh": "这天的比赛已结束，请到",
+    "en": "Matches on this date are complete. See "
+  },
+  "public.matches.matches.mon": {
+    "zh": "周一",
+    "en": "Mon"
+  },
+  "public.matches.matches.next_month": {
+    "zh": "下一月",
+    "en": "Next month"
+  },
+  "public.matches.matches.no_matches": {
+    "zh": "暂无比赛",
+    "en": "No matches"
+  },
+  "public.matches.matches.previous_month": {
+    "zh": "上一月",
+    "en": "Previous month"
+  },
+  "public.matches.matches.recent_matches": {
+    "zh": "近期比赛",
+    "en": "Recent matches"
+  },
+  "public.matches.matches.results": {
+    "zh": "赛果",
+    "en": "Results"
+  },
+  "public.matches.matches.sat": {
+    "zh": "周六",
+    "en": "Sat"
+  },
+  "public.matches.matches.sun": {
+    "zh": "周日",
+    "en": "Sun"
+  },
+  "public.matches.matches.thu": {
+    "zh": "周四",
+    "en": "Thu"
+  },
+  "public.matches.matches.time_tbd": {
+    "zh": "时间待定",
+    "en": "Time TBD"
+  },
+  "public.matches.matches.tue": {
+    "zh": "周二",
+    "en": "Tue"
+  },
+  "public.matches.matches.ungrouped_event": {
+    "zh": "未分组赛事",
+    "en": "Ungrouped event"
+  },
+  "public.matches.matches.wed": {
+    "zh": "周三",
+    "en": "Wed"
+  },
+  "public.matches.prediction.log_in": {
+    "zh": "登录",
+    "en": "Log in"
+  },
+  "public.matches.prediction.pre_match_prediction": {
+    "zh": "赛前预测",
+    "en": "Pre-match prediction"
+  },
+  "public.matches.prediction.pre_match_predictions_are_closed_for": {
+    "zh": "本场对阵未确定或已停止接受竞猜，暂不开放赛前预测。",
+    "en": "Pre-match predictions are closed for this matchup."
+  },
+  "public.matches.prediction.score_optional": {
+    "zh": "比分(可选)",
+    "en": "Score (optional)"
+  },
+  "public.matches.prediction.short_score": {
+    "zh": "{short} · 比分",
+    "en": "{short} · Score"
+  },
+  "public.matches.prediction.to_join_the_prediction": {
+    "zh": "后即可参与投票预测",
+    "en": "to join the prediction"
+  },
+  "public.matches.prediction.unavailable": {
+    "zh": "暂未开放",
+    "en": "Unavailable"
+  },
+  "public.matches.prediction.value1_value2_votes": {
+    "zh": "{value1}% ({value2}票)",
+    "en": "{value1}% ({value2} votes)"
+  },
+  "public.matches.prediction.you_voted_for": {
+    "zh": "你已投票给",
+    "en": "You voted for"
+  },
+  "public.matches.results.all_events": {
+    "zh": "全部赛事",
+    "en": "All events"
+  },
+  "public.matches.results.event_filter": {
+    "zh": "赛事筛选",
+    "en": "Event filter"
+  },
+  "public.matches.results.events": {
+    "zh": "赛事",
+    "en": "Events"
+  },
+  "public.matches.results.latest_results": {
+    "zh": "最新赛果",
+    "en": "Latest results"
+  },
+  "public.matches.results.next": {
+    "zh": "下一页",
+    "en": "Next"
+  },
+  "public.matches.results.no_results": {
+    "zh": "暂无赛果",
+    "en": "No results"
+  },
+  "public.matches.results.page_page_of_total_pages": {
+    "zh": "第 {page} / {total_pages} 页",
+    "en": "Page {page} of {total_pages}"
+  },
+  "public.matches.results.pagination": {
+    "zh": "分页",
+    "en": "Pagination"
+  },
+  "public.matches.results.previous": {
+    "zh": "上一页",
+    "en": "Previous"
+  },
+  "public.matches.results.results": {
+    "zh": "赛果",
+    "en": "Results"
+  },
+  "public.matches.results.results_80gotv": {
+    "zh": "赛果 - 80GOTV",
+    "en": "Results - 80GOTV"
+  },
+  "public.matches.stats_overview.back_to_match": {
+    "zh": "返回比赛",
+    "en": "Back to match"
+  },
+  "public.matches.stats_overview.beta": {
+    "zh": "测试",
+    "en": "Beta"
+  },
+  "public.matches.stats_overview.both_sides": {
+    "zh": "双方",
+    "en": "Both sides"
+  },
+  "public.matches.stats_overview.clutches_won": {
+    "zh": "残局获胜",
+    "en": "Clutches won"
+  },
+  "public.matches.stats_overview.ct_side": {
+    "zh": "CT 方",
+    "en": "CT side"
+  },
+  "public.matches.stats_overview.download_result_poster": {
+    "zh": "下载赛果海报",
+    "en": "Download result poster"
+  },
+  "public.matches.stats_overview.economy": {
+    "zh": "经济",
+    "en": "Economy"
+  },
+  "public.matches.stats_overview.heatmaps": {
+    "zh": "热力图",
+    "en": "Heatmaps"
+  },
+  "public.matches.stats_overview.map_record": {
+    "zh": "地图记录",
+    "en": "Map record"
+  },
+  "public.matches.stats_overview.match_stats": {
+    "zh": "比赛数据",
+    "en": "Match stats"
+  },
+  "public.matches.stats_overview.no_data": {
+    "zh": "暂无数据",
+    "en": "No data"
+  },
+  "public.matches.stats_overview.opening_kills": {
+    "zh": "首杀",
+    "en": "Opening kills"
+  },
+  "public.matches.stats_overview.overview": {
+    "zh": "总览",
+    "en": "Overview"
+  },
+  "public.matches.stats_overview.performance": {
+    "zh": "表现",
+    "en": "Performance"
+  },
+  "public.matches.stats_overview.performance_rating_2_0": {
+    "zh": "表现 - RATING 2.0",
+    "en": "Performance - Rating 2.0"
+  },
+  "public.matches.stats_overview.players": {
+    "zh": "选手",
+    "en": "Players"
+  },
+  "public.matches.stats_overview.t_side": {
+    "zh": "T 方",
+    "en": "T side"
+  },
+  "public.matches.stats_overview.team_rating_2_0": {
+    "zh": "队伍 RATING 2.0",
+    "en": "Team Rating 2.0"
+  },
+  "public.matches.stats_tables.all_maps": {
+    "zh": "全部地图",
+    "en": "All maps"
+  },
+  "public.matches.stats_tables.data_view_switcher": {
+    "zh": "数据视图切换",
+    "en": "Data view switcher"
+  },
+  "public.matches.stats_tables.detailed_stats": {
+    "zh": "详细数据 →",
+    "en": "Detailed stats →"
+  },
+  "public.matches.stats_tables.map_data_switcher": {
+    "zh": "地图数据切换",
+    "en": "Map data switcher"
+  },
+  "public.matches.stats_tables.match_stats": {
+    "zh": "比赛数据",
+    "en": "Match stats"
+  },
+  "public.matches.stats_tables.no_data": {
+    "zh": "暂无数据",
+    "en": "No data"
+  },
+  "public.matches.stats_tables.no_data_for_this_map": {
+    "zh": "此图暂无数据",
+    "en": "No data for this map"
+  },
+  "public.matches.stream.click_to_play_live_stream": {
+    "zh": "点击播放直播",
+    "en": "Click to play live stream"
+  },
+  "public.matches.stream.live": {
+    "zh": "直播",
+    "en": "Live"
+  },
+  "public.matches.stream.the_stream_will_not_load_automatically": {
+    "zh": "直播不会自动加载",
+    "en": "The stream will not load automatically"
+  },
+  "public.matches.veto_log.ban": {
+    "zh": "禁图",
+    "en": "BAN"
+  },
+  "public.matches.veto_log.decider": {
+    "zh": "决胜图",
+    "en": "DECIDER"
+  },
+  "public.matches.veto_log.pick": {
+    "zh": "选图",
+    "en": "PICK"
+  },
+  "public.matches.veto_log.sides": {
+    "zh": "选边",
+    "en": "Sides"
+  },
+  "public.matches.veto_log.veto": {
+    "zh": "BP 记录",
+    "en": "Veto"
+  },
+  "public.matches.watch_links.demo_download_map_index": {
+    "zh": "Demo 下载（地图 {index}）",
+    "en": "Demo download (Map {index})"
+  },
+  "public.matches.watch_links.no_streams_or_vods": {
+    "zh": "暂无直播或回放资源",
+    "en": "No streams or VODs"
+  },
+  "public.matches.watch_links.stream_vods": {
+    "zh": "直播与回放",
+    "en": "Stream & VODs"
+  }
+}

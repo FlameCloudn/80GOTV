@@ -26,6 +26,7 @@ gamestate_integration_80gotv.cfg
 /.playwright-cli
 /test-results
 /playwright-report
+/frontend/dist/
 /blob-report
 /temp
 /.agents

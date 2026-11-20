@@ -1,0 +1,34 @@
+{% extends 'layouts/public.html' %}
+{% from 'components/_icons.html' import site_icon %}
+{% block title %}{{ msg('public.account.notifications.notifications_80gotv') }}{% endblock %}
+{% block head %}{{ frontend_entry('account-style') }}{% endblock %}
+{% block layout_class %}no-side-layout narrow-layout{% endblock %}
+{% block main %}
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>NOTIFICATIONS</span><h1>{{ msg('public.account.notifications.notifications') }}</h1></div>
+  {% if notifications %}<button class="btn btn-sm" type="button" data-mark-all-read>{{ msg('public.account.notifications.mark_all_read') }}</button>{% endif %}
+</header>
+
+{% if notifications %}
+{#- 一条通知一行：左边类型图标，中间内容和时间，未读的有蓝色竖条和“标记已读” -#}
+<section class="panel notif-list">
+  {% for n in notifications %}
+  <a href="{{ n.link or '#' }}" class="notif-item{% if not n.is_read %} unread{% endif %}" data-id="{{ n.id }}">
+    <span class="notif-type" aria-hidden="true">{{ site_icon('message' if n.type == 'reply' else 'megaphone' if n.type == 'system' else 'bell') }}</span>
+    <span class="notif-body">
+      <span class="notif-message">{{ n.message }}</span>
+      <span class="notif-time">{{ n.created_at|datetime_display }}</span>
+    </span>
+    {% if not n.is_read %}
+    <button class="notif-mark-read btn btn-sm" type="button" data-mark-read>{{ msg('public.account.notifications.mark_as_read') }}</button>
+    {% endif %}
+  </a>
+  {% endfor %}
+</section>
+{% else %}
+<div class="panel empty-state">{{ msg('public.account.notifications.no_notifications') }}</div>
+{% endif %}
+
+{{ frontend_entry('notifications') }}
+{% endblock %}
+{% block side %}{% endblock %}

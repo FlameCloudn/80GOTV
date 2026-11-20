@@ -1,0 +1,37 @@
+{# 7. 确认 / 修改单图正式赛果 #}
+<dialog class="roster-dialog ops-dialog-wide" id="confirmMapDialog" aria-labelledby="confirmMapDialogTitle">
+  <form method="dialog" id="confirmMapForm">
+    <div class="roster-dialog-head">
+      <h3 id="confirmMapDialogTitle">{{ msg('admin.operations.map_result_dialog.confirm_official_map_result') }}</h3>
+      <button type="button" class="btn btn-sm" data-close-dialog="confirmMapDialog">{{ msg('admin.operations.map_result_dialog.close') }}</button>
+    </div>
+    <div class="roster-dialog-body">
+      <p id="confirmMapContext" class="ops-dialog-meta"></p>
+      <label class="field">
+        <span class="field-label">{{ msg('admin.operations.map_result_dialog.linked_map_run') }}</span>
+        <select id="confirmMapRunSelect" required></select>
+      </label>
+      <div class="ops-two-col">
+        <label class="field">
+          <span class="field-label" id="confirmMapScore1Label">{{ msg('admin.operations.map_result_dialog.home_round_score') }}</span>
+          <input type="number" id="confirmMapScore1" min="0" max="100" required>
+        </label>
+        <label class="field">
+          <span class="field-label" id="confirmMapScore2Label">{{ msg('admin.operations.map_result_dialog.away_round_score') }}</span>
+          <input type="number" id="confirmMapScore2" min="0" max="100" required>
+        </label>
+      </div>
+      <label class="field">
+        <span class="field-label">{{ msg('admin.operations.map_result_dialog.reason_required_when_overriding_an_official') }}</span>
+        <textarea id="confirmMapReason" rows="2" maxlength="2000" placeholder="{{ msg('admin.operations.map_result_dialog.e_g_verified_final_server_score') }}"></textarea>
+      </label>
+      <div id="confirmMapRetentionBox" class="ops-retention-box" hidden></div>
+      <div id="confirmMapError" class="roster-inline-error" role="alert" hidden></div>
+      <button type="button" id="confirmMapReload" class="btn btn-sm" hidden>{{ msg('admin.operations.map_result_dialog.review_latest_result_without_discarding_edits') }}</button>
+    </div>
+    <div class="roster-dialog-foot">
+      <button type="button" class="btn" data-close-dialog="confirmMapDialog">{{ msg('admin.operations.map_result_dialog.cancel') }}</button>
+      <button type="submit" class="btn btn-primary">{{ msg('admin.operations.map_result_dialog.save_official_result') }}</button>
+    </div>
+  </form>
+</dialog>

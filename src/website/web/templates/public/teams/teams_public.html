@@ -1,0 +1,49 @@
+{% extends 'layouts/public.html' %}
+{% block title %}{{ msg('public.teams.teams_public.teams_80gotv') }}{% endblock %}
+{% block head %}{{ frontend_entry('teams-style') }}{% endblock %}
+{% block layout_class %}no-side-layout{% endblock %}
+{% block main %}
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>TEAMS</span><h1>{{ msg('public.teams.teams_public.teams') }}</h1></div>
+  <p class="page-head-meta">{{ msg('public.teams.teams_public.teams_teams', teams=teams|length) }}</p>
+</header>
+
+{% if teams %}
+{#- 每支队伍一张卡：队标、队名、简称和人数、简介，下面一排队员小头像（照 HLTV 排名页的阵容条） -#}
+<div class="team-grid">
+  {% for t in teams %}
+  {% set roster = rosters.get(t.id, []) %}
+  <a class="panel team-list-row team-card" href="{{ url_for('team_detail', team_id=t.id) }}">
+    <span class="team-card-head">
+      {% if t.logo %}
+      <img class="team-card-logo" src="{{ t.logo|team_logo_url }}" alt="" loading="lazy">
+      {% else %}
+      <span class="team-card-logo is-fallback" data-i18n-ignore>{{ t.name|team_abbr(t.short_name) }}</span>
+      {% endif %}
+      <span class="team-card-title">
+        <strong data-i18n-ignore>{{ t.name }}</strong>
+        <small>{% if t.short_name %}<span data-i18n-ignore>{{ t.short_name }}</span><span class="team-card-dot">·</span>{% endif %}<span>{{ msg('public.teams.teams_public.roster_players', roster=roster|length) }}</span></small>
+      </span>
+    </span>
+    {% if t.description %}<span class="team-card-desc" data-i18n-ignore>{{ t.description[:100] }}</span>{% endif %}
+    <span class="team-card-roster">
+      {% for p in roster[:5] %}
+      {% set pname = private_name_for_player(p.id, p.nickname) %}
+      {% if p.avatar %}
+      <img src="{{ url_for('static', filename='avatars/' ~ p.avatar) }}" alt="{{ pname }}" title="{{ pname }}" loading="lazy" data-i18n-ignore>
+      {% else %}
+      <span title="{{ pname }}" data-i18n-ignore>{{ pname[:1] }}</span>
+      {% endif %}
+      {% else %}
+      <em>{{ msg('public.teams.teams_public.no_players') }}</em>
+      {% endfor %}
+      {% if roster|length > 5 %}<em>+{{ roster|length - 5 }}</em>{% endif %}
+    </span>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="panel empty-state">{{ msg('public.teams.teams_public.no_teams') }}</div>
+{% endif %}
+{% endblock %}
+{% block side %}{% endblock %}

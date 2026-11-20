@@ -1,0 +1,205 @@
+{% extends 'layouts/public.html' %}
+{% from 'components/_icons.html' import site_icon %}
+{% set opponents = match_opponents(match) %}
+{% set left_team, right_team = opponents %}
+{% set scored = left_team.score is not none and right_team.score is not none %}
+{% block title %}{{ msg('public.matches.match_report.name_vs_value2_match_report_80gotv', name=left_team.name, value2=right_team.name) }}{% endblock %}
+{% block head %}{{ frontend_entry('match-style') }}{% endblock %}
+{% block layout_class %}no-side-layout narrow-layout{% endblock %}
+
+{% macro report_logo(logo, short_name) %}
+  {% if logo %}<img class="team-logo lg" src="{{ logo|team_logo_url }}" alt="{{ short_name }}" loading="lazy">{% else %}<span class="logo-fallback lg" data-i18n-ignore>{{ short_name|team_abbr(short_name) }}</span>{% endif %}
+{% endmacro %}
+
+{#- 两队对比一行：数值在两端，名称在中间上方，下面一根两色条 -#}
+{% macro compare_row(label, left, right) %}
+{% if left_team.side == 't2' %}{% set left, right = right, left %}{% endif %}
+{% set left_known = left is not none %}
+{% set right_known = right is not none %}
+{% set left_num = left|float %}
+{% set right_num = right|float %}
+{% set total = left_num + right_num %}
+{% set left_pct = (left_num / total * 100) if total else 50 %}
+<div class="match-detailed-compare-row">
+  <span class="match-detailed-compare-left">{{ left if left_known else '-' }}</span>
+  <b>{{ label }}</b>
+  <div class="match-detailed-compare-track">
+    {% if left_known and right_known %}
+    <i class="{{ left_team.side }}" style="width:{{ left_pct }}%"></i>
+    <i class="{{ right_team.side }}" style="width:{{ 100 - left_pct }}%"></i>
+    {% endif %}
+  </div>
+  <span class="match-detailed-compare-right">{{ right if right_known else '-' }}</span>
+</div>
+{% endmacro %}
+
+{% block main %}
+<header class="page-head">
+  <div><span class="page-head-kicker" data-i18n-ignore>MATCH REPORT</span><h1>{{ msg('public.matches.match_report.match_report') }}</h1></div>
+  <a class="back-link page-head-link" href="/matches/{{ match.slug or match.id }}">{{ site_icon('back') }} {{ msg('public.matches.match_report.back_to_match') }}</a>
+</header>
+
+<section class="panel report-hero">
+  <div class="report-team">
+    {{ report_logo(left_team.logo, left_team.short) }}
+    <span class="report-team-name" data-i18n-ignore>{{ left_team.name }}</span>
+  </div>
+  <div class="report-hero-mid">
+    <div class="report-event-name" data-i18n-ignore>{{ match.event_name or '' }}</div>
+    <div class="report-score">
+      <span class="{% if scored and left_team.score > right_team.score %}score-win{% elif scored and left_team.score < right_team.score %}score-lose{% endif %}">{{ left_team.score if left_team.score is not none else '-' }}</span>
+      <span class="sep">:</span>
+      <span class="{% if scored and right_team.score > left_team.score %}score-win{% elif scored and right_team.score < left_team.score %}score-lose{% endif %}">{{ right_team.score if right_team.score is not none else '-' }}</span>
+    </div>
+    <div class="report-meta">{{ match.bo_format }} · {{ match.match_time|datetime_display if match.match_time else '' }}</div>
+  </div>
+  <div class="report-team">
+    {{ report_logo(right_team.logo, right_team.short) }}
+    <span class="report-team-name" data-i18n-ignore>{{ right_team.name }}</span>
+  </div>
+</section>
+
+{% if mvp %}
+{% set mvp_name = private_name_for_player(mvp.player_id, mvp.nickname) %}
+<section class="panel mvp-card">
+  <a class="mvp-player" href="/players/{{ mvp.player_id }}">
+    {% if mvp.avatar %}<img class="avatar lg" src="{{ url_for('static', filename='avatars/' + mvp.avatar) }}" alt="" loading="lazy">{% else %}<span class="avatar lg" aria-hidden="true" data-i18n-ignore>{{ mvp_name[:1]|upper }}</span>{% endif %}
+    <span class="mvp-player-text">
+      <span class="mvp-label" data-i18n-ignore>MATCH MVP</span>
+      <span class="mvp-name" data-i18n-ignore>{{ mvp_name }}</span>
+    </span>
+  </a>
+  <div class="mvp-stats">
+    <div class="mvp-stat">
+      <div class="mvp-stat-val {{ mvp.rating|rating_class }}">{{ "%.2f"|format(mvp.rating) if mvp.rating is not none else '-' }}</div>
+      <div class="mvp-stat-label">RATING</div>
+    </div>
+    <div class="mvp-stat">
+      <div class="mvp-stat-val">{{ mvp.kills if mvp.kills is not none else '-' }}-{{ mvp.deaths if mvp.deaths is not none else '-' }}</div>
+      <div class="mvp-stat-label">K-D</div>
+    </div>
+    <div class="mvp-stat">
+      <div class="mvp-stat-val">{{ "%.1f"|format(mvp.adr) if mvp.adr is not none else '-' }}</div>
+      <div class="mvp-stat-label">ADR</div>
+    </div>
+    <div class="mvp-stat">
+      <div class="mvp-stat-val">{{ ("%.1f"|format(mvp.kast)) ~ '%' if mvp.kast is not none else '-' }}</div>
+      <div class="mvp-stat-label">KAST</div>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{% if map_reports %}
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">{{ msg('public.matches.match_report.map_results') }}</h2></div>
+  <div class="report-maps">
+    {% for mr in map_reports %}
+    <article class="map-report-card{% if not mr.played %} is-pending{% endif %}">
+      <div class="ms-top" style="background-image:url('{{ mr.name|map_image }}')">
+        <span class="ms-map-name">{{ mr.name|map_display }}</span>
+      </div>
+      <div class="map-report-body">
+        <span class="map-report-index">{{ msg('public.matches.match_report.map_idx', idx=mr.idx) }}</span>
+        {% if mr.played %}
+        <span class="map-report-score">
+          {% for opponent in opponents %}<span class="{% if mr[opponent.side ~ '_winner'] %}win{% elif mr['t2_winner' if opponent.side == 't1' else 't1_winner'] %}lose{% endif %}">{{ mr[opponent.side] if mr[opponent.side] is not none else '-' }}</span>{% if not loop.last %}<span class="sep">:</span>{% endif %}{% endfor %}
+        </span>
+        {% else %}
+        <span class="map-report-score is-pending">{{ msg('public.matches.match_report.tbd') }}</span>
+        {% endif %}
+        {% if mr.played and (mr.t1_best or mr.t2_best) %}
+        <div class="map-report-best">
+          {% for opponent in opponents %}
+          {% set best, team_tag = mr[opponent.side ~ '_best'], opponent.short %}
+          {% if best %}
+          <a class="best-player-card" href="/players/{{ best.player_id }}">
+            <span class="best-player-rating {{ best.rating|rating_class }}">{{ "%.2f"|format(best.rating) if best.rating is not none else '-' }}</span>
+            <span class="best-player-main">
+              <span class="best-player-team" data-i18n-ignore>{{ team_tag }}</span>
+              <span class="best-player-name" data-i18n-ignore>{{ private_name_for_player(best.player_id, best.nickname) }}</span>
+              <span class="best-player-stats"><span>K-D {{ best.kills if best.kills is not none else '-' }}-{{ best.deaths if best.deaths is not none else '-' }}</span><span>ADR {{ "%.1f"|format(best.adr) if best.adr is not none else '-' }}</span></span>
+            </span>
+          </a>
+          {% endif %}
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">{{ msg('public.matches.match_report.team_comparison') }}</h2></div>
+  <div class="report-compare">
+    <div class="match-detailed-compare-teams">
+      <span>{{ report_logo(left_team.logo, left_team.short) }}<b data-i18n-ignore>{{ left_team.name }}</b></span>
+      <span><b data-i18n-ignore>{{ right_team.name }}</b>{{ report_logo(right_team.logo, right_team.short) }}</span>
+    </div>
+    {{ compare_row(msg('public.matches.match_report.total_kills'), team_stats.t1_k, team_stats.t2_k) }}
+    {{ compare_row(msg('public.matches.match_report.total_deaths'), team_stats.t1_d, team_stats.t2_d) }}
+    {{ compare_row(msg('public.matches.match_report.average_adr'), team_stats.t1_adr, team_stats.t2_adr) }}
+    {{ compare_row(msg('public.matches.match_report.average_rating'), team_stats.t1_rating, team_stats.t2_rating) }}
+  </div>
+</section>
+
+{% if timeline %}
+<section class="panel">
+  <div class="panel-head"><h2 class="panel-title">{{ msg('public.matches.match_report.game_log') }}</h2><span class="panel-count">{{ timeline|length }}</span></div>
+  <div class="timeline" data-i18n-ignore>
+  {% for item in timeline %}
+    <div class="timeline-row timeline-{{ item.type }}">
+      <span class="timeline-round">{% if item.map_name %}{{ item.map_name|map_display }} · {% endif %}R{{ item.round }}</span>
+      <span class="timeline-text">
+      {% if item.type == 'round' %}
+        <span>Round over - Winner:</span>
+        <span class="timeline-{{ item.side }}">{{ item.side|upper }}</span>
+        <span>{{ item.reason or 'Round completed' }}</span>
+      {% elif item.type == 'plant' %}
+        <span class="timeline-t">{{ item.player or 'T Player' }}</span>
+        <span>planted the bomb on {{ item.site or '?' }} ({{ item.alive_t or 0 }}v{{ item.alive_ct or 0 }})</span>
+      {% else %}
+        <span class="timeline-{{ item.killer_side|lower }}">{{ item.killer or '-' }}</span>
+        {% if item.assister %}<span>+ {{ item.assister }}</span>{% endif %}
+        <span class="timeline-weapon">{{ item.weapon or '' }}</span>
+        <span class="timeline-{{ item.victim_side|lower }}">{{ item.victim or '?' }}</span>
+      {% endif %}
+      </span>
+    </div>
+  {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<div class="report-footer-actions">
+  <a href="/matches/{{ match.slug or match.id }}" class="btn btn-primary">{{ msg('public.matches.match_report.view_full_stats') }}</a>
+  <a href="/matches/{{ match.slug or match.id }}/poster" class="btn">{{ msg('public.matches.match_report.download_result_poster') }}</a>
+  <button class="btn" type="button" data-copy="markdown">{{ msg('public.matches.match_report.copy_markdown') }}</button>
+  <button class="btn" type="button" data-copy="bbcode">{{ msg('public.matches.match_report.copy_bbcode') }}</button>
+  <span id="copyToast" class="report-copy-toast" role="status" hidden>{{ msg('public.matches.match_report.copied') }}</span>
+</div>
+{% endblock %}
+{% block side %}{% endblock %}
+
+{% block extra_js %}
+{# 先在模板里拼好要复制的文字，再用 tojson 安全地交给 JS（队名里有特殊符号也不会出问题） #}
+{% set team1 = left_team.name %}
+{% set team2 = right_team.name %}
+{% set score1 = left_team.score if left_team.score is not none else '?' %}
+{% set score2 = right_team.score if right_team.score is not none else '?' %}
+{% set headline = team1 ~ ' ' ~ score1 ~ '-' ~ score2 ~ ' ' ~ team2 %}
+{% set event_note = (' (' ~ (match.bo_format or 'BO3') ~ ' · ' ~ match.event_name ~ ')') if match.event_name else '' %}
+{% set map_lines = [] %}
+{% for mr in map_reports %}{% if mr.played %}
+  {% set map_score1 = mr[left_team.side] if mr[left_team.side] is not none else '?' %}
+  {% set map_score2 = mr[right_team.side] if mr[right_team.side] is not none else '?' %}
+  {% set _ = map_lines.append('Map' ~ mr.idx ~ ' ' ~ mr.name ~ ': ' ~ team1 ~ ' ' ~ map_score1 ~ '-' ~ map_score2 ~ ' ' ~ team2) %}
+{% endif %}{% endfor %}
+{% set mvp_name = private_name_for_player(mvp.player_id, mvp.nickname) if mvp else '' %}
+{% set mvp_note = (' (RATING ' ~ (mvp.rating if mvp.rating is not none else '-') ~ ' | ' ~ (mvp.kills if mvp.kills is not none else '-') ~ '-' ~ (mvp.deaths if mvp.deaths is not none else '-') ~ ' K/D | ADR ' ~ (mvp.adr if mvp.adr is not none else '-') ~ ')') if mvp else '' %}
+<script id="matchReportData" type="application/json">{{ {'headline': headline, 'event': event_note, 'maps': map_lines, 'mvp': mvp_name, 'mvpNote': mvp_note}|tojson }}</script>
+{{ frontend_entry('match-report') }}
+{% endblock %}

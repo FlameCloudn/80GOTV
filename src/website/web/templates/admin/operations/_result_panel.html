@@ -1,0 +1,36 @@
+{# ================= Tab 3: 赛果、结算与竞猜 ================= #}
+<section class="ops-tab-pane" id="ops-pane-results" role="tabpanel" aria-labelledby="ops-tab-results" data-ops-pane="results" hidden>
+  <div class="ops-section-stack">
+    <section class="panel">
+      <div class="panel-head">
+        <h2 class="panel-title">{{ msg('admin.operations.result_panel.official_map_results') }}</h2>
+        <span class="muted">{{ msg('admin.operations.result_panel.clearly_separated_from_live_scorebot_feeds') }}</span>
+      </div>
+      <div class="ops-panel-body" id="opsMapResultsContainer"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2 class="panel-title">{{ msg('admin.operations.result_panel.series_settlement_downstream_advancement') }}</h2>
+        <span class="badge" id="opsSeriesRevBadge"></span>
+      </div>
+      <div class="ops-panel-body" id="opsSeriesContainer"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2 class="panel-title">{{ msg('admin.operations.result_panel.pre_match_predictions') }}</h2>
+        <span class="badge" id="opsPredStateBadge"></span>
+      </div>
+      <div class="ops-panel-body" id="opsPredictionsContainer"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2 class="panel-title">{{ msg('admin.operations.result_panel.result_bracket_settlement_audit_history') }}</h2>
+        <span class="muted">{{ msg('admin.operations.result_panel.full_versioned_history_of_every_decision') }}</span>
+      </div>
+      <div class="ops-panel-body" id="opsHistoryContainer"></div>
+    </section>
+  </div>
+</section>

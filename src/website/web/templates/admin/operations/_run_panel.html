@@ -1,0 +1,28 @@
+{# ================= Tab 1: 开赛与局次 ================= #}
+<section class="ops-tab-pane active" id="ops-pane-runs" role="tabpanel" aria-labelledby="ops-tab-runs" data-ops-pane="runs">
+  <div class="ops-section-stack">
+    <section class="panel" id="opsAuthCard">
+      <div class="panel-head">
+        <h2 class="panel-title">{{ msg('admin.operations.run_panel.start_eligibility_authorization') }}</h2>
+        <span class="badge" id="opsAuthBadge">{{ msg('admin.operations.run_panel.loading') }}</span>
+      </div>
+      <div class="ops-panel-body" id="opsAuthBody"></div>
+    </section>
+
+    <section class="panel" id="opsFrozenRosterCard">
+      <div class="panel-head">
+        <h2 class="panel-title">{{ msg('admin.operations.run_panel.match_roster_read_only') }}</h2>
+        <span class="muted">{{ msg('admin.operations.run_panel.locked_roster_defines_eligibility_only_not') }}</span>
+      </div>
+      <div class="ops-panel-body" id="opsFrozenRosterBody"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2 class="panel-title">{{ msg('admin.operations.run_panel.scheduled_maps_and_runs_scheduled_maps') }} &amp; Map Runs）</h2>
+        <span class="muted">{{ msg('admin.operations.run_panel.void_runs_remain_archived_for_audit') }}</span>
+      </div>
+      <div class="ops-panel-body" id="opsMapsContainer"></div>
+    </section>
+  </div>
+</section>
